@@ -16,7 +16,7 @@ on:
 jobs:
   update-repo-meta:
     name: Sync GitHub repo metadata
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, replit]
     timeout-minutes: 5
 
     steps:
@@ -29,7 +29,6 @@ jobs:
           HOMEPAGE="https://github.com/nastech-ai/NasDoor"
           TOPICS='["ai","android","expo","react-native","python","on-device-ai","termux","nastech","nasdoor","amoled"]'
 
-          # Update description + homepage
           curl -s -X PATCH \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
@@ -38,7 +37,6 @@ jobs:
             -d "{\"description\":\"$DESCRIPTION\",\"homepage\":\"$HOMEPAGE\"}" \
             | python3 -c "import sys,json; d=json.load(sys.stdin); print('✓ description:', d.get('description','?'))"
 
-          # Replace topics
           curl -s -X PUT \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
@@ -51,7 +49,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          RESULT=$(curl -s \
+          curl -s \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/nastech-ai/NasDoor" \
@@ -64,5 +62,4 @@ jobs:
           print('Homepage:', d.get('homepage', ''))
           print('Stars   :', d['stargazers_count'])
           print('Language:', d.get('language', 'n/a'))
-          ")
-          echo "$RESULT"
+          "
