@@ -182,8 +182,8 @@ export default function AppearanceSettingsScreen() {
                     rightElement={<Switch value={showLineNumbersInToolViews} onValueChange={setShowLineNumbersInToolViews} />}
                 />
                 <Item
-                    title={t('settingsAppearance.wrapLines')}
-                    subtitle={t('settingsAppearance.wrapLinesDescription')}
+                    title={t('settingsAppearance.wrapLinesInDiffs')}
+                    subtitle={t('settingsAppearance.wrapLinesInDiffsDescription')}
                     icon={<Ionicons name="arrow-redo-outline" size={29} color="#5856D6" />}
                     rightElement={<Switch value={wrapLinesInDiffs} onValueChange={setWrapLinesInDiffs} />}
                 />
