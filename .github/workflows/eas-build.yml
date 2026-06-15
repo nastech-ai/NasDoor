@@ -28,7 +28,7 @@ on:
 
 jobs:
   build:
-    name: EAS Build (${{ github.event.inputs.profile || 'preview' }})
+    name: EAS Build (${{ github.event.inputs.platform || 'android' }} / ${{ github.event.inputs.profile || 'preview' }})
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -37,11 +37,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -51,21 +54,30 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli@latest
 
-      - name: Run pre-install (download bootstrap, package agent)
-        env:
-          BUNDLE_TERMUX_BOOTSTRAP: '1'
-        run: bash eas-build-pre-install.sh
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         working-directory: .
 
+      # Android pre-install: download Termux bootstrap + package Python agent
+      - name: Pre-install (Android assets)
+        if: ${{ github.event.inputs.platform != 'ios' }}
+        env:
+          EAS_BUILD_PLATFORM: android
+          BUNDLE_TERMUX_BOOTSTRAP: '1'
+        run: bash eas-build-pre-install.sh
+
+      # iOS pre-install: image assets only (no Python/bootstrap)
+      - name: Pre-install (iOS assets only)
+        if: ${{ github.event.inputs.platform == 'ios' }}
+        env:
+          EAS_BUILD_PLATFORM: ios
+          BUNDLE_TERMUX_BOOTSTRAP: '0'
+        run: bash eas-build-pre-install.sh
+
       - name: Build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          EXPO_OWNER: nastechai
           APP_ENV: ${{ github.event.inputs.profile == 'production' && 'production' || 'preview' }}
-          BUNDLE_TERMUX_BOOTSTRAP: '1'
           EXPO_PUBLIC_ELEVENLABS_AGENT_ID: ${{ secrets.ELEVENLABS_AGENT_ID }}
           EXPO_PUBLIC_LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
         run: |

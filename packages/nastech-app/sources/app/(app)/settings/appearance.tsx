@@ -7,26 +7,34 @@ import { useRouter } from 'expo-router';
 import * as Localization from 'expo-localization';
 import { useUnistyles, UnistylesRuntime } from 'react-native-unistyles';
 import { Switch } from '@/components/Switch';
-import { Appearance, Platform } from 'react-native';
+import { Appearance } from 'react-native';
 import * as SystemUI from 'expo-system-ui';
-import { darkTheme, lightTheme, amoledBlackTheme, darkBlueTheme, lightBlueTheme, greyTheme } from '@/theme';
-import { t, getLanguageNativeName, SUPPORTED_LANGUAGES } from '@/text';
-import { THEME_NAMES, AppThemeName } from '@/unistyles';
+import {
+    darkTheme, lightTheme,
+    amoledBlackTheme, superAmoledBlackTheme, charcoalTheme,
+    greyTheme, steelGreyTheme, lightGreyTheme,
+    darkBlueTheme, midnightBlueTheme, lightBlueTheme,
+    darkGreenTheme, darkPurpleTheme, darkRedTheme,
+} from '@/theme';
+import { AppThemeName } from '@/unistyles';
 import type { ThemePreference } from '@/sync/localSettings';
-
-type KnownAvatarStyle = 'pixelated' | 'gradient' | 'brutalist';
-
-const isKnownAvatarStyle = (style: string): style is KnownAvatarStyle => {
-    return style === 'pixelated' || style === 'gradient' || style === 'brutalist';
-};
+import { t, getLanguageNativeName, SUPPORTED_LANGUAGES } from '@/text';
 
 const themeObjects: Record<AppThemeName, typeof lightTheme> = {
     light: lightTheme,
     dark: darkTheme,
     amoledBlack: amoledBlackTheme,
-    darkBlue: darkBlueTheme,
-    lightBlue: lightBlueTheme,
+    superAmoledBlack: superAmoledBlackTheme,
+    charcoal: charcoalTheme,
     grey: greyTheme,
+    steelGrey: steelGreyTheme,
+    lightGrey: lightGreyTheme,
+    darkBlue: darkBlueTheme,
+    midnightBlue: midnightBlueTheme,
+    lightBlue: lightBlueTheme,
+    darkGreen: darkGreenTheme,
+    darkPurple: darkPurpleTheme,
+    darkRed: darkRedTheme,
 };
 
 function applyTheme(nextTheme: ThemePreference) {
@@ -47,6 +55,49 @@ function applyTheme(nextTheme: ThemePreference) {
     }
 }
 
+const THEME_GROUPS: { title: string; themes: { id: ThemePreference; label: string }[] }[] = [
+    {
+        title: 'Black',
+        themes: [
+            { id: 'superAmoledBlack', label: 'Super AMOLED Black' },
+            { id: 'amoledBlack', label: 'AMOLED Black' },
+            { id: 'charcoal', label: 'Charcoal' },
+            { id: 'dark', label: 'Dark' },
+        ],
+    },
+    {
+        title: 'Grey',
+        themes: [
+            { id: 'grey', label: 'Dark Grey' },
+            { id: 'steelGrey', label: 'Steel Grey' },
+            { id: 'lightGrey', label: 'Light Grey' },
+        ],
+    },
+    {
+        title: 'Blue',
+        themes: [
+            { id: 'midnightBlue', label: 'Midnight Blue' },
+            { id: 'darkBlue', label: 'Dark Blue' },
+            { id: 'lightBlue', label: 'Light Blue' },
+        ],
+    },
+    {
+        title: 'Colour',
+        themes: [
+            { id: 'darkGreen', label: 'Dark Green' },
+            { id: 'darkPurple', label: 'Dark Purple' },
+            { id: 'darkRed', label: 'Dark Red' },
+        ],
+    },
+    {
+        title: 'Light',
+        themes: [
+            { id: 'light', label: 'Light' },
+            { id: 'adaptive', label: 'Adaptive (follows system)' },
+        ],
+    },
+];
+
 export default function AppearanceSettingsScreen() {
     const { theme } = useUnistyles();
     const router = useRouter();
@@ -55,22 +106,18 @@ export default function AppearanceSettingsScreen() {
     const [showLineNumbers, setShowLineNumbers] = useSettingMutable('showLineNumbers');
     const [showLineNumbersInToolViews, setShowLineNumbersInToolViews] = useSettingMutable('showLineNumbersInToolViews');
     const [wrapLinesInDiffs, setWrapLinesInDiffs] = useSettingMutable('wrapLinesInDiffs');
-    const [diffStyle, setDiffStyle] = useSettingMutable('diffStyle');
     const [alwaysShowContextSize, setAlwaysShowContextSize] = useSettingMutable('alwaysShowContextSize');
-    const [avatarStyle, setAvatarStyle] = useSettingMutable('avatarStyle');
     const [showFlavorIcons, setShowFlavorIcons] = useSettingMutable('showFlavorIcons');
     const [themePreference, setThemePreference] = useLocalSettingMutable('themePreference');
     const [preferredLanguage] = useSettingMutable('preferredLanguage');
-
-    const displayStyle: KnownAvatarStyle = isKnownAvatarStyle(avatarStyle) ? avatarStyle : 'gradient';
 
     const getLanguageDisplayText = () => {
         if (preferredLanguage === null) {
             const deviceLocale = Localization.getLocales()?.[0]?.languageTag ?? 'en-US';
             const deviceLanguage = deviceLocale.split('-')[0].toLowerCase();
-            const detectedLanguageName = deviceLanguage in SUPPORTED_LANGUAGES ?
-                getLanguageNativeName(deviceLanguage as keyof typeof SUPPORTED_LANGUAGES) :
-                getLanguageNativeName('en');
+            const detectedLanguageName = deviceLanguage in SUPPORTED_LANGUAGES
+                ? getLanguageNativeName(deviceLanguage as keyof typeof SUPPORTED_LANGUAGES)
+                : getLanguageNativeName('en');
             return `${t('settingsLanguage.automatic')} (${detectedLanguageName})`;
         } else if (preferredLanguage && preferredLanguage in SUPPORTED_LANGUAGES) {
             return getLanguageNativeName(preferredLanguage as keyof typeof SUPPORTED_LANGUAGES);
@@ -78,32 +125,27 @@ export default function AppearanceSettingsScreen() {
         return t('settingsLanguage.automatic');
     };
 
-    const allThemes: { id: ThemePreference; label: string }[] = [
-        ...THEME_NAMES,
-        { id: 'adaptive', label: 'Adaptive (follows system)' },
-    ];
-
-    const currentLabel = allThemes.find(t => t.id === themePreference)?.label ?? themePreference;
-
     return (
         <ItemList style={{ paddingTop: 0 }}>
 
-            {/* Theme Settings */}
-            <ItemGroup title={t('settingsAppearance.theme')} footer="Choose a colour scheme for the app">
-                {allThemes.map(({ id, label }) => (
-                    <Item
-                        key={id}
-                        title={label}
-                        detail={themePreference === id ? '✓' : ''}
-                        onPress={() => {
-                            setThemePreference(id);
-                            applyTheme(id);
-                        }}
-                    />
-                ))}
-            </ItemGroup>
+            {/* Colour Scheme — grouped by family */}
+            {THEME_GROUPS.map(group => (
+                <ItemGroup key={group.title} title={group.title}>
+                    {group.themes.map(({ id, label }) => (
+                        <Item
+                            key={id}
+                            title={label}
+                            detail={themePreference === id ? '✓' : ''}
+                            onPress={() => {
+                                setThemePreference(id);
+                                applyTheme(id);
+                            }}
+                        />
+                    ))}
+                </ItemGroup>
+            ))}
 
-            {/* Language Settings */}
+            {/* Language */}
             <ItemGroup title={t('settingsLanguage.title')} footer={t('settingsLanguage.description')}>
                 <Item
                     title={t('settingsLanguage.currentLanguage')}
@@ -113,7 +155,7 @@ export default function AppearanceSettingsScreen() {
                 />
             </ItemGroup>
 
-            {/* Display Settings */}
+            {/* Display */}
             <ItemGroup title={t('settingsAppearance.display')} footer={t('settingsAppearance.displayDescription')}>
                 <Item
                     title={t('settingsAppearance.inlineToolCalls')}

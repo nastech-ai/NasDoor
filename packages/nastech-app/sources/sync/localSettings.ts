@@ -4,7 +4,20 @@ import * as z from 'zod';
 // Schema
 //
 
-export const THEME_NAMES_SCHEMA = z.enum(['light', 'dark', 'amoledBlack', 'darkBlue', 'lightBlue', 'grey', 'adaptive']);
+export const THEME_NAMES_SCHEMA = z.enum([
+    // Dark
+    'superAmoledBlack', 'amoledBlack', 'charcoal', 'dark',
+    // Grey
+    'grey', 'steelGrey', 'lightGrey',
+    // Blue
+    'midnightBlue', 'darkBlue', 'lightBlue',
+    // Colour
+    'darkGreen', 'darkPurple', 'darkRed',
+    // Light
+    'light',
+    // System
+    'adaptive',
+]);
 export type ThemePreference = z.infer<typeof THEME_NAMES_SCHEMA>;
 
 export const LocalSettingsSchema = z.object({
@@ -12,7 +25,7 @@ export const LocalSettingsSchema = z.object({
     devModeEnabled: z.boolean().describe('Enable developer menu in settings'),
     voiceUpsellOverride: z.enum(['control', 'show-paywall-before-first-voice-chat', 'voice-onboarding-and-upsell']).nullable().describe('Developer-only local override for the voice-upsell PostHog flag'),
     commandPaletteEnabled: z.boolean().describe('Enable CMD+K command palette (web only)'),
-    themePreference: THEME_NAMES_SCHEMA.describe('Theme: light, dark, amoledBlack, darkBlue, lightBlue, grey, or adaptive'),
+    themePreference: THEME_NAMES_SCHEMA.describe('Colour theme'),
     markdownCopyV2: z.boolean().describe('Replace native paragraph selection with long-press modal for full markdown copy'),
     consoleLoggingEnabled: z.boolean().describe('Enable console output in production builds'),
     verboseLogging: z.boolean().describe('Log all network requests and responses'),
@@ -29,7 +42,7 @@ export const localSettingsDefaults: LocalSettings = {
     devModeEnabled: false,
     voiceUpsellOverride: null,
     commandPaletteEnabled: false,
-    themePreference: 'amoledBlack',
+    themePreference: 'superAmoledBlack',
     markdownCopyV2: false,
     consoleLoggingEnabled: false,
     verboseLogging: false,

@@ -24,6 +24,7 @@ const sharedSpacing = {
     },
 } as const;
 
+// ─── Light ────────────────────────────────────────────────────────────────────
 export const lightTheme = {
     dark: false,
     colors: {
@@ -42,7 +43,7 @@ export const lightTheme = {
         surfacePressedOverlay: Platform.select({ ios: '#D1D1D6', default: 'transparent' }),
         surfaceHigh: '#F8F8F8',
         surfaceHighest: '#f0f0f0',
-        divider: Platform.select({ ios: '#eaeaea', default: '#eaeaea' }),
+        divider: '#eaeaea',
         shadow: {
             color: Platform.select({ default: '#000000', web: 'rgba(0, 0, 0, 0.1)' }),
             opacity: 0.1,
@@ -126,6 +127,7 @@ export const lightTheme = {
     ...sharedSpacing,
 };
 
+// ─── Dark ─────────────────────────────────────────────────────────────────────
 export const darkTheme = {
     dark: true,
     colors: {
@@ -235,7 +237,8 @@ export const darkTheme = {
     ...sharedSpacing,
 } satisfies typeof lightTheme;
 
-// ─── Super AMOLED Black ───────────────────────────────────────────────────────
+// ─── AMOLED Black ─────────────────────────────────────────────────────────────
+// Near-black — uses #000 for surfaces, slight contrast between layers
 export const amoledBlackTheme = {
     ...darkTheme,
     dark: true,
@@ -261,7 +264,150 @@ export const amoledBlackTheme = {
     },
 } satisfies typeof lightTheme;
 
+// ─── Super AMOLED Black ───────────────────────────────────────────────────────
+// True pitch black — every surface is #000000, zero grey, maximum OLED savings
+export const superAmoledBlackTheme = {
+    ...darkTheme,
+    dark: true,
+    colors: {
+        ...darkTheme.colors,
+        surface: '#000000',
+        surfaceHigh: '#000000',
+        surfaceHighest: '#050505',
+        surfacePressed: '#0F0F0F',
+        surfaceSelected: '#0F0F0F',
+        surfacePressedOverlay: '#0F0F0F',
+        surfaceRipple: 'rgba(255,255,255,0.05)',
+        divider: '#111111',
+        groupped: { background: '#000000', chevron: '#2A2A2A', sectionTitle: '#555555' },
+        header: { background: '#000000', tint: '#ffffff' },
+        input: { background: '#000000', text: '#FFFFFF', placeholder: '#444444' },
+        userMessageBackground: '#050505',
+        button: {
+            primary: { background: '#FFFFFF', tint: '#000000', disabled: '#222222' },
+            secondary: { tint: '#555555' },
+        },
+        fab: { background: '#FFFFFF', backgroundPressed: '#CCCCCC', icon: '#000000' },
+        modal: { border: 'rgba(255, 255, 255, 0.06)' },
+        terminal: { ...darkTheme.colors.terminal, background: '#000000' },
+        text: '#EEEEEE',
+        textSecondary: '#777777',
+    },
+} satisfies typeof lightTheme;
+
+// ─── Charcoal ─────────────────────────────────────────────────────────────────
+// Deep charcoal — very dark but warmer than pure black
+export const charcoalTheme = {
+    ...darkTheme,
+    dark: true,
+    colors: {
+        ...darkTheme.colors,
+        surface: '#141414',
+        surfaceHigh: '#1C1C1C',
+        surfaceHighest: '#242424',
+        surfacePressed: '#2A2A2A',
+        surfaceSelected: '#2A2A2A',
+        surfacePressedOverlay: '#2A2A2A',
+        divider: '#2A2A2A',
+        groupped: { background: '#141414', chevron: '#3A3A3A', sectionTitle: '#707070' },
+        header: { background: '#141414', tint: '#F0F0F0' },
+        input: { background: '#1C1C1C', text: '#F0F0F0', placeholder: '#666666' },
+        userMessageBackground: '#1C1C1C',
+        button: {
+            primary: { background: '#E0E0E0', tint: '#141414', disabled: '#3A3A3A' },
+            secondary: { tint: '#888888' },
+        },
+        modal: { border: 'rgba(255,255,255,0.08)' },
+        terminal: { ...darkTheme.colors.terminal, background: '#0E0E0E' },
+    },
+} satisfies typeof lightTheme;
+
+// ─── Dark Grey ────────────────────────────────────────────────────────────────
+// iOS-style dark grey — matches Apple's system dark UI
+export const greyTheme = {
+    ...darkTheme,
+    dark: true,
+    colors: {
+        ...darkTheme.colors,
+        surface: '#1C1C1E',
+        surfaceHigh: '#2C2C2E',
+        surfaceHighest: '#3A3A3C',
+        surfacePressed: '#3A3A3C',
+        surfaceSelected: '#3A3A3C',
+        surfacePressedOverlay: '#3A3A3C',
+        divider: '#38383A',
+        groupped: { background: '#1C1C1E', chevron: '#48484A', sectionTitle: '#8E8E93' },
+        header: { background: '#1C1C1E', tint: '#FFFFFF' },
+        input: { background: '#2C2C2E', text: '#FFFFFF', placeholder: '#636366' },
+        userMessageBackground: '#2C2C2E',
+        fab: { background: '#636366', backgroundPressed: '#48484A', icon: '#FFFFFF' },
+        button: {
+            primary: { background: '#636366', tint: '#FFFFFF', disabled: '#3A3A3C' },
+            secondary: { tint: '#8E8E93' },
+        },
+        radio: { active: '#8E8E93', inactive: '#48484A', dot: '#FFFFFF' },
+        modal: { border: 'rgba(255,255,255,0.1)' },
+    },
+} satisfies typeof lightTheme;
+
+// ─── Steel Grey ───────────────────────────────────────────────────────────────
+// Medium steel — between dark grey and light grey
+export const steelGreyTheme = {
+    ...darkTheme,
+    dark: true,
+    colors: {
+        ...darkTheme.colors,
+        surface: '#2A2D33',
+        surfaceHigh: '#32363E',
+        surfaceHighest: '#3C4149',
+        surfacePressed: '#44494F',
+        surfaceSelected: '#44494F',
+        surfacePressedOverlay: '#44494F',
+        divider: '#3C4149',
+        text: '#E8EAF0',
+        textSecondary: '#9EA3AD',
+        groupped: { background: '#2A2D33', chevron: '#5A6070', sectionTitle: '#9EA3AD' },
+        header: { background: '#22252B', tint: '#E8EAF0' },
+        input: { background: '#32363E', text: '#E8EAF0', placeholder: '#6B7280' },
+        userMessageBackground: '#32363E',
+        fab: { background: '#9EA3AD', backgroundPressed: '#7A8090', icon: '#FFFFFF' },
+        button: {
+            primary: { background: '#9EA3AD', tint: '#FFFFFF', disabled: '#3C4149' },
+            secondary: { tint: '#9EA3AD' },
+        },
+        modal: { border: 'rgba(200,210,220,0.12)' },
+        terminal: { ...darkTheme.colors.terminal, background: '#1E2128' },
+    },
+} satisfies typeof lightTheme;
+
+// ─── Light Grey ───────────────────────────────────────────────────────────────
+// Clean silver-grey light theme
+export const lightGreyTheme = {
+    ...lightTheme,
+    dark: false,
+    colors: {
+        ...lightTheme.colors,
+        surface: '#F5F5F7',
+        surfaceHigh: '#EBEBED',
+        surfaceHighest: '#E0E0E3',
+        surfacePressed: '#D8D8DB',
+        surfaceSelected: '#D8D8DB',
+        divider: '#DCDCDF',
+        groupped: { background: '#EBEBED', chevron: '#8E8E93', sectionTitle: '#6D6D72' },
+        header: { background: '#F5F5F7', tint: '#1C1C1E' },
+        input: { background: '#E5E5E8', text: '#1C1C1E', placeholder: '#8E8E93' },
+        button: {
+            primary: { background: '#3A3A3C', tint: '#FFFFFF', disabled: '#C0C0C3' },
+            secondary: { tint: '#6D6D72' },
+        },
+        fab: { background: '#3A3A3C', backgroundPressed: '#1C1C1E', icon: '#FFFFFF' },
+        userMessageBackground: '#E0E0E3',
+        userMessageText: '#1C1C1E',
+    },
+} satisfies typeof lightTheme;
+
 // ─── Dark Blue ────────────────────────────────────────────────────────────────
+// Deep navy — dark with rich blue tones
 export const darkBlueTheme = {
     ...darkTheme,
     dark: true,
@@ -292,8 +438,47 @@ export const darkBlueTheme = {
             error: '#FF453A',
             default: '#3A5A8A',
         },
-        modal: { border: 'rgba(91, 155, 213, 0.2)' },
+        modal: { border: 'rgba(91,155,213,0.2)' },
         terminal: { ...darkTheme.colors.terminal, background: '#060D18', prompt: '#5B9BD5' },
+    },
+} satisfies typeof lightTheme;
+
+// ─── Midnight Blue ────────────────────────────────────────────────────────────
+// Deepest blue — almost black with blue undertone, great for OLED
+export const midnightBlueTheme = {
+    ...darkTheme,
+    dark: true,
+    colors: {
+        ...darkTheme.colors,
+        surface: '#03060F',
+        surfaceHigh: '#080F20',
+        surfaceHighest: '#0E1830',
+        surfacePressed: '#162040',
+        surfaceSelected: '#162040',
+        surfacePressedOverlay: '#162040',
+        divider: '#0E1830',
+        groupped: { background: '#03060F', chevron: '#1A3060', sectionTitle: '#3A6090' },
+        header: { background: '#03060F', tint: '#4A8FD4' },
+        textLink: '#4A8FD4',
+        text: '#C8DCFF',
+        textSecondary: '#3A6090',
+        input: { background: '#080F20', text: '#C8DCFF', placeholder: '#1A3060' },
+        userMessageBackground: '#080F20',
+        fab: { background: '#1A3A80', backgroundPressed: '#0D2060', icon: '#C8DCFF' },
+        radio: { active: '#4A8FD4', inactive: '#1A3060', dot: '#4A8FD4' },
+        button: {
+            primary: { background: '#1A3A80', tint: '#C8DCFF', disabled: '#0E1830' },
+            secondary: { tint: '#4A8FD4' },
+        },
+        status: {
+            connected: '#32D74B',
+            connecting: '#4A8FD4',
+            disconnected: '#1A3060',
+            error: '#FF453A',
+            default: '#3A6090',
+        },
+        modal: { border: 'rgba(74,143,212,0.15)' },
+        terminal: { ...darkTheme.colors.terminal, background: '#000308', prompt: '#4A8FD4' },
     },
 } satisfies typeof lightTheme;
 
@@ -331,30 +516,119 @@ export const lightBlueTheme = {
     },
 } satisfies typeof lightTheme;
 
-// ─── Grey ─────────────────────────────────────────────────────────────────────
-export const greyTheme = {
+// ─── Dark Green ───────────────────────────────────────────────────────────────
+// Deep forest / terminal green
+export const darkGreenTheme = {
     ...darkTheme,
     dark: true,
     colors: {
         ...darkTheme.colors,
-        surface: '#1C1C1E',
-        surfaceHigh: '#2C2C2E',
-        surfaceHighest: '#3A3A3C',
-        surfacePressed: '#3A3A3C',
-        surfaceSelected: '#3A3A3C',
-        surfacePressedOverlay: '#3A3A3C',
-        divider: '#38383A',
-        groupped: { background: '#1C1C1E', chevron: '#48484A', sectionTitle: '#8E8E93' },
-        header: { background: '#1C1C1E', tint: '#FFFFFF' },
-        input: { background: '#2C2C2E', text: '#FFFFFF', placeholder: '#636366' },
-        userMessageBackground: '#2C2C2E',
-        fab: { background: '#636366', backgroundPressed: '#48484A', icon: '#FFFFFF' },
+        surface: '#091410',
+        surfaceHigh: '#0F1E18',
+        surfaceHighest: '#162A22',
+        surfacePressed: '#1E3A2E',
+        surfaceSelected: '#1E3A2E',
+        surfacePressedOverlay: '#1E3A2E',
+        divider: '#162A22',
+        groupped: { background: '#091410', chevron: '#1A4030', sectionTitle: '#3A8060' },
+        header: { background: '#091410', tint: '#4AE090' },
+        textLink: '#4AE090',
+        text: '#C8FFE0',
+        textSecondary: '#3A8060',
+        input: { background: '#0F1E18', text: '#C8FFE0', placeholder: '#1A4030' },
+        userMessageBackground: '#0F1E18',
+        fab: { background: '#1A6040', backgroundPressed: '#0D4028', icon: '#C8FFE0' },
+        radio: { active: '#4AE090', inactive: '#1A4030', dot: '#4AE090' },
         button: {
-            primary: { background: '#636366', tint: '#FFFFFF', disabled: '#3A3A3C' },
-            secondary: { tint: '#8E8E93' },
+            primary: { background: '#1A6040', tint: '#C8FFE0', disabled: '#162A22' },
+            secondary: { tint: '#4AE090' },
         },
-        radio: { active: '#8E8E93', inactive: '#48484A', dot: '#FFFFFF' },
-        modal: { border: 'rgba(255, 255, 255, 0.1)' },
+        status: {
+            connected: '#4AE090',
+            connecting: '#34C759',
+            disconnected: '#1A4030',
+            error: '#FF453A',
+            default: '#3A8060',
+        },
+        modal: { border: 'rgba(74,224,144,0.15)' },
+        terminal: { ...darkTheme.colors.terminal, background: '#020A06', prompt: '#4AE090' },
+    },
+} satisfies typeof lightTheme;
+
+// ─── Dark Purple ──────────────────────────────────────────────────────────────
+// Deep violet / indigo
+export const darkPurpleTheme = {
+    ...darkTheme,
+    dark: true,
+    colors: {
+        ...darkTheme.colors,
+        surface: '#0E0A1A',
+        surfaceHigh: '#160F28',
+        surfaceHighest: '#1E1638',
+        surfacePressed: '#2A1E50',
+        surfaceSelected: '#2A1E50',
+        surfacePressedOverlay: '#2A1E50',
+        divider: '#1E1638',
+        groupped: { background: '#0E0A1A', chevron: '#3A2870', sectionTitle: '#7A60B0' },
+        header: { background: '#0E0A1A', tint: '#C090FF' },
+        textLink: '#C090FF',
+        text: '#EAD8FF',
+        textSecondary: '#7A60B0',
+        input: { background: '#160F28', text: '#EAD8FF', placeholder: '#3A2870' },
+        userMessageBackground: '#160F28',
+        fab: { background: '#5A30A0', backgroundPressed: '#3A1A80', icon: '#EAD8FF' },
+        radio: { active: '#C090FF', inactive: '#3A2870', dot: '#C090FF' },
+        button: {
+            primary: { background: '#5A30A0', tint: '#EAD8FF', disabled: '#1E1638' },
+            secondary: { tint: '#C090FF' },
+        },
+        status: {
+            connected: '#32D74B',
+            connecting: '#C090FF',
+            disconnected: '#3A2870',
+            error: '#FF453A',
+            default: '#7A60B0',
+        },
+        modal: { border: 'rgba(192,144,255,0.15)' },
+        terminal: { ...darkTheme.colors.terminal, background: '#070412', prompt: '#C090FF' },
+    },
+} satisfies typeof lightTheme;
+
+// ─── Dark Red / Crimson ───────────────────────────────────────────────────────
+export const darkRedTheme = {
+    ...darkTheme,
+    dark: true,
+    colors: {
+        ...darkTheme.colors,
+        surface: '#160808',
+        surfaceHigh: '#220D0D',
+        surfaceHighest: '#301414',
+        surfacePressed: '#3E1A1A',
+        surfaceSelected: '#3E1A1A',
+        surfacePressedOverlay: '#3E1A1A',
+        divider: '#301414',
+        groupped: { background: '#160808', chevron: '#6A2020', sectionTitle: '#A04040' },
+        header: { background: '#160808', tint: '#FF8080' },
+        textLink: '#FF8080',
+        text: '#FFD8D8',
+        textSecondary: '#A04040',
+        input: { background: '#220D0D', text: '#FFD8D8', placeholder: '#6A2020' },
+        userMessageBackground: '#220D0D',
+        fab: { background: '#8B1A1A', backgroundPressed: '#6A1010', icon: '#FFD8D8' },
+        radio: { active: '#FF8080', inactive: '#6A2020', dot: '#FF8080' },
+        button: {
+            primary: { background: '#8B1A1A', tint: '#FFD8D8', disabled: '#301414' },
+            secondary: { tint: '#FF8080' },
+        },
+        status: {
+            connected: '#32D74B',
+            connecting: '#FF8080',
+            disconnected: '#6A2020',
+            error: '#FF453A',
+            default: '#A04040',
+        },
+        modal: { border: 'rgba(255,128,128,0.15)' },
+        terminal: { ...darkTheme.colors.terminal, background: '#0A0202', prompt: '#FF8080' },
     },
 } satisfies typeof lightTheme;
 

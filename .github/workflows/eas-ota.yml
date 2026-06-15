@@ -1,11 +1,9 @@
 name: EAS OTA Update
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
-      branch:
+      channel:
         description: 'EAS update channel'
         required: true
         default: 'preview'
@@ -13,10 +11,14 @@ on:
         options:
           - preview
           - production
+      message:
+        description: 'Update message (optional)'
+        required: false
+        default: ''
 
 jobs:
   ota:
-    name: Publish OTA update
+    name: OTA → ${{ github.event.inputs.channel || 'preview' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,9 +26,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+
       - uses: pnpm/action-setup@v4
         with:
           version: '10.11.0'
@@ -38,12 +45,22 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: .
 
+      - name: Pre-install (image assets only — OTA is JS, no bootstrap)
+        env:
+          EAS_BUILD_PLATFORM: ios
+          BUNDLE_TERMUX_BOOTSTRAP: '0'
+        run: bash eas-build-pre-install.sh
+
       - name: Publish OTA update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          APP_ENV: ${{ github.event.inputs.branch == 'production' && 'production' || 'preview' }}
+          APP_ENV: ${{ github.event.inputs.channel == 'production' && 'production' || 'preview' }}
           EXPO_PUBLIC_ELEVENLABS_AGENT_ID: ${{ secrets.ELEVENLABS_AGENT_ID }}
           EXPO_PUBLIC_LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
         run: |
-          BRANCH="${{ github.event.inputs.branch || 'preview' }}"
-          eas update --branch "$BRANCH" --message "OTA: ${{ github.sha }}" --non-interactive
+          CHANNEL="${{ github.event.inputs.channel || 'preview' }}"
+          MSG="${{ github.event.inputs.message || format('OTA {0}', github.sha) }}"
+          eas update \
+            --branch "$CHANNEL" \
+            --message "$MSG" \
+            --non-interactive
