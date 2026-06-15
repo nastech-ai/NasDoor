@@ -23,7 +23,6 @@ jobs:
     timeout-minutes: 30
     env:
       npm_config_registry: https://registry.npmjs.org/
-      NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
     defaults:
       run:
         working-directory: packages/nastech-app
