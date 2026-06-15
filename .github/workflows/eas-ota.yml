@@ -16,6 +16,12 @@ on:
         required: false
         default: ''
 
+env:
+  npm_config_registry: https://registry.npmjs.org/
+  PNPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+  NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   ota:
     name: OTA → ${{ github.event.inputs.channel || 'preview' }}
@@ -36,11 +42,12 @@ jobs:
           node --version
           pnpm --version || npm install -g pnpm@10.11.0
           eas --version || npm install -g eas-cli
+          pnpm config set registry https://registry.npmjs.org/ --global || true
 
       - name: Install dependencies
         run: |
           export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
-          pnpm install --no-frozen-lockfile
+          pnpm install --no-frozen-lockfile --registry https://registry.npmjs.org/
         working-directory: .
 
       - name: Pre-install (image assets only)
