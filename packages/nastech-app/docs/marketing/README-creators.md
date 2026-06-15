@@ -1,73 +1,85 @@
-# NasTech Content Creator Brief
+# NasDoor Content Creator Brief
+
+## What is NasDoor?
+
+**NasDoor** is a free, open-source Android app that runs a full AI assistant
+**directly on your phone** — no cloud server, no subscription, no middleman.
+The Python AI daemon boots inside Termux and talks to the NasTech app UI.
+On iOS it connects to a remote NasTech server you own.
+
+Branding: **NasDoor** (product) · **NasTech** (technology) · **Naswif** (UI)
+
+---
 
 ## Key Features
 
-NasTech is an open-source mobile app that lets developers control AI coding agents (Claude Code, Codex, Gemini-CLI) from their phone.
+- **Fully on-device AI (Android)** — Python daemon runs on your phone, not in some data centre
+- **No monthly fee** — you only pay your LLM provider (Anthropic, OpenAI, etc.)
+- **Open source** — audit, fork, and self-host everything
+- **14 AMOLED themes** — Super AMOLED Black default; eyes-friendly at midnight
+- **iOS support** — connect to any NasTech server you control
+- **Push notifications** — get alerted when the agent needs you
+- **Voice input** — LiveKit-powered hands-free control
+- **OTA updates** — JavaScript updates ship without a new APK
 
-- Control Claude Code from iOS, Android, or web browser
-- Runs on YOUR hardware (laptop, desktop, server, Raspberry Pi)
-- No subscription fees or cloud costs - completely free (you still need to pay your AI model provider for Claude Code, Codex, Text to Speech, Speach to Text, etc..)
-- Push notifications when agents need input or hit errors
-- End-to-end encrypted connection between devices
-- Run multiple coding agents in parallel
-- Voice input for hands-free control
-- Works with your existing dev setup and tools
+---
 
 ## Key Value Props
 
-- On NasTech, I can manage Claude Code from my phone without paying $600/year
-- On NasTech, I never miss when Claude gets stuck on a permission prompt
-- NasTech runs on my own computer, not expensive cloud servers
-- On NasTech, I can check on long-running tasks without returning to my desk
-- NasTech is open source - I can audit, modify, or self-host everything
-- On NasTech, I can run multiple agents in parallel and switch between them instantly
-- NasTech keeps my code on my machines with end-to-end encryption
-- On NasTech, I can keep coding while commuting, eating, or away from my desk
+- NasDoor runs on your Android phone — no expensive cloud
+- NasDoor costs $0/month (you pay only your LLM provider)
+- Your conversations never leave your device
+- Open source — every line of code is on GitHub
+- Works offline (local models) or with any cloud LLM you configure
+- One APK installs the full AI stack: app + Python daemon + models
+
+---
 
 ## Example Hooks
 
-- "I saved $600/year by switching from [competitor] to the open-source NasTech"
-- "Claude asked for sudo permission... and I was at the gym"
-- "That moment when your 2-hour refactor gets stuck 5 minutes after you leave"
-- "Running 3 Claude Code agents in parallel from my phone while getting coffee"
-- "Why pay $50/month for a middleman to relay text to Claude?"
-- "I left for lunch and Claude was still working when I got back"
-- "Managing my coding agents from the train saved me 2 hours today"
-- "Finally, a mobile app for Claude Code that doesn't cost more than Netflix"
-- "My code never leaves my laptop, but I can control it from anywhere"
-- "Open source alternative to all those $600/year coding apps"
+- "I put a full AI assistant on my Android phone for $0/month"
+- "NasDoor: the only AI app where your data literally cannot leave your device"
+- "Running Claude from my phone without paying anyone a subscription"
+- "I made my Android phone into an offline AI workstation — here's how"
+- "Open source Android AI that actually runs on the phone, not the cloud"
+- "NasDoor vs every subscription AI: one is free and runs on your device"
+- "Built my own AI assistant and it lives entirely on my Samsung S24"
+
+---
 
 ## Requirements for Content
 
-- Clearly say "NasTech" in the video or caption
-- Mention it's free and open source
-- Include link to github.com/nastech-ai/nastech
-- Show actual usage (QR code connection, mobile control, push notifications)
-- Emphasize running on YOUR hardware, not cloud servers
-- Compare to paid alternatives ($50/month or $600/year competitors)
+- Say **NasDoor** (the product) and **NasTech** (the tech) clearly
+- Mention it is **free and open source**
+- Include link: `https://github.com/nastech-ai/NasDoor`
+- Show real usage: daemon starting, chat with AI, AMOLED theme
+- Emphasise **on-device** — not cloud, not subscription
 - Minimum video length: 15 seconds
-- Use the GitHub star count as social proof when relevant
 
 ## Prohibited Content
 
-- Don't claim AI does all the work (it doesn't)
-- Don't suggest you can code without reviewing output
+- Don't claim AI does all the work
 - Don't promise income or job guarantees
 - No misleading claims about AI capabilities
-- Don't show fake notification counts or metrics
+- Don't show fake metrics or notification counts
+
+---
 
 ## Target Audiences
 
-**Students**: CS students who can't afford $600/year subscriptions
-**Remote Workers**: Developers who work from coffee shops, co-working spaces
-**Parents**: Developer parents who get interrupted constantly
-**Commuters**: Developers with long commutes who want to stay productive
-**Open Source Enthusiasts**: Developers who prefer owning their tools
+| Audience | Angle |
+|---|---|
+| **Privacy-conscious users** | Data never leaves your phone |
+| **Budget developers** | Full AI for $0/month |
+| **Android power users** | Termux-powered Python daemon on-device |
+| **Open source enthusiasts** | Fork it, audit it, self-host it |
+| **Students** | Affordable AI without subscriptions |
+
+---
 
 ## Resources
 
-- GitHub: https://github.com/nastech-ai/nastech
-- Website: https://nastech.engineering
-- iOS App: https://apps.apple.com/us/app/nastech-claude-code-client/id6748571505
-- Android App: https://play.google.com/store/apps/details?id=com.ex3ndr.nastech
-- Web App: https://app.nastech.engineering/
+- GitHub: https://github.com/nastech-ai/NasDoor
+- EAS Project: https://expo.dev/@nastechai/nastech-agent
+- Android package: `ba.nastech.ai`
+- iOS bundle: `ai.nastech.ba`

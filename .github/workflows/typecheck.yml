@@ -1,36 +1,40 @@
-name: Expo App TypeScript typecheck
+name: TypeScript Typecheck
 
 on:
-    pull_request:
-        paths:
-            - 'packages/happy-app/**'
-            - '.github/workflows/typecheck.yml'
-    push:
-        branches:
-            - main
-        paths:
-            - 'packages/happy-app/**'
-            - '.github/workflows/typecheck.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/nastech-app/sources/**'
+      - 'packages/nastech-app/tsconfig*.json'
+      - '.github/workflows/typecheck.yml'
+  pull_request:
+    paths:
+      - 'packages/nastech-app/sources/**'
+      - 'packages/nastech-app/tsconfig*.json'
 
 jobs:
-    typecheck:
-        runs-on: ubuntu-latest
-        timeout-minutes: 15
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  typecheck:
+    name: TypeScript — nastech-app
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
-            - name: Install pnpm
-              uses: pnpm/action-setup@v4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
-            - name: Setup Node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-                  cache: pnpm
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.11.0'
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
-            - name: TypeScript typecheck
-              run: pnpm --filter happy-app typecheck
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: TypeScript typecheck
+        run: pnpm --filter nastech-app typecheck

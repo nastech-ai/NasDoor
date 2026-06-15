@@ -1,5 +1,0 @@
-# Exclude unpacked binaries from npm package (postinstall unpacks from archives)
-tools/unpacked/
-
-# Ensure dist is included (overrides .gitignore which excludes /dist)
-!dist/

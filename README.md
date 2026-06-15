@@ -1,86 +1,156 @@
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/.github/logotype-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="/.github/logotype-light.png">
-    <img src="/.github/logotype-dark.png" width="400" alt="Happy">
-  </picture>
+  <h1>🚪 NasDoor</h1>
+  <p><strong>Self-contained AI assistant that runs entirely on your Android device.</strong><br/>
+  No cloud required. No subscriptions. Your data stays on your hardware.</p>
 </div>
-
-<h1 align="center">
-  Mobile and Web Client for Claude Code & Codex
-</h1>
-
-<h4 align="center">
-Use Claude Code or Codex from anywhere with end-to-end encryption.
-</h4>
 
 <div align="center">
-  
-[📱 **iOS App**](https://apps.apple.com/us/app/happy-claude-code-client/id6748571505) • [🤖 **Android App**](https://play.google.com/store/apps/details?id=com.ex3ndr.happy) • [🌐 **Web App**](https://app.happy.engineering) • [🎥 **See a Demo**](https://youtu.be/GCS0OG9QMSE) • [📚 **Documentation**](https://happy.engineering/docs/) • [💬 **Discord**](https://discord.gg/fX9WBAhyfD)
+
+[![EAS Build](https://github.com/nastech-ai/NasDoor/actions/workflows/eas-build.yml/badge.svg)](https://github.com/nastech-ai/NasDoor/actions/workflows/eas-build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![EAS](https://img.shields.io/badge/EAS-nastechai-purple)](https://expo.dev/@nastechai/nastech-agent)
 
 </div>
 
-<img width="5178" height="2364" alt="github" src="/.github/header.png" />
+---
 
+## What is NasDoor?
 
-<h3 align="center">
-Step 1: Download App
-</h3>
+NasDoor ships two tightly integrated components as a single product:
 
-<div align="center">
-<a href="https://apps.apple.com/us/app/happy-claude-code-client/id6748571505"><img width="135" height="39" alt="appstore" src="https://github.com/user-attachments/assets/45e31a11-cf6b-40a2-a083-6dc8d1f01291" /></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://play.google.com/store/apps/details?id=com.ex3ndr.happy"><img width="135" height="39" alt="googleplay" src="https://github.com/user-attachments/assets/acbba639-858f-4c74-85c7-92a4096efbf5" /></a>
-</div>
+| Component | Description |
+|---|---|
+| **NasTech App** | React Native (Expo 55) mobile UI — Android + iOS |
+| **NasTech Agent** | Python AI daemon running fully on-device (Android via Termux + proot) |
 
-<h3 align="center">
-Step 2: Install CLI on your computer
-</h3>
+**Android** — the app bootstraps a full Python 3 environment via Termux and runs the AI daemon (port 9119) as a persistent foreground service. No external server needed.
 
-```bash
-npm install -g happy
+**iOS** — the app connects to a remote NasTech server you run on a Mac, Linux box, or Android phone.
+
+---
+
+## Repository layout
+
+```
+NasDoor/
+├── packages/nastech-app/      ← Expo 55 React Native app
+│   ├── sources/               ← TypeScript source (Expo Router)
+│   ├── plugins/               ← withTermuxDaemon.js (Android-only config plugin)
+│   ├── app.config.js          ← Dynamic EAS build config
+│   └── eas.json               ← EAS build profiles
+├── nastech-agent/             ← Python AI daemon (port 9119)
+│   ├── nastech_cli/           ← CLI + REST/WebSocket gateway
+│   ├── agent/                 ← Core agent logic
+│   ├── providers/             ← LLM provider adapters (Anthropic, OpenAI, …)
+│   ├── skills/                ← Agent skill library
+│   └── tools/                 ← Tool implementations
+└── .github/workflows/
+    ├── eas-build.yml          ← EAS Android APK + iOS build
+    ├── eas-ota.yml            ← Expo OTA JavaScript update
+    ├── typecheck.yml          ← TypeScript type-checking
+    ├── agent-smoke-test.yml   ← Python daemon smoke test
+    └── repo-meta.yml          ← GitHub repo metadata auto-update
 ```
 
-> Migrated from the `happy-coder` package. Thanks to [@franciscop](https://github.com/franciscop) for donating the `happy` package name!
+---
 
-<h3 align="center">
-Step 3: Start using `happy` instead of `claude` or `codex`
-</h3>
+## Platform matrix
+
+| Feature | Android | iOS |
+|---|---|---|
+| AI daemon | ✅ On-device (Termux + Python 3 + proot) | ❌ Connect to remote server |
+| Full chat UI | ✅ | ✅ |
+| Push notifications | ✅ | ✅ |
+| Voice (LiveKit) | ✅ | ✅ |
+| OTA JS updates | ✅ | ✅ |
+| Bundle ID | `ba.nastech.ai` | `ai.nastech.ba` |
+
+---
+
+## Build
+
+### Prerequisites
+
+- [Node.js 20+](https://nodejs.org)
+- [pnpm 10+](https://pnpm.io)
+- [EAS CLI](https://docs.expo.dev/eas/) — `npm install -g eas-cli`
+- EAS account under `nastechai` with `EXPO_TOKEN` set
+
+### Android APK
 
 ```bash
-# Instead of claude, use:
-happy claude
-# or
-happy codex
+eas build --platform android --profile preview
 ```
 
-## How does it work?
+### iOS
 
-On your computer, run `happy` instead of `claude` or `happy codex` instead of `codex` to start your AI through our wrapper. When you want to control your coding agent from your phone, it restarts the session in remote mode. To switch back to your computer, just press any key on your keyboard.
+```bash
+eas build --platform ios --profile preview
+```
 
-## 🔥 Why Happy Coder?
+### OTA JavaScript update
 
-- 📱 **Mobile access to Claude Code and Codex** - Check what your AI is building while away from your desk
-- 🔔 **Push notifications** - Get alerted when Claude Code and Codex needs permission or encounters errors  
-- ⚡ **Switch devices instantly** - Take control from phone or desktop with one keypress
-- 🔐 **End-to-end encrypted** - Your code never leaves your devices unencrypted
-- 🛠️ **Open source** - Audit the code yourself. No telemetry, no tracking
+```bash
+eas update --channel preview --message "describe the change"
+```
 
-## 📦 Project Components
+### Local development
 
-- **[Happy App](https://github.com/slopus/happy/tree/main/packages/happy-app)** - Web UI + mobile client (Expo)
-- **[Happy CLI](https://github.com/slopus/happy/tree/main/packages/happy-cli)** - Command-line interface for Claude Code and Codex
-- **[Happy Agent](https://github.com/slopus/happy/tree/main/packages/happy-agent)** - Remote agent control CLI (create, send, monitor sessions)
-- **[Happy Server](https://github.com/slopus/happy/tree/main/packages/happy-server)** - Backend server for encrypted sync
+```bash
+cd packages/nastech-app
+pnpm install
+pnpm expo start
+```
 
-## 🏠 Who We Are
+### Python daemon (local)
 
-We're engineers scattered across Bay Area coffee shops and hacker houses, constantly checking how our AI coding agents are progressing on our pet projects during lunch breaks. Happy Coder was born from the frustration of not being able to peek at our AI coding tools building our side hustles while we're away from our keyboards. We believe the best tools come from scratching your own itch and sharing with the community.
+```bash
+cd nastech-agent
+pip install -e ".[dev]"
+python3 -m nastech_cli.main gateway start
+# API available at http://127.0.0.1:9119
+```
 
-## 📚 Documentation & Contributing
+---
 
-- **[Documentation Website](https://happy.engineering/docs/)** - Learn how to use Happy Coder effectively
-- **[Contributing Guide](docs/CONTRIBUTING.md)** - How to contribute, PR guidelines, and development setup
-- **[Edit docs at github.com/slopus/slopus.github.io](https://github.com/slopus/slopus.github.io)** - Help improve our documentation and guides
+## Colour themes
+
+14 built-in themes, grouped by family:
+
+| Family | Themes |
+|---|---|
+| **Black** | Super AMOLED Black *(default)*, AMOLED Black, Charcoal, Dark |
+| **Grey** | Dark Grey, Steel Grey, Light Grey |
+| **Blue** | Midnight Blue, Dark Blue, Light Blue |
+| **Colour** | Dark Green, Dark Purple, Dark Red |
+| **Light** | Light, Adaptive |
+
+---
+
+## Key identifiers
+
+| | |
+|---|---|
+| EAS owner | `nastechai` |
+| EAS project ID | `925ecdd8-07ba-4775-956b-2b334fab8357` |
+| Firebase project | `nasdoor-c56bd` |
+| Android package | `ba.nastech.ai` |
+| iOS bundle | `ai.nastech.ba` |
+| GitHub repo | `nastech-ai/NasDoor` |
+
+---
+
+## Required secrets
+
+| Secret | Purpose |
+|---|---|
+| `EXPO_TOKEN` | EAS authentication |
+| `GITHUB_PERSONAL_ACCESS_TOKEN` | CI pushes + repo metadata bot |
+| `ELEVENLABS_AGENT_ID` | Voice AI *(optional)* |
+| `LIVEKIT_URL` | LiveKit voice server *(optional)* |
+
+---
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT — © 2026 NasTech AI. See [LICENSE](LICENSE).

@@ -1,75 +1,86 @@
 # NasTech App
 
-A React Native / Expo mobile application for interacting with a self-hosted **NasTech Agent** backend.
-Built on top of the open-source the original open-source app project, fully rebranded and wired to the NasTech system.
+React Native (Expo 55) mobile client for the NasTech AI platform.
 
 ## Architecture
 
 | Layer | Description |
-|-------|-------------|
-| **Mobile UI** | React Native + Expo (iOS / Android / macOS via Tauri) |
-| **API bridge** | `sources/sync/nastechApi.ts` — REST + WebSocket client |
-| **Wire types** | `sources/wire/index.ts` → NasTech-owned schemas in `sources/nastech-wire/` |
+|---|---|
+| **Mobile UI** | React Native + Expo Router (iOS / Android) |
+| **API bridge** | `sources/sync/nastechApi.ts` — REST + WebSocket |
+| **Daemon bridge** | `sources/daemon/` — Android-only native module |
 | **Server config** | `sources/sync/serverConfig.ts` — default `http://127.0.0.1:9119` |
 | **Auth** | Bearer token via `Authorization: Bearer <session-token>` |
 
-## Wiring to NasTech Backend
+## Platform behaviour
 
-The app connects to the NasTech Agent dashboard backend (`nastech_cli/web_server.py`):
+### Android
+- App starts the NasTech Python daemon as a foreground service on boot
+- Termux bootstrap (aarch64 / arm) extracted to internal storage on first run
+- Python agent installed from bundled `nastech-agent.zip`
+- Daemon auto-restarts if it crashes
+
+### iOS
+- No Python daemon — connects to a remote NasTech server instead
+- Server URL configured via **Settings → Server Configuration**
+
+## Backend API contract
 
 ```
-NasTech App ──HTTP/WS──► http://127.0.0.1:9119
-                          ├── GET  /api/status          (server probe)
-                          ├── GET  /api/sessions         (session list)
-                          ├── GET  /api/sessions/:id/messages
-                          ├── DELETE /api/sessions/:id
-                          └── WS   /api/events?channel=… (real-time)
+NasTech App ──HTTP/WS──► http://127.0.0.1:9119  (Android local)
+                          ──HTTP/WS──► https://<your-server>:9119  (iOS remote)
+
+GET  /api/status              → server health + version
+GET  /api/sessions            → session list
+GET  /api/sessions/:id/messages
+DELETE /api/sessions/:id
+WS   /api/events?channel=…   → real-time event stream
 ```
 
-### Auth modes
-- **Insecure** (local): `python3 -m nastech_cli.main dashboard --insecure` — no token required
-- **Secure**: pass `Authorization: Bearer <session-token>` — set the token in-app via Settings → Server
-
-## Getting Started
+## Local dev
 
 ```bash
-cd NasTech
 pnpm install
-pnpm start            # Expo dev server
-pnpm ios              # Run on iOS simulator
-pnpm android          # Run on Android emulator
-pnpm web              # Run in browser
+pnpm expo start
+
+# Android with daemon
+pnpm expo run:android
+
+# iOS (simulator)
+pnpm expo run:ios
 ```
 
-Set the server URL (defaults to `http://127.0.0.1:9119`):
-- In-app: Settings → Server
-- Env: `EXPO_PUBLIC_NASTECH_SERVER_URL=http://your-server:9119`
+## EAS builds
 
-## Key Source Files
+```bash
+# Android APK
+eas build --platform android --profile preview
+
+# iOS
+eas build --platform ios --profile preview
+
+# OTA update
+eas update --channel preview --message "..."
+```
+
+## Colour themes
+
+14 themes in 5 families — see `sources/theme.ts`.  
+Default: **Super AMOLED Black**.
+
+## Key files
 
 | File | Purpose |
-|------|---------|
-| `sources/sync/nastechApi.ts` | NasTech REST + WebSocket API client |
-| `sources/sync/serverConfig.ts` | Server URL + log URL storage |
-| `sources/wire/index.ts` | Wire type re-exports |
-| `sources/hooks/useNasTechAction.ts` | Error-handling async action hook |
-| `sources/sync/apiSocket.ts` | Real-time socket connection |
-| `sources/utils/errors.ts` | NasTechError type |
+|---|---|
+| `app.config.js` | Dynamic EAS config (bundle IDs, permissions, plugins) |
+| `eas.json` | EAS build profiles |
+| `eas-build-pre-install.sh` | Pre-build script (images, Termux bootstrap, agent zip) |
+| `plugins/withTermuxDaemon.js` | Android-only Expo config plugin |
+| `sources/daemon/` | TypeScript daemon bridge (Android only) |
+| `sources/app/(app)/server.tsx` | iOS server configuration screen |
+| `sources/theme.ts` | All 14 colour themes |
+| `sources/unistyles.ts` | Theme registration + `THEME_NAMES` export |
 
-## App Config
+## License
 
-| Variant | Bundle ID | Name |
-|---------|-----------|------|
-| development | `com.nastech.app.dev` | NasTech (dev) |
-| preview | `com.nastech.app.preview` | NasTech (preview) |
-| production | `com.nastech.app` | NasTech |
-
-## Notes
-
-- Encryption key derivation strings (the upstream crypto salts, etc.) in
-  `sources/sync/encryption/` are **intentionally left unchanged** — they are
-  cryptographic key derivation salts and must remain stable to avoid breaking
-  decryption of existing data.
-- Wire protocol schemas are fully owned in `sources/nastech-wire/` with no external wire dependency.
-- Test fixture data in `sources/sync/__testdata__/` may still reference original
-  paths — these are static replay traces and do not affect runtime behavior.
+MIT — © 2026 NasTech AI

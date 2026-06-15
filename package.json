@@ -1,13 +1,15 @@
 {
-    "name": "nastech-monorepo",
+    "name": "nasdoor",
+    "description": "NasDoor — self-contained Android AI assistant powered by NasTech Agent",
+    "author": "NasTech AI <hello@nastech.ai>",
+    "homepage": "https://github.com/nastech-ai/NasDoor",
     "private": true,
     "scripts": {
         "app": "pnpm --filter nastech-app web",
         "app:android": "pnpm --filter nastech-app android",
         "app:ios": "pnpm --filter nastech-app ios",
         "daemon:start": "cd nastech-agent && python3 -m nastech_cli.main",
-        "daemon:install": "cd nastech-agent && bash install.sh",
-        "postinstall": "node ./scripts/postinstall.cjs"
+        "daemon:install": "cd nastech-agent && bash install.sh"
     },
     "workspaces": {
         "packages": [

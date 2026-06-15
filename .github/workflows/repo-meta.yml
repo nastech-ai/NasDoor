@@ -1,0 +1,68 @@
+name: Repo Metadata Bot
+
+# Keeps the GitHub repository description, topics, and homepage in sync
+# with the canonical values defined here.
+# Runs automatically on every push to main, and on a weekly schedule.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repo-meta.yml'
+  schedule:
+    - cron: '0 6 * * 1'   # every Monday 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update-repo-meta:
+    name: Sync GitHub repo metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Update description, homepage and topics
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          REPO="nastech-ai/NasDoor"
+          DESCRIPTION="Self-contained Android AI assistant. NasTech Agent (Python daemon) + Expo 55 app in one APK — no cloud required."
+          HOMEPAGE="https://github.com/nastech-ai/NasDoor"
+          TOPICS='["ai","android","expo","react-native","python","on-device-ai","termux","nastech","nasdoor","amoled"]'
+
+          # Update description + homepage
+          curl -s -X PATCH \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPO" \
+            -d "{\"description\":\"$DESCRIPTION\",\"homepage\":\"$HOMEPAGE\"}" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print('✓ description:', d.get('description','?'))"
+
+          # Replace topics
+          curl -s -X PUT \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPO/topics" \
+            -d "{\"names\":$TOPICS}" \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print('✓ topics:', d.get('names','?'))"
+
+      - name: Verify social preview metadata
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          RESULT=$(curl -s \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/nastech-ai/NasDoor" \
+            | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print('Repo    :', d['full_name'])
+          print('Desc    :', d['description'])
+          print('Topics  :', d.get('topics', []))
+          print('Homepage:', d.get('homepage', ''))
+          print('Stars   :', d['stargazers_count'])
+          print('Language:', d.get('language', 'n/a'))
+          ")
+          echo "$RESULT"
