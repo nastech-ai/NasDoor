@@ -73,6 +73,16 @@ jobs:
           BUNDLE_TERMUX_BOOTSTRAP: '0'
         run: bash eas-build-pre-install.sh
 
+      - name: EAS Auth check
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+          echo "=== eas whoami ==="
+          eas whoami || true
+          echo "=== eas project:info ==="
+          eas project:info --non-interactive 2>&1 || true
+
       - name: EAS Build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
