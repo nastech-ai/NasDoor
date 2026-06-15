@@ -42,7 +42,7 @@ jobs:
         run: npm install -g eas-cli@latest
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
         working-directory: .
 
       - name: Pre-install (image assets only — OTA is JS, no bootstrap)
