@@ -26,14 +26,6 @@ on:
           - ios
           - all
 
-env:
-  # Bypass Replit's local package firewall — use public npm registry directly
-  npm_config_registry: https://registry.npmjs.org/
-  PNPM_CONFIG_REGISTRY: https://registry.npmjs.org/
-  NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
-  # Use Node.js 24 for actions to avoid deprecation warnings
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     name: EAS Build (${{ github.event.inputs.platform || 'android' }} / ${{ github.event.inputs.profile || 'preview' }})
@@ -49,31 +41,32 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Setup tools
+      - name: Setup tools & registry
         run: |
           export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
           node --version
           pnpm --version || npm install -g pnpm@10.11.0
           eas --version || npm install -g eas-cli
-          # Override registry in case pnpm config picks up Replit proxy
-          pnpm config set registry https://registry.npmjs.org/ --global || true
-
-      - name: Install dependencies
-        env:
-          npm_config_registry: https://registry.npmjs.org/
-        run: |
-          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
-          pnpm install --no-frozen-lockfile --registry https://registry.npmjs.org/
+          # Write .npmrc to bypass Replit package-firewall proxy
+          echo "registry=https://registry.npmjs.org/" > "$HOME/.npmrc"
+          pnpm config set registry https://registry.npmjs.org/ --global 2>/dev/null || true
+          echo "Registry set to: $(pnpm config get registry 2>/dev/null || npm config get registry)"
         working-directory: .
 
-      - name: Pre-install — Android assets
+      - name: Install dependencies
+        run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+          pnpm install --no-frozen-lockfile
+        working-directory: .
+
+      - name: Pre-install Android assets
         if: ${{ github.event.inputs.platform != 'ios' }}
         env:
           EAS_BUILD_PLATFORM: android
           BUNDLE_TERMUX_BOOTSTRAP: '1'
         run: bash eas-build-pre-install.sh
 
-      - name: Pre-install — iOS assets only
+      - name: Pre-install iOS assets
         if: ${{ github.event.inputs.platform == 'ios' }}
         env:
           EAS_BUILD_PLATFORM: ios
