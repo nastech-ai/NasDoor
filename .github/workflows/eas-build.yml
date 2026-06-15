@@ -29,7 +29,8 @@ on:
 jobs:
   build:
     name: EAS Build (${{ github.event.inputs.platform || 'android' }} / ${{ github.event.inputs.profile || 'preview' }})
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, replit]
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: packages/nastech-app
@@ -40,47 +41,41 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: '10.11.0'
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'pnpm'
-
-      - name: Install EAS CLI
-        run: npm install -g eas-cli@latest
+      - name: Setup tools
+        run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+          node --version
+          pnpm --version || npm install -g pnpm@10.11.0
+          eas --version || npm install -g eas-cli
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+          pnpm install --no-frozen-lockfile
         working-directory: .
 
-      # Android pre-install: download Termux bootstrap + package Python agent
-      - name: Pre-install (Android assets)
+      - name: Pre-install — Android assets
         if: ${{ github.event.inputs.platform != 'ios' }}
         env:
           EAS_BUILD_PLATFORM: android
           BUNDLE_TERMUX_BOOTSTRAP: '1'
         run: bash eas-build-pre-install.sh
 
-      # iOS pre-install: image assets only (no Python/bootstrap)
-      - name: Pre-install (iOS assets only)
+      - name: Pre-install — iOS assets only
         if: ${{ github.event.inputs.platform == 'ios' }}
         env:
           EAS_BUILD_PLATFORM: ios
           BUNDLE_TERMUX_BOOTSTRAP: '0'
         run: bash eas-build-pre-install.sh
 
-      - name: Build
+      - name: EAS Build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           APP_ENV: ${{ github.event.inputs.profile == 'production' && 'production' || 'preview' }}
           EXPO_PUBLIC_ELEVENLABS_AGENT_ID: ${{ secrets.ELEVENLABS_AGENT_ID }}
           EXPO_PUBLIC_LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
         run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
           PROFILE="${{ github.event.inputs.profile || 'preview' }}"
           PLATFORM="${{ github.event.inputs.platform || 'android' }}"
           eas build \
