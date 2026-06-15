@@ -1,0 +1,52 @@
+{
+  "cli": {
+    "version": ">= 14.2.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "autoIncrement": true,
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "env": {
+        "APP_ENV": "development",
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
+        "BUNDLE_TERMUX_BOOTSTRAP": "1"
+      }
+    },
+    "preview": {
+      "autoIncrement": true,
+      "distribution": "internal",
+      "channel": "preview",
+      "credentialsSource": "remote",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_ENV": "preview",
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
+        "BUNDLE_TERMUX_BOOTSTRAP": "1"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "APP_ENV": "production",
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
+        "BUNDLE_TERMUX_BOOTSTRAP": "1"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "internal"
+      }
+    }
+  }
+}

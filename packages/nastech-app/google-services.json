@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "797592559366",
+    "project_id": "nastechtestn",
+    "storage_bucket": "nastechtestn.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:797592559366:android:7a4e23962777857f810887",
+        "android_client_info": {
+          "package_name": "ai.nastech.ba"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAD7mW_k5mQwdIDBwmvC4WL_lfFgI2J7TE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:797592559366:android:05e04053190ad21f810887",
+        "android_client_info": {
+          "package_name": "ai.nastech.ba.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAD7mW_k5mQwdIDBwmvC4WL_lfFgI2J7TE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:797592559366:android:b509c86b5872233f810887",
+        "android_client_info": {
+          "package_name": "ai.nastech.ba.preview"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAD7mW_k5mQwdIDBwmvC4WL_lfFgI2J7TE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

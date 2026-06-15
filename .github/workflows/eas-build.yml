@@ -1,0 +1,78 @@
+name: EAS Build
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'EAS build profile'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+      platform:
+        description: 'Target platform'
+        required: true
+        default: 'android'
+        type: choice
+        options:
+          - android
+          - ios
+          - all
+
+jobs:
+  build:
+    name: EAS Build (${{ github.event.inputs.profile || 'preview' }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/nastech-app
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.11.0'
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli@latest
+
+      - name: Run pre-install (download bootstrap, package agent)
+        env:
+          BUNDLE_TERMUX_BOOTSTRAP: '1'
+        run: bash eas-build-pre-install.sh
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+
+      - name: Build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_OWNER: nastechai
+          APP_ENV: ${{ github.event.inputs.profile == 'production' && 'production' || 'preview' }}
+          BUNDLE_TERMUX_BOOTSTRAP: '1'
+          EXPO_PUBLIC_ELEVENLABS_AGENT_ID: ${{ secrets.ELEVENLABS_AGENT_ID }}
+          EXPO_PUBLIC_LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+        run: |
+          PROFILE="${{ github.event.inputs.profile || 'preview' }}"
+          PLATFORM="${{ github.event.inputs.platform || 'android' }}"
+          eas build \
+            --profile "$PROFILE" \
+            --platform "$PLATFORM" \
+            --non-interactive \
+            --no-wait

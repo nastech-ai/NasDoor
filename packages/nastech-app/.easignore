@@ -1,0 +1,12 @@
+node_modules/
+.node_modules_bak/
+android/
+ios/
+.git/
+*.keystore
+credentials.json
+__tests__/
+coverage/
+.expo/
+dist/
+build/

@@ -1,5 +1,3 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
 node_modules/
 
@@ -8,8 +6,12 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+
+# Native (generated — regenerate with `expo prebuild`)
 /ios
 /android
+/packages/nastech-app/ios
+/packages/nastech-app/android
 /packages/happy-app/ios
 /packages/happy-app/android
 
@@ -34,7 +36,7 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# env files
 .env*.local
 .env
 .env.production
@@ -42,37 +44,42 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# IDE / agent config
 .claude/settings.local.json
 .claude/*.lock
 .claude/worktrees/
 .plan
-
 CLAUDE.local.md
-CLAUDE.md
-.claude/CLAUDE.md
 
+# Developer working dirs
 .dev/worktree/*
-
-# Local dev environments
 .environments/
 environments/data/
-
-# Development planning notes (keep local, don't commit)
 notes/
 docs/notes/
-# ralphex progress logs
 progress*.txt
-
-# OpenCode trace output (script is committed, output is not)
 docs/competition/opencode/traces/
-
-# scratch tooling
 .cdp-scripts/
 happy-workspaces/
-
-# local HAPPY_HOME_DIR for self-host testing
 .happy-fully-local/
 .happy-dev/
-
-# third party tools
 .supervibe/
+
+# NasTech build artifacts (downloaded at build time, not committed)
+packages/nastech-app/assets/bootstrap/*.zip
+packages/nastech-app/assets/nastech-agent.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+.uv/
+
+# NasTech agent runtime data
+nastech-agent/.nastech/
+nastech-agent/__pycache__/
+nastech-agent/*.egg-info/

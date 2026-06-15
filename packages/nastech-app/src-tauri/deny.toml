@@ -1,0 +1,53 @@
+[graph]
+targets = []
+
+[advisories]
+ignore = [
+    # gtk 0.18.2 — RUSTSEC-2024-0411: unmaintained GTK3 Rust bindings.
+    # These are the FINAL versions published. Tauri 2 on Linux requires GTK3.
+    # No newer version exists. Accepted: Linux-only, no data exposure.
+    { id = "RUSTSEC-2024-0411", reason = "gtk 0.18.x is the last GTK3 release; Tauri 2 Linux backend has no alternative" },
+
+    # atk 0.18.2 — unmaintained ATK accessibility bindings (GTK3 dependency).
+    { id = "RUSTSEC-2024-0412", reason = "atk 0.18.x is the last release; required by gtk 0.18.x via Tauri 2" },
+
+    # glib 0.18.x — unmaintained, final version of GTK3 GLib bindings.
+    { id = "RUSTSEC-2024-0413", reason = "glib 0.18.x is final; required by GTK3 stack via Tauri 2" },
+
+    # gdk 0.18.x — unmaintained GDK3 bindings.
+    { id = "RUSTSEC-2024-0416", reason = "gdk 0.18.x is final; required by GTK3 stack via Tauri 2" },
+
+    # proc-macro-error 1.0.4 — RUSTSEC-2024-0370: unmaintained.
+    # Pulled in by gtk3-macros → glib-macros → glib → Tauri. No replacement.
+    { id = "RUSTSEC-2024-0370", reason = "proc-macro-error pulled transitively by glib-macros/gtk3-macros; no drop-in replacement" },
+
+    # fxhash 0.2.1 — RUSTSEC-2024-0366: unmaintained, only ever one version.
+    # Pulled in by selectors (CSS parser used by webkit2gtk in Tauri 2).
+    { id = "RUSTSEC-2024-0366", reason = "fxhash 0.2.1 is the only version ever published; pulled by selectors/webkit2gtk" },
+]
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "MPL-2.0",
+    "CC0-1.0",
+    "Zlib",
+    "OpenSSL",
+]
+exceptions = []
+unused-allowed-license = "allow"
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+deny = []
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"

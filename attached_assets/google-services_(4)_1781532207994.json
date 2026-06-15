@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "786558604430",
+    "project_id": "nasdoor-c56bd",
+    "storage_bucket": "nasdoor-c56bd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:786558604430:android:07906ba21f85dc829365df",
+        "android_client_info": {
+          "package_name": "ba.nastech.ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBi9TB67dZ0WpxSiAqro6X1nHTCjTPXE9g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
