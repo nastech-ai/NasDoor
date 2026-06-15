@@ -26,6 +26,14 @@ on:
           - ios
           - all
 
+env:
+  # Bypass Replit's local package firewall — use public npm registry directly
+  npm_config_registry: https://registry.npmjs.org/
+  PNPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+  NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
+  # Use Node.js 24 for actions to avoid deprecation warnings
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: EAS Build (${{ github.event.inputs.platform || 'android' }} / ${{ github.event.inputs.profile || 'preview' }})
@@ -47,11 +55,15 @@ jobs:
           node --version
           pnpm --version || npm install -g pnpm@10.11.0
           eas --version || npm install -g eas-cli
+          # Override registry in case pnpm config picks up Replit proxy
+          pnpm config set registry https://registry.npmjs.org/ --global || true
 
       - name: Install dependencies
+        env:
+          npm_config_registry: https://registry.npmjs.org/
         run: |
           export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
-          pnpm install --no-frozen-lockfile
+          pnpm install --no-frozen-lockfile --registry https://registry.npmjs.org/
         working-directory: .
 
       - name: Pre-install — Android assets
