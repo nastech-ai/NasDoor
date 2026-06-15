@@ -17,24 +17,26 @@ jobs:
     name: TypeScript — nastech-app
     runs-on: [self-hosted, replit]
     timeout-minutes: 15
+    env:
+      npm_config_registry: https://registry.npmjs.org/
+      NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Setup tools & registry
+      - name: Setup tools
         run: |
           export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
           node --version
-          pnpm --version || npm install -g pnpm@10.11.0
+          pnpm --version || npm install -g pnpm@10.11.0 --registry https://registry.npmjs.org/
           echo "registry=https://registry.npmjs.org/" > "$HOME/.npmrc"
-          pnpm config set registry https://registry.npmjs.org/ --global 2>/dev/null || true
 
       - name: Install dependencies
         run: |
           export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
-          pnpm install --no-frozen-lockfile
+          pnpm install --no-frozen-lockfile --registry https://registry.npmjs.org/
 
       - name: TypeScript typecheck
         run: |
