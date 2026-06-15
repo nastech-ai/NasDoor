@@ -11,6 +11,9 @@ on:
       - 'nastech-agent/**'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   agent-smoke-test:
     name: Python daemon — install + import check
@@ -28,7 +31,7 @@ jobs:
       - name: Install nastech-agent
         run: |
           cd nastech-agent
-          pip3 install -e ".[dev]" --quiet
+          python3 -m pip install -e ".[dev]" --quiet
 
       - name: Smoke test — CLI responds to --help
         run: |
