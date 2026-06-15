@@ -207,6 +207,9 @@ export const pl: TranslationStructure = {
         },
         showFlavorIcons: 'Pokaż ikony dostawcy AI',
         showFlavorIconsDescription: 'Wyświetlaj ikony dostawcy AI na awatarach sesji',
+        zenMode: 'Tryb Zen',
+        zenModeDescription: 'Ukryj elementy interfejsu dla skupionego doświadczenia',
+        zenModeDetail: 'Skonfiguruj które elementy ukryć',
     },
 
     settingsFeatures: {

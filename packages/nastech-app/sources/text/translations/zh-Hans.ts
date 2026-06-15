@@ -191,6 +191,9 @@ export const zhHans: TranslationStructure = {
         },
         showFlavorIcons: '显示 AI 提供商图标',
         showFlavorIconsDescription: '在会话头像上显示 AI 提供商图标',
+        zenMode: '禅模式',
+        zenModeDescription: '隐藏界面元素以获得专注体验',
+        zenModeDetail: '配置要隐藏的元素',
     },
 
     settingsFeatures: {

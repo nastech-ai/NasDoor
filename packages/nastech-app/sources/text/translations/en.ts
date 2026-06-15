@@ -204,6 +204,9 @@ export const en: TranslationStructure = {
         },
         showFlavorIcons: 'Show AI Provider Icons',
         showFlavorIconsDescription: 'Display AI provider icons on session avatars',
+        zenMode: 'Zen Mode',
+        zenModeDescription: 'Hide UI chrome for a distraction-free experience',
+        zenModeDetail: 'Configure which elements to hide',
     },
 
     settingsFeatures: {

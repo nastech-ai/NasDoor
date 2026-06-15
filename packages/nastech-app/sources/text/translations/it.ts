@@ -188,6 +188,9 @@ export const it: TranslationStructure = {
         },
         showFlavorIcons: 'Mostra icone provider IA',
         showFlavorIconsDescription: 'Mostra le icone del provider IA sugli avatar di sessione',
+        zenMode: 'Modalità Zen',
+        zenModeDescription: 'Nascondi elementi UI per un'esperienza senza distrazioni',
+        zenModeDetail: 'Configura quali elementi nascondere',
     },
 
     settingsFeatures: {

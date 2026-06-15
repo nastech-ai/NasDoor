@@ -190,6 +190,9 @@ export const zhHant: TranslationStructure = {
         },
         showFlavorIcons: '顯示 AI 提供者圖示',
         showFlavorIconsDescription: '在工作階段頭像上顯示 AI 提供者圖示',
+        zenMode: '禪模式',
+        zenModeDescription: '隱藏介面元素以獲得專注體驗',
+        zenModeDetail: '設定要隱藏的元素',
     },
 
     settingsFeatures: {

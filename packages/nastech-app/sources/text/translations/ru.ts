@@ -176,6 +176,9 @@ export const ru: TranslationStructure = {
         },
         showFlavorIcons: 'Показывать иконки провайдеров ИИ',
         showFlavorIconsDescription: 'Отображать иконки провайдеров ИИ на аватарах сессий',
+        zenMode: 'Режим Дзен',
+        zenModeDescription: 'Скрыть элементы интерфейса для сосредоточенной работы',
+        zenModeDetail: 'Настроить какие элементы скрыть',
     },
 
     settingsFeatures: {

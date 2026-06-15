@@ -191,6 +191,9 @@ export const ja: TranslationStructure = {
         },
         showFlavorIcons: 'AIプロバイダーアイコンを表示',
         showFlavorIconsDescription: 'セッションアバターにAIプロバイダーアイコンを表示',
+        zenMode: '禅モード',
+        zenModeDescription: 'UI要素を非表示にして集中できる環境を作る',
+        zenModeDetail: '非表示にする要素を設定',
     },
 
     settingsFeatures: {

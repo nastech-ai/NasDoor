@@ -190,6 +190,9 @@ export const ca: TranslationStructure = {
         },
         showFlavorIcons: "Mostrar icones de proveïdors d'IA",
         showFlavorIconsDescription: "Mostrar icones del proveïdor d'IA als avatars de sessió",
+        zenMode: 'Mode Zen',
+        zenModeDescription: 'Amaga elements de la interfície per a una experiència sense distraccions',
+        zenModeDetail: 'Configura quins elements amagar',
     },
 
     settingsFeatures: {

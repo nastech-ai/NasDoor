@@ -189,6 +189,9 @@ export const pt: TranslationStructure = {
         },
         showFlavorIcons: 'Mostrar ícones de provedores de IA',
         showFlavorIconsDescription: 'Exibir ícones do provedor de IA nos avatares de sessão',
+        zenMode: 'Modo Zen',
+        zenModeDescription: 'Ocultar elementos da interface para uma experiência sem distrações',
+        zenModeDetail: 'Configurar quais elementos ocultar',
     },
 
     settingsFeatures: {
