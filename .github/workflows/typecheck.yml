@@ -15,7 +15,7 @@ on:
 jobs:
   typecheck:
     name: TypeScript — nastech-app
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, replit]
     timeout-minutes: 15
 
     steps:
@@ -23,18 +23,18 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: '10.11.0'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'pnpm'
-          cache-dependency-path: pnpm-lock.yaml
+      - name: Setup tools
+        run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+          node --version
+          pnpm --version || npm install -g pnpm@10.11.0
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+          pnpm install --no-frozen-lockfile
 
       - name: TypeScript typecheck
-        run: pnpm --filter nastech-app typecheck
+        run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+          pnpm --filter nastech-app typecheck
