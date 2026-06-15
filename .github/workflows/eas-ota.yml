@@ -19,7 +19,8 @@ on:
 jobs:
   ota:
     name: OTA → ${{ github.event.inputs.channel || 'preview' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, replit]
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: packages/nastech-app
@@ -29,23 +30,20 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: '10.11.0'
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'pnpm'
-
-      - name: Install EAS CLI
-        run: npm install -g eas-cli@latest
+      - name: Setup tools
+        run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+          node --version
+          pnpm --version || npm install -g pnpm@10.11.0
+          eas --version || npm install -g eas-cli
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+          pnpm install --no-frozen-lockfile
         working-directory: .
 
-      - name: Pre-install (image assets only — OTA is JS, no bootstrap)
+      - name: Pre-install (image assets only)
         env:
           EAS_BUILD_PLATFORM: ios
           BUNDLE_TERMUX_BOOTSTRAP: '0'
@@ -58,6 +56,7 @@ jobs:
           EXPO_PUBLIC_ELEVENLABS_AGENT_ID: ${{ secrets.ELEVENLABS_AGENT_ID }}
           EXPO_PUBLIC_LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
         run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
           CHANNEL="${{ github.event.inputs.channel || 'preview' }}"
           MSG="${{ github.event.inputs.message || format('OTA {0}', github.sha) }}"
           eas update \
