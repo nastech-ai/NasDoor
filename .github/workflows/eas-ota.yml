@@ -46,9 +46,6 @@ jobs:
           export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
           pnpm install --no-frozen-lockfile --registry https://registry.npmjs.org/
         working-directory: .
-        env:
-          npm_config_registry: https://registry.npmjs.org/
-          NPM_CONFIG_REGISTRY: https://registry.npmjs.org/
 
       - name: Pre-install assets
         env:
