@@ -1,0 +1,3 @@
+- [NasDoor build config](nasdoor-build-config.md) — platform IDs, EAS owner, Firebase project, Android vs iOS package names differ
+- [NasDoor daemon iOS rule](nasdoor-ios-rule.md) — Python daemon is Android-only; all daemon code guards on Platform.OS !== 'android'
+- [NasDoor git push](nasdoor-git-push.md) — remote set-url is blocked; use inline URL with GITHUB_PERSONAL_ACCESS_TOKEN to push

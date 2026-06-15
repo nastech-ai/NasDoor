@@ -152,6 +152,14 @@ export default function RootLayout() {
                 }}
             />
             <Stack.Screen
+                name="server"
+                options={{
+                    headerShown: true,
+                    headerTitle: t('server.serverConfiguration'),
+                    headerBackTitle: t('common.back'),
+                }}
+            />
+            <Stack.Screen
                 name="changelog"
                 options={{
                     headerShown: true,

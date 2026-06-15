@@ -6,11 +6,21 @@ const name = {
     preview: "NasTech (preview)",
     production: "NasTech"
 }[variant];
-const bundleId = {
+
+// iOS bundle identifier (matches GoogleService-Info.plist BUNDLE_ID)
+const iosBundleId = {
     development: "ai.nastech.ba.dev",
     preview: "ai.nastech.ba.preview",
     production: "ai.nastech.ba"
 }[variant];
+
+// Android package name (matches google-services.json package_name)
+const androidPackage = {
+    development: "ba.nastech.ai.dev",
+    preview: "ba.nastech.ai.preview",
+    production: "ba.nastech.ai"
+}[variant];
+
 const elevenLabsAgentId = process.env.EXPO_PUBLIC_ELEVENLABS_AGENT_ID || null;
 const livekitUrl = process.env.EXPO_PUBLIC_LIVEKIT_URL || null;
 const consoleLoggingDefault = {
@@ -60,7 +70,7 @@ module.exports = {
         userInterfaceStyle: "automatic",
         ios: {
             supportsTablet: true,
-            bundleIdentifier: bundleId,
+            bundleIdentifier: iosBundleId,
             googleServicesFile: "./GoogleService-Info.plist",
             config: { usesNonExemptEncryption: false },
             infoPlist: {
@@ -98,7 +108,7 @@ module.exports = {
                 "android.permission.READ_MEDIA_IMAGES",
                 "android.permission.READ_MEDIA_VIDEO",
             ],
-            package: bundleId,
+            package: androidPackage,
             googleServicesFile: "./google-services.json",
         },
         web: {
