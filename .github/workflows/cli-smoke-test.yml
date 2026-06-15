@@ -14,7 +14,7 @@ on:
 jobs:
   agent-smoke-test:
     name: Python daemon — install + import check
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, replit]
     timeout-minutes: 10
 
     steps:
@@ -22,14 +22,13 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Check Python version
+        run: python3 --version
 
       - name: Install nastech-agent
         run: |
           cd nastech-agent
-          pip install -e ".[dev]" --quiet
+          pip3 install -e ".[dev]" --quiet
 
       - name: Smoke test — CLI responds to --help
         run: |
