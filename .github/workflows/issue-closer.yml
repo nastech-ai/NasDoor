@@ -1,0 +1,104 @@
+# Issue Closer Bot — auto-close stale issues across all 20 categories
+# Based on: actions/stale@v9
+name: Issue Closer
+
+on:
+  schedule:
+    - cron: '30 1 * * *'   # 01:30 UTC daily
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Mark and close stale issues
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # ── Stale timing ──
+          days-before-stale: 30
+          days-before-close: 7
+          days-before-pr-stale: 45
+          days-before-pr-close: 14
+
+          # ── Messages ──
+          stale-issue-message: |
+            👋 This issue has been inactive for **30 days**.
+            It will be closed in 7 days if there is no activity.
+            - To keep it open: leave a comment or remove the `wontfix` label.
+            - To escalate: use `/priority critical` or `/priority high`.
+          close-issue-message: |
+            🔒 Closed due to 37 days of inactivity.
+            Re-open anytime if this is still relevant.
+          stale-pr-message: |
+            ⏰ This PR has been inactive for **45 days** and is marked stale.
+            It will be closed in 14 days without activity.
+          close-pr-message: |
+            🔒 Closing this stale PR after 59 days of inactivity.
+            Re-open if you want to continue this work.
+
+          # ── Labels ──
+          stale-issue-label: 'wontfix'
+          stale-pr-label: 'wontfix'
+
+          # ── Never stale these ──
+          exempt-issue-labels: >
+            priority: critical,
+            priority: high,
+            status: in-progress,
+            status: blocked,
+            type: security,
+            help wanted
+          exempt-pr-labels: >
+            priority: critical,
+            priority: high,
+            status: in-progress,
+            type: security
+
+          # ── Only stale bugs and questions, not feature requests awaiting roadmap ──
+          any-of-labels: >
+            type: bug,
+            type: question,
+            type: chore,
+            status: triage,
+            needs: more-info
+
+  auto-close-needs-info:
+    name: Close issues needing info for 14 days
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const cutoff = new Date(Date.now() - 14 * 86400000);
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              state: 'open',
+              labels: 'needs: more-info',
+              per_page: 50,
+            });
+            for (const issue of issues) {
+              if (new Date(issue.updated_at) < cutoff) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo:  context.repo.repo,
+                  issue_number: issue.number,
+                  body: '🔒 Closing: no additional info provided within 14 days. Re-open if you can provide the requested details.',
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo:  context.repo.repo,
+                  issue_number: issue.number,
+                  state: 'closed',
+                  state_reason: 'not_planned',
+                });
+                console.log(`Closed #${issue.number}`);
+              }
+            }
