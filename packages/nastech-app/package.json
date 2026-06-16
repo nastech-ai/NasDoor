@@ -80,7 +80,7 @@
     "@more-tech/react-native-libsodium": "^1.5.6",
     "@paralleldrive/cuid2": "^2.3.1",
     "@peoplesgrocers/seti-ui-file-icons": "1.11.3",
-    "@pierre/diffs": "^1.2.10",
+    "@pierre/diffs": "^1.2.11",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.6.0",
     "@react-native-community/slider": "5.1.2",
