@@ -1,0 +1,198 @@
+# Issue Triage Bot — auto-labels + routes all 20 categories
+# Based on: probot/probot + actions/github-script
+name: Issue Triage Bot
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  triage:
+    name: Auto-triage issue
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto-label by template + content
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { issue, comment } = context.payload;
+            const target = issue || comment?.issue_url;
+            if (!issue) return;
+
+            const body  = (issue.body  || '').toLowerCase();
+            const title = (issue.title || '').toLowerCase();
+            const text  = title + ' ' + body;
+            const labels = new Set(issue.labels.map(l => l.name));
+
+            // ── STATUS: always add triage if no status yet ──
+            const hasStatus = [...labels].some(l => l.startsWith('status:'));
+            if (!hasStatus) labels.add('status: triage');
+
+            // ── TYPE detection ──
+            const typeMap = [
+              ['type: security',    /\b(cve|vuln|exploit|securi|inject|xss|csrf|rce|lfi|sqli)\b/],
+              ['type: performance', /\b(slow|lag|hang|freeze|memory leak|battery|cpu|perf|latency|oom)\b/],
+              ['type: bug',         /\b(bug|broken|crash|error|exception|fail|not work|doesn.t work|regress)\b/],
+              ['type: feature',     /\b(feature|request|add|suggest|enhancement|improve|wish|want)\b/],
+              ['type: docs',        /\b(doc|readme|typo|spelling|wiki|guide|tutorial)\b/],
+              ['type: chore',       /\b(refactor|clean|lint|format|deprecat|remove|chore)\b/],
+            ];
+            const hasType = [...labels].some(l => l.startsWith('type:'));
+            if (!hasType) {
+              for (const [label, re] of typeMap) {
+                if (re.test(text)) { labels.add(label); break; }
+              }
+            }
+
+            // ── SCOPE detection ──
+            const scopeMap = [
+              ['scope: android', /\b(android|apk|termux|daemon|proot|eas.android)\b/],
+              ['scope: ios',     /\b(ios|iphone|ipad|apple|testflight|eas.ios)\b/],
+              ['scope: daemon',  /\b(daemon|agent|python|nastech.agent|port 9119|web.server)\b/],
+              ['scope: app',     /\b(app|ui|screen|navigation|expo|react.native|mobile)\b/],
+              ['scope: ci',      /\b(ci|workflow|action|pipeline|deploy|eas.build|build)\b/],
+              ['scope: deps',    /\b(depend|package|npm|pnpm|pip|renovate|dependabot|version)\b/],
+            ];
+            const hasScope = [...labels].some(l => l.startsWith('scope:'));
+            if (!hasScope) {
+              for (const [label, re] of scopeMap) {
+                if (re.test(text)) { labels.add(label); break; }
+              }
+            }
+
+            // ── PRIORITY detection ──
+            const priorityMap = [
+              ['priority: critical', /\b(critical|urgent|production.down|p0|hotfix|immediate)\b/],
+              ['priority: high',     /\b(high|important|asap|blocking|p1)\b/],
+              ['priority: medium',   /\b(medium|moderate|normal|p2)\b/],
+              ['priority: low',      /\b(low|minor|nice.to.have|p3|trivial)\b/],
+            ];
+            const hasPriority = [...labels].some(l => l.startsWith('priority:'));
+            if (!hasPriority) {
+              let matched = false;
+              for (const [label, re] of priorityMap) {
+                if (re.test(text)) { labels.add(label); matched = true; break; }
+              }
+              if (!matched) labels.add('priority: medium');
+            }
+
+            // ── Apply all labels ──
+            const toAdd = [...labels].filter(l => !issue.labels.map(x=>x.name).includes(l));
+            if (toAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issue.number,
+                labels: toAdd,
+              });
+              console.log('Added labels:', toAdd.join(', '));
+            }
+
+            // ── Welcome comment on new issues ──
+            if (context.payload.action === 'opened') {
+              const scopeLabel  = [...labels].find(l => l.startsWith('scope:'))  || '';
+              const typeLabel   = [...labels].find(l => l.startsWith('type:'))   || '';
+              const priLabel    = [...labels].find(l => l.startsWith('priority:'))|| '';
+
+              const routingMap = {
+                'scope: android': '🤖 **Android / Termux daemon** — an Android engineer will pick this up.',
+                'scope: ios':     '🍎 **iOS** — connect-to-server screen issues go here.',
+                'scope: daemon':  '🐍 **Python daemon** — nastech-agent team notified.',
+                'scope: app':     '📱 **App UI** — React Native / Expo team notified.',
+                'scope: ci':      '⚙️ **CI/CD** — bot-fleet team notified.',
+                'scope: deps':    '📦 **Dependencies** — Renovate / Dependabot will handle.',
+              };
+
+              const routing = routingMap[scopeLabel] || '🔍 Team will triage and route.';
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issue.number,
+                body: [
+                  `👋 Thanks for opening this issue!`,
+                  ``,
+                  `**Auto-classification:**`,
+                  `| Field | Value |`,
+                  `|---|---|`,
+                  `| Type | \`${typeLabel || 'pending triage'}\` |`,
+                  `| Scope | \`${scopeLabel || 'pending triage'}\` |`,
+                  `| Priority | \`${priLabel || 'pending triage'}\` |`,
+                  ``,
+                  routing,
+                  ``,
+                  `A maintainer will review shortly. Use \`/priority critical\` in a comment to escalate.`,
+                ].join('\n'),
+              });
+            }
+
+      - name: Handle slash commands in comments
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const body = context.payload.comment.body.trim();
+            const issueNum = context.payload.issue.number;
+            const isCollaborator = ['OWNER','MEMBER','COLLABORATOR'].includes(
+              context.payload.comment.author_association
+            );
+            if (!isCollaborator) return;
+
+            const cmds = {
+              '/priority critical':  ['priority: critical'],
+              '/priority high':      ['priority: high'],
+              '/priority medium':    ['priority: medium'],
+              '/priority low':       ['priority: low'],
+              '/status triage':      ['status: triage'],
+              '/status in-progress': ['status: in-progress'],
+              '/status blocked':     ['status: blocked'],
+              '/status review':      ['status: review'],
+              '/scope android':      ['scope: android'],
+              '/scope ios':          ['scope: ios'],
+              '/scope daemon':       ['scope: daemon'],
+              '/scope app':          ['scope: app'],
+              '/scope ci':           ['scope: ci'],
+              '/scope deps':         ['scope: deps'],
+              '/type bug':           ['type: bug'],
+              '/type feature':       ['type: feature'],
+              '/type security':      ['type: security'],
+              '/type performance':   ['type: performance'],
+              '/type docs':          ['type: docs'],
+              '/type chore':         ['type: chore'],
+            };
+
+            for (const [cmd, labels] of Object.entries(cmds)) {
+              if (body.startsWith(cmd)) {
+                // Remove all labels in the same category first
+                const prefix = labels[0].split(':')[0] + ':';
+                const current = context.payload.issue.labels.map(l=>l.name);
+                for (const lbl of current.filter(l=>l.startsWith(prefix))) {
+                  await github.rest.issues.removeLabel({
+                    owner: context.repo.owner,
+                    repo:  context.repo.repo,
+                    issue_number: issueNum,
+                    name: lbl,
+                  }).catch(()=>{});
+                }
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo:  context.repo.repo,
+                  issue_number: issueNum,
+                  labels,
+                });
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo:  context.repo.repo,
+                  issue_number: issueNum,
+                  body: `✅ Applied \`${labels[0]}\` via slash command.`,
+                });
+                break;
+              }
+            }
