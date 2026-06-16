@@ -1,4 +1,3 @@
-# Based on: https://github.com/github/super-linter
 name: Super Linter
 
 on:
@@ -6,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions: {}
 
