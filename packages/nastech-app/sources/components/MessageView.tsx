@@ -1,46 +1,55 @@
 import * as React from "react";
 import { View, Text, Pressable, Platform } from "react-native";
-import { StyleSheet } from 'react-native-unistyles';
+import { StyleSheet } from "react-native-unistyles";
 import { MarkdownView } from "./markdown/MarkdownView";
-import { t } from '@/text';
-import { Message, UserTextMessage, AgentTextMessage, ToolCallMessage } from "@/sync/typesMessage";
+import { t } from "@/text";
+import {
+  Message,
+  UserTextMessage,
+  AgentTextMessage,
+  ToolCallMessage,
+} from "@/sync/typesMessage";
 import { Metadata } from "@/sync/storageTypes";
 import { ToolView } from "./tools/ToolView";
 import { AgentEvent } from "@/sync/typesRaw";
-import { sync } from '@/sync/sync';
-import { Option } from './markdown/MarkdownView';
+import { sync } from "@/sync/sync";
+import { Option } from "./markdown/MarkdownView";
 import { layout } from "./layout";
-import { parseLocalCommandMessage, isUserSlashCommandEcho } from './parseLocalCommandMessage';
+import {
+  parseLocalCommandMessage,
+  isUserSlashCommandEcho,
+} from "./parseLocalCommandMessage";
 
-
-export const MessageView = React.memo((props: {
-  message: Message;
-  metadata: Metadata | null;
-  sessionId: string;
-  getMessageById?: (id: string) => Message | null;
-  /**
-   * Long-press handler for user-text bubbles. Wired by ChatList from
-   * the active session screen and used by the fork-from-message flow.
-   */
-  onForkFromUserMessage?: (messageId: string, claudeUuid: string) => void;
-}) => {
-  return (
-    <View
-      style={styles.messageContainer}
-      renderToHardwareTextureAndroid={Platform.OS !== 'web'}
-    >
-      <View style={styles.messageContent}>
-        <RenderBlock
-          message={props.message}
-          metadata={props.metadata}
-          sessionId={props.sessionId}
-          getMessageById={props.getMessageById}
-          onForkFromUserMessage={props.onForkFromUserMessage}
-        />
+export const MessageView = React.memo(
+  (props: {
+    message: Message;
+    metadata: Metadata | null;
+    sessionId: string;
+    getMessageById?: (id: string) => Message | null;
+    /**
+     * Long-press handler for user-text bubbles. Wired by ChatList from
+     * the active session screen and used by the fork-from-message flow.
+     */
+    onForkFromUserMessage?: (messageId: string, claudeUuid: string) => void;
+  }) => {
+    return (
+      <View
+        style={styles.messageContainer}
+        renderToHardwareTextureAndroid={Platform.OS !== "web"}
+      >
+        <View style={styles.messageContent}>
+          <RenderBlock
+            message={props.message}
+            metadata={props.metadata}
+            sessionId={props.sessionId}
+            getMessageById={props.getMessageById}
+            onForkFromUserMessage={props.onForkFromUserMessage}
+          />
+        </View>
       </View>
-    </View>
-  );
-});
+    );
+  },
+);
 
 // RenderBlock function that dispatches to the correct component based on message kind
 function RenderBlock(props: {
@@ -51,7 +60,7 @@ function RenderBlock(props: {
   onForkFromUserMessage?: (messageId: string, claudeUuid: string) => void;
 }): React.ReactElement {
   switch (props.message.kind) {
-    case 'user-text':
+    case "user-text":
       return (
         <UserTextBlock
           message={props.message}
@@ -61,20 +70,28 @@ function RenderBlock(props: {
         />
       );
 
-    case 'agent-text':
-      return <AgentTextBlock message={props.message} sessionId={props.sessionId} />;
+    case "agent-text":
+      return (
+        <AgentTextBlock message={props.message} sessionId={props.sessionId} />
+      );
 
-    case 'tool-call':
-      return <ToolCallBlock
-        message={props.message}
-        metadata={props.metadata}
-        sessionId={props.sessionId}
-        getMessageById={props.getMessageById}
-      />;
+    case "tool-call":
+      return (
+        <ToolCallBlock
+          message={props.message}
+          metadata={props.metadata}
+          sessionId={props.sessionId}
+          getMessageById={props.getMessageById}
+        />
+      );
 
-    case 'agent-event':
-      return <AgentEventBlock event={props.message.event} metadata={props.metadata} />;
-
+    case "agent-event":
+      return (
+        <AgentEventBlock
+          event={props.message.event}
+          metadata={props.metadata}
+        />
+      );
 
     default:
       // Exhaustive check - TypeScript will error if we miss a case
@@ -89,9 +106,12 @@ function UserTextBlock(props: {
   sessionId: string;
   onForkFromUserMessage?: (messageId: string, claudeUuid: string) => void;
 }) {
-  const handleOptionPress = React.useCallback((option: Option) => {
-    sync.sendMessage(props.sessionId, option.title, { source: 'option' });
-  }, [props.sessionId]);
+  const handleOptionPress = React.useCallback(
+    (option: Option) => {
+      sync.sendMessage(props.sessionId, option.title, { source: "option" });
+    },
+    [props.sessionId],
+  );
 
   const claudeUuid = props.message.claudeUuid;
   const canFork = Boolean(claudeUuid) && Boolean(props.onForkFromUserMessage);
@@ -113,16 +133,22 @@ function UserTextBlock(props: {
   // Codex/Gemini don't reliably emit the <command-*> wrapper, so hiding the
   // echo there would drop the command with nothing to replace it. (Absent
   // flavor == Claude, matching the convention used elsewhere.)
-  const isClaudeFlavor = !props.metadata?.flavor || props.metadata.flavor === 'claude';
-  if (isClaudeFlavor && isUserSlashCommandEcho(props.message.text, props.message.localId != null)) {
+  const isClaudeFlavor =
+    !props.metadata?.flavor || props.metadata.flavor === "claude";
+  if (
+    isClaudeFlavor &&
+    isUserSlashCommandEcho(props.message.text, props.message.localId != null)
+  ) {
     return null;
   }
 
-  const parsed = parseLocalCommandMessage(props.message.displayText || props.message.text);
-  if (parsed.kind === 'caveat') {
+  const parsed = parseLocalCommandMessage(
+    props.message.displayText || props.message.text,
+  );
+  if (parsed.kind === "caveat") {
     return null;
   }
-  if (parsed.kind === 'command-run') {
+  if (parsed.kind === "command-run") {
     return (
       <View style={styles.userMessageContainer}>
         <View style={styles.commandChip}>
@@ -139,7 +165,11 @@ function UserTextBlock(props: {
         delayLongPress={400}
         style={styles.userMessageBubble}
       >
-        <MarkdownView markdown={parsed.text} onOptionPress={handleOptionPress} sessionId={props.sessionId} />
+        <MarkdownView
+          markdown={parsed.text}
+          onOptionPress={handleOptionPress}
+          sessionId={props.sessionId}
+        />
       </Pressable>
     </View>
   );
@@ -149,9 +179,12 @@ function AgentTextBlock(props: {
   message: AgentTextMessage;
   sessionId: string;
 }) {
-  const handleOptionPress = React.useCallback((option: Option) => {
-    sync.sendMessage(props.sessionId, option.title, { source: 'option' });
-  }, [props.sessionId]);
+  const handleOptionPress = React.useCallback(
+    (option: Option) => {
+      sync.sendMessage(props.sessionId, option.title, { source: "option" });
+    },
+    [props.sessionId],
+  );
 
   // Hide thinking messages
   if (props.message.isThinking) {
@@ -160,7 +193,11 @@ function AgentTextBlock(props: {
 
   return (
     <View style={styles.agentMessageContainer}>
-      <MarkdownView markdown={props.message.text} onOptionPress={handleOptionPress} sessionId={props.sessionId} />
+      <MarkdownView
+        markdown={props.message.text}
+        onOptionPress={handleOptionPress}
+        sessionId={props.sessionId}
+      />
     </View>
   );
 }
@@ -169,41 +206,48 @@ function AgentEventBlock(props: {
   event: AgentEvent;
   metadata: Metadata | null;
 }) {
-  if (props.event.type === 'switch') {
+  if (props.event.type === "switch") {
     return (
       <View style={styles.agentEventContainer}>
-        <Text style={styles.agentEventText}>{t('message.switchedToMode', { mode: props.event.mode })}</Text>
+        <Text style={styles.agentEventText}>
+          {t("message.switchedToMode", { mode: props.event.mode })}
+        </Text>
       </View>
     );
   }
-  if (props.event.type === 'message') {
+  if (props.event.type === "message") {
     return (
       <View style={styles.agentEventContainer}>
         <Text style={styles.agentEventText}>{props.event.message}</Text>
       </View>
     );
   }
-  if (props.event.type === 'limit-reached') {
+  if (props.event.type === "limit-reached") {
     const formatTime = (timestamp: number): string => {
       try {
         const date = new Date(timestamp * 1000); // Convert from Unix timestamp
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
       } catch {
-        return t('message.unknownTime');
+        return t("message.unknownTime");
       }
     };
 
     return (
       <View style={styles.agentEventContainer}>
         <Text style={styles.agentEventText}>
-          {t('message.usageLimitUntil', { time: formatTime(props.event.endsAt) })}
+          {t("message.usageLimitUntil", {
+            time: formatTime(props.event.endsAt),
+          })}
         </Text>
       </View>
     );
   }
   return (
     <View style={styles.agentEventContainer}>
-      <Text style={styles.agentEventText}>{t('message.unknownEvent')}</Text>
+      <Text style={styles.agentEventText}>{t("message.unknownEvent")}</Text>
     </View>
   );
 }
@@ -232,22 +276,22 @@ function ToolCallBlock(props: {
 
 const styles = StyleSheet.create((theme) => ({
   messageContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
   },
   messageContent: {
-    flexDirection: 'column',
+    flexDirection: "column",
     flexGrow: 1,
     flexBasis: 0,
     minWidth: 0,
     maxWidth: layout.maxWidth,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   userMessageContainer: {
-    maxWidth: '100%',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
+    maxWidth: "100%",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
     paddingHorizontal: 16,
   },
   userMessageBubble: {
@@ -256,7 +300,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 4,
     borderRadius: 12,
     marginBottom: 12,
-    maxWidth: '100%',
+    maxWidth: "100%",
   },
   commandChip: {
     backgroundColor: theme.colors.userMessageBackground,
@@ -264,23 +308,23 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: 2,
     borderRadius: 10,
     marginBottom: 12,
-    maxWidth: '100%',
+    maxWidth: "100%",
     opacity: 0.65,
   },
   commandChipText: {
     color: theme.colors.input.text,
     fontSize: 13,
-    fontFamily: 'monospace',
+    fontFamily: "monospace",
   },
   agentMessageContainer: {
     marginHorizontal: 16,
     marginBottom: 12,
     borderRadius: 16,
-    maxWidth: '100%',
+    maxWidth: "100%",
   },
   agentEventContainer: {
     marginHorizontal: 8,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 8,
   },
   agentEventText: {
@@ -289,8 +333,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   toolContainer: {
     marginHorizontal: 8,
-    maxWidth: '100%',
-    overflow: 'hidden',
+    maxWidth: "100%",
+    overflow: "hidden",
   },
   debugText: {
     color: theme.colors.agentEventText,

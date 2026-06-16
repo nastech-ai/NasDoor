@@ -35,41 +35,45 @@ const PAID_VOICE_ONBOARDING_PROMPT = `# Paid voice onboarding
 - Phase 2: if voice_message_count is 2 or more, or the user has sent 2 messages in this voice session, the user has already tried voice enough. Explain to the user: "You get 20 minutes free, then voice blocks unless you upgrade in Settings." You may add one short sentence that upgrading supports the voice feature and NasTech open source development.`;
 
 export function buildVoiceSystemPrompt(options: {
-    initialContext?: string;
-    onboardingPromptLoadCount: number;
-    voiceMessageCount: number;
-    includePaidVoiceOnboarding: boolean;
+  initialContext?: string;
+  onboardingPromptLoadCount: number;
+  voiceMessageCount: number;
+  includePaidVoiceOnboarding: boolean;
 }): string {
-    const sections = [VOICE_SYSTEM_PROMPT_BASE];
+  const sections = [VOICE_SYSTEM_PROMPT_BASE];
 
-    if (options.includePaidVoiceOnboarding) {
-        sections.push(PAID_VOICE_ONBOARDING_PROMPT);
-    }
+  if (options.includePaidVoiceOnboarding) {
+    sections.push(PAID_VOICE_ONBOARDING_PROMPT);
+  }
 
-    sections.push([
-        '# Runtime counters',
-        `- onboarding_prompt_load_count: ${options.onboardingPromptLoadCount}`,
-        `- voice_message_count: ${options.voiceMessageCount}`,
-    ].join('\n'));
+  sections.push(
+    [
+      "# Runtime counters",
+      `- onboarding_prompt_load_count: ${options.onboardingPromptLoadCount}`,
+      `- voice_message_count: ${options.voiceMessageCount}`,
+    ].join("\n"),
+  );
 
-    if (options.initialContext?.trim()) {
-        sections.push(`# Conversation history so far\n${options.initialContext.trim()}`);
-    }
+  if (options.initialContext?.trim()) {
+    sections.push(
+      `# Conversation history so far\n${options.initialContext.trim()}`,
+    );
+  }
 
-    return sections.join('\n\n');
+  return sections.join("\n\n");
 }
 
 export function buildVoiceFirstMessage(options: {
-    hasPro: boolean;
-    onboardingPromptLoadCount: number;
-    includePaidVoiceOnboarding: boolean;
+  hasPro: boolean;
+  onboardingPromptLoadCount: number;
+  includePaidVoiceOnboarding: boolean;
 }): string {
-    if (
-        !options.hasPro &&
-        options.includePaidVoiceOnboarding &&
-        options.onboardingPromptLoadCount < 2
-    ) {
-        return 'Hi, NasTech here, ask me what I can do';
-    }
-    return 'Hi, NasTech here';
+  if (
+    !options.hasPro &&
+    options.includePaidVoiceOnboarding &&
+    options.onboardingPromptLoadCount < 2
+  ) {
+    return "Hi, NasTech here, ask me what I can do";
+  }
+  return "Hi, NasTech here";
 }

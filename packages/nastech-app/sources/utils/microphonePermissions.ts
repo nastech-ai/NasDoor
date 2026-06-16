@@ -1,6 +1,6 @@
-import { Platform, Linking } from 'react-native';
-import { Modal } from '@/modal';
-import { AudioModule } from 'expo-audio';
+import { Platform, Linking } from "react-native";
+import { Modal } from "@/modal";
+import { AudioModule } from "expo-audio";
 
 export interface MicrophonePermissionResult {
   granted: boolean;
@@ -15,17 +15,22 @@ export interface MicrophonePermissionResult {
  */
 export async function requestMicrophonePermission(): Promise<MicrophonePermissionResult> {
   try {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       // Web: Use navigator.mediaDevices API
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
         // Important: Stop the stream immediately after getting permission
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
         return { granted: true };
       } catch (error: any) {
         // User denied permission or browser doesn't support getUserMedia
-        console.error('Web microphone permission denied:', error);
-        return { granted: false, canAskAgain: error.name !== 'NotAllowedError' };
+        console.error("Web microphone permission denied:", error);
+        return {
+          granted: false,
+          canAskAgain: error.name !== "NotAllowedError",
+        };
       }
     } else {
       // iOS and Android: Use expo-audio (SDK 52+)
@@ -44,7 +49,7 @@ export async function requestMicrophonePermission(): Promise<MicrophonePermissio
       return { granted: false, canAskAgain: result.canAskAgain };
     }
   } catch (error) {
-    console.error('Error requesting microphone permission:', error);
+    console.error("Error requesting microphone permission:", error);
     return { granted: false };
   }
 }
@@ -54,12 +59,14 @@ export async function requestMicrophonePermission(): Promise<MicrophonePermissio
  */
 export async function checkMicrophonePermission(): Promise<MicrophonePermissionResult> {
   try {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       // Web: Check permission status if available
-      if ('permissions' in navigator && 'query' in navigator.permissions) {
+      if ("permissions" in navigator && "query" in navigator.permissions) {
         try {
-          const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-          return { granted: result.state === 'granted' };
+          const result = await navigator.permissions.query({
+            name: "microphone" as PermissionName,
+          });
+          return { granted: result.state === "granted" };
         } catch {
           // Permission API not supported or microphone permission not queryable
           // We'll have to request to know
@@ -73,7 +80,7 @@ export async function checkMicrophonePermission(): Promise<MicrophonePermissionR
       return { granted: result.granted, canAskAgain: result.canAskAgain };
     }
   } catch (error) {
-    console.error('Error checking microphone permission:', error);
+    console.error("Error checking microphone permission:", error);
     return { granted: false };
   }
 }
@@ -81,29 +88,31 @@ export async function checkMicrophonePermission(): Promise<MicrophonePermissionR
 /**
  * Show appropriate error message when permission is denied
  */
-export function showMicrophonePermissionDeniedAlert(canAskAgain: boolean = false) {
-  const title = 'Microphone Access Required';
+export function showMicrophonePermissionDeniedAlert(
+  canAskAgain: boolean = false,
+) {
+  const title = "Microphone Access Required";
   const message = canAskAgain
-    ? 'NasTech needs access to your microphone for voice chat. Please grant permission when prompted.'
-    : 'NasTech needs access to your microphone for voice chat. Please enable microphone access in your device settings.';
+    ? "NasTech needs access to your microphone for voice chat. Please grant permission when prompted."
+    : "NasTech needs access to your microphone for voice chat. Please enable microphone access in your device settings.";
 
-  if (Platform.OS === 'web') {
+  if (Platform.OS === "web") {
     // Web: Show browser-specific instructions
     Modal.alert(
       title,
-      'Please allow microphone access in your browser settings. You may need to click the lock icon in the address bar and enable microphone permission for this site.',
-      [{ text: 'OK' }]
+      "Please allow microphone access in your browser settings. You may need to click the lock icon in the address bar and enable microphone permission for this site.",
+      [{ text: "OK" }],
     );
   } else {
     Modal.alert(title, message, [
-      { text: 'Cancel', style: 'cancel' },
+      { text: "Cancel", style: "cancel" },
       {
-        text: 'Open Settings',
+        text: "Open Settings",
         onPress: () => {
           // Opens app settings on iOS/Android
           Linking.openSettings();
-        }
-      }
+        },
+      },
     ]);
   }
 }

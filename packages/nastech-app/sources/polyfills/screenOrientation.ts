@@ -9,25 +9,32 @@
  * Imported first from index.ts so it runs before any module that touches the API.
  */
 
-if (typeof window !== 'undefined' && typeof screen !== 'undefined') {
-    const s = screen as unknown as { orientation?: { type: string; angle: number; addEventListener?: Function; removeEventListener?: Function } };
-    if (!s.orientation) {
-        const stub = {
-            type: 'landscape-primary',
-            angle: 0,
-            addEventListener: () => { },
-            removeEventListener: () => { },
-            dispatchEvent: () => false,
-        };
-        try {
-            Object.defineProperty(screen, 'orientation', {
-                value: stub,
-                writable: false,
-                configurable: true,
-            });
-        } catch {
-            // Fallback if defineProperty fails: assign directly
-            (screen as unknown as { orientation: typeof stub }).orientation = stub;
-        }
+if (typeof window !== "undefined" && typeof screen !== "undefined") {
+  const s = screen as unknown as {
+    orientation?: {
+      type: string;
+      angle: number;
+      addEventListener?: Function;
+      removeEventListener?: Function;
+    };
+  };
+  if (!s.orientation) {
+    const stub = {
+      type: "landscape-primary",
+      angle: 0,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    };
+    try {
+      Object.defineProperty(screen, "orientation", {
+        value: stub,
+        writable: false,
+        configurable: true,
+      });
+    } catch {
+      // Fallback if defineProperty fails: assign directly
+      (screen as unknown as { orientation: typeof stub }).orientation = stub;
     }
+  }
 }

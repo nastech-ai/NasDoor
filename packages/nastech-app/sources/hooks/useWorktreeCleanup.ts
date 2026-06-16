@@ -11,11 +11,11 @@
  * The prompt only appears when: no other active sessions AND git is clean.
  */
 
-import { storage } from '@/sync/storage';
-import { machineBash } from '@/sync/ops';
-import { isWorktreePath, removeWorktree } from '@/utils/worktree';
-import { Modal } from '@/modal';
-import { t } from '@/text';
+import { storage } from "@/sync/storage";
+import { machineBash } from "@/sync/ops";
+import { isWorktreePath, removeWorktree } from "@/utils/worktree";
+import { Modal } from "@/modal";
+import { t } from "@/text";
 
 /**
  * Check whether any *other* active session shares the same worktree path,
@@ -24,46 +24,46 @@ import { t } from '@/text';
  * Returns after the worktree has been removed or the user chose to keep it.
  */
 export async function maybeCleanupWorktree(
-    sessionId: string,
-    sessionPath: string | undefined,
-    machineId: string | undefined,
+  sessionId: string,
+  sessionPath: string | undefined,
+  machineId: string | undefined,
 ): Promise<void> {
-    if (!sessionPath || !machineId || !isWorktreePath(sessionPath)) {
-        return;
-    }
+  if (!sessionPath || !machineId || !isWorktreePath(sessionPath)) {
+    return;
+  }
 
-    // 1. Check if other active sessions use the same worktree
-    const allSessions = storage.getState().getActiveSessions();
-    const otherOnSameWorktree = allSessions.some(
-        s => s.id !== sessionId && s.metadata?.path === sessionPath,
-    );
-    if (otherOnSameWorktree) {
-        return;
-    }
+  // 1. Check if other active sessions use the same worktree
+  const allSessions = storage.getState().getActiveSessions();
+  const otherOnSameWorktree = allSessions.some(
+    (s) => s.id !== sessionId && s.metadata?.path === sessionPath,
+  );
+  if (otherOnSameWorktree) {
+    return;
+  }
 
-    // 2. Check git status for uncommitted changes
-    const statusResult = await machineBash(
-        machineId,
-        'git status --porcelain',
-        sessionPath,
-    );
-    if (!statusResult.success || statusResult.stdout.trim().length > 0) {
-        // Either git failed (not a repo / machine offline) or there are changes → skip
-        return;
-    }
+  // 2. Check git status for uncommitted changes
+  const statusResult = await machineBash(
+    machineId,
+    "git status --porcelain",
+    sessionPath,
+  );
+  if (!statusResult.success || statusResult.stdout.trim().length > 0) {
+    // Either git failed (not a repo / machine offline) or there are changes → skip
+    return;
+  }
 
-    // 3. Git is clean, no other sessions → ask the user
-    const shouldDelete = await Modal.confirm(
-        t('sessionInfo.worktreeCleanupTitle'),
-        t('sessionInfo.worktreeCleanupMessage'),
-        {
-            confirmText: t('sessionInfo.worktreeCleanupDelete'),
-            cancelText: t('sessionInfo.worktreeCleanupKeep'),
-            destructive: true,
-        },
-    );
+  // 3. Git is clean, no other sessions → ask the user
+  const shouldDelete = await Modal.confirm(
+    t("sessionInfo.worktreeCleanupTitle"),
+    t("sessionInfo.worktreeCleanupMessage"),
+    {
+      confirmText: t("sessionInfo.worktreeCleanupDelete"),
+      cancelText: t("sessionInfo.worktreeCleanupKeep"),
+      destructive: true,
+    },
+  );
 
-    if (shouldDelete) {
-        await removeWorktree(machineId, sessionPath).catch(() => {});
-    }
+  if (shouldDelete) {
+    await removeWorktree(machineId, sessionPath).catch(() => {});
+  }
 }

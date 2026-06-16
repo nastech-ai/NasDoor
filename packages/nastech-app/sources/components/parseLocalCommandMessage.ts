@@ -19,11 +19,12 @@
  */
 
 export type LocalCommandMessage =
-    | { kind: 'caveat' }
-    | { kind: 'command-run'; commandName: string; args?: string }
-    | { kind: 'text'; text: string };
+  | { kind: "caveat" }
+  | { kind: "command-run"; commandName: string; args?: string }
+  | { kind: "text"; text: string };
 
-const CAVEAT_RE = /^\s*<local-command-caveat>[\s\S]*?<\/local-command-caveat>\s*$/;
+const CAVEAT_RE =
+  /^\s*<local-command-caveat>[\s\S]*?<\/local-command-caveat>\s*$/;
 const COMMAND_NAME_RE = /<command-name>\s*\/?([^<]+?)\s*<\/command-name>/;
 const COMMAND_ARGS_RE = /<command-args>\s*([\s\S]*?)\s*<\/command-args>/;
 const COMMAND_MESSAGE_RE = /<command-message>[\s\S]*?<\/command-message>/g;
@@ -31,36 +32,36 @@ const COMMAND_NAME_TAG_RE = /<command-name>[\s\S]*?<\/command-name>/g;
 const COMMAND_ARGS_TAG_RE = /<command-args>[\s\S]*?<\/command-args>/g;
 
 export function parseLocalCommandMessage(text: string): LocalCommandMessage {
-    if (CAVEAT_RE.test(text)) {
-        return { kind: 'caveat' };
+  if (CAVEAT_RE.test(text)) {
+    return { kind: "caveat" };
+  }
+
+  const nameMatch = text.match(COMMAND_NAME_RE);
+  if (nameMatch) {
+    const argsMatch = text.match(COMMAND_ARGS_RE);
+    const args = argsMatch?.[1].trim();
+
+    // If the message is just the command wrappers (after stripping all of
+    // them only whitespace remains), collapse to a chip. The args, if any,
+    // are surfaced separately so the renderer can show them as the user's
+    // actual prompt rather than as raw XML.
+    const stripped = text
+      .replace(COMMAND_MESSAGE_RE, "")
+      .replace(COMMAND_NAME_TAG_RE, "")
+      .replace(COMMAND_ARGS_TAG_RE, "")
+      .trim();
+    if (stripped.length === 0) {
+      return {
+        kind: "command-run",
+        commandName: nameMatch[1],
+        args: args && args.length > 0 ? args : undefined,
+      };
     }
+    // Mixed content: keep the surrounding text, drop the tags.
+    return { kind: "text", text: stripped };
+  }
 
-    const nameMatch = text.match(COMMAND_NAME_RE);
-    if (nameMatch) {
-        const argsMatch = text.match(COMMAND_ARGS_RE);
-        const args = argsMatch?.[1].trim();
-
-        // If the message is just the command wrappers (after stripping all of
-        // them only whitespace remains), collapse to a chip. The args, if any,
-        // are surfaced separately so the renderer can show them as the user's
-        // actual prompt rather than as raw XML.
-        const stripped = text
-            .replace(COMMAND_MESSAGE_RE, '')
-            .replace(COMMAND_NAME_TAG_RE, '')
-            .replace(COMMAND_ARGS_TAG_RE, '')
-            .trim();
-        if (stripped.length === 0) {
-            return {
-                kind: 'command-run',
-                commandName: nameMatch[1],
-                args: args && args.length > 0 ? args : undefined,
-            };
-        }
-        // Mixed content: keep the surrounding text, drop the tags.
-        return { kind: 'text', text: stripped };
-    }
-
-    return { kind: 'text', text };
+  return { kind: "text", text };
 }
 
 // A pure slash-command invocation: starts with `/`, a command token
@@ -83,15 +84,18 @@ const SLASH_COMMAND_RE = /^\/[a-zA-Z][\w:-]*(?:\s[\s\S]*)?$/;
  * Gated on `hasLocalId` so we only ever hide a message the user actually
  * sent from NasTech, never an agent/SDK-originated one.
  */
-export function isUserSlashCommandEcho(text: string, hasLocalId: boolean): boolean {
-    if (!hasLocalId) {
-        return false;
-    }
-    const trimmed = text.trim();
-    if (!SLASH_COMMAND_RE.test(trimmed)) {
-        return false;
-    }
-    // Guard: a real wrapper message also contains <command-name>; never
-    // treat that as a raw echo.
-    return parseLocalCommandMessage(trimmed).kind === 'text';
+export function isUserSlashCommandEcho(
+  text: string,
+  hasLocalId: boolean,
+): boolean {
+  if (!hasLocalId) {
+    return false;
+  }
+  const trimmed = text.trim();
+  if (!SLASH_COMMAND_RE.test(trimmed)) {
+    return false;
+  }
+  // Guard: a real wrapper message also contains <command-name>; never
+  // treat that as a raw echo.
+  return parseLocalCommandMessage(trimmed).kind === "text";
 }

@@ -1,65 +1,69 @@
-import * as React from 'react';
-import { SessionListViewItem, useSessionListViewData, useSetting } from '@/sync/storage';
+import * as React from "react";
+import {
+  SessionListViewItem,
+  useSessionListViewData,
+  useSetting,
+} from "@/sync/storage";
 
 export function useVisibleSessionListViewData(): SessionListViewItem[] | null {
-    const data = useSessionListViewData();
-    const hideInactiveSessions = useSetting('hideInactiveSessions');
+  const data = useSessionListViewData();
+  const hideInactiveSessions = useSetting("hideInactiveSessions");
 
-    return React.useMemo(() => {
-        if (!data) {
-            return data;
+  return React.useMemo(() => {
+    if (!data) {
+      return data;
+    }
+
+    const result: SessionListViewItem[] = [];
+    let hasInactive = false;
+
+    // First pass: add active sessions group and check if inactive sessions exist
+    for (const item of data) {
+      if (item.type === "active-sessions") {
+        result.push(item);
+      } else if (item.type === "session" && !item.session.active) {
+        hasInactive = true;
+      }
+    }
+
+    // Insert archive toggle if there are inactive sessions
+    if (hasInactive) {
+      result.push({ type: "archive-toggle", hidden: hideInactiveSessions });
+    }
+
+    // If not hiding, add all remaining items (headers, project groups, inactive sessions)
+    if (!hideInactiveSessions) {
+      let pendingProjectGroup: SessionListViewItem | null = null;
+
+      for (const item of data) {
+        if (item.type === "active-sessions") {
+          continue; // already added
         }
 
-        const result: SessionListViewItem[] = [];
-        let hasInactive = false;
+        if (item.type === "project-group") {
+          pendingProjectGroup = item;
+          continue;
+        }
 
-        // First pass: add active sessions group and check if inactive sessions exist
-        for (const item of data) {
-            if (item.type === 'active-sessions') {
-                result.push(item);
-            } else if (item.type === 'session' && !item.session.active) {
-                hasInactive = true;
+        if (item.type === "session") {
+          if (!item.session.active) {
+            if (pendingProjectGroup) {
+              result.push(pendingProjectGroup);
+              pendingProjectGroup = null;
             }
+            result.push(item);
+          }
+          continue;
         }
 
-        // Insert archive toggle if there are inactive sessions
-        if (hasInactive) {
-            result.push({ type: 'archive-toggle', hidden: hideInactiveSessions });
+        pendingProjectGroup = null;
+
+        if (item.type === "header") {
+          result.push(item);
         }
+      }
+    }
 
-        // If not hiding, add all remaining items (headers, project groups, inactive sessions)
-        if (!hideInactiveSessions) {
-            let pendingProjectGroup: SessionListViewItem | null = null;
-
-            for (const item of data) {
-                if (item.type === 'active-sessions') {
-                    continue; // already added
-                }
-
-                if (item.type === 'project-group') {
-                    pendingProjectGroup = item;
-                    continue;
-                }
-
-                if (item.type === 'session') {
-                    if (!item.session.active) {
-                        if (pendingProjectGroup) {
-                            result.push(pendingProjectGroup);
-                            pendingProjectGroup = null;
-                        }
-                        result.push(item);
-                    }
-                    continue;
-                }
-
-                pendingProjectGroup = null;
-
-                if (item.type === 'header') {
-                    result.push(item);
-                }
-            }
-        }
-
-        return result;
-    }, [data, hideInactiveSessions]);
+    return result;
+  }, [data, hideInactiveSessions]);
 }
