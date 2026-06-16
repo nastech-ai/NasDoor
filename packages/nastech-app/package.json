@@ -135,7 +135,7 @@
     "expo-keep-awake": "~55.0.8",
     "expo-linear-gradient": "~55.0.14",
     "expo-linking": "~55.0.15",
-    "expo-live-photo": "~55.0.15",
+    "expo-live-photo": "~56.0.4",
     "expo-local-authentication": "~55.0.14",
     "expo-localization": "~55.0.15",
     "expo-location": "~55.1.10",
