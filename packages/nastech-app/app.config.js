@@ -3,30 +3,30 @@ const { execFileSync } = require('node:child_process');
 const variant = process.env.APP_ENV || 'development';
 const name = {
     development: "NasTech (dev)",
-    preview: "NasTech (preview)",
-    production: "NasTech"
+    preview:     "NasTech (preview)",
+    production:  "NasTech"
 }[variant];
 
 // iOS bundle identifier (matches GoogleService-Info.plist BUNDLE_ID)
 const iosBundleId = {
     development: "ai.nastech.ba.dev",
-    preview: "ai.nastech.ba.preview",
-    production: "ai.nastech.ba"
+    preview:     "ai.nastech.ba.preview",
+    production:  "ai.nastech.ba"
 }[variant];
 
 // Android package name (matches google-services.json package_name)
 const androidPackage = {
     development: "ba.nastech.ai.dev",
-    preview: "ba.nastech.ai.preview",
-    production: "ba.nastech.ai"
+    preview:     "ba.nastech.ai.preview",
+    production:  "ba.nastech.ai"
 }[variant];
 
-const elevenLabsAgentId = process.env.EXPO_PUBLIC_ELEVENLABS_AGENT_ID || null;
-const livekitUrl = process.env.EXPO_PUBLIC_LIVEKIT_URL || null;
+const elevenLabsAgentId   = process.env.EXPO_PUBLIC_ELEVENLABS_AGENT_ID || null;
+const livekitUrl          = process.env.EXPO_PUBLIC_LIVEKIT_URL          || null;
 const consoleLoggingDefault = {
     development: true,
-    preview: true,
-    production: false,
+    preview:     true,
+    production:  false,
 }[variant];
 
 function git(args) {
@@ -56,14 +56,17 @@ function loadBuildMetadata() {
 
 const buildMetadata = loadBuildMetadata();
 
+// EAS project ID — set to "" here; the CI workflow runs "eas init --non-interactive"
+// which creates/links the project under the nasdoor account and writes the real ID.
+// After the first successful build the workflow commits back the real ID.
+const easProjectId = process.env.EAS_PROJECT_ID || "";
+
 module.exports = {
     expo: {
         name,
-        slug: "nastech-agent",
+        slug:    "nastech-agent",
         version: "1.0.0",
-        runtimeVersion: {
-            policy: "appVersion"
-        },
+        runtimeVersion: { policy: "appVersion" },
         orientation: "default",
         icon: './sources/assets/images/icon.png',
         scheme: "nastech",
@@ -84,6 +87,10 @@ module.exports = {
             associatedDomains: []
         },
         android: {
+            // Target Android 14+ (API 34+): 8 GB RAM, 30 GB storage minimum
+            minSdkVersion: 34,
+            compileSdkVersion: 35,
+            targetSdkVersion: 35,
             adaptiveIcon: {
                 foregroundImage: './sources/assets/images/icon-adaptive.png',
                 monochromeImage: './sources/assets/images/icon-monochrome.png',
@@ -113,7 +120,7 @@ module.exports = {
         },
         web: {
             bundler: "metro",
-            output: "single",
+            output:  "single",
             favicon: './sources/assets/images/favicon.png'
         },
         plugins: [
@@ -131,33 +138,38 @@ module.exports = {
             "react-native-audio-api",
             "@livekit/react-native-expo-plugin",
             "@config-plugins/react-native-webrtc",
-            ["expo-audio", { microphonePermission: "Allow NasTech to access your microphone for voice conversations." }],
+            ["expo-audio",    { microphonePermission: "Allow NasTech to access your microphone for voice conversations." }],
             ["expo-location", {
                 locationAlwaysAndWhenInUsePermission: "Allow NasTech to improve AI quality by using your location.",
-                locationAlwaysPermission: "Allow NasTech to improve AI quality by using your location.",
-                locationWhenInUsePermission: "Allow NasTech to improve AI quality by using your location."
+                locationAlwaysPermission:             "Allow NasTech to improve AI quality by using your location.",
+                locationWhenInUsePermission:          "Allow NasTech to improve AI quality by using your location."
             }],
             ["expo-calendar", { calendarPermission: "Allow NasTech to access your calendar to improve AI quality." }],
-            ["expo-camera", {
-                cameraPermission: "Allow NasTech to access your camera to scan QR codes and share photos with AI.",
+            ["expo-camera",   {
+                cameraPermission:     "Allow NasTech to access your camera to scan QR codes and share photos with AI.",
                 microphonePermission: "Allow NasTech to access your microphone for voice conversations.",
-                recordAudioAndroid: true
+                recordAudioAndroid:   true
             }],
             ["expo-notifications", {
                 enableBackgroundRemoteNotifications: true,
                 icon: './sources/assets/images/icon-notification.png'
             }],
             ["expo-splash-screen", {
-                ios: { backgroundColor: "#000000", dark: { backgroundColor: "#000000" } },
+                ios: {
+                    backgroundColor: "#000000",
+                    dark: { backgroundColor: "#000000" }
+                },
                 android: {
-                    image: './sources/assets/images/splash-android-light.png',
+                    image:           './sources/assets/images/splash-android-light.png',
                     backgroundColor: "#000000",
                     dark: { image: './sources/assets/images/splash-android-dark.png', backgroundColor: "#000000" }
                 }
             }]
         ],
         updates: {
-            url: "https://u.expo.dev/925ecdd8-07ba-4775-956b-2b334fab8357",
+            url: easProjectId
+                ? `https://u.expo.dev/${easProjectId}`
+                : "https://u.expo.dev/placeholder",
             fallbackToCacheTimeout: 0,
             checkAutomatically: "ON_LOAD"
         },
@@ -165,16 +177,16 @@ module.exports = {
         extra: {
             router: { root: "./sources/app" },
             eas: {
-                projectId: "925ecdd8-07ba-4775-956b-2b334fab8357"
+                projectId: easProjectId || undefined
             },
             app: {
                 elevenLabsAgentId,
                 livekitUrl,
                 consoleLoggingDefault,
-                buildCommitSha: buildMetadata.commitSha,
+                buildCommitSha:       buildMetadata.commitSha,
                 buildCommitTimestamp: buildMetadata.commitTimestamp,
             }
         },
-        owner: "nastechai"
+        owner: "nasdoor"
     }
 };
