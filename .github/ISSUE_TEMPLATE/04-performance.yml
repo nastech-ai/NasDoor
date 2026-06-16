@@ -1,0 +1,30 @@
+name: "⚡ Performance Issue"
+description: Report a slowness, memory leak, or battery drain
+labels: ["type: performance", "status: triage"]
+body:
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Affected area
+      options:
+        - scope: android
+        - scope: ios
+        - scope: daemon
+        - scope: app
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What is slow / expensive?
+    validations:
+      required: true
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Measured metrics (before / after if possible)
+  - type: textarea
+    id: profiler
+    attributes:
+      label: Profiler output / traces
+      render: shell
