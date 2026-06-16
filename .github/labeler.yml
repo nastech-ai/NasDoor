@@ -1,43 +1,47 @@
-scope: app:
+"scope: app":
   - changed-files:
-      - any-glob-to-any-file: packages/nastech-app/sources/**
+      - any-glob-to-any-file: "packages/nastech-app/sources/**"
 
-scope: agent:
+"scope: agent":
   - changed-files:
-      - any-glob-to-any-file: nastech-agent/**
+      - any-glob-to-any-file: "nastech-agent/**"
 
-scope: ci:
+"scope: ci":
   - changed-files:
-      - any-glob-to-any-file: .github/workflows/**
-      - any-glob-to-any-file: .github/dependabot.yml
+      - any-glob-to-any-file: ".github/workflows/**"
+      - any-glob-to-any-file: ".github/dependabot.yml"
 
-scope: termux:
+"scope: termux":
   - changed-files:
-      - any-glob-to-any-file: packages/nastech-app/plugins/**
-      - any-glob-to-any-file: packages/nastech-app/eas-build-pre-install.sh
+      - any-glob-to-any-file: "packages/nastech-app/plugins/**"
+      - any-glob-to-any-file: "packages/nastech-app/eas-build-pre-install.sh"
 
-scope: desktop:
+"scope: desktop":
   - changed-files:
-      - any-glob-to-any-file: packages/nastech-app/src-tauri/**
+      - any-glob-to-any-file: "packages/nastech-app/src-tauri/**"
 
-scope: config:
+"scope: config":
   - changed-files:
-      - any-glob-to-any-file: packages/nastech-app/app.config.js
-      - any-glob-to-any-file: packages/nastech-app/eas.json
+      - any-glob-to-any-file: "packages/nastech-app/app.config.js"
+      - any-glob-to-any-file: "packages/nastech-app/eas.json"
 
-type: deps:
+"scope: ios":
   - changed-files:
-      - any-glob-to-any-file: package.json
-      - any-glob-to-any-file: packages/nastech-app/package.json
-      - any-glob-to-any-file: renovate.json
-      - any-glob-to-any-file: nastech-agent/requirements*.txt
+      - any-glob-to-any-file: "packages/nastech-app/sources/(app)/server.tsx"
 
-type: docs:
+"type: deps":
+  - changed-files:
+      - any-glob-to-any-file: "package.json"
+      - any-glob-to-any-file: "packages/nastech-app/package.json"
+      - any-glob-to-any-file: "renovate.json"
+      - any-glob-to-any-file: "nastech-agent/requirements*.txt"
+
+"type: docs":
   - changed-files:
       - any-glob-to-any-file: "**/*.md"
-      - any-glob-to-any-file: CHANGELOG*
+      - any-glob-to-any-file: "CHANGELOG*"
 
-type: release:
+"type: release":
   - changed-files:
-      - any-glob-to-any-file: CHANGELOG*
-      - any-glob-to-any-file: .release-please-manifest.json
+      - any-glob-to-any-file: "CHANGELOG*"
+      - any-glob-to-any-file: ".release-please-manifest.json"

@@ -20,31 +20,7 @@ jobs:
     name: React to label
     runs-on: ubuntu-latest
     steps:
-      - uses: dessant/label-actions@v4
+      - uses: dessant/label-actions@v5.0.3
         with:
           github-token: ${{ github.token }}
-          config: |
-            "type: bug":
-              issues:
-                comment: "Thanks for filing this bug. A maintainer will investigate soon."
-            "type: deps":
-              prs:
-                comment: "Dependency update — ensure `pnpm install` lockfile is committed."
-            "bot: dependabot":
-              prs:
-                review: approve
-            "stale":
-              issues:
-                close: true
-              prs:
-                close: true
-            "scope: termux":
-              issues:
-                comment: >
-                  This issue affects Termux integration. Please share your Android version,
-                  Termux bootstrap version, and the daemon startup logs.
-            "scope: agent":
-              issues:
-                comment: >
-                  This issue affects the NasTech Agent (Python daemon).
-                  Please share the output of `python3 -m nastech_cli.main --version`.
+          config-path: .github/label-actions.yml

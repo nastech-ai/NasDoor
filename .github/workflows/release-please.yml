@@ -1,5 +1,7 @@
-# Based on: https://github.com/googleapis/release-please-action
+# Pulled from: https://github.com/googleapis/release-please-action
 # SHIFT 4 — triggered when Agent Smoke Test (Shift 3) completes on main
+name: release-please
+
 on:
   push:
     branches:
@@ -14,48 +16,65 @@ permissions:
   contents: write
   pull-requests: write
 
-name: release-please
-
 jobs:
   release-please-pr:
+    name: Release Please
     runs-on: ubuntu-latest
+    if: >
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      major: ${{ steps.release.outputs.major }}
+      minor: ${{ steps.release.outputs.minor }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - id: release
-        uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v4
+        id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: node
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      - name: Tag major and minor versions on release
-        if: ${{ steps.release.outputs.release_created }}
-        uses: actions/checkout@v4
+  tag-versions:
+    name: Tag major/minor versions
+    runs-on: ubuntu-latest
+    needs: release-please-pr
+    if: ${{ needs.release-please-pr.outputs.release_created }}
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Configure git on release
-        if: ${{ steps.release.outputs.release_created }}
+      - name: Configure git
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
 
-      - name: Tag major and minor on release
-        if: ${{ steps.release.outputs.release_created }}
+      - name: Tag major and minor versions
         run: |
-          git tag -d v${{ steps.release.outputs.major }} || true
-          git tag -d v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }} || true
-          git push origin :v${{ steps.release.outputs.major }} || true
-          git push origin :v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }} || true
-          git tag -a v${{ steps.release.outputs.major }} -m "Release v${{ steps.release.outputs.major }}"
-          git tag -a v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }} -m "Release v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}"
-          git push origin v${{ steps.release.outputs.major }}
-          git push origin v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}
+          git tag -d v${{ needs.release-please-pr.outputs.major }} || true
+          git tag -d v${{ needs.release-please-pr.outputs.major }}.${{ needs.release-please-pr.outputs.minor }} || true
+          git push origin :v${{ needs.release-please-pr.outputs.major }} || true
+          git push origin :v${{ needs.release-please-pr.outputs.major }}.${{ needs.release-please-pr.outputs.minor }} || true
+          git tag -a v${{ needs.release-please-pr.outputs.major }} -m "Release v${{ needs.release-please-pr.outputs.major }}"
+          git tag -a v${{ needs.release-please-pr.outputs.major }}.${{ needs.release-please-pr.outputs.minor }} -m "Release v${{ needs.release-please-pr.outputs.major }}.${{ needs.release-please-pr.outputs.minor }}"
+          git push origin v${{ needs.release-please-pr.outputs.major }}
+          git push origin v${{ needs.release-please-pr.outputs.major }}.${{ needs.release-please-pr.outputs.minor }}
 
-      - name: Trigger EAS production build on release
-        if: ${{ steps.release.outputs.release_created }}
+  eas-production-build:
+    name: Trigger EAS production build
+    runs-on: ubuntu-latest
+    needs: release-please-pr
+    if: ${{ needs.release-please-pr.outputs.release_created }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup EAS
+        run: npm install -g eas-cli --registry https://registry.npmjs.org/
+
+      - name: Build production APK
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          export PATH="$HOME/.npm-global/bin:$PATH"
-          npm install -g eas-cli --registry https://registry.npmjs.org/
           eas build --profile production --platform android --non-interactive --no-wait
         working-directory: packages/nastech-app

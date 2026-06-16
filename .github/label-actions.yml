@@ -1,0 +1,51 @@
+# Config for dessant/label-actions@v5
+# https://github.com/dessant/label-actions
+
+"type: bug":
+  issues:
+    comment: >
+      Thanks for filing this bug! A maintainer will investigate.
+      Please include your Android version, app version, and steps to reproduce.
+
+"type: deps":
+  prs:
+    comment: >
+      Dependency update — please ensure `pnpm install` was run and the lockfile committed.
+
+"bot: dependabot":
+  prs:
+    review: approve
+
+"bot: renovate":
+  prs:
+    comment: >
+      Renovate dependency update — a maintainer will review before merging.
+
+"stale":
+  issues:
+    close: true
+  prs:
+    close: true
+
+"scope: termux":
+  issues:
+    comment: >
+      This issue affects Termux integration. Please share your Android version,
+      Termux bootstrap version, and daemon startup logs from `adb logcat`.
+
+"scope: agent":
+  issues:
+    comment: >
+      This issue affects the NasTech Agent (Python daemon).
+      Please share output of: `python3 -m nastech_cli.main --version`
+
+"scope: ios":
+  issues:
+    comment: >
+      iOS note: the Python daemon is Android-only. iOS only connects to an
+      external NasTech Agent server via the server-connect screen.
+
+"review: needed":
+  prs:
+    comment: >
+      This PR has a major version bump and requires manual review before merging.
