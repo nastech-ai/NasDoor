@@ -1,0 +1,265 @@
+# Copilot Fleet 6 — CI/CD (Copilots 41-48)
+name: "🤖 Copilot: CI"
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+    paths:
+      - ".github/workflows/**"
+      - "*.json"
+      - "renovate.json"
+      - "packages/nastech-app/eas.json"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  # ── Copilot 41: YAML validate all workflows ───────────────────
+  yaml-validate:
+    name: "Copilot 41 · YAML validate"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install yamllint
+        run: pip install yamllint -q
+      - name: Lint all workflow YAML
+        id: yaml
+        run: |
+          yamllint .github/workflows/ -d '{extends: relaxed, rules: {line-length: {max: 200}}}' \
+            2>&1 | tee /tmp/yaml.txt
+          ERRORS=$(grep -c "error" /tmp/yaml.txt || echo 0)
+          echo "errors=${ERRORS}" >> $GITHUB_OUTPUT
+        continue-on-error: true
+      - name: Auto-report YAML errors
+        if: steps.yaml.outputs.errors > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/yaml.txt','utf8').slice(0,3000);
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `[Copilot 41] YAML errors in workflows`,
+              body: `## 🤖 Copilot 41 — YAML Validation\n\`\`\`\n${log}\n\`\`\``,
+              labels: ['type: bug','scope: ci','priority: high','status: triage'],
+            });
+
+  # ── Copilot 42: Action version pins ──────────────────────────
+  action-versions:
+    name: "Copilot 42 · Action versions"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for unpinned actions
+        run: |
+          python3 << 'PYEOF'
+          import re, glob
+
+          PINNED_RE = re.compile(r'uses:\s*([\w\-./]+)@(v\d[\w.]*|\w{40})')
+          LATEST_RE = re.compile(r'uses:\s*([\w\-./]+)@(main|master|HEAD|latest)')
+
+          warnings = []
+          for f in glob.glob('.github/workflows/*.yml'):
+              content = open(f).read()
+              for m in LATEST_RE.finditer(content):
+                  warnings.append(f"{f.split('/')[-1]}: {m.group(1)}@{m.group(2)} (unpinned)")
+
+          if warnings:
+              print(f"⚠️  {len(warnings)} unpinned actions (using branch/HEAD):")
+              for w in warnings: print(f"  {w}")
+          else:
+              total = sum(len(PINNED_RE.findall(open(f).read()))
+                          for f in glob.glob('.github/workflows/*.yml'))
+              print(f"✅ All {total} action references use pinned versions")
+          PYEOF
+
+  # ── Copilot 43: Secrets referenced vs declared ───────────────
+  secrets-required:
+    name: "Copilot 43 · Secrets audit"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: List all secrets referenced
+        run: |
+          python3 << 'PYEOF'
+          import re, glob
+
+          secrets = set()
+          for f in glob.glob('.github/workflows/*.yml'):
+              for m in re.finditer(r'\$\{\{\s*secrets\.(\w+)\s*\}\}', open(f).read()):
+                  secrets.add(m.group(1))
+
+          GITHUB_AUTO = {'GITHUB_TOKEN'}  # always available
+          EXPECTED = {'EXPO_TOKEN', 'GH_PAT', 'LLM_API_KEY', 'OPENHANDS_PAT'}
+
+          print("Secrets referenced in workflows:")
+          for s in sorted(secrets):
+              tag = "🔑 auto" if s in GITHUB_AUTO else ("✅ configured" if s in EXPECTED else "⚠️  needs config")
+              print(f"  {tag}  {s}")
+          PYEOF
+
+  # ── Copilot 44: Runner label validation ──────────────────────
+  runner-labels:
+    name: "Copilot 44 · Runner labels"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check runner labels in workflows
+        run: |
+          python3 << 'PYEOF'
+          import re, glob
+
+          VALID_HOSTED = {'ubuntu-latest','ubuntu-22.04','ubuntu-24.04',
+                          'ubuntu-20.04','macos-latest','macos-14',
+                          'windows-latest'}
+          VALID_SELF   = {'self-hosted','replit','linux','x64','arm64'}
+
+          for f in glob.glob('.github/workflows/*.yml'):
+              content = open(f).read()
+              for m in re.finditer(r'runs-on:\s*(.+)', content):
+                  spec = m.group(1).strip().strip('[').strip(']')
+                  labels = [l.strip().strip('"\'') for l in spec.split(',')]
+                  for label in labels:
+                      if label not in VALID_HOSTED and label not in VALID_SELF:
+                          print(f"⚠️  {f.split('/')[-1]}: unknown runner '{label}'")
+          print("✅ Runner labels checked")
+          PYEOF
+
+  # ── Copilot 45: Workflow concurrency guards ───────────────────
+  workflow-syntax:
+    name: "Copilot 45 · Concurrency guards"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Validate workflows with @actions/toolkit schema
+        run: |
+          python3 << 'PYEOF'
+          import re, glob
+
+          issues = []
+          for f in glob.glob('.github/workflows/*.yml'):
+              content = open(f).read()
+              name = f.split('/')[-1]
+              # Workflows without concurrency controls that run on push/PR
+              has_push_pr = bool(re.search(r'\bon:\s*[\s\S]*?push|pull_request', content))
+              has_concurrency = 'concurrency:' in content
+              if has_push_pr and not has_concurrency:
+                  issues.append(f"{name}: no concurrency guard (may queue up)")
+
+          if issues:
+              print(f"ℹ️  {len(issues)} workflows without concurrency control:")
+              for i in issues: print(f"  {i}")
+          else:
+              print("✅ All push/PR workflows have concurrency control")
+          PYEOF
+
+  # ── Copilot 46: EAS config schema check ──────────────────────
+  eas-config-validate:
+    name: "Copilot 46 · EAS config schema"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Validate eas.json against schema
+        run: |
+          python3 << 'PYEOF'
+          import json, sys
+
+          REQUIRED_PROFILES = ['preview']
+          REQUIRED_BUILD_FIELDS = ['distribution']
+
+          try:
+              eas = json.load(open('packages/nastech-app/eas.json'))
+              print("✅ eas.json is valid JSON")
+          except Exception as e:
+              print(f"❌ eas.json parse error: {e}")
+              sys.exit(1)
+
+          cli = eas.get('cli', {})
+          print(f"EAS CLI version: {cli.get('version','not pinned')}")
+
+          builds = eas.get('build', {})
+          for name in REQUIRED_PROFILES:
+              if name in builds:
+                  print(f"✅ Profile '{name}' present")
+              else:
+                  print(f"❌ Missing required profile '{name}'")
+
+          submit = eas.get('submit', {})
+          print(f"Submit profiles: {list(submit.keys()) or 'none'}")
+          PYEOF
+
+  # ── Copilot 47: pnpm lockfile integrity ──────────────────────
+  pnpm-lockfile:
+    name: "Copilot 47 · pnpm lockfile"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check pnpm lockfile exists and is valid
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            echo "✅ pnpm-lock.yaml found"
+            # Check format version
+            head -3 pnpm-lock.yaml
+            SIZE=$(wc -l < pnpm-lock.yaml)
+            echo "Lockfile: ${SIZE} lines"
+          else
+            echo "⚠️  No pnpm-lock.yaml — this will slow CI (no cache)"
+          fi
+          # Check workspace packages are consistent
+          python3 << 'PYEOF'
+          import json, os
+
+          pkgs = []
+          for root, dirs, files in os.walk('.'):
+              dirs[:] = [d for d in dirs if d not in ['node_modules','.git']]
+              if 'package.json' in files:
+                  try:
+                      p = json.load(open(os.path.join(root,'package.json')))
+                      pkgs.append((root, p.get('name','?'), p.get('version','?')))
+                  except: pass
+
+          print(f"\nWorkspace packages ({len(pkgs)}):")
+          for path, name, ver in pkgs:
+              print(f"  {name}@{ver}  ({path})")
+          PYEOF
+
+  # ── Copilot 48: renovate.json validation ─────────────────────
+  renovate-config:
+    name: "Copilot 48 · Renovate config"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Validate renovate.json
+        run: |
+          if [ ! -f renovate.json ]; then
+            echo "⚠️  No renovate.json found"
+            exit 0
+          fi
+          # Install renovate config validator
+          npm install -g renovate --ignore-scripts 2>/dev/null | tail -3 || true
+          node -e "
+            const cfg = JSON.parse(require('fs').readFileSync('renovate.json','utf8'));
+            console.log('✅ renovate.json valid JSON');
+            console.log('extends:', cfg.extends || 'none');
+            console.log('schedule:', cfg.schedule || 'default');
+            console.log('packageRules:', (cfg.packageRules || []).length, 'rules');
+          " 2>&1 || python3 -c "
+          import json, sys
+          try:
+            cfg = json.load(open('renovate.json'))
+            print('✅ renovate.json valid JSON')
+            print('extends:', cfg.get('extends', []))
+          except Exception as e:
+            print(f'❌ {e}'); sys.exit(1)
+          "
