@@ -1,0 +1,38 @@
+# Based on: https://github.com/github/super-linter
+name: Super Linter
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  lint:
+    name: Super Linter
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Super Linter
+        uses: github/super-linter@v7
+        env:
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: false
+          VALIDATE_TYPESCRIPT_ES: true
+          VALIDATE_PYTHON_PYLINT: true
+          VALIDATE_JSON: true
+          VALIDATE_YAML: true
+          VALIDATE_BASH: true
+          FILTER_REGEX_EXCLUDE: >
+            (node_modules|android|ios|\.expo|dist|build|patches|\.git|src-tauri)
+          TYPESCRIPT_ES_CONFIG_FILE: packages/nastech-app/tsconfig.json

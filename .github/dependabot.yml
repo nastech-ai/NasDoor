@@ -1,0 +1,85 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: daily
+      time: "06:00"
+      timezone: "UTC"
+    labels:
+      - "bot: dependabot"
+      - "type: deps"
+    groups:
+      expo-sdk:
+        patterns:
+          - "expo*"
+          - "@expo/*"
+      react-navigation:
+        patterns:
+          - "@react-navigation/*"
+      react-native:
+        patterns:
+          - "react-native*"
+          - "@react-native*"
+      livekit:
+        patterns:
+          - "@livekit/*"
+          - "livekit-client"
+      elevenlabs:
+        patterns:
+          - "@elevenlabs/*"
+      codemirror:
+        patterns:
+          - "@codemirror/*"
+      tauri:
+        patterns:
+          - "@tauri-apps/*"
+    open-pull-requests-limit: 20
+    ignore:
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-native"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /packages/nastech-app
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: "UTC"
+    labels:
+      - "bot: dependabot"
+      - "type: deps"
+      - "scope: app"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: pip
+    directory: /nastech-agent
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "07:00"
+      timezone: "UTC"
+    labels:
+      - "bot: dependabot"
+      - "type: deps"
+      - "scope: agent"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "07:00"
+      timezone: "UTC"
+    labels:
+      - "bot: dependabot"
+      - "type: deps"
+      - "scope: ci"
+    groups:
+      actions-core:
+        patterns:
+          - "actions/*"

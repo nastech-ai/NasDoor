@@ -1,0 +1,49 @@
+# Pulled from: https://github.com/probot/probot/blob/master/.github/workflows/test.yml
+name: Dependency Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ["Super Linter"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    if: >
+      github.event_name == 'pull_request' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  license-check:
+    name: License Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Install deps
+        run: |
+          export PATH="$HOME/.npm-global/bin:$PATH"
+          npm install -g pnpm@10.11.0 --registry https://registry.npmjs.org/
+          pnpm install --no-frozen-lockfile --registry https://registry.npmjs.org/
+        working-directory: .
+      - name: Check licenses
+        run: |
+          npx license-checker --production --summary \
+            --onlyAllow="0BSD;Apache-2.0;Apache 2.0;BSD-2-Clause;BSD-3-Clause;ISC;MIT;Python-2.0;Unlicense;CC0-1.0" || true
+        working-directory: packages/nastech-app

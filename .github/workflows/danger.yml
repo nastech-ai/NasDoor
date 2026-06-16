@@ -1,0 +1,27 @@
+# Based on: https://github.com/danger/danger-js
+name: Danger JS
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  danger:
+    name: Danger JS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Danger JS
+        run: npm install --global danger
+
+      - name: Run Danger
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx danger ci --dangerfile dangerfile.js

@@ -1,5 +1,6 @@
 name: Agent Smoke Test
 
+# SHIFT 3 — triggered when TypeScript Typecheck (Shift 2) completes
 on:
   push:
     branches: [main]
@@ -10,6 +11,10 @@ on:
     paths:
       - 'nastech-agent/**'
   workflow_dispatch:
+  workflow_run:
+    workflows: ["TypeScript Typecheck"]
+    types: [completed]
+    branches: [main]
 
 jobs:
   agent-smoke-test:

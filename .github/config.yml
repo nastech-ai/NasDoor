@@ -1,0 +1,27 @@
+# Probot config — https://github.com/probot/probot
+
+# new-issue-welcome — https://github.com/behaviorbot/new-issue-welcome
+newIssueWelcomeComment: >
+  Thanks for opening this issue! A maintainer will review it shortly.
+  In the meantime, please check that you've included steps to reproduce,
+  your platform (Android / iOS), and your app version.
+
+# new-pr-welcome — https://github.com/behaviorbot/new-pr-welcome
+newPRWelcomeComment: >
+  Thanks for opening this pull request! A maintainer will review it soon.
+  Please make sure the PR description explains what changed and why.
+
+# first-pr-merge — https://github.com/behaviorbot/first-pr-merge
+firstPRMergeComment: >
+  Thanks for your first contribution to NasDoor!
+
+# request-info — https://github.com/behaviorbot/request-info
+requestInfoReplyComment: >
+  Could you add a bit more detail? Steps to reproduce, platform, and version
+  are really helpful for us to investigate quickly.
+
+# sentiment-bot — https://github.com/behaviorbot/sentiment-bot
+sentimentBotToxicityThreshold: 0.9
+sentimentBotReplyComment: >
+  Please keep the discussion respectful and on-topic.
+  Review our code of conduct before replying.

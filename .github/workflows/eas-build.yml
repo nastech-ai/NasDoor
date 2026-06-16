@@ -1,5 +1,6 @@
 name: EAS Build
 
+# SHIFT 5 (parallel) — triggered when Semantic Release (Shift 5) completes
 on:
   push:
     branches: [main]
@@ -25,6 +26,10 @@ on:
           - android
           - ios
           - all
+  workflow_run:
+    workflows: ["Semantic Release"]
+    types: [completed]
+    branches: [main]
 
 jobs:
   build:

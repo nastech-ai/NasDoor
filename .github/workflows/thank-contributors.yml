@@ -1,0 +1,38 @@
+# Pulled from: https://github.com/github/super-linter/blob/main/.github/workflows/thank_contributors.yaml
+name: Monthly Contributor Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "3 2 1 * *"
+
+permissions:
+  issues: write
+
+jobs:
+  contributor_report:
+    name: Contributor Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get dates for last month
+        shell: bash
+        run: |
+          start_date=$(date -d "last month" +%Y-%m-01)
+          end_date=$(date -d "$start_date +1 month -1 day" +%Y-%m-%d)
+          echo "START_DATE=$start_date" >> "$GITHUB_ENV"
+          echo "END_DATE=$end_date" >> "$GITHUB_ENV"
+
+      - name: Run contributor action
+        uses: github/contributors@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          START_DATE: ${{ env.START_DATE }}
+          END_DATE: ${{ env.END_DATE }}
+          REPOSITORY: nastech-ai/NasDoor
+
+      - name: Create issue
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "Thank you NasDoor contributors (${{ env.START_DATE }}..${{ env.END_DATE }})"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          content-filepath: ./contributors.md

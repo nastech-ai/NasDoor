@@ -1,0 +1,87 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":separatePatchReleases",
+    "group:monorepos"
+  ],
+  "labels": ["bot: renovate", "type: deps"],
+  "reviewers": ["nastechai"],
+  "assignees": ["nastechai"],
+  "schedule": ["before 8am on monday"],
+  "timezone": "UTC",
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 4,
+  "automerge": false,
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Renovate Dependency Dashboard",
+  "packageRules": [
+    {
+      "description": "Expo SDK — group all expo/* upgrades",
+      "matchPackagePatterns": ["^expo", "^@expo/"],
+      "groupName": "Expo SDK",
+      "labels": ["bot: renovate", "type: deps", "scope: expo"],
+      "automerge": false
+    },
+    {
+      "description": "React Navigation — minor/patch automerge",
+      "matchPackagePatterns": ["^@react-navigation/"],
+      "groupName": "React Navigation",
+      "automerge": false,
+      "labels": ["bot: renovate", "type: deps", "scope: navigation"]
+    },
+    {
+      "description": "React Native core — never auto-upgrade major",
+      "matchPackageNames": ["react-native", "react"],
+      "allowedVersions": "<20.0.0",
+      "labels": ["bot: renovate", "type: deps", "scope: core"]
+    },
+    {
+      "description": "LiveKit — group all livekit packages",
+      "matchPackagePatterns": ["^@livekit/", "^livekit-"],
+      "groupName": "LiveKit",
+      "labels": ["bot: renovate", "type: deps", "scope: livekit"]
+    },
+    {
+      "description": "ElevenLabs — group all elevenlabs packages",
+      "matchPackagePatterns": ["^@elevenlabs/"],
+      "groupName": "ElevenLabs",
+      "labels": ["bot: renovate", "type: deps", "scope: elevenlabs"]
+    },
+    {
+      "description": "CodeMirror — group all codemirror packages",
+      "matchPackagePatterns": ["^@codemirror/"],
+      "groupName": "CodeMirror",
+      "labels": ["bot: renovate", "type: deps", "scope: editor"]
+    },
+    {
+      "description": "Tauri — group all tauri packages",
+      "matchPackagePatterns": ["^@tauri-apps/"],
+      "groupName": "Tauri Desktop",
+      "labels": ["bot: renovate", "type: deps", "scope: desktop"]
+    },
+    {
+      "description": "GitHub Actions — automerge patch updates",
+      "matchManagers": ["github-actions"],
+      "automerge": true,
+      "automergeType": "pr",
+      "labels": ["bot: renovate", "type: deps", "scope: ci"]
+    },
+    {
+      "description": "Python pip — NasTech agent deps",
+      "matchManagers": ["pip_requirements", "pipenv", "poetry"],
+      "groupName": "Python Agent Deps",
+      "labels": ["bot: renovate", "type: deps", "scope: agent"]
+    }
+  ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/.expo/**",
+    "**/android/**",
+    "**/ios/**",
+    "**/__pycache__/**",
+    "**/.venv/**"
+  ]
+}

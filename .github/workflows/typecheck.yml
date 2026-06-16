@@ -1,5 +1,6 @@
 name: TypeScript Typecheck
 
+# SHIFT 2 — triggered when Super Linter (Shift 1) completes
 on:
   push:
     branches: [main]
@@ -11,6 +12,10 @@ on:
     paths:
       - 'packages/nastech-app/sources/**'
       - 'packages/nastech-app/tsconfig*.json'
+  workflow_run:
+    workflows: ["Super Linter"]
+    types: [completed]
+    branches: [main]
 
 jobs:
   typecheck:
