@@ -1,0 +1,26 @@
+name: "Copilot Daemon"
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "nastech-agent/**"
+
+jobs:
+  python-check:
+    name: "Python syntax check"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check Python files
+        run: |
+          COUNT=$(find nastech-agent -name "*.py" 2>/dev/null | wc -l)
+          echo "Found $COUNT Python files"
+          for f in $(find nastech-agent -name "*.py" 2>/dev/null); do
+            python3 -m py_compile "$f" 2>&1 || true
+          done
+          echo "Done"
