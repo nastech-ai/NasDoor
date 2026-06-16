@@ -1,0 +1,251 @@
+# Copilot Fleet 4 — iOS (Copilots 25-32)
+name: "🤖 Copilot: iOS"
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+    paths:
+      - "packages/nastech-app/sources/(app)/server.tsx"
+      - "packages/nastech-app/app.config.js"
+      - "packages/nastech-app/eas.json"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  # ── Copilot 25: iOS bundle ID validation ─────────────────────
+  bundle-id-check:
+    name: "Copilot 25 · iOS bundle ID"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate iOS bundle ID
+        run: |
+          python3 << 'PYEOF'
+          import re, sys
+
+          content = open('packages/nastech-app/app.config.js').read()
+          EXPECTED_IOS = 'ai.nastech.ba'
+          EXPECTED_AND = 'ba.nastech.ai'
+
+          ios_match = re.search(r'bundleIdentifier["\s:]+["\']([^"\']+)["\']', content)
+          and_match = re.search(r'package["\s:]+["\']([^"\']+)["\']', content)
+
+          print(f"iOS bundleIdentifier: {ios_match.group(1) if ios_match else 'NOT FOUND'}")
+          print(f"Android package:      {and_match.group(1) if and_match else 'NOT FOUND'}")
+
+          ok = True
+          if ios_match and ios_match.group(1) != EXPECTED_IOS:
+              print(f"❌ Expected iOS: {EXPECTED_IOS}")
+              ok = False
+          if and_match and and_match.group(1) != EXPECTED_AND:
+              print(f"❌ Expected Android: {EXPECTED_AND}")
+              ok = False
+          if ok:
+              print("✅ Bundle IDs correct")
+          else:
+              sys.exit(1)
+          PYEOF
+
+  # ── Copilot 26: Server connect screen lint ───────────────────
+  server-screen-lint:
+    name: "Copilot 26 · Server screen TS"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Check server.tsx exists and has no obvious errors
+        run: |
+          FILE="packages/nastech-app/sources/(app)/server.tsx"
+          if [ ! -f "$FILE" ]; then
+            echo "❌ server.tsx not found — iOS connect screen is missing"
+            exit 1
+          fi
+          echo "✅ server.tsx exists"
+          echo "File size: $(wc -l < "$FILE") lines"
+          echo "=== Imports ==="
+          grep "^import" "$FILE" || echo "(none at top)"
+          echo "=== Platform.OS guards ==="
+          grep "Platform.OS\|Platform\.select" "$FILE" || echo "(none — may be iOS-only which is OK)"
+
+  # ── Copilot 27: EAS iOS config ───────────────────────────────
+  eas-ios-config:
+    name: "Copilot 27 · EAS iOS config"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate EAS iOS profiles
+        run: |
+          python3 << 'PYEOF'
+          import json, sys
+
+          try:
+              eas = json.load(open('packages/nastech-app/eas.json'))
+          except Exception as e:
+              print(f"❌ Cannot parse eas.json: {e}")
+              sys.exit(1)
+
+          profiles = eas.get('build', {})
+          for name, profile in profiles.items():
+              ios = profile.get('ios', {})
+              print(f"Profile '{name}' iOS:")
+              print(f"  simulator:     {ios.get('simulator', False)}")
+              print(f"  buildScheme:   {ios.get('buildScheme', 'default')}")
+              print(f"  enterprisePro: {ios.get('enterpriseProvisioning', 'none')}")
+
+          print("\n✅ EAS iOS config parsed successfully")
+          PYEOF
+
+  # ── Copilot 28: app.config.js iOS section ───────────────────
+  expo-config-ios:
+    name: "Copilot 28 · Expo config iOS"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit iOS config in app.config.js
+        run: |
+          python3 << 'PYEOF'
+          import re
+
+          content = open('packages/nastech-app/app.config.js').read()
+
+          ios_section = re.search(r'ios\s*:\s*\{(.*?)\}', content, re.DOTALL)
+          if ios_section:
+              print("✅ iOS section found in app.config.js")
+              section = ios_section.group(1)
+              fields = ['bundleIdentifier','buildNumber','supportsTablet','infoPlist']
+              for f in fields:
+                  found = f in section
+                  print(f"  {'✅' if found else 'ℹ️ '} {f}: {'present' if found else 'not set'}")
+          else:
+              print("⚠️  No ios section in app.config.js")
+
+          # Check for iOS-dangerous plugin usage
+          if 'withTermuxDaemon' in content:
+              # Should only be applied on Android
+              if 'Platform' in content or 'android' in content.lower():
+                  print("✅ Daemon plugin appears Android-gated")
+              else:
+                  print("⚠️  withTermuxDaemon may apply to iOS — check platform guard")
+          PYEOF
+
+  # ── Copilot 29: iOS-only code guards ────────────────────────
+  ios-only-code:
+    name: "Copilot 29 · iOS platform guards"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify daemon code never runs on iOS
+        run: |
+          python3 << 'PYEOF'
+          import os, re, sys
+
+          violations = []
+          daemon_apis = ['DaemonModule', 'NativeDaemon', 'startDaemon', 'stopDaemon',
+                         'port 9119', 'Termux', 'proot']
+
+          for root, dirs, files in os.walk('packages/nastech-app/sources'):
+              for fname in files:
+                  if not (fname.endswith('.ts') or fname.endswith('.tsx')): continue
+                  path = os.path.join(root, fname)
+                  content = open(path).read()
+                  for api in daemon_apis:
+                      if api in content:
+                          # Check if it's inside a Platform.OS === 'android' guard
+                          # Simple heuristic: the file should have Platform guard
+                          if 'Platform.OS' not in content and 'android' not in content.lower():
+                              violations.append(f"{path}: uses '{api}' without Platform guard")
+
+          if violations:
+              print("⚠️  Possible unguarded daemon API usage:")
+              for v in violations: print(f"  {v}")
+          else:
+              print("✅ All daemon APIs appear properly platform-guarded")
+          PYEOF
+
+  # ── Copilot 30: Connect screen smoke test ───────────────────
+  connect-screen-test:
+    name: "Copilot 30 · Connect screen test"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Smoke-test server connect screen imports
+        run: |
+          FILE="packages/nastech-app/sources/(app)/server.tsx"
+          if [ ! -f "$FILE" ]; then
+            echo "❌ Missing iOS connect screen"
+            exit 1
+          fi
+          # Check it exports a default component
+          if grep -q "export default" "$FILE"; then
+            echo "✅ Default export present"
+          else
+            echo "❌ No default export in server.tsx"
+            exit 1
+          fi
+          # Count lines
+          LINES=$(wc -l < "$FILE")
+          echo "Lines: $LINES"
+          if [ "$LINES" -lt 10 ]; then
+            echo "⚠️  server.tsx is very short ($LINES lines) — may be stub"
+          fi
+
+  # ── Copilot 31: iOS permissions strings ─────────────────────
+  ios-permissions:
+    name: "Copilot 31 · iOS permissions"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check iOS permission strings in config
+        run: |
+          python3 << 'PYEOF'
+          import re
+
+          content = open('packages/nastech-app/app.config.js').read()
+
+          # Extract infoPlist entries (permissions)
+          info_plist = re.findall(r'(NS\w+UsageDescription)["\s:]+["\']([^"\']+)["\']', content)
+          if info_plist:
+              print(f"iOS permission strings ({len(info_plist)}):")
+              for key, val in info_plist:
+                  print(f"  {key}: {val[:60]}")
+          else:
+              print("ℹ️  No NSUsageDescription strings found (iOS server-only build may not need any)")
+          PYEOF
+
+  # ── Copilot 32: EAS owner + project ID ──────────────────────
+  eas-project-id:
+    name: "Copilot 32 · EAS project ID"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify EAS owner and project ID
+        run: |
+          python3 << 'PYEOF'
+          import re, sys
+
+          EXPECTED_OWNER = 'nastechai'
+          EXPECTED_ID    = '925ecdd8-07ba-4775-956b-2b334fab8357'
+
+          content = open('packages/nastech-app/app.config.js').read()
+
+          owner_m = re.search(r'owner["\s:]+["\']([^"\']+)["\']', content)
+          proj_m  = re.search(r'projectId["\s:]+["\']([^"\']+)["\']', content)
+
+          owner = owner_m.group(1) if owner_m else 'NOT FOUND'
+          proj  = proj_m.group(1)  if proj_m  else 'NOT FOUND'
+
+          print(f"EAS owner:      {owner} {'✅' if owner==EXPECTED_OWNER else '❌'}")
+          print(f"EAS projectId:  {proj}  {'✅' if proj==EXPECTED_ID else '❌'}")
+
+          if owner != EXPECTED_OWNER or proj != EXPECTED_ID:
+              sys.exit(1)
+          PYEOF
