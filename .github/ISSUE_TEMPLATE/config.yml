@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: NasDoor Discussions
+    url: https://github.com/nastech-ai/NasDoor/discussions
+    about: Ask questions and share ideas
