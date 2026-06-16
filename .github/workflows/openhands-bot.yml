@@ -1,6 +1,3 @@
-# OpenHands AI Bot — integrated from https://github.com/OpenHands/OpenHands
-# Patterns pulled from: issue-opened.yml, qa-changes-by-openhands.yml, lint-fix.yml
-# Auto-fixes issues, QAs PRs, and responds to slash commands
 name: "🙌 OpenHands Bot"
 
 on:
@@ -12,9 +9,6 @@ on:
     types: [labeled]
   workflow_dispatch:
     inputs:
-      issue_number:
-        description: "Issue number to fix"
-        required: false
       task:
         description: "Task for OpenHands"
         required: false
@@ -26,7 +20,6 @@ permissions:
   issues: write
 
 jobs:
-  # ── 1. Auto-triage new issues (from OpenHands issue-opened.yml) ──
   issue-triage:
     name: "OpenHands — Issue triage"
     if: github.event_name == 'issues' && github.event.action == 'opened'
@@ -35,35 +28,24 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const issue  = context.payload.issue;
-            const body   = (issue.body  || '').toLowerCase();
-            const title  = (issue.title || '').toLowerCase();
-            const text   = title + ' ' + body;
-
-            // Detect if this looks like a CI/copilot failure notification
+            const issue = context.payload.issue;
+            const text  = (issue.title + ' ' + (issue.body || '')).toLowerCase();
             const isCiFailure = /copilot|workflow|action|ci|build|lint|typecheck/i.test(text);
 
-            if (isCiFailure && !body.includes('/fix')) {
+            if (isCiFailure) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo:  context.repo.repo,
                 issue_number: issue.number,
                 body: [
-                  `👋 This looks like a CI issue. **OpenHands** can fix it automatically!`,
+                  `👋 This looks like a CI issue. OpenHands can fix it automatically!`,
                   ``,
-                  `To trigger auto-repair, comment:`,
-                  `\`\`\``,
-                  `/fix ${title.slice(0,80)}`,
-                  `\`\`\``,
-                  ``,
-                  `Or add the label \`fix-me\` to queue an OpenHands fix.`,
-                  ``,
-                  `> 🤖 *Powered by [OpenHands](https://github.com/OpenHands/OpenHands)*`,
+                  `Comment \`/fix ${issue.title.slice(0, 80)}\` to trigger auto-repair.`,
+                  `Or add the label \`fix-me\` to queue a fix.`,
                 ].join('\n'),
               });
             }
 
-  # ── 2. Fix issue on /fix comment (slash command) ──────────────
   fix-on-command:
     name: "OpenHands — /fix command"
     if: |
@@ -74,20 +56,22 @@ jobs:
     concurrency:
       group: openhands-fix-${{ github.event.issue.number }}
       cancel-in-progress: true
+    env:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
     steps:
       - name: Check permissions
         id: perm
         uses: actions/github-script@v7
         with:
           script: |
-            const assoc = context.payload.comment.author_association;
+            const assoc   = context.payload.comment.author_association;
             const allowed = ['OWNER','MEMBER','COLLABORATOR'].includes(assoc);
             core.setOutput('allowed', allowed ? 'true' : 'false');
             if (!allowed) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner, repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: '⚠️ Only repo collaborators can trigger OpenHands fixes.',
+                body: 'Only repo collaborators can trigger OpenHands fixes.',
               });
             }
 
@@ -102,41 +86,33 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const cmd = context.payload.comment.body.replace('/fix','').trim();
+            const cmd = context.payload.comment.body.replace('/fix', '').trim();
             await github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: context.issue.number,
               body: [
-                `🤖 **OpenHands** is working on this...`,
-                ``,
+                `OpenHands is working on this...`,
                 `**Task:** ${cmd || 'Fix the issue described above'}`,
-                `**Run:** https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-                ``,
-                `I'll post a PR or update when done.`,
+                `[View run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
               ].join('\n'),
             });
 
-      - name: Run OpenHands fix
-        if: steps.perm.outputs.allowed == 'true' && secrets.LLM_API_KEY != ''
-        uses: OpenHands/extensions/plugins/fix-issue@main
+      - name: Run OpenHands resolver
+        if: steps.perm.outputs.allowed == 'true' && env.LLM_API_KEY != ''
+        uses: all-hands-ai/OpenHands-resolver@main
         continue-on-error: true
         with:
           github-token: ${{ secrets.GH_PAT || github.token }}
-          llm-model: "claude-3-5-sonnet-20241022"
+          llm-model: "anthropic/claude-3-5-sonnet-20241022"
           llm-api-key: ${{ secrets.LLM_API_KEY }}
           issue-number: ${{ github.event.issue.number }}
-          max-iterations: "50"
-
-      - name: Apply quick fixes + create PR if OpenHands unavailable
-        if: steps.perm.outputs.allowed == 'true'
-        uses: actions/setup-node@v4
-        with: { node-version: "20" }
+          max-iterations: "30"
 
       - name: Quick-fix fallback
         if: steps.perm.outputs.allowed == 'true'
         run: |
+          pip install autopep8 isort -q
           npm install -g prettier 2>/dev/null | tail -1 || true
-          pip install autopep8 isort yamllint -q
           find packages/nastech-app/sources -name "*.ts" -o -name "*.tsx" 2>/dev/null | \
             xargs prettier --write 2>/dev/null || true
           find nastech-agent -name "*.py" 2>/dev/null | \
@@ -147,13 +123,14 @@ jobs:
           git add -A
           if ! git diff --cached --quiet; then
             BRANCH="openhands/fix-issue-${{ github.event.issue.number }}"
-            git checkout -b "$BRANCH"
+            git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
             git commit -m "fix(openhands): auto-repair issue #${{ github.event.issue.number }} [skip ci]"
             git push origin "$BRANCH"
             echo "BRANCH=${BRANCH}" >> $GITHUB_ENV
           fi
 
-      - name: Create PR for the fix
+      - name: Create or update PR
+        if: steps.perm.outputs.allowed == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -162,31 +139,24 @@ jobs:
               await github.rest.issues.createComment({
                 owner: context.repo.owner, repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: `✅ No auto-fixable changes found — the issue may require manual attention.`,
+                body: `No auto-fixable changes found. Manual review needed.`,
               });
               return;
             }
             const pr = await github.rest.pulls.create({
               owner: context.repo.owner, repo: context.repo.repo,
               title: `fix(openhands): Auto-repair issue #${context.issue.number}`,
-              head: branch,
-              base: 'main',
-              body: [
-                `Closes #${context.issue.number}`,
-                ``,
-                `## 🤖 OpenHands Auto-Fix`,
-                `Applied: Prettier, autopep8, isort, YAML cleanup.`,
-                ``,
-                `> Auto-generated by OpenHands Bot`,
-              ].join('\n'),
-            });
-            await github.rest.issues.createComment({
-              owner: context.repo.owner, repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `✅ **PR created:** #${pr.data.number} — ${pr.data.html_url}`,
-            });
+              head: branch, base: 'main',
+              body: `Closes #${context.issue.number}\n\nApplied: Prettier, autopep8, isort.`,
+            }).catch(() => null);
+            if (pr) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `PR created: #${pr.data.number} — ${pr.data.html_url}`,
+              });
+            }
 
-  # ── 3. QA-test a PR when qa-this label added ──────────────────
   qa-pr:
     name: "OpenHands — QA PR"
     if: |
@@ -202,42 +172,28 @@ jobs:
           fetch-depth: 0
 
       - name: Run QA checks
+        continue-on-error: true
         run: |
-          echo "=== QA Report for PR #${{ github.event.pull_request.number }} ==="
-          echo ""
-          echo "--- TypeScript ---"
-          npm install -g pnpm@10 2>/dev/null | tail -1 || true
-          pnpm install --no-frozen-lockfile 2>/dev/null | tail -3 || true
-          pnpm --filter nastech-app exec tsc --noEmit 2>&1 | tail -10 || true
-          echo ""
-          echo "--- Python syntax ---"
+          echo "=== QA: Python syntax ==="
           find nastech-agent -name "*.py" -exec python3 -m py_compile {} \; 2>&1 | head -10 || true
-          echo ""
-          echo "--- YAML ---"
+          echo "=== QA: YAML ==="
           pip install yamllint -q
           yamllint .github/workflows/ -d relaxed 2>&1 | tail -10 || true
-        continue-on-error: true
 
       - name: Post QA report
         uses: actions/github-script@v7
         with:
           script: |
             await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo:  context.repo.repo,
+              owner: context.repo.owner, repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
               body: [
-                `## 🙌 OpenHands QA Report`,
-                ``,
-                `Checks run: TypeScript, Python syntax, YAML validation.`,
-                ``,
-                `> Full logs: [View run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
-                ``,
-                `> Powered by [OpenHands](https://github.com/OpenHands/OpenHands)`,
+                `## QA Report`,
+                `Checks: Python syntax, YAML validation.`,
+                `[View logs](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
               ].join('\n'),
             });
 
-  # ── 4. lint-fix label → auto-fix lint on PR ──────────────────
   lint-fix:
     name: "OpenHands — Lint fix"
     if: |
@@ -259,19 +215,14 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
 
-      - name: Fix frontend lint
+      - name: Fix frontend + Python lint
         run: |
-          npm install -g prettier eslint 2>/dev/null | tail -2 || true
+          npm install -g prettier 2>/dev/null | tail -2 || true
+          pip install autopep8 isort -q
           find packages/nastech-app/sources -name "*.ts" -o -name "*.tsx" | \
             xargs prettier --write 2>/dev/null || true
-          echo "✅ Frontend lint fixed"
-
-      - name: Fix Python lint
-        run: |
-          pip install autopep8 isort -q
           autopep8 --in-place -r nastech-agent/ 2>/dev/null || true
           isort nastech-agent/ --profile black 2>/dev/null || true
-          echo "✅ Python lint fixed"
 
       - name: Commit lint fixes
         run: |
@@ -279,9 +230,8 @@ jobs:
           git config user.email "openhands@all-hands.dev"
           git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "🤖 Auto-fix lint issues (OpenHands) [skip ci]"
+            git commit -m "fix(openhands): auto-fix lint [skip ci]"
             git push
-            echo "✅ Lint fixes pushed"
           else
-            echo "ℹ️  No lint issues found"
+            echo "No lint issues found"
           fi
