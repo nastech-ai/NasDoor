@@ -7,7 +7,7 @@ on:
       - "🤖 Copilot: Security"
       - "🤖 Copilot: Android"
       - "🤖 Copilot: iOS"
-      - "🤖 Copilot: Daemon"
+      - "Copilot Daemon"
       - "🤖 Copilot: CI"
       - "🤖 Copilot: Release"
       - "EAS Build"
