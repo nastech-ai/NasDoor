@@ -594,7 +594,9 @@ def main() -> None:
             ],
         },
         fallbacks=[CommandHandler("cancel", setkey_cancel)],
-        per_message=False,
+        per_chat=True,
+        per_user=True,
+        per_message=True,
     )
 
     app.add_handler(conv)
