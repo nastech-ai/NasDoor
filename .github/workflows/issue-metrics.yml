@@ -1,0 +1,86 @@
+# Issue Metrics Bot — weekly report across all 20 label categories
+name: Issue Metrics
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'   # Every Monday 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  metrics:
+    name: Weekly issue health report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate metrics report
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const categories = {
+              'Type': ['type: bug','type: feature','type: docs','type: security','type: performance','type: chore'],
+              'Scope': ['scope: android','scope: ios','scope: daemon','scope: app','scope: ci','scope: deps'],
+              'Priority': ['priority: critical','priority: high','priority: medium','priority: low'],
+              'Status': ['status: triage','status: in-progress','status: blocked','status: review'],
+            };
+
+            const allOpen = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            const countLabel = (label) =>
+              allOpen.filter(i => i.labels.some(l => l.name === label)).length;
+
+            let report = [
+              `## 📊 NasDoor Issue Health — ${new Date().toISOString().slice(0,10)}`,
+              ``,
+              `**Total open issues: ${allOpen.length}**`,
+              ``,
+            ];
+
+            for (const [cat, labels] of Object.entries(categories)) {
+              report.push(`### ${cat}`);
+              report.push(`| Label | Open |`);
+              report.push(`|---|---|`);
+              for (const lbl of labels) {
+                const n = countLabel(lbl);
+                const bar = '█'.repeat(Math.min(n, 20));
+                report.push(`| \`${lbl}\` | ${n} ${bar} |`);
+              }
+              report.push(``);
+            }
+
+            // Critical issues callout
+            const critical = allOpen.filter(i => i.labels.some(l => l.name === 'priority: critical'));
+            if (critical.length > 0) {
+              report.push(`### 🚨 Critical issues needing immediate attention`);
+              for (const i of critical) {
+                report.push(`- #${i.number} ${i.title}`);
+              }
+            }
+
+            // Stale triage
+            const triage = allOpen.filter(i => i.labels.some(l => l.name === 'status: triage'));
+            if (triage.length > 0) {
+              report.push(``, `### ⏳ Needs triage (${triage.length})`);
+              for (const i of triage.slice(0, 10)) {
+                report.push(`- #${i.number} ${i.title}`);
+              }
+              if (triage.length > 10) report.push(`- ... and ${triage.length-10} more`);
+            }
+
+            // Create discussion / issue for the report
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              title: `[Bot] Weekly Issue Metrics — ${new Date().toISOString().slice(0,10)}`,
+              body: report.join('\n'),
+              labels: ['type: chore'],
+            });
+            console.log('Report created');
