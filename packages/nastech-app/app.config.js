@@ -56,10 +56,8 @@ function loadBuildMetadata() {
 
 const buildMetadata = loadBuildMetadata();
 
-// EAS project ID — set to "" here; the CI workflow runs "eas init --non-interactive"
-// which creates/links the project under the nasdoor account and writes the real ID.
-// After the first successful build the workflow commits back the real ID.
-const easProjectId = process.env.EAS_PROJECT_ID || "";
+// EAS project ID — nasdoor/nastech-agent (created 2026-06-16 via GraphQL API)
+const easProjectId = process.env.EAS_PROJECT_ID || "e4301585-50e3-440d-b7f3-c1d7df1f7916";
 
 module.exports = {
     expo: {

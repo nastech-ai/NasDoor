@@ -68,108 +68,20 @@ jobs:
           pnpm install --no-frozen-lockfile --registry https://registry.npmjs.org/
         working-directory: .
 
-      - name: Fix EAS project ownership
+      - name: Verify EAS auth
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
-
-          echo "=== Current EAS project ==="
+          echo "=== EAS account ==="
           eas whoami
-
-          # Test if we can access the current project
-          if eas project:info --non-interactive 2>/dev/null; then
-            echo "✓ EAS project accessible, skipping ownership fix"
-            exit 0
-          fi
-
-          echo "Project not accessible under current token. Fixing ownership → nasdoor..."
-
-          # Patch app.config.js: owner=nasdoor, clear old project ID
+          echo "=== EAS project ==="
           node -e "
-            const fs = require('fs');
-            let c = fs.readFileSync('app.config.js', 'utf8');
-            c = c.replace(/owner:\s*[\"']nastechai[\"']/, 'owner: \"nasdoor\"');
-            c = c.replace(/\"925ecdd8-07ba-4775-956b-2b334fab8357\"/g, '\"\"');
-            c = c.replace(/925ecdd8-07ba-4775-956b-2b334fab8357/g, '');
-            fs.writeFileSync('app.config.js', c);
-            console.log('✓ Patched app.config.js: owner=nasdoor, projectId cleared');
+            const c = require('./app.config.js');
+            console.log('owner:', c.expo.owner);
+            console.log('projectId:', c.expo.extra?.eas?.projectId || '(none)');
+            console.log('slug:', c.expo.slug);
           "
-
-          # Create / link EAS project under nasdoor
-          echo "Running eas init..."
-          eas init --non-interactive 2>&1 | tee /tmp/eas-init.log || true
-
-          # Extract the new project ID eas wrote into app.config.js
-          NEW_ID=$(node -e "
-            try {
-              const c = require('./app.config.js');
-              const id = c.expo?.extra?.eas?.projectId || '';
-              console.log(id);
-            } catch(e) { console.log(''); }
-          " 2>/dev/null || echo "")
-
-          if [ -z "$NEW_ID" ]; then
-            echo "::warning::eas init did not write a project ID — build may fail"
-          else
-            echo "✓ New EAS project ID: $NEW_ID"
-            echo "EAS_PROJECT_ID=$NEW_ID" >> "$GITHUB_ENV"
-
-            # Also fix the updates.url to use the new project ID
-            node -e "
-              const fs = require('fs');
-              let c = fs.readFileSync('app.config.js', 'utf8');
-              const id = '$NEW_ID';
-              c = c.replace(/u\.expo\.dev\/[0-9a-f-]{36}/g, 'u.expo.dev/' + id);
-              fs.writeFileSync('app.config.js', c);
-              console.log('✓ Updated updates.url with new project ID');
-            "
-
-            # Commit the fixed app.config.js back to the repo
-            if [ -n "$GH_PAT" ]; then
-              # Commit updated app.config.js back using node (avoids bash heredoc YAML issue)
-              node -e "
-                const https = require('https');
-                const fs = require('fs');
-                const pat = process.env.GH_PAT || '';
-                const repo = 'nastech-ai/NasDoor';
-                const fpath = 'packages/nastech-app/app.config.js';
-                const body = fs.readFileSync('app.config.js');
-                const content = body.toString('base64');
-                function gh(method, path, payload, cb) {
-                  const opts = {
-                    hostname: 'api.github.com', path,
-                    method, headers: {
-                      'Authorization': 'Bearer ' + pat,
-                      'Accept': 'application/vnd.github+json',
-                      'User-Agent': 'eas-build-ci',
-                      'X-GitHub-Api-Version': '2022-11-28',
-                      'Content-Type': 'application/json'
-                    }
-                  };
-                  const req = https.request(opts, res => {
-                    let d = '';
-                    res.on('data', c => d += c);
-                    res.on('end', () => cb(null, JSON.parse(d)));
-                  });
-                  req.on('error', cb);
-                  if (payload) req.write(JSON.stringify(payload));
-                  req.end();
-                }
-                gh('GET', '/repos/' + repo + '/contents/' + fpath + '?ref=main', null, (e, existing) => {
-                  const sha = existing && existing.sha ? existing.sha : '';
-                  gh('PUT', '/repos/' + repo + '/contents/' + fpath, {
-                    message: 'fix(eas): update owner=nasdoor + new project ID [skip ci]',
-                    content, branch: 'main', sha
-                  }, (e2, res) => {
-                    if (res && res.content) console.log('app.config.js committed');
-                    else console.log('commit skipped (non-fatal)');
-                  });
-                });
-              " || true
-            fi
-          fi
         working-directory: packages/nastech-app
 
       - name: Pre-install Android assets
