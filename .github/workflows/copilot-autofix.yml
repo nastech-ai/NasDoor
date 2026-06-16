@@ -1,0 +1,253 @@
+# Master Copilot Auto-Fixer — watches all workflows, self-heals with OpenHands
+# Pulled from: https://github.com/OpenHands/OpenHands (qa-changes + lint-fix patterns)
+name: "🤖 Copilot: Auto-Fix"
+
+on:
+  # Trigger after any workflow completes with failure
+  workflow_run:
+    workflows:
+      - "🤖 Copilot: Code Quality"
+      - "🤖 Copilot: Security"
+      - "🤖 Copilot: Android"
+      - "🤖 Copilot: iOS"
+      - "🤖 Copilot: Daemon"
+      - "🤖 Copilot: CI"
+      - "🤖 Copilot: Release"
+      - "Super Linter"
+      - "TypeScript — nastech-app"
+      - "Semantic Release"
+    types: [completed]
+  # Also trigger manually with a slash command
+  issue_comment:
+    types: [created]
+  # Or on-demand
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Failed workflow run ID to fix"
+        required: false
+      task:
+        description: "Describe what to fix"
+        required: false
+        default: "Fix all failing CI checks"
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  # ── Gate: only act on failures ────────────────────────────────
+  check-failure:
+    name: "Check if fix needed"
+    runs-on: ubuntu-latest
+    outputs:
+      should_fix: ${{ steps.gate.outputs.should_fix }}
+      failed_workflow: ${{ steps.gate.outputs.failed_workflow }}
+      task: ${{ steps.gate.outputs.task }}
+    steps:
+      - name: Determine if auto-fix should run
+        id: gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ev = context.eventName;
+
+            // workflow_run: only act on failures
+            if (ev === 'workflow_run') {
+              const wfr = context.payload.workflow_run;
+              if (wfr.conclusion === 'failure') {
+                core.setOutput('should_fix', 'true');
+                core.setOutput('failed_workflow', wfr.name);
+                core.setOutput('task', `Fix failure in: ${wfr.name} (run ${wfr.id})`);
+                console.log(`🔴 Failure in "${wfr.name}" — triggering auto-fix`);
+              } else {
+                core.setOutput('should_fix', 'false');
+                console.log(`✅ "${context.payload.workflow_run?.name}" passed — no fix needed`);
+              }
+              return;
+            }
+
+            // issue_comment: respond to /fix or /openhands
+            if (ev === 'issue_comment') {
+              const body = context.payload.comment?.body?.trim() || '';
+              const assoc = context.payload.comment?.author_association || '';
+              const allowed = ['OWNER','MEMBER','COLLABORATOR'].includes(assoc);
+              if (allowed && (body.startsWith('/fix') || body.startsWith('/openhands'))) {
+                const task = body.replace(/^\/(fix|openhands)\s*/,'') || 'Fix all CI errors';
+                core.setOutput('should_fix', 'true');
+                core.setOutput('task', task);
+                core.setOutput('failed_workflow', 'manual');
+              } else {
+                core.setOutput('should_fix', 'false');
+              }
+              return;
+            }
+
+            // workflow_dispatch: always run
+            core.setOutput('should_fix', 'true');
+            core.setOutput('task', '${{ github.event.inputs.task }}' || 'Fix all CI errors');
+            core.setOutput('failed_workflow', 'manual dispatch');
+
+  # ── Common auto-fixes (no LLM needed) ────────────────────────
+  quick-fixes:
+    name: "Quick auto-fixes"
+    needs: check-failure
+    if: needs.check-failure.outputs.should_fix == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - name: Install tools
+        run: |
+          npm install -g prettier eslint @trivago/prettier-plugin-sort-imports 2>/dev/null | tail -3 || true
+          pip install yamllint autopep8 isort -q
+
+      - name: Fix 1 — Prettier format TypeScript
+        run: |
+          find packages/nastech-app/sources -name "*.ts" -o -name "*.tsx" 2>/dev/null | \
+            xargs prettier --write 2>/dev/null || true
+          echo "✅ Prettier done"
+
+      - name: Fix 2 — autopep8 Python
+        run: |
+          find nastech-agent -name "*.py" 2>/dev/null | \
+            xargs autopep8 --in-place --aggressive 2>/dev/null || true
+          echo "✅ autopep8 done"
+
+      - name: Fix 3 — isort Python imports
+        run: |
+          isort nastech-agent/ --profile black 2>/dev/null || true
+          echo "✅ isort done"
+
+      - name: Fix 4 — YAML format workflows
+        run: |
+          python3 << 'PYEOF'
+          import glob, re
+          for f in glob.glob('.github/workflows/*.yml'):
+              content = open(f).read()
+              # Fix common YAML issues: trailing spaces
+              fixed = re.sub(r'[ \t]+$', '', content, flags=re.MULTILINE)
+              # Ensure final newline
+              if not fixed.endswith('\n'): fixed += '\n'
+              if fixed != content:
+                  open(f,'w').write(fixed)
+                  print(f"  fixed: {f.split('/')[-1]}")
+          print("✅ YAML trailing-space fix done")
+          PYEOF
+
+      - name: Fix 5 — Sync pnpm overrides
+        run: |
+          python3 << 'PYEOF'
+          import json, os
+
+          for pkg_file in ['package.json', 'packages/nastech-app/package.json']:
+              if not os.path.exists(pkg_file): continue
+              pkg = json.load(open(pkg_file))
+              # Ensure expo.install.exclude doesn't conflict
+              expo = pkg.get('expo', {})
+              install = expo.get('install', {})
+              exclude = install.get('exclude', [])
+              changed = False
+              nav_pkgs = ['@react-navigation/native','@react-navigation/native-stack',
+                          '@react-navigation/bottom-tabs']
+              for p in nav_pkgs:
+                  if p not in exclude:
+                      exclude.append(p)
+                      changed = True
+              if changed:
+                  install['exclude'] = exclude
+                  expo['install'] = install
+                  pkg['expo'] = expo
+                  json.dump(pkg, open(pkg_file,'w'), indent=2)
+                  print(f"✅ Updated expo.install.exclude in {pkg_file}")
+          PYEOF
+
+      - name: Commit all quick fixes
+        run: |
+          git config user.name  "NasDoor Copilot[bot]"
+          git config user.email "copilot@nasdoor.bot"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "ℹ️  Nothing to commit — repo already clean"
+          else
+            CHANGES=$(git diff --cached --stat | tail -1)
+            git commit -m "fix(copilot): auto-fix CI issues — ${CHANGES} [skip ci]"
+            git push origin HEAD
+            echo "✅ Auto-fixes committed and pushed"
+          fi
+
+  # ── OpenHands AI fix (for complex failures) ───────────────────
+  openhands-fix:
+    name: "OpenHands AI fix"
+    needs: [check-failure, quick-fixes]
+    if: |
+      needs.check-failure.outputs.should_fix == 'true' &&
+      secrets.LLM_API_KEY != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT || github.token }}
+          fetch-depth: 0
+
+      - name: Run OpenHands to fix complex issues
+        uses: OpenHands/extensions/plugins/fix-ci-errors@main
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GH_PAT || github.token }}
+          llm-model: "claude-3-5-sonnet-20241022"
+          llm-api-key: ${{ secrets.LLM_API_KEY }}
+          max-iterations: "30"
+          task: ${{ needs.check-failure.outputs.task }}
+        env:
+          FAILED_WORKFLOW: ${{ needs.check-failure.outputs.failed_workflow }}
+
+      - name: Fallback — post issue if OpenHands not available
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const workflow = '${{ needs.check-failure.outputs.failed_workflow }}';
+            const task = '${{ needs.check-failure.outputs.task }}';
+            // Check if a recent issue already exists
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              labels: 'status: in-progress',
+              state: 'open',
+              per_page: 5,
+            });
+            const alreadyOpen = existing.data.some(i => i.title.includes(workflow));
+            if (!alreadyOpen && workflow !== 'manual') {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: `[Copilot Auto-Fix] Failure in "${workflow}"`,
+                body: [
+                  `## 🤖 Copilot Auto-Fix Report`,
+                  ``,
+                  `**Failed workflow:** \`${workflow}\``,
+                  `**Task:** ${task}`,
+                  `**Run:** https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                  ``,
+                  `### What happened`,
+                  `Quick auto-fixes (Prettier, autopep8, isort, YAML) were applied.`,
+                  `OpenHands AI fix was attempted.`,
+                  ``,
+                  `### To trigger manual fix`,
+                  `Comment \`/fix <describe the problem>\` on this issue.`,
+                  `Or add the \`lint-fix\` label to any PR.`,
+                ].join('\n'),
+                labels: ['type: bug', 'scope: ci', 'priority: high', 'status: triage'],
+              });
+            }
