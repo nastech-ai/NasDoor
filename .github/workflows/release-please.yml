@@ -43,7 +43,7 @@ jobs:
     needs: release-please-pr
     if: ${{ needs.release-please-pr.outputs.release_created }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Configure git
         run: |
@@ -67,7 +67,7 @@ jobs:
     needs: release-please-pr
     if: ${{ needs.release-please-pr.outputs.release_created }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup EAS
         run: npm install -g eas-cli --registry https://registry.npmjs.org/
