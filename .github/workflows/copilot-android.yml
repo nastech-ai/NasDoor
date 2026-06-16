@@ -1,0 +1,249 @@
+# Copilot Fleet 3 — Android (Copilots 17-24)
+name: "🤖 Copilot: Android"
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+    paths:
+      - "packages/nastech-app/plugins/**"
+      - "packages/nastech-app/app.config.js"
+      - "packages/nastech-app/eas.json"
+      - "packages/nastech-app/sources/android/**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  # ── Copilot 17: APK size budget ───────────────────────────────
+  apk-size-check:
+    name: "Copilot 17 · APK size budget"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check asset sizes that go into APK
+        run: |
+          echo "=== Assets included in APK ==="
+          find packages/nastech-app/assets -type f 2>/dev/null | \
+            xargs du -sh 2>/dev/null | sort -rh | head -20 || echo "No assets dir"
+          echo ""
+          echo "=== Plugin bootstrap zips ==="
+          find packages/nastech-app -name "*.zip" 2>/dev/null | \
+            xargs du -sh 2>/dev/null || echo "No bootstrap zips found"
+          echo ""
+          echo "=== Total plugin dir ==="
+          du -sh packages/nastech-app/plugins/ 2>/dev/null || echo "No plugins dir"
+
+  # ── Copilot 18: AndroidManifest validation ───────────────────
+  manifest-validate:
+    name: "Copilot 18 · Manifest validation"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate manifest in plugin
+        run: |
+          python3 << 'PYEOF'
+          import re, sys
+
+          content = open('packages/nastech-app/plugins/withTermuxDaemon.js').read()
+
+          checks = {
+            'foregroundServiceType':    'foregroundServiceType declared',
+            'DaemonService':            'DaemonService registered',
+            'BootReceiver':             'BootReceiver registered',
+            'FOREGROUND_SERVICE':       'FOREGROUND_SERVICE permission',
+            'RECEIVE_BOOT_COMPLETED':   'Boot receiver permission',
+            'android:exported':         'exported attribute set',
+          }
+
+          print("=== AndroidManifest checks ===")
+          all_ok = True
+          for key, desc in checks.items():
+            found = key in content
+            status = "✅" if found else "❌"
+            print(f"  {status} {desc}")
+            if not found: all_ok = False
+
+          if not all_ok:
+            print("\n⚠️  Some manifest components missing")
+            sys.exit(1)
+          else:
+            print("\n✅ All manifest components present")
+          PYEOF
+
+  # ── Copilot 19: Minimal permissions check ───────────────────
+  permissions-minimal:
+    name: "Copilot 19 · Minimal permissions"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: List and categorize permissions
+        run: |
+          python3 << 'PYEOF'
+          import re
+
+          content = open('packages/nastech-app/plugins/withTermuxDaemon.js').read()
+          perms = re.findall(r'android\.permission\.(\w+)', content)
+          perms = sorted(set(perms))
+
+          DANGEROUS = {'READ_CONTACTS','WRITE_CONTACTS','READ_CALL_LOG','WRITE_CALL_LOG',
+                       'PROCESS_OUTGOING_CALLS','READ_SMS','RECEIVE_SMS','SEND_SMS',
+                       'READ_EXTERNAL_STORAGE','WRITE_EXTERNAL_STORAGE','CAMERA',
+                       'RECORD_AUDIO','ACCESS_FINE_LOCATION','ACCESS_COARSE_LOCATION',
+                       'READ_PHONE_STATE','CALL_PHONE'}
+
+          print(f"Total permissions: {len(perms)}")
+          for p in perms:
+            flag = " ⚠️  DANGEROUS" if p in DANGEROUS else ""
+            print(f"  android.permission.{p}{flag}")
+          PYEOF
+
+  # ── Copilot 20: Target SDK validation ───────────────────────
+  target-sdk:
+    name: "Copilot 20 · Target SDK level"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check SDK targets in config
+        run: |
+          python3 << 'PYEOF'
+          import re, json
+
+          content = open('packages/nastech-app/app.config.js').read()
+          MIN_REQUIRED_SDK = 34  # Android 14
+
+          # Look for targetSdkVersion / compileSdkVersion
+          target = re.search(r'targetSdkVersion["\s:]+(\d+)', content)
+          compile_sdk = re.search(r'compileSdkVersion["\s:]+(\d+)', content)
+          min_sdk = re.search(r'minSdkVersion["\s:]+(\d+)', content)
+
+          if target:
+              val = int(target.group(1))
+              status = "✅" if val >= MIN_REQUIRED_SDK else "❌"
+              print(f"{status} targetSdkVersion: {val} (required: {MIN_REQUIRED_SDK}+)")
+          else:
+              print("ℹ️  targetSdkVersion not explicitly set (uses Expo default)")
+
+          if min_sdk:
+              print(f"ℹ️  minSdkVersion: {min_sdk.group(1)}")
+          if compile_sdk:
+              print(f"ℹ️  compileSdkVersion: {compile_sdk.group(1)}")
+          PYEOF
+
+  # ── Copilot 21: Termux bootstrap assets ─────────────────────
+  termux-bootstrap:
+    name: "Copilot 21 · Termux bootstrap"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify bootstrap assets referenced in plugin
+        run: |
+          python3 << 'PYEOF'
+          import re, os
+
+          content = open('packages/nastech-app/plugins/withTermuxDaemon.js').read()
+
+          # Find all file references in the plugin
+          files_ref = re.findall(r'["\']([^"\']*\.(?:zip|sh|py|apk))["\']', content)
+          print("Files referenced in plugin:")
+          for f in sorted(set(files_ref)):
+              # Check if file exists somewhere in repo
+              found = False
+              for root, dirs, files in os.walk('packages/nastech-app'):
+                  if os.path.basename(f) in files:
+                      found = True
+                      break
+              status = "✅" if found else "⚠️  (missing — will be downloaded at build time)"
+              print(f"  {status} {f}")
+          PYEOF
+
+  # ── Copilot 22: Native module registration ──────────────────
+  native-modules:
+    name: "Copilot 22 · Native module check"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify DaemonPackage is registered
+        run: |
+          python3 << 'PYEOF'
+          content = open('packages/nastech-app/plugins/withTermuxDaemon.js').read()
+          checks = {
+            'DaemonPackage':      'DaemonPackage class',
+            'NativeDaemonModule': 'NativeDaemonModule class',
+            'getPackages':        'getPackages override',
+            'ReactPackage':       'ReactPackage interface',
+          }
+          print("=== Native Module Registration ===")
+          all_ok = True
+          for key, desc in checks.items():
+            found = key in content
+            print(f"  {'✅' if found else '❌'} {desc}")
+            if not found: all_ok = False
+          import sys
+          if not all_ok: sys.exit(1)
+          PYEOF
+
+  # ── Copilot 23: EAS Android config validation ────────────────
+  eas-android-config:
+    name: "Copilot 23 · EAS Android config"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate eas.json Android profiles
+        run: |
+          python3 << 'PYEOF'
+          import json, sys
+
+          try:
+              eas = json.load(open('packages/nastech-app/eas.json'))
+          except Exception as e:
+              print(f"❌ Cannot parse eas.json: {e}")
+              sys.exit(1)
+
+          profiles = eas.get('build', {})
+          print(f"Build profiles: {list(profiles.keys())}")
+
+          for name, profile in profiles.items():
+              android = profile.get('android', profile)
+              print(f"\nProfile: {name}")
+              print(f"  buildType: {android.get('buildType', 'not set')}")
+              print(f"  gradleCommand: {android.get('gradleCommand', 'default')}")
+
+          # Check required fields
+          if 'preview' not in profiles:
+              print("❌ Missing 'preview' build profile")
+              sys.exit(1)
+          print("\n✅ EAS Android config valid")
+          PYEOF
+
+  # ── Copilot 24: Java syntax check ───────────────────────────
+  java-syntax:
+    name: "Copilot 24 · Java syntax"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract and check Java sources in plugin
+        run: |
+          python3 << 'PYEOF'
+          import re, tempfile, subprocess, os, sys
+
+          content = open('packages/nastech-app/plugins/withTermuxDaemon.js').read()
+
+          # Extract Java template literals
+          java_blocks = re.findall(r'const \w+_JAVA = `(.*?)`', content, re.DOTALL)
+          print(f"Found {len(java_blocks)} Java source blocks in plugin")
+
+          for i, block in enumerate(java_blocks):
+            # Check for obvious syntax markers
+            has_class   = 'class ' in block
+            has_package = 'package ' in block
+            has_import  = 'import ' in block
+            print(f"\nBlock {i+1}: {'✅' if has_package and has_class else '⚠️'}")
+            print(f"  package: {has_package}, class: {has_class}, imports: {has_import}")
+            lines = block.count('\n')
+            print(f"  Lines: {lines}")
+          PYEOF
