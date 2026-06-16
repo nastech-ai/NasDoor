@@ -43,6 +43,15 @@
   "jest": {
     "preset": "jest-expo"
   },
+  "expo": {
+    "install": {
+      "exclude": [
+        "@react-navigation/native",
+        "@react-navigation/native-stack",
+        "@react-navigation/drawer"
+      ]
+    }
+  },
   "dependencies": {
     "@codemirror/lang-cpp": "^6.0.3",
     "@codemirror/lang-css": "^6.3.1",
@@ -215,7 +224,10 @@
     "overrides": {
       "react": "19.2.0",
       "prismjs": ">=1.30.0",
-      "uuid": ">=11.1.1"
+      "uuid": ">=11.1.1",
+      "@expo/log-box": "55.0.12",
+      "expo-image-loader": "55.0.1",
+      "@expo/metro-runtime": "55.0.11"
     },
     "onlyBuiltDependencies": [
       "@shopify/react-native-skia",
