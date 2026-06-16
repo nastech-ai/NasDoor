@@ -1,0 +1,172 @@
+# Copilot Notification Bot — texts errors across all channels
+# Notifies via: GitHub Issues + ntfy.sh push + workflow summary
+name: "🤖 Copilot: Notify"
+
+on:
+  workflow_run:
+    workflows:
+      - "🤖 Copilot: Code Quality"
+      - "🤖 Copilot: Security"
+      - "🤖 Copilot: Android"
+      - "🤖 Copilot: iOS"
+      - "🤖 Copilot: Daemon"
+      - "🤖 Copilot: CI"
+      - "🤖 Copilot: Release"
+      - "EAS Build"
+      - "Super Linter"
+      - "TypeScript — nastech-app"
+      - "release-please"
+      - "Semantic Release"
+      - "Python daemon — install + import check"
+      - "CodeQL"
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  notify:
+    name: "Notify on failure"
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'failure' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Collect failure details
+        id: details
+        uses: actions/github-script@v7
+        with:
+          script: |
+            let wfName, wfUrl, conclusion, jobs_summary;
+
+            if (context.eventName === 'workflow_run') {
+              const wfr = context.payload.workflow_run;
+              wfName    = wfr.name;
+              wfUrl     = wfr.html_url;
+              conclusion = wfr.conclusion;
+
+              // Fetch failing jobs
+              const jobs = await github.rest.actions.listJobsForWorkflowRun({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                run_id: wfr.id,
+              });
+
+              const failing = jobs.data.jobs.filter(j => j.conclusion === 'failure');
+              jobs_summary = failing.map(j => {
+                const failSteps = j.steps.filter(s => s.conclusion === 'failure').map(s => s.name);
+                return `• **${j.name}** — failed steps: ${failSteps.join(', ') || 'unknown'}`;
+              }).join('\n');
+            } else {
+              wfName     = 'Manual dispatch';
+              wfUrl      = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions`;
+              conclusion = 'failure';
+              jobs_summary = '(Manual notification triggered)';
+            }
+
+            core.setOutput('wf_name',    wfName);
+            core.setOutput('wf_url',     wfUrl);
+            core.setOutput('conclusion', conclusion);
+            core.setOutput('jobs',       jobs_summary || 'No details available');
+
+      - name: Push to ntfy.sh (free push notification)
+        env:
+          WF_NAME:    ${{ steps.details.outputs.wf_name }}
+          WF_URL:     ${{ steps.details.outputs.wf_url }}
+          CONCLUSION: ${{ steps.details.outputs.conclusion }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC || 'nasdoor-ci' }}
+        run: |
+          ICON="❌"
+          PRIORITY="high"
+          if [ "$CONCLUSION" = "success" ]; then ICON="✅"; PRIORITY="default"; fi
+
+          curl -s --max-time 10 \
+            -H "Title: NasDoor CI ${ICON} ${WF_NAME}" \
+            -H "Priority: ${PRIORITY}" \
+            -H "Tags: robot,${CONCLUSION}" \
+            -H "Click: ${WF_URL}" \
+            -d "${ICON} ${WF_NAME} — ${CONCLUSION}
+Repo: nastech-ai/NasDoor
+Run: ${WF_URL}" \
+            "https://ntfy.sh/${NTFY_TOPIC}" 2>/dev/null || \
+            echo "ℹ️  ntfy.sh push skipped (set NTFY_TOPIC secret to enable)"
+
+      - name: Create GitHub issue for persistent failures
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const wfName    = '${{ steps.details.outputs.wf_name }}';
+            const wfUrl     = '${{ steps.details.outputs.wf_url }}';
+            const jobs      = `${{ steps.details.outputs.jobs }}`;
+            const sha       = context.sha?.slice(0,7) || 'unknown';
+
+            // Deduplicate — don't open issue if one exists for this workflow in last 24h
+            const since = new Date(Date.now() - 86400000).toISOString();
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              labels: 'scope: ci',
+              state: 'open',
+              since,
+              per_page: 20,
+            });
+
+            const dup = existing.data.find(i =>
+              i.title.includes(wfName) && i.title.includes('Notify')
+            );
+
+            if (dup) {
+              // Add comment to existing issue instead
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: dup.number,
+                body: `🔁 **Repeat failure** on \`${sha}\`\n\n${jobs}\n\n[View run](${wfUrl})`,
+              });
+              console.log(`Added comment to existing issue #${dup.number}`);
+            } else {
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                title: `[Copilot Notify] ❌ ${wfName} failed on ${sha}`,
+                body: [
+                  `## 🤖 Copilot Notification`,
+                  ``,
+                  `| Field | Value |`,
+                  `|---|---|`,
+                  `| Workflow | \`${wfName}\` |`,
+                  `| Commit | \`${sha}\` |`,
+                  `| Result | ❌ failure |`,
+                  `| Run | [View logs](${wfUrl}) |`,
+                  ``,
+                  `### Failing jobs`,
+                  jobs,
+                  ``,
+                  `### Auto-fix`,
+                  `> Comment \`/fix\` below to trigger OpenHands auto-repair.`,
+                  `> Comment \`/priority critical\` to escalate.`,
+                ].join('\n'),
+                labels: ['type: bug','scope: ci','status: triage','priority: high'],
+              });
+              console.log(`Created issue #${issue.data.number}`);
+            }
+
+      - name: Write workflow summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const wfName = '${{ steps.details.outputs.wf_name }}';
+            const jobs   = `${{ steps.details.outputs.jobs }}`;
+            const wfUrl  = '${{ steps.details.outputs.wf_url }}';
+            await core.summary
+              .addHeading('🤖 Copilot Notification Report')
+              .addTable([
+                [{data:'Field',header:true},{data:'Value',header:true}],
+                ['Workflow', wfName],
+                ['Result', '❌ failure'],
+                ['Run URL', wfUrl],
+              ])
+              .addHeading('Failing Jobs', 3)
+              .addRaw(jobs || 'none')
+              .write();
