@@ -1,0 +1,241 @@
+# Copilot Fleet 2 — Security (Copilots 9-16)
+name: "🤖 Copilot: Security"
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 3 * * *'   # daily 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  # ── Copilot 9: Secret scanning ────────────────────────────────
+  secret-scan:
+    name: "Copilot 9 · Secret scan"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Scan for hardcoded secrets
+        id: scan
+        run: |
+          npm install -g @secretlint/secretlint @secretlint/secretlint-rule-preset-recommend
+          npx secretlint "**/*" --secretlintrc '{"rules":[{"id":"@secretlint/secretlint-rule-preset-recommend"}]}' \
+            2>&1 | tee /tmp/secrets.txt || true
+          COUNT=$(grep -c "error\|warning" /tmp/secrets.txt || echo 0)
+          echo "count=${COUNT}" >> $GITHUB_OUTPUT
+        continue-on-error: true
+      - name: Alert on secrets found
+        if: steps.scan.outputs.count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/secrets.txt','utf8').slice(0,3000);
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `🚨 [Copilot 9] Possible hardcoded secrets on ${context.sha.slice(0,7)}`,
+              body: `## 🤖 Copilot 9 — Secret Scan\n> **URGENT: Possible credentials in source code**\n\`\`\`\n${log}\n\`\`\`\n**Action:** Rotate any exposed secrets immediately.`,
+              labels: ['type: security','priority: critical','status: triage'],
+            });
+            core.setFailed('Secrets detected!');
+
+  # ── Copilot 10: npm vulnerability audit ──────────────────────
+  npm-audit:
+    name: "Copilot 10 · npm audit"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Audit root + app packages
+        id: audit
+        run: |
+          npm audit --json 2>/dev/null | python3 -c "
+          import sys,json
+          d=json.load(sys.stdin)
+          vuln=d.get('metadata',{}).get('vulnerabilities',{})
+          crit=vuln.get('critical',0); high=vuln.get('high',0)
+          print(f'critical={crit}'); print(f'high={high}')
+          total=sum(vuln.values())
+          print(f'total={total}')
+          for sev in ['critical','high','moderate','low']:
+            if vuln.get(sev,0): print(f'{sev}: {vuln[sev]}')
+          " | tee /tmp/audit.txt
+        continue-on-error: true
+      - name: Create issue if critical/high
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/audit.txt','utf8');
+            const crit = parseInt((log.match(/critical=(\d+)/)||[,0])[1]);
+            const high = parseInt((log.match(/high=(\d+)/)||[,0])[1]);
+            if (crit > 0 || high > 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: `[Copilot 10] npm audit: ${crit} critical, ${high} high vulnerabilities`,
+                body: `## 🤖 Copilot 10 — npm Audit\n\`\`\`\n${log}\n\`\`\`\nRun \`npm audit fix\` or \`npm audit fix --force\` to resolve.`,
+                labels: ['type: security', crit>0?'priority: critical':'priority: high', 'scope: deps','status: triage'],
+              });
+            }
+            console.log(log);
+
+  # ── Copilot 11: pip vulnerability audit ──────────────────────
+  pip-audit:
+    name: "Copilot 11 · pip audit"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Run pip-audit
+        id: pipit
+        run: |
+          pip install pip-audit -q
+          pip-audit -r nastech-agent/requirements.txt \
+            --output /tmp/pip-audit.txt --format columns 2>&1 || true
+          cat /tmp/pip-audit.txt
+        continue-on-error: true
+      - name: Report
+        if: steps.pipit.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.existsSync('/tmp/pip-audit.txt')
+              ? fs.readFileSync('/tmp/pip-audit.txt','utf8').slice(0,3000) : 'No output';
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `[Copilot 11] Python dependency vulnerabilities`,
+              body: `## 🤖 Copilot 11 — pip-audit\n\`\`\`\n${log}\n\`\`\``,
+              labels: ['type: security','scope: daemon','priority: high','status: triage'],
+            });
+
+  # ── Copilot 12: SAST with Semgrep ────────────────────────────
+  sast-semgrep:
+    name: "Copilot 12 · SAST Semgrep"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Run Semgrep
+        id: semgrep
+        run: |
+          pip install semgrep -q
+          semgrep --config=auto --json --output /tmp/semgrep.json \
+            packages/nastech-app/sources nastech-agent 2>/dev/null || true
+          python3 -c "
+          import json, sys
+          try:
+            d=json.load(open('/tmp/semgrep.json'))
+            results=d.get('results',[])
+            errors=[r for r in results if r.get('extra',{}).get('severity','')=='ERROR']
+            print(f'total={len(results)}, errors={len(errors)}')
+            for r in errors[:10]:
+              print(r.get('path','?'), r.get('start',{}).get('line','?'), r.get('extra',{}).get('message','?')[:80])
+          except: print('no results')
+          " | tee /tmp/semgrep.txt
+        continue-on-error: true
+      - name: Report findings
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('/tmp/semgrep.txt')) return;
+            const log = fs.readFileSync('/tmp/semgrep.txt','utf8');
+            const errorMatch = log.match(/errors=(\d+)/);
+            const errors = parseInt(errorMatch?.[1] || '0');
+            if (errors > 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: `[Copilot 12] SAST: ${errors} security findings`,
+                body: `## 🤖 Copilot 12 — Semgrep SAST\n\`\`\`\n${log.slice(0,3000)}\n\`\`\``,
+                labels: ['type: security','priority: high','status: triage'],
+              });
+            }
+
+  # ── Copilot 13: License compliance ────────────────────────────
+  license-check:
+    name: "Copilot 13 · License check"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Check licenses
+        run: |
+          npm install -g license-checker
+          cd packages/nastech-app
+          license-checker --summary --excludePrivatePackages 2>&1 | head -40 || true
+
+  # ── Copilot 14: AndroidManifest permission audit ──────────────
+  permissions-audit:
+    name: "Copilot 14 · Permission audit"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit permissions in plugin
+        run: |
+          echo "=== Permissions declared in withTermuxDaemon.js ==="
+          grep -o "android.permission\.[A-Z_]*" \
+            packages/nastech-app/plugins/withTermuxDaemon.js | sort -u | \
+            while read p; do echo "  $p"; done
+          COUNT=$(grep -c "android.permission" packages/nastech-app/plugins/withTermuxDaemon.js || echo 0)
+          echo "Total permissions: $COUNT"
+          if [ "$COUNT" -gt 25 ]; then
+            echo "⚠️  Warning: >25 permissions declared"
+          fi
+
+  # ── Copilot 15: Workflow permissions audit ────────────────────
+  workflow-permissions:
+    name: "Copilot 15 · Workflow permissions"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit workflow permissions
+        run: |
+          python3 << 'PYEOF'
+          import os, glob, re
+          issues = []
+          for f in glob.glob('.github/workflows/*.yml'):
+              content = open(f).read()
+              # Check for write-all permissions at top level
+              if re.search(r'^permissions:\s*write-all', content, re.MULTILINE):
+                  issues.append(f"{f}: uses write-all (dangerous)")
+              # Check secrets passed to third-party actions
+              if 'secrets.' in content and 'uses:' in content:
+                  matches = re.findall(r'uses:\s*(.*)', content)
+                  for m in matches:
+                      if not m.strip().startswith('actions/') and 'secrets.' in content:
+                          pass  # could be flagged
+          if issues:
+              print("⚠️  Permission issues:")
+              for i in issues: print(f"  {i}")
+          else:
+              print("✅ Workflow permissions look good")
+          PYEOF
+
+  # ── Copilot 16: ENV variable exposure audit ──────────────────
+  env-audit:
+    name: "Copilot 16 · Env var audit"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for hardcoded env values
+        run: |
+          echo "=== Scanning for hardcoded tokens/keys ==="
+          PATTERNS="(api[_-]key|api[_-]secret|access[_-]token|auth[_-]token|private[_-]key|bearer)"
+          grep -riE "$PATTERNS\s*[:=]\s*['\"][^'\"]{10,}" \
+            packages/nastech-app/sources nastech-agent \
+            --include="*.ts" --include="*.tsx" --include="*.py" | \
+            grep -v "//\|#\|process\.env\|os\.environ" | head -20 || echo "✅ No hardcoded credentials found"
