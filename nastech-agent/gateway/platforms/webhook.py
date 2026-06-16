@@ -123,7 +123,8 @@ class WebhookAdapter(BasePlatformAdapter):
         self._delivery_info: Dict[str, dict] = {}
         self._delivery_info_created: Dict[str, float] = {}
 
-        # Reference to gateway runner for cross-platform delivery (set externally)
+        # Reference to gateway runner for cross-platform delivery (set
+        # externally)
         self.gateway_runner = None
 
         # Idempotency: TTL cache of recently processed delivery IDs.
@@ -133,7 +134,10 @@ class WebhookAdapter(BasePlatformAdapter):
 
         # Rate limiting: per-route timestamps in a fixed window.
         self._rate_counts: Dict[str, List[float]] = {}
-        self._rate_limit: int = int(config.extra.get("rate_limit", 30))  # per minute
+        self._rate_limit: int = int(
+            config.extra.get(
+                "rate_limit",
+                30))  # per minute
 
         # Body size limit (auth-before-body pattern)
         self._max_body_bytes: int = int(
@@ -162,7 +166,8 @@ class WebhookAdapter(BasePlatformAdapter):
             # non-loopback bind. The escape hatch is for local testing only;
             # serving an unauthenticated route on a public interface is a
             # deployment-grade footgun we'd rather crash early than ship.
-            if secret == _INSECURE_NO_AUTH and not _is_loopback_host(self._host):
+            if secret == _INSECURE_NO_AUTH and not _is_loopback_host(
+                    self._host):
                 raise ValueError(
                     f"[webhook] Route '{name}' uses INSECURE_NO_AUTH secret "
                     f"but is bound to non-loopback host '{self._host}'. "
@@ -192,7 +197,9 @@ class WebhookAdapter(BasePlatformAdapter):
             with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as _s:
                 _s.settimeout(1)
                 _s.connect(('127.0.0.1', self._port))
-            logger.error('[webhook] Port %d already in use. Set a different port in config.yaml: platforms.webhook.port', self._port)
+            logger.error(
+                '[webhook] Port %d already in use. Set a different port in config.yaml: platforms.webhook.port',
+                self._port)
             return False
         except (ConnectionRefusedError, OSError):
             pass  # port is free
@@ -239,7 +246,8 @@ class WebhookAdapter(BasePlatformAdapter):
         deliver_type = delivery.get("deliver", "log")
 
         if deliver_type == "log":
-            logger.info("[webhook] Response for %s: %s", chat_id, content[:200])
+            logger.info("[webhook] Response for %s: %s",
+                        chat_id, content[:200])
             return SendResult(success=True)
 
         if deliver_type == "github_comment":
@@ -251,7 +259,8 @@ class WebhookAdapter(BasePlatformAdapter):
         if not _is_known_platform:
             try:
                 from gateway.platform_registry import platform_registry
-                _is_known_platform = platform_registry.is_registered(deliver_type)
+                _is_known_platform = platform_registry.is_registered(
+                    deliver_type)
             except Exception:
                 pass
         if self.gateway_runner and _is_known_platform:
@@ -301,7 +310,8 @@ class WebhookAdapter(BasePlatformAdapter):
             if self._dynamic_routes:
                 self._dynamic_routes = {}
                 self._routes = dict(self._static_routes)
-                logger.debug("[webhook] Dynamic subscriptions file removed, cleared dynamic routes")
+                logger.debug(
+                    "[webhook] Dynamic subscriptions file removed, cleared dynamic routes")
             return
         try:
             mtime = subs_path.stat().st_mtime
@@ -488,7 +498,8 @@ class WebhookAdapter(BasePlatformAdapter):
             "X-GitHub-Delivery",
             request.headers.get(
                 "svix-id",
-                request.headers.get("X-Request-ID", str(int(time.time() * 1000))),
+                request.headers.get(
+                    "X-Request-ID", str(int(time.time() * 1000))),
             ),
         )
 
@@ -542,7 +553,9 @@ class WebhookAdapter(BasePlatformAdapter):
                     delivery_id,
                 )
                 return web.json_response(
-                    {"status": "error", "error": "Delivery failed", "delivery_id": delivery_id},
+                    {"status": "error",
+                     "error": "Delivery failed",
+                     "delivery_id": delivery_id},
                     status=502,
                 )
 
@@ -565,7 +578,9 @@ class WebhookAdapter(BasePlatformAdapter):
                 result.error,
             )
             return web.json_response(
-                {"status": "error", "error": "Delivery failed", "delivery_id": delivery_id},
+                {"status": "error",
+                 "error": "Delivery failed",
+                 "delivery_id": delivery_id},
                 status=502,
             )
 
@@ -705,7 +720,8 @@ class WebhookAdapter(BasePlatformAdapter):
         except (TypeError, ValueError):
             return False
         if abs(int(time.time()) - ts) > tolerance_seconds:
-            logger.warning("[webhook] Svix signature timestamp outside replay window")
+            logger.warning(
+                "[webhook] Svix signature timestamp outside replay window")
             return False
 
         if secret.startswith("whsec_"):
@@ -718,7 +734,8 @@ class WebhookAdapter(BasePlatformAdapter):
         else:
             # Be permissive for providers that document Svix-style headers but
             # hand out raw shared secrets rather than whsec_ base64 secrets.
-            logger.debug("[webhook] Validating Svix-style signature with raw secret")
+            logger.debug(
+                "[webhook] Validating Svix-style signature with raw secret")
             key = secret.encode()
 
         signed_content = msg_id.encode() + b"." + timestamp.encode() + b"." + body

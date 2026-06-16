@@ -10,8 +10,6 @@ import os
 import threading
 from collections import OrderedDict
 from pathlib import Path
-
-from nastech_constants import get_nastech_home, get_skills_dir, is_wsl
 from typing import Optional
 
 from agent.runtime_cwd import resolve_agent_cwd
@@ -25,6 +23,8 @@ from agent.skill_utils import (
     skill_matches_environment,
     skill_matches_platform,
 )
+from nastech_constants import get_nastech_home, get_skills_dir, is_wsl
+from tools.threat_patterns import scan_for_threats as _scan_for_threats
 from utils import atomic_json_write
 
 logger = logging.getLogger(__name__)
@@ -38,8 +38,6 @@ logger = logging.getLogger(__name__)
 # This module just chooses how to react when a match is found (block-with-
 # placeholder; the actual content never reaches the system prompt).
 # ---------------------------------------------------------------------------
-
-from tools.threat_patterns import scan_for_threats as _scan_for_threats
 
 
 def _scan_context_content(content: str, filename: str) -> str:
@@ -55,7 +53,10 @@ def _scan_context_content(content: str, filename: str) -> str:
     """
     findings = _scan_for_threats(content, scope="context")
     if findings:
-        logger.warning("Context file %s blocked: %s", filename, ", ".join(findings))
+        logger.warning(
+            "Context file %s blocked: %s",
+            filename,
+            ", ".join(findings))
         return f"[BLOCKED: {filename} contained potential prompt injection ({', '.join(findings)}). Content not loaded.]"
 
     return content
@@ -271,7 +272,15 @@ TOOL_USE_ENFORCEMENT_GUIDANCE = (
 
 # Model name substrings that trigger tool-use enforcement guidance.
 # Add new patterns here when a model family needs explicit steering.
-TOOL_USE_ENFORCEMENT_MODELS = ("gpt", "codex", "gemini", "gemma", "grok", "glm", "qwen", "deepseek")
+TOOL_USE_ENFORCEMENT_MODELS = (
+    "gpt",
+    "codex",
+    "gemini",
+    "gemma",
+    "grok",
+    "glm",
+    "qwen",
+    "deepseek")
 
 # Universal "finish the job" guidance — applied to ALL models, not gated
 # by model family.  Addresses two cross-model failure modes:
@@ -373,7 +382,8 @@ OPENAI_MODEL_EXECUTION_GUIDANCE = (
 )
 
 # Gemini/Gemma-specific operational guidance, adapted from OpenCode's gemini.txt.
-# Injected alongside TOOL_USE_ENFORCEMENT_GUIDANCE when the model is Gemini or Gemma.
+# Injected alongside TOOL_USE_ENFORCEMENT_GUIDANCE when the model is
+# Gemini or Gemma.
 GOOGLE_MODEL_OPERATIONAL_GUIDANCE = (
     "# Google model operational directives\n"
     "Follow these operational rules strictly:\n"
@@ -738,8 +748,8 @@ def _probe_remote_backend(env_type: str) -> str | None:
     try:
         # Import locally: tools/ imports are heavy and only relevant when a
         # non-local backend is actually configured.
-        from tools.terminal_tool import _get_env_config  # type: ignore
         from tools.environments import get_environment  # type: ignore
+        from tools.terminal_tool import _get_env_config  # type: ignore
     except Exception as e:
         logger.debug("Backend probe unavailable (import failed): %s", e)
         _BACKEND_PROBE_CACHE[cache_key] = ""
@@ -778,7 +788,10 @@ def _probe_remote_backend(env_type: str) -> str | None:
             parsed[k.strip()] = v.strip()
 
     pieces = []
-    os_bits = " ".join(x for x in (parsed.get("os"), parsed.get("kernel")) if x and x != "unknown")
+    os_bits = " ".join(
+        x for x in (
+            parsed.get("os"),
+            parsed.get("kernel")) if x and x != "unknown")
     if os_bits:
         pieces.append(f"OS: {os_bits}")
     if parsed.get("user") and parsed["user"] != "unknown":
@@ -837,11 +850,16 @@ def build_environment_hints() -> str:
             mac_ver = platform.mac_ver()[0]
             host_lines.append(f"Host: macOS ({mac_ver or platform.release()})")
         else:
-            host_lines.append(f"Host: {platform.system()} ({platform.release()})")
+            host_lines.append(
+                f"Host: {
+                    platform.system()} ({
+                    platform.release()})")
 
         host_lines.append(f"User home directory: {os.path.expanduser('~')}")
         try:
-            host_lines.append(f"Current working directory: {resolve_agent_cwd()}")
+            host_lines.append(
+                f"Current working directory: {
+                    resolve_agent_cwd()}")
         except OSError:
             pass
 
@@ -904,7 +922,8 @@ def build_environment_hints() -> str:
                 (load_config().get("agent", {}) or {}).get("environment_hint", "")
             ).strip()
         except Exception as e:
-            logger.debug("Could not read agent.environment_hint from config: %s", e)
+            logger.debug(
+                "Could not read agent.environment_hint from config: %s", e)
     if extra:
         hints.append(extra)
 
@@ -950,7 +969,8 @@ def _build_skills_manifest(skills_dir: Path) -> dict[str, list[int]]:
                 st = path.stat()
             except OSError:
                 continue
-            manifest[str(path.relative_to(skills_dir))] = [st.st_mtime_ns, st.st_size]
+            manifest[str(path.relative_to(skills_dir))] = [
+                st.st_mtime_ns, st.st_size]
     return manifest
 
 
@@ -1041,7 +1061,8 @@ def _parse_skill_file(skill_file: Path) -> tuple[bool, dict, str]:
         # Environment relevance gate (offer-time only): hide skills tagged for
         # a runtime environment that isn't active (e.g. kanban-only skills for
         # non-kanban users, s6-only skills outside the container). Explicit
-        # loads (skill_view / --skills) bypass this — see skill_matches_environment.
+        # loads (skill_view / --skills) bypass this — see
+        # skill_matches_environment.
         if not skill_matches_environment(frontmatter):
             return False, frontmatter, ""
 
@@ -1167,7 +1188,8 @@ def build_skills_system_prompt(
         skill_entries: list[dict] = []
         for skill_file in iter_skill_index_files(skills_dir, "SKILL.md"):
             is_compatible, frontmatter, desc = _parse_skill_file(skill_file)
-            entry = _build_snapshot_entry(skill_file, skills_dir, frontmatter, desc)
+            entry = _build_snapshot_entry(
+                skill_file, skills_dir, frontmatter, desc)
             skill_entries.append(entry)
             if not is_compatible:
                 continue
@@ -1193,10 +1215,12 @@ def build_skills_system_prompt(
                 if not cat_desc:
                     continue
                 rel = desc_file.relative_to(skills_dir)
-                cat = "/".join(rel.parts[:-1]) if len(rel.parts) > 1 else "general"
+                cat = "/".join(rel.parts[:-1]
+                               ) if len(rel.parts) > 1 else "general"
                 category_descriptions[cat] = str(cat_desc).strip().strip("'\"")
             except Exception as e:
-                logger.debug("Could not read skill description %s: %s", desc_file, e)
+                logger.debug(
+                    "Could not read skill description %s: %s", desc_file, e)
 
         _write_skills_snapshot(
             skills_dir,
@@ -1219,10 +1243,12 @@ def build_skills_system_prompt(
             continue
         for skill_file in iter_skill_index_files(ext_dir, "SKILL.md"):
             try:
-                is_compatible, frontmatter, desc = _parse_skill_file(skill_file)
+                is_compatible, frontmatter, desc = _parse_skill_file(
+                    skill_file)
                 if not is_compatible:
                     continue
-                entry = _build_snapshot_entry(skill_file, ext_dir, frontmatter, desc)
+                entry = _build_snapshot_entry(
+                    skill_file, ext_dir, frontmatter, desc)
                 skill_name = entry["skill_name"]
                 frontmatter_name = entry["frontmatter_name"]
                 if frontmatter_name in seen_skill_names:
@@ -1240,7 +1266,8 @@ def build_skills_system_prompt(
                     (frontmatter_name, entry["description"])
                 )
             except Exception as e:
-                logger.debug("Error reading external skill %s: %s", skill_file, e)
+                logger.debug(
+                    "Error reading external skill %s: %s", skill_file, e)
 
         # External category descriptions
         for desc_file in iter_skill_index_files(ext_dir, "DESCRIPTION.md"):
@@ -1251,10 +1278,15 @@ def build_skills_system_prompt(
                 if not cat_desc:
                     continue
                 rel = desc_file.relative_to(ext_dir)
-                cat = "/".join(rel.parts[:-1]) if len(rel.parts) > 1 else "general"
-                category_descriptions.setdefault(cat, str(cat_desc).strip().strip("'\""))
+                cat = "/".join(rel.parts[:-1]
+                               ) if len(rel.parts) > 1 else "general"
+                category_descriptions.setdefault(
+                    cat, str(cat_desc).strip().strip("'\""))
             except Exception as e:
-                logger.debug("Could not read external skill description %s: %s", desc_file, e)
+                logger.debug(
+                    "Could not read external skill description %s: %s",
+                    desc_file,
+                    e)
 
     if not skills_by_category:
         result = ""
@@ -1268,7 +1300,8 @@ def build_skills_system_prompt(
                 index_lines.append(f"  {category}:")
             # Deduplicate and sort skills within each category
             seen = set()
-            for name, desc in sorted(skills_by_category[category], key=lambda x: x[0]):
+            for name, desc in sorted(
+                    skills_by_category[category], key=lambda x: x[0]):
                 if name in seen:
                     continue
                 seen.add(name)
@@ -1316,7 +1349,8 @@ def build_skills_system_prompt(
     return result
 
 
-def build_nastech_subscription_prompt(valid_tool_names: "set[str] | None" = None) -> str:
+def build_nastech_subscription_prompt(
+        valid_tool_names: "set[str] | None" = None) -> str:
     """Build a compact Nous subscription capability block for the system prompt."""
     try:
         from nastech_cli.nastech_subscription import get_nastech_subscription_features
@@ -1386,7 +1420,8 @@ def build_nastech_subscription_prompt(valid_tool_names: "set[str] | None" = None
 # Context files (SOUL.md, AGENTS.md, .cursorrules)
 # =========================================================================
 
-def _truncate_content(content: str, filename: str, max_chars: int = CONTEXT_FILE_MAX_CHARS) -> str:
+def _truncate_content(content: str, filename: str,
+                      max_chars: int = CONTEXT_FILE_MAX_CHARS) -> str:
     """Head/tail truncation with a marker in the middle."""
     if len(content) <= max_chars:
         return content
@@ -1394,7 +1429,8 @@ def _truncate_content(content: str, filename: str, max_chars: int = CONTEXT_FILE
     tail_chars = int(max_chars * CONTEXT_TRUNCATE_TAIL_RATIO)
     head = content[:head_chars]
     tail = content[-tail_chars:]
-    marker = f"\n\n[...truncated {filename}: kept {head_chars}+{tail_chars} of {len(content)} chars. Use file tools to read the full file.]\n\n"
+    marker = f"\n\n[...truncated {filename}: kept {head_chars}+{tail_chars} of {
+        len(content)} chars. Use file tools to read the full file.]\n\n"
     return head + marker + tail
 
 
@@ -1409,7 +1445,8 @@ def load_soul_md() -> Optional[str]:
         from nastech_cli.config import ensure_nastech_home
         ensure_nastech_home()
     except Exception as e:
-        logger.debug("Could not ensure NASTECH_HOME before loading SOUL.md: %s", e)
+        logger.debug(
+            "Could not ensure NASTECH_HOME before loading SOUL.md: %s", e)
 
     soul_path = get_nastech_home() / "SOUL.md"
     if not soul_path.exists():
@@ -1501,8 +1538,10 @@ def _load_cursorrules(cwd_path: Path) -> str:
             try:
                 content = mdc_file.read_text(encoding="utf-8").strip()
                 if content:
-                    content = _scan_context_content(content, f".cursor/rules/{mdc_file.name}")
-                    cursorrules_content += f"## .cursor/rules/{mdc_file.name}\n\n{content}\n\n"
+                    content = _scan_context_content(
+                        content, f".cursor/rules/{mdc_file.name}")
+                    cursorrules_content += f"## .cursor/rules/{
+                        mdc_file.name}\n\n{content}\n\n"
             except Exception as e:
                 logger.debug("Could not read %s: %s", mdc_file, e)
 
@@ -1511,7 +1550,8 @@ def _load_cursorrules(cwd_path: Path) -> str:
     return _truncate_content(cursorrules_content, ".cursorrules")
 
 
-def build_context_files_prompt(cwd: Optional[str] = None, skip_soul: bool = False) -> str:
+def build_context_files_prompt(
+        cwd: Optional[str] = None, skip_soul: bool = False) -> str:
     """Discover and load context files for the system prompt.
 
     Priority (first found wins — only ONE project context type is loaded):
@@ -1550,4 +1590,5 @@ def build_context_files_prompt(cwd: Optional[str] = None, skip_soul: bool = Fals
 
     if not sections:
         return ""
-    return "# Project Context\n\nThe following project context files have been loaded and should be followed:\n\n" + "\n".join(sections)
+    return "# Project Context\n\nThe following project context files have been loaded and should be followed:\n\n" + \
+        "\n".join(sections)

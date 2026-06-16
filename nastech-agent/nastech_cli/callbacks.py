@@ -9,7 +9,7 @@ with the TUI.
 import queue
 import time as _time
 
-from nastech_cli.banner import cprint, _DIM, _RST
+from nastech_cli.banner import _DIM, _RST, cprint
 from nastech_cli.config import save_env_value_secure
 from nastech_cli.secret_prompt import masked_secret_prompt
 from nastech_constants import display_nastech_home
@@ -56,7 +56,8 @@ def clarify_callback(cli, question, choices):
     cli._clarify_deadline = 0
     if hasattr(cli, "_app") and cli._app:
         cli._app.invalidate()
-    cprint(f"\n{_DIM}(clarify timed out after {timeout}s — agent will decide){_RST}")
+    cprint(
+        f"\n{_DIM}(clarify timed out after {timeout}s — agent will decide){_RST}")
     return (
         "The user did not provide a response within the time limit. "
         "Use your best judgement to make the choice and proceed."
@@ -75,7 +76,8 @@ def prompt_for_secret(cli, var_name: str, prompt: str, metadata=None) -> dict:
         if not hasattr(cli, "_secret_deadline"):
             cli._secret_deadline = 0
         try:
-            value = masked_secret_prompt(f"{prompt} (hidden, ESC or empty Enter to skip): ")
+            value = masked_secret_prompt(
+                f"{prompt} (hidden, ESC or empty Enter to skip): ")
         except (EOFError, KeyboardInterrupt):
             value = ""
 
@@ -145,7 +147,8 @@ def prompt_for_secret(cli, var_name: str, prompt: str, metadata=None) -> dict:
 
             stored = save_env_value_secure(var_name, value)
             _dhh = display_nastech_home()
-            cprint(f"\n{_DIM}  ✓ Stored secret in {_dhh}/.env as {var_name}{_RST}")
+            cprint(
+                f"\n{_DIM}  ✓ Stored secret in {_dhh}/.env as {var_name}{_RST}")
             return {
                 **stored,
                 "skipped": False,

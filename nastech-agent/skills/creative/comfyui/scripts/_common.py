@@ -26,7 +26,8 @@ from pathlib import Path
 from typing import Any, Iterator
 from urllib.parse import urlparse
 
-# Optional: prefer `requests` if installed (better redirects, streaming, header handling)
+# Optional: prefer `requests` if installed (better redirects, streaming,
+# header handling)
 try:
     import requests  # type: ignore[import-not-found]
     HAS_REQUESTS = True
@@ -54,7 +55,8 @@ RETRY_STATUS_CODES = {408, 429, 500, 502, 503, 504, 522, 524}
 # Streaming download chunk size (bytes)
 DOWNLOAD_CHUNK_SIZE = 1 << 16  # 64 KiB
 
-# Heuristic: workflows with these node types tend to be slow → larger default timeout
+# Heuristic: workflows with these node types tend to be slow → larger
+# default timeout
 SLOW_OUTPUT_NODES = {
     "VHS_VideoCombine", "SaveAnimatedWEBP", "SaveAnimatedPNG",
     "SaveVideo", "SaveAudio", "SaveAnimateDiffVideo",
@@ -112,50 +114,52 @@ def folder_aliases_for(folder: str) -> list[str]:
 # *canonical* one; FOLDER_ALIASES is consulted when querying.
 MODEL_LOADERS: dict[str, list[tuple[str, str]]] = {
     # Checkpoints
-    "CheckpointLoaderSimple":   [("ckpt_name", "checkpoints")],
-    "CheckpointLoader":         [("ckpt_name", "checkpoints")],
+    "CheckpointLoaderSimple": [("ckpt_name", "checkpoints")],
+    "CheckpointLoader": [("ckpt_name", "checkpoints")],
     "CheckpointLoader (Simple)": [("ckpt_name", "checkpoints")],
     "ImageOnlyCheckpointLoader": [("ckpt_name", "checkpoints")],
-    "unCLIPCheckpointLoader":   [("ckpt_name", "checkpoints")],
+    "unCLIPCheckpointLoader": [("ckpt_name", "checkpoints")],
     # LoRA
-    "LoraLoader":               [("lora_name", "loras")],
-    "LoraLoaderModelOnly":      [("lora_name", "loras")],
-    "LoraLoaderTagsQuery":      [("lora_name", "loras")],
+    "LoraLoader": [("lora_name", "loras")],
+    "LoraLoaderModelOnly": [("lora_name", "loras")],
+    "LoraLoaderTagsQuery": [("lora_name", "loras")],
     # VAE
-    "VAELoader":                [("vae_name", "vae")],
+    "VAELoader": [("vae_name", "vae")],
     # ControlNet
-    "ControlNetLoader":         [("control_net_name", "controlnet")],
-    "DiffControlNetLoader":     [("control_net_name", "controlnet")],
+    "ControlNetLoader": [("control_net_name", "controlnet")],
+    "DiffControlNetLoader": [("control_net_name", "controlnet")],
     "ControlNetLoaderAdvanced": [("control_net_name", "controlnet")],
-    # CLIP / text encoders (primary "clip" folder; check_deps tries text_encoders too)
-    "CLIPLoader":               [("clip_name", "clip")],
-    "DualCLIPLoader":           [("clip_name1", "clip"), ("clip_name2", "clip")],
-    "TripleCLIPLoader":         [("clip_name1", "clip"), ("clip_name2", "clip"), ("clip_name3", "clip")],
-    "CLIPVisionLoader":         [("clip_name", "clip_vision")],
-    # UNET / Diffusion model (primary "unet"; check_deps tries diffusion_models too)
-    "UNETLoader":               [("unet_name", "unet")],
-    "DiffusionModelLoader":     [("model_name", "diffusion_models")],
-    "UNETLoaderGGUF":           [("unet_name", "unet")],
+    # CLIP / text encoders (primary "clip" folder; check_deps tries
+    # text_encoders too)
+    "CLIPLoader": [("clip_name", "clip")],
+    "DualCLIPLoader": [("clip_name1", "clip"), ("clip_name2", "clip")],
+    "TripleCLIPLoader": [("clip_name1", "clip"), ("clip_name2", "clip"), ("clip_name3", "clip")],
+    "CLIPVisionLoader": [("clip_name", "clip_vision")],
+    # UNET / Diffusion model (primary "unet"; check_deps tries
+    # diffusion_models too)
+    "UNETLoader": [("unet_name", "unet")],
+    "DiffusionModelLoader": [("model_name", "diffusion_models")],
+    "UNETLoaderGGUF": [("unet_name", "unet")],
     # Upscaler
-    "UpscaleModelLoader":       [("model_name", "upscale_models")],
+    "UpscaleModelLoader": [("model_name", "upscale_models")],
     # Style / GLIGEN / Hypernetwork
-    "StyleModelLoader":         [("style_model_name", "style_models")],
-    "GLIGENLoader":             [("gligen_name", "gligen")],
-    "HypernetworkLoader":       [("hypernetwork_name", "hypernetworks")],
+    "StyleModelLoader": [("style_model_name", "style_models")],
+    "GLIGENLoader": [("gligen_name", "gligen")],
+    "HypernetworkLoader": [("hypernetwork_name", "hypernetworks")],
     # IPAdapter family (community).
     # Note: IPAdapterUnifiedLoader's `preset` and IPAdapterInsightFaceLoader's
     # `provider` are enums (not file paths), so they're intentionally omitted —
     # check_deps would otherwise treat enum values as missing model files.
-    "IPAdapterModelLoader":     [("ipadapter_file", "ipadapter")],
-    "InstantIDModelLoader":     [("instantid_file", "instantid")],
+    "IPAdapterModelLoader": [("ipadapter_file", "ipadapter")],
+    "InstantIDModelLoader": [("instantid_file", "instantid")],
     # AnimateDiff / video
     "ADE_LoadAnimateDiffModel": [("model_name", "animatediff_models")],
     "ADE_AnimateDiffLoaderWithContext": [("model_name", "animatediff_models")],
     "ADE_AnimateDiffLoaderGen1": [("model_name", "animatediff_models")],
     # Photomaker
-    "PhotoMakerLoader":         [("photomaker_model_name", "photomaker")],
+    "PhotoMakerLoader": [("photomaker_model_name", "photomaker")],
     # Sampler / scheduler models
-    "ModelSamplingFlux":        [],  # parametric only
+    "ModelSamplingFlux": [],  # parametric only
 }
 
 # ---------------------------------------------------------------------------
@@ -209,7 +213,8 @@ PARAM_PATTERNS: list[tuple[str, str, str]] = [
     ("SDTurboScheduler", "denoise", "denoise"),
     ("SamplerCustom", "noise_seed", "seed"),
     ("SamplerCustom", "cfg", "cfg"),
-    # NB: SamplerCustomAdvanced takes a NOISE input (from RandomNoise) — no seed field directly.
+    # NB: SamplerCustomAdvanced takes a NOISE input (from RandomNoise) — no
+    # seed field directly.
 
     # ---- Dimensions / latent ----
     ("EmptyLatentImage", "width", "width"),
@@ -314,7 +319,14 @@ PARAM_PATTERNS: list[tuple[str, str, str]] = [
 ]
 
 # Prompt-like fields whose value should be scanned for embedding references
-PROMPT_FIELDS = {"text", "text_g", "text_l", "t5xxl", "clip_l", "positive", "negative"}
+PROMPT_FIELDS = {
+    "text",
+    "text_g",
+    "text_l",
+    "t5xxl",
+    "clip_l",
+    "positive",
+    "negative"}
 
 # Pattern matches: embedding:name, embedding:name.pt, embedding:name:1.2, (embedding:name:1.2)
 # Word-boundary at start avoids matching things like "no_embedding:foo".
@@ -341,7 +353,8 @@ def is_cloud_host(host: str) -> bool:
     return any(hostname.endswith(s) for s in CLOUD_DOMAIN_SUFFIXES)
 
 
-def build_cloud_aware_url(base: str, path: str, *, force_cloud: bool | None = None) -> str:
+def build_cloud_aware_url(base: str, path: str, *,
+                          force_cloud: bool | None = None) -> str:
     """Build a URL that adds /api prefix when targeting Comfy Cloud.
 
     Local ComfyUI accepts both `/foo` and `/api/foo` for many endpoints.
@@ -415,7 +428,8 @@ class HTTPResponse:
         return json.loads(self.body.decode("utf-8", errors="replace"))
 
 
-def _sleep_backoff(attempt: int, base: float = RETRY_BASE_DELAY, cap: float = RETRY_MAX_DELAY) -> None:
+def _sleep_backoff(attempt: int, base: float = RETRY_BASE_DELAY,
+                   cap: float = RETRY_MAX_DELAY) -> None:
     """Sleep with full-jitter exponential backoff."""
     delay = min(cap, base * (2 ** attempt))
     delay = random.uniform(0, delay)
@@ -503,7 +517,8 @@ if HAS_REQUESTS:
         critical when ComfyUI Cloud's `/api/view` redirects to a signed S3 URL.
         """
 
-        def rebuild_auth(self, prepared_request, response):  # type: ignore[override]
+        # type: ignore[override]
+        def rebuild_auth(self, prepared_request, response):
             super().rebuild_auth(prepared_request, response)
             try:
                 old_url = response.request.url
@@ -574,7 +589,11 @@ def _http_once(
         headers.setdefault("Content-Type", "application/json")
     else:
         body_bytes = data
-    req = urllib.request.Request(url, data=body_bytes, headers=headers, method=method)
+    req = urllib.request.Request(
+        url,
+        data=body_bytes,
+        headers=headers,
+        method=method)
 
     # urllib follows redirects by default. We need to:
     # 1) intercept cross-host redirects and drop X-API-Key
@@ -594,12 +613,14 @@ def _http_once(
                     k: v for k, v in req2.header_items()
                     if k.lower() not in {"x-api-key", "authorization", "cookie"}
                 }
-                new_req = urllib.request.Request(newurl, headers=clean_headers, method="GET")
+                new_req = urllib.request.Request(
+                    newurl, headers=clean_headers, method="GET")
                 return new_req
             return super().redirect_request(req2, fp, code, msg, hdrs, newurl)
 
     original_host = (urlparse(url).hostname or "").lower()
-    opener = urllib.request.build_opener(_RedirectHandler(original_host, follow_redirects))
+    opener = urllib.request.build_opener(
+        _RedirectHandler(original_host, follow_redirects))
 
     try:
         resp = opener.open(req, timeout=timeout)
@@ -623,9 +644,11 @@ def _http_once(
                 if not chunk:
                     break
                 f.write(chunk)
-        return HTTPResponse(status=final_status, headers=final_headers, body=b"", url=final_url)
+        return HTTPResponse(status=final_status,
+                            headers=final_headers, body=b"", url=final_url)
 
-    return HTTPResponse(status=final_status, headers=final_headers, body=resp.read(), url=final_url)
+    return HTTPResponse(status=final_status,
+                        headers=final_headers, body=resp.read(), url=final_url)
 
 
 def http_get(url: str, **kwargs: Any) -> HTTPResponse:
@@ -657,7 +680,8 @@ def unwrap_workflow(payload: Any) -> dict:
     if isinstance(payload, dict) and is_api_format(payload):
         return payload
     # Some files wrap workflow under "prompt" key (e.g. saved /prompt payloads)
-    if isinstance(payload, dict) and "prompt" in payload and is_api_format(payload["prompt"]):
+    if isinstance(payload, dict) and "prompt" in payload and is_api_format(
+            payload["prompt"]):
         return payload["prompt"]
     # Editor format
     if isinstance(payload, dict) and "nodes" in payload and "links" in payload:
@@ -759,7 +783,8 @@ def looks_like_video_workflow(workflow: dict) -> bool:
     for _, node in iter_nodes(workflow):
         if node["class_type"] in SLOW_OUTPUT_NODES:
             return True
-        if node["class_type"].lower().startswith(("animatediff", "ade_", "wanvideo", "hunyuanvideo", "ltxvideo", "cogvideo")):
+        if node["class_type"].lower().startswith(
+                ("animatediff", "ade_", "wanvideo", "hunyuanvideo", "ltxvideo", "cogvideo")):
             return True
     return False
 

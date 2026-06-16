@@ -40,9 +40,8 @@ import shutil
 import sys
 from pathlib import Path
 
-from nastech_constants import get_nastech_home
-
 from nastech_cli.colors import Colors, color
+from nastech_constants import get_nastech_home
 
 
 def log_info(msg: str):
@@ -190,7 +189,8 @@ def gui_install_summary(nastech_home: "Path | None" = None) -> dict:
     """
     home: Path = nastech_home if nastech_home is not None else get_nastech_home()
 
-    source_artifacts = [p for p in source_built_gui_artifacts(home) if p.exists()]
+    source_artifacts = [
+        p for p in source_built_gui_artifacts(home) if p.exists()]
     packaged = [p for p in packaged_gui_app_paths() if p.exists()]
     userdata = desktop_userdata_dir()
 
@@ -225,7 +225,8 @@ def _remove_path(path: Path) -> bool:
     return False
 
 
-def uninstall_gui(nastech_home: "Path | None" = None, *, remove_userdata: bool = True) -> "list[Path]":
+def uninstall_gui(nastech_home: "Path | None" = None, *,
+                  remove_userdata: bool = True) -> "list[Path]":
     """Remove the desktop GUI's artifacts, leaving the agent + user data intact.
 
     Removes:

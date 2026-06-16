@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import os
-import requests
 import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+import requests
 from tools.environments.modal_utils import (
     BaseModalExecutionEnvironment,
     ModalExecStart,
@@ -36,9 +36,12 @@ class _ManagedModalExecHandle:
 class ManagedModalEnvironment(BaseModalExecutionEnvironment):
     """Gateway-owned Modal sandbox with NasTech-compatible execute/cleanup."""
 
-    _CONNECT_TIMEOUT_SECONDS = _request_timeout_env("TERMINAL_MANAGED_MODAL_CONNECT_TIMEOUT_SECONDS", 1.0)
-    _POLL_READ_TIMEOUT_SECONDS = _request_timeout_env("TERMINAL_MANAGED_MODAL_POLL_READ_TIMEOUT_SECONDS", 5.0)
-    _CANCEL_READ_TIMEOUT_SECONDS = _request_timeout_env("TERMINAL_MANAGED_MODAL_CANCEL_READ_TIMEOUT_SECONDS", 5.0)
+    _CONNECT_TIMEOUT_SECONDS = _request_timeout_env(
+        "TERMINAL_MANAGED_MODAL_CONNECT_TIMEOUT_SECONDS", 1.0)
+    _POLL_READ_TIMEOUT_SECONDS = _request_timeout_env(
+        "TERMINAL_MANAGED_MODAL_POLL_READ_TIMEOUT_SECONDS", 5.0)
+    _CANCEL_READ_TIMEOUT_SECONDS = _request_timeout_env(
+        "TERMINAL_MANAGED_MODAL_CANCEL_READ_TIMEOUT_SECONDS", 5.0)
     _client_timeout_grace_seconds = 10.0
     _interrupt_output = "[Command interrupted - Modal sandbox exec cancelled]"
     _unexpected_error_prefix = "Managed Modal exec failed"
@@ -58,7 +61,8 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
 
         gateway = resolve_managed_tool_gateway("modal")
         if gateway is None:
-            raise ValueError("Managed Modal requires a configured tool gateway and Nous user token")
+            raise ValueError(
+                "Managed Modal requires a configured tool gateway and Nous user token")
 
         self._gateway_origin = gateway.gateway_origin.rstrip("/")
         self._nastech_user_token = gateway.nastech_user_token
@@ -89,7 +93,8 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
             )
         except Exception as exc:
             return ModalExecStart(
-                immediate_result=self._error_result(f"Managed Modal exec failed: {exc}")
+                immediate_result=self._error_result(
+                    f"Managed Modal exec failed: {exc}")
             )
 
         if response.status_code >= 400:
@@ -123,7 +128,9 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
             status_response = self._request(
                 "GET",
                 f"/v1/sandboxes/{self._sandbox_id}/execs/{handle.exec_id}",
-                timeout=(self._CONNECT_TIMEOUT_SECONDS, self._POLL_READ_TIMEOUT_SECONDS),
+                timeout=(
+                    self._CONNECT_TIMEOUT_SECONDS,
+                    self._POLL_READ_TIMEOUT_SECONDS),
             )
         except Exception as exc:
             return self._error_result(f"Managed Modal exec poll failed: {exc}")
@@ -133,7 +140,9 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
 
         if status_response.status_code >= 400:
             return self._error_result(
-                self._format_error("Managed Modal exec poll failed", status_response)
+                self._format_error(
+                    "Managed Modal exec poll failed",
+                    status_response)
             )
 
         status_body = status_response.json()
@@ -149,7 +158,8 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
         self._cancel_exec(handle.exec_id)
 
     def _timeout_result_for_modal(self, timeout: int) -> dict:
-        return self._result(f"Managed Modal exec timed out after {timeout}s", 124)
+        return self._result(
+            f"Managed Modal exec timed out after {timeout}s", 124)
 
     def cleanup(self):
         if not getattr(self, "_sandbox_id", None):
@@ -172,11 +182,14 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
     def _create_sandbox(self) -> str:
         cpu = self._coerce_number(self._sandbox_kwargs.get("cpu"), 1)
         memory = self._coerce_number(
-            self._sandbox_kwargs.get("memoryMiB", self._sandbox_kwargs.get("memory")),
+            self._sandbox_kwargs.get(
+                "memoryMiB", self._sandbox_kwargs.get("memory")),
             5120,
         )
         disk = self._coerce_number(
-            self._sandbox_kwargs.get("ephemeral_disk", self._sandbox_kwargs.get("diskMiB")),
+            self._sandbox_kwargs.get(
+                "ephemeral_disk",
+                self._sandbox_kwargs.get("diskMiB")),
             None,
         )
 
@@ -203,12 +216,16 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
             },
         )
         if response.status_code >= 400:
-            raise RuntimeError(self._format_error("Managed Modal create failed", response))
+            raise RuntimeError(
+                self._format_error(
+                    "Managed Modal create failed",
+                    response))
 
         body = response.json()
         sandbox_id = body.get("id")
         if not isinstance(sandbox_id, str) or not sandbox_id:
-            raise RuntimeError("Managed Modal create did not return a sandbox id")
+            raise RuntimeError(
+                "Managed Modal create did not return a sandbox id")
         return sandbox_id
 
     def _guard_unsupported_credential_passthrough(self) -> None:
@@ -250,7 +267,9 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
             self._request(
                 "POST",
                 f"/v1/sandboxes/{self._sandbox_id}/execs/{exec_id}/cancel",
-                timeout=(self._CONNECT_TIMEOUT_SECONDS, self._CANCEL_READ_TIMEOUT_SECONDS),
+                timeout=(
+                    self._CONNECT_TIMEOUT_SECONDS,
+                    self._CANCEL_READ_TIMEOUT_SECONDS),
             )
         except Exception as exc:
             logger.warning("Managed Modal exec cancel failed: %s", exc)
@@ -269,7 +288,8 @@ class ManagedModalEnvironment(BaseModalExecutionEnvironment):
         try:
             payload = response.json()
             if isinstance(payload, dict):
-                message = payload.get("error") or payload.get("message") or payload.get("code")
+                message = payload.get("error") or payload.get(
+                    "message") or payload.get("code")
                 if isinstance(message, str) and message:
                     return f"{prefix}: {message}"
                 return f"{prefix}: {json.dumps(payload, ensure_ascii=False)}"

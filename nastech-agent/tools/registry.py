@@ -56,7 +56,8 @@ def _module_registers_tools(module_path: Path) -> bool:
 
 def discover_builtin_tools(tools_dir: Optional[Path] = None) -> List[str]:
     """Import built-in self-registering tool modules and return their module names."""
-    tools_path = Path(tools_dir) if tools_dir is not None else Path(__file__).resolve().parent
+    tools_path = Path(tools_dir) if tools_dir is not None else Path(
+        __file__).resolve().parent
     module_names = [
         f"tools.{path.stem}"
         for path in sorted(tools_path.glob("*.py"))
@@ -179,14 +180,17 @@ class ToolRegistry:
         """Return a stable snapshot of toolset availability checks."""
         return self._snapshot_state()[1]
 
-    def _evaluate_toolset_check(self, toolset: str, check: Callable | None) -> bool:
+    def _evaluate_toolset_check(self, toolset: str,
+                                check: Callable | None) -> bool:
         """Run a toolset check, treating missing or failing checks as unavailable/available."""
         if not check:
             return True
         try:
             return bool(check())
         except Exception:
-            logger.debug("Toolset %s check raised; marking unavailable", toolset)
+            logger.debug(
+                "Toolset %s check raised; marking unavailable",
+                toolset)
             return False
 
     def get_entry(self, name: str) -> Optional[ToolEntry]:
@@ -334,7 +338,8 @@ class ToolRegistry:
     # Schema retrieval
     # ------------------------------------------------------------------
 
-    def get_definitions(self, tool_names: Set[str], quiet: bool = False) -> List[dict]:
+    def get_definitions(
+            self, tool_names: Set[str], quiet: bool = False) -> List[dict]:
         """Return OpenAI-format tool schemas for the requested tool names.
 
         Only tools whose ``check_fn()`` returns True (or have no check_fn)
@@ -350,19 +355,23 @@ class ToolRegistry:
         # same check_fn within one definitions pass without re-reading the
         # TTL clock.
         check_results: Dict[Callable, bool] = {}
-        entries_by_name = {entry.name: entry for entry in self._snapshot_entries()}
+        entries_by_name = {
+            entry.name: entry for entry in self._snapshot_entries()}
         for name in sorted(tool_names):
             entry = entries_by_name.get(name)
             if not entry:
                 continue
             if entry.check_fn:
                 if entry.check_fn not in check_results:
-                    check_results[entry.check_fn] = _check_fn_cached(entry.check_fn)
+                    check_results[entry.check_fn] = _check_fn_cached(
+                        entry.check_fn)
                 if not check_results[entry.check_fn]:
                     if not quiet:
-                        logger.debug("Tool %s unavailable (check failed)", name)
+                        logger.debug(
+                            "Tool %s unavailable (check failed)", name)
                     continue
-            # Ensure schema always has a "name" field — use entry.name as fallback
+            # Ensure schema always has a "name" field — use entry.name as
+            # fallback
             schema_with_name = {**entry.schema, "name": entry.name}
             # Apply runtime-dynamic overrides (e.g. delegate_task description
             # depends on current delegation.max_concurrent_children /
@@ -419,7 +428,8 @@ class ToolRegistry:
     # Query helpers  (replace redundant dicts in model_tools.py)
     # ------------------------------------------------------------------
 
-    def get_max_result_size(self, name: str, default: int | float | None = None) -> int | float:
+    def get_max_result_size(self, name: str, default: int |
+                            float | None = None) -> int | float:
         """Return per-tool max result size, or *default* (or global default)."""
         entry = self.get_entry(name)
         if entry and entry.max_result_size_chars is not None:
@@ -471,7 +481,8 @@ class ToolRegistry:
         entries, toolset_checks = self._snapshot_state()
         toolsets = sorted({entry.toolset for entry in entries})
         return {
-            toolset: self._evaluate_toolset_check(toolset, toolset_checks.get(toolset))
+            toolset: self._evaluate_toolset_check(
+                toolset, toolset_checks.get(toolset))
             for toolset in toolsets
         }
 

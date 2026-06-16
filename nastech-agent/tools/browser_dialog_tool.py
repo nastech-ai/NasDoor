@@ -114,7 +114,8 @@ def browser_dialog(
                 "dialog": result.get("dialog", {}),
             }
         )
-    return json.dumps({"success": False, "error": result.get("error", "unknown error")})
+    return json.dumps(
+        {"success": False, "error": result.get("error", "unknown error")})
 
 
 def _browser_dialog_check() -> bool:
@@ -126,9 +127,11 @@ def _browser_dialog_check() -> bool:
     CDP URL is enough to commit to showing the tool.
     """
     try:
-        from tools.browser_cdp_tool import _browser_cdp_check  # type: ignore[import-not-found]
+        # type: ignore[import-not-found]
+        from tools.browser_cdp_tool import _browser_cdp_check
     except Exception as exc:  # pragma: no cover — defensive
-        logger.debug("browser_dialog check: browser_cdp_tool import failed: %s", exc)
+        logger.debug(
+            "browser_dialog check: browser_cdp_tool import failed: %s", exc)
         return False
     return _browser_cdp_check()
 

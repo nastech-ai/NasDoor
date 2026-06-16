@@ -29,7 +29,8 @@ def get_adapter(name: str) -> UpstreamAdapter:
     if key not in ADAPTERS:
         available = ", ".join(sorted(ADAPTERS)) or "(none)"
         raise ValueError(
-            f"Unknown proxy upstream provider: {name!r}. Available: {available}"
+            f"Unknown proxy upstream provider: {
+                name!r}. Available: {available}"
         )
     return ADAPTERS[key]()
 

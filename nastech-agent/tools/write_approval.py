@@ -81,7 +81,7 @@ def write_approval_enabled(subsystem: str) -> bool:
     if subsystem not in _SUBSYSTEMS:
         return False
     try:
-        from nastech_cli.config import load_config, cfg_get
+        from nastech_cli.config import cfg_get, load_config
         cfg = load_config()
         raw = cfg_get(cfg, subsystem, CONFIG_KEY, default=False)
     except Exception:
@@ -99,7 +99,8 @@ def _normalize_enabled(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
-        return value.strip().lower() in {"on", "true", "yes", "1", "approve", "enabled"}
+        return value.strip().lower() in {
+            "on", "true", "yes", "1", "approve", "enabled"}
     return False
 
 
@@ -144,10 +145,19 @@ def stage_write(subsystem: str, payload: Dict[str, Any],
         d.mkdir(parents=True, exist_ok=True)
         path = d / f"{pid}.json"
         tmp = path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.write_text(
+            json.dumps(
+                record,
+                ensure_ascii=False,
+                indent=2),
+            encoding="utf-8")
         os.replace(tmp, path)
     except Exception as e:  # pragma: no cover - disk failure path
-        logger.error("Failed to stage pending %s write: %s", subsystem, e, exc_info=True)
+        logger.error(
+            "Failed to stage pending %s write: %s",
+            subsystem,
+            e,
+            exc_info=True)
     return record
 
 
@@ -185,7 +195,11 @@ def discard_pending(subsystem: str, pending_id: str) -> bool:
             path.unlink()
             return True
     except Exception as e:  # pragma: no cover
-        logger.error("Failed to discard pending %s/%s: %s", subsystem, pending_id, e)
+        logger.error(
+            "Failed to discard pending %s/%s: %s",
+            subsystem,
+            pending_id,
+            e)
     return False
 
 
@@ -334,7 +348,8 @@ def _interactive_approval_available() -> bool:
         return False
 
 
-def _prompt_inline_memory_approval(summary: str, detail: str) -> Optional[bool]:
+def _prompt_inline_memory_approval(
+        summary: str, detail: str) -> Optional[bool]:
     """Prompt the user inline to approve a memory write.
 
     Returns True (approved), False (denied), or None (no interactive prompt
@@ -397,7 +412,11 @@ def skill_gist(action: str, name: str, *, content: str = "",
     """
     if action in {"create", "edit"} and content:
         desc = _frontmatter_description(content)
-        size = f"{len(content) // 1024 + 1} KB" if len(content) >= 1024 else f"{len(content)} chars"
+        size = f"{
+            len(content) //
+            1024 +
+            1} KB" if len(content) >= 1024 else f"{
+            len(content)} chars"
         verb = "create" if action == "create" else "rewrite"
         if desc:
             return f"{verb} '{name}' — {desc} ({size})"
@@ -473,7 +492,10 @@ def skill_pending_diff(record: Dict[str, Any]) -> str:
     elif action == "patch":
         old_s = payload.get("old_string") or ""
         new_s = payload.get("new_string") or ""
-        new = current.replace(old_s, new_s) if current else f"(patch {old_s!r} → {new_s!r})"
+        new = current.replace(
+            old_s, new_s) if current else f"(patch {
+            old_s!r} → {
+            new_s!r})"
     elif action == "write_file":
         new = payload.get("file_content") or ""
     elif action == "remove_file":

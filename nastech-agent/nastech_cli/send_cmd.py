@@ -32,7 +32,6 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-
 _USAGE_EXIT = 2
 _FAILURE_EXIT = 1
 _SUCCESS_EXIT = 0
@@ -60,7 +59,9 @@ def _read_message_body(
         try:
             return Path(file_path).read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as exc:
-            print(f"nastech send: cannot read {file_path}: {exc}", file=sys.stderr)
+            print(
+                f"nastech send: cannot read {file_path}: {exc}",
+                file=sys.stderr)
             sys.exit(_USAGE_EXIT)
 
     # Piped input: only consume stdin when it is not a TTY. Reading from a
@@ -97,7 +98,9 @@ def _emit_result(
     except json.JSONDecodeError:
         # Shouldn't happen with the shared tool, but be defensive — pass the
         # raw string through so the user can still see what went wrong.
-        payload = {"error": "invalid JSON from send_message_tool", "raw": result_json}
+        payload = {
+            "error": "invalid JSON from send_message_tool",
+            "raw": result_json}
 
     if json_mode:
         print(json.dumps(payload, indent=2))
@@ -140,13 +143,17 @@ def _list_targets(platform_filter: Optional[str], *, json_mode: bool) -> int:
             load_directory,
         )
     except Exception as exc:
-        print(f"nastech send: failed to load channel directory: {exc}", file=sys.stderr)
+        print(
+            f"nastech send: failed to load channel directory: {exc}",
+            file=sys.stderr)
         return _FAILURE_EXIT
 
     try:
         raw = load_directory()
     except Exception as exc:
-        print(f"nastech send: failed to read channel directory: {exc}", file=sys.stderr)
+        print(
+            f"nastech send: failed to read channel directory: {exc}",
+            file=sys.stderr)
         return _FAILURE_EXIT
 
     platforms = dict(raw.get("platforms") or {})
@@ -287,7 +294,9 @@ def cmd_send(args: argparse.Namespace) -> None:
         # When `--list telegram` is used, argparse stores "telegram" in the
         # `message` positional (since list_targets takes no argument).
         platform_filter = getattr(args, "message", None)
-        exit_code = _list_targets(platform_filter, json_mode=getattr(args, "json", False))
+        exit_code = _list_targets(
+            platform_filter, json_mode=getattr(
+                args, "json", False))
         sys.exit(exit_code)
 
     target = _resolve_target(getattr(args, "to", None))

@@ -35,14 +35,14 @@ import logging
 import re
 from typing import Set
 
+from nastech_constants import get_nastech_home
+
 logger = logging.getLogger(__name__)
 
 # WhatsApp JIDs are numeric (or plus-prefixed numeric) with optional
 # ``@``, ``.`` and ``:`` separators. ``\w`` is pinned to ASCII so
 # full-width digits / Unicode word chars can't sneak through.
 _SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9@.+\-]+$")
-
-from nastech_constants import get_nastech_home
 
 
 def normalize_whatsapp_identifier(value: str) -> str:
@@ -111,7 +111,10 @@ def expand_whatsapp_aliases(identifier: str) -> Set[str]:
                     json.loads(mapping_path.read_text(encoding="utf-8"))
                 )
             except (OSError, json.JSONDecodeError) as exc:
-                logger.debug("whatsapp_identity: failed to read %s: %s", mapping_path, exc)
+                logger.debug(
+                    "whatsapp_identity: failed to read %s: %s",
+                    mapping_path,
+                    exc)
                 continue
             if mapped and mapped not in resolved:
                 queue.append(mapped)

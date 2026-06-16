@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
 import httpx
-
 from agent.anthropic_adapter import _is_oauth_token, resolve_anthropic_token
 from nastech_cli.auth import _read_codex_tokens, resolve_codex_runtime_credentials
 from nastech_cli.runtime_provider import resolve_runtime_provider
@@ -43,7 +42,8 @@ class AccountUsageSnapshot:
 
     @property
     def available(self) -> bool:
-        return bool(self.windows or self.details) and not self.unavailable_reason
+        return bool(
+            self.windows or self.details) and not self.unavailable_reason
 
 
 def _title_case_slug(value: Optional[str]) -> Optional[str]:
@@ -92,10 +92,14 @@ def _format_reset(dt: Optional[datetime]) -> str:
     return f"{rel} ({local_dt.strftime('%Y-%m-%d %H:%M %Z')})"
 
 
-def render_account_usage_lines(snapshot: Optional[AccountUsageSnapshot], *, markdown: bool = False) -> list[str]:
+def render_account_usage_lines(
+        snapshot: Optional[AccountUsageSnapshot], *, markdown: bool = False) -> list[str]:
     if not snapshot:
         return []
-    header = f"📈 {'**' if markdown else ''}{snapshot.title}{'**' if markdown else ''}"
+    header = f"📈 {
+        '**' if markdown else ''}{
+        snapshot.title}{
+            '**' if markdown else ''}"
     lines = [header]
     if snapshot.plan:
         lines.append(f"Provider: {snapshot.provider} ({snapshot.plan})")
@@ -131,10 +135,12 @@ def _is_finite_num(v: Any) -> TypeGuard[float]:
     number in the positive branch — callers can then do arithmetic / pass it to
     ``_fmt_usd`` without a None-operand warning.
     """
-    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+    return isinstance(v, (int, float)) and not isinstance(
+        v, bool) and math.isfinite(v)
 
 
-def build_nous_credits_snapshot(account_info) -> Optional[AccountUsageSnapshot]:
+def build_nous_credits_snapshot(
+        account_info) -> Optional[AccountUsageSnapshot]:
     """Map a NastechPortalAccountInfo into an AccountUsageSnapshot for /usage.
 
     Shows dollar magnitudes (subscription / top-up / total) + renewal date + a
@@ -147,7 +153,8 @@ def build_nous_credits_snapshot(account_info) -> Optional[AccountUsageSnapshot]:
     try:
         from nastech_cli.nastech_account import nous_portal_topup_url
 
-        if account_info is None or not getattr(account_info, "logged_in", False):
+        if account_info is None or not getattr(
+                account_info, "logged_in", False):
             return None
 
         access = getattr(account_info, "paid_service_access_info", None)
@@ -183,14 +190,19 @@ def build_nous_credits_snapshot(account_info) -> Optional[AccountUsageSnapshot]:
                     AccountUsageWindow(
                         label="Subscription",
                         used_percent=used_pct,
-                        detail=f"{_fmt_usd(sub_remaining)} of {_fmt_usd(monthly_credits)} left",
+                        detail=f"{
+                            _fmt_usd(sub_remaining)} of {
+                            _fmt_usd(monthly_credits)} left",
                     )
                 )
 
         if access is not None:
-            sub_credits = getattr(access, "subscription_credits_remaining", None)
+            sub_credits = getattr(
+                access, "subscription_credits_remaining", None)
             if _is_finite_num(sub_credits):
-                details.append(f"Subscription credits: {_fmt_usd(sub_credits)}")
+                details.append(
+                    f"Subscription credits: {
+                        _fmt_usd(sub_credits)}")
             purchased = getattr(access, "purchased_credits_remaining", None)
             if _is_finite_num(purchased):
                 details.append(f"Top-up credits: {_fmt_usd(purchased)}")
@@ -230,7 +242,8 @@ def build_nous_credits_snapshot(account_info) -> Optional[AccountUsageSnapshot]:
         return None
 
 
-def nous_credits_lines(*, markdown: bool = False, timeout: float = 10.0) -> list[str]:
+def nous_credits_lines(*, markdown: bool = False,
+                       timeout: float = 10.0) -> list[str]:
     """Return rendered Nous-credits /usage lines, or [] when there's nothing to show.
 
     Account-independent of any live agent: gated on "a Nous account is logged in"
@@ -243,7 +256,8 @@ def nous_credits_lines(*, markdown: bool = False, timeout: float = 10.0) -> list
     renders from that fixture instead of the real portal (so the block + gauge are
     testable without a live account). Throwaway scaffolding.
     """
-    # Dev fixture short-circuit — render /usage from the injected state, no portal.
+    # Dev fixture short-circuit — render /usage from the injected state, no
+    # portal.
     try:
         from agent.credits_tracker import dev_fixture_credits_state
 
@@ -276,7 +290,9 @@ def nous_credits_lines(*, markdown: bool = False, timeout: float = 10.0) -> list
     except Exception:
         # Fail-open (caller shows nothing), but leave a breadcrumb so a dead
         # /usage credits block is diagnosable in agent.log without a dev flag.
-        logger.debug("credits ▸ /usage portal fetch/render failed (fail-open)", exc_info=True)
+        logger.debug(
+            "credits ▸ /usage portal fetch/render failed (fail-open)",
+            exc_info=True)
         return []
 
 
@@ -355,7 +371,8 @@ class CreditsView:
     depleted: bool = False
 
 
-def build_credits_view(*, markdown: bool = False, timeout: float = 10.0) -> CreditsView:
+def build_credits_view(*, markdown: bool = False,
+                       timeout: float = 10.0) -> CreditsView:
     """Build the /credits view: balance block + identity line + top-up URL.
 
     Reuses the same account fetch + snapshot + URL builder as the /usage credits
@@ -386,7 +403,9 @@ def build_credits_view(*, markdown: bool = False, timeout: float = 10.0) -> Cred
                 timeout=timeout
             )
     except Exception:
-        logger.debug("credits ▸ /credits portal fetch failed (fail-open)", exc_info=True)
+        logger.debug(
+            "credits ▸ /credits portal fetch failed (fail-open)",
+            exc_info=True)
         return not_logged_in
 
     if account is None or not getattr(account, "logged_in", False):
@@ -449,12 +468,18 @@ def _fetch_codex_account_usage() -> Optional[AccountUsageSnapshot]:
     if account_id:
         headers["ChatGPT-Account-Id"] = account_id
     with httpx.Client(timeout=15.0) as client:
-        response = client.get(_resolve_codex_usage_url(creds.get("base_url", "")), headers=headers)
+        response = client.get(
+            _resolve_codex_usage_url(
+                creds.get(
+                    "base_url",
+                    "")),
+            headers=headers)
         response.raise_for_status()
     payload = response.json() or {}
     rate_limit = payload.get("rate_limit") or {}
     windows: list[AccountUsageWindow] = []
-    for key, label in (("primary_window", "Session"), ("secondary_window", "Weekly")):
+    for key, label in (("primary_window", "Session"),
+                       ("secondary_window", "Weekly")):
         window = rate_limit.get(key) or {}
         used = window.get("used_percent")
         if used is None:
@@ -503,7 +528,9 @@ def _fetch_anthropic_account_usage() -> Optional[AccountUsageSnapshot]:
         "User-Agent": "claude-code/2.1.0",
     }
     with httpx.Client(timeout=15.0) as client:
-        response = client.get("https://api.anthropic.com/api/oauth/usage", headers=headers)
+        response = client.get(
+            "https://api.anthropic.com/api/oauth/usage",
+            headers=headers)
         response.raise_for_status()
     payload = response.json() or {}
     windows: list[AccountUsageWindow] = []
@@ -532,7 +559,8 @@ def _fetch_anthropic_account_usage() -> Optional[AccountUsageSnapshot]:
         used_credits = extra.get("used_credits")
         monthly_limit = extra.get("monthly_limit")
         currency = extra.get("currency") or "USD"
-        if isinstance(used_credits, (int, float)) and isinstance(monthly_limit, (int, float)):
+        if isinstance(used_credits, (int, float)) and isinstance(
+                monthly_limit, (int, float)):
             details.append(
                 f"Extra usage: {used_credits:.2f} / {monthly_limit:.2f} {currency}"
             )
@@ -545,7 +573,8 @@ def _fetch_anthropic_account_usage() -> Optional[AccountUsageSnapshot]:
     )
 
 
-def _fetch_openrouter_account_usage(base_url: Optional[str], api_key: Optional[str]) -> Optional[AccountUsageSnapshot]:
+def _fetch_openrouter_account_usage(
+        base_url: Optional[str], api_key: Optional[str]) -> Optional[AccountUsageSnapshot]:
     runtime = resolve_runtime_provider(
         requested="openrouter",
         explicit_base_url=base_url,
@@ -573,7 +602,8 @@ def _fetch_openrouter_account_usage(base_url: Optional[str], api_key: Optional[s
             key_data = {}
     total_credits = float(credits.get("total_credits") or 0.0)
     total_usage = float(credits.get("total_usage") or 0.0)
-    details = [f"Credits balance: ${max(0.0, total_credits - total_usage):.2f}"]
+    details = [
+        f"Credits balance: ${max(0.0, total_credits - total_usage):.2f}"]
     windows: list[AccountUsageWindow] = []
     limit = key_data.get("limit")
     limit_remaining = key_data.get("limit_remaining")
@@ -588,7 +618,8 @@ def _fetch_openrouter_account_usage(base_url: Optional[str], api_key: Optional[s
         limit_value = float(limit)
         remaining_value = float(limit_remaining)
         used_percent = ((limit_value - remaining_value) / limit_value) * 100
-        detail_parts = [f"${remaining_value:.2f} of ${limit_value:.2f} remaining"]
+        detail_parts = [
+            f"${remaining_value:.2f} of ${limit_value:.2f} remaining"]
         if limit_reset:
             detail_parts.append(f"resets {limit_reset}")
         windows.append(
@@ -636,6 +667,7 @@ def fetch_account_usage(
     except Exception:
         return None
     return None
+
 
 # ── backward-compat aliases (NasTech → NasTech rebrand) ──────────────
 build_nastech_credits_snapshot = build_nous_credits_snapshot

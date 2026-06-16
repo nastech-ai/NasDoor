@@ -77,7 +77,8 @@ class UploadDailyLimitExceededError(Exception):
     can compose a helpful reply.
     """
 
-    def __init__(self, file_name: str, file_size: int, message: str = "") -> None:
+    def __init__(self, file_name: str, file_size: int,
+                 message: str = "") -> None:
         self.file_name = file_name
         self.file_size = file_size
         super().__init__(
@@ -182,7 +183,10 @@ def _parse_prepare_response(raw: Dict[str, Any]) -> _PrepareResult:
         upload_id=upload_id,
         block_size=block_size,
         parts=parts,
-        concurrency=int(src.get("concurrency", _DEFAULT_CONCURRENT_PARTS)) or _DEFAULT_CONCURRENT_PARTS,
+        concurrency=int(
+            src.get(
+                "concurrency",
+                _DEFAULT_CONCURRENT_PARTS)) or _DEFAULT_CONCURRENT_PARTS,
         retry_timeout=float(src.get("retry_timeout", 0.0) or 0.0),
     )
 
@@ -409,7 +413,8 @@ class ChunkedUploader:
                     ),
                     timeout=_PART_UPLOAD_TIMEOUT,
                 )
-                # Caller's http_put is expected to return an httpx-like response.
+                # Caller's http_put is expected to return an httpx-like
+                # response.
                 status = getattr(resp, "status_code", 0)
                 if 200 <= status < 300:
                     logger.debug(
@@ -477,7 +482,8 @@ class ChunkedUploader:
                 if elapsed >= retry_timeout:
                     raise RuntimeError(
                         f"upload_part_finish persistent retry timed out "
-                        f"after {retry_timeout:.0f}s ({attempt} retries): {exc}"
+                        f"after {
+                            retry_timeout:.0f}s ({attempt} retries): {exc}"
                     ) from exc
                 attempt += 1
                 logger.debug(

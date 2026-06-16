@@ -8,7 +8,6 @@ from typing import Any, Dict
 
 from utils import is_truthy_value
 
-
 _DEFAULT_BROWSER_PROVIDER = "local"
 _DEFAULT_MODAL_MODE = "auto"
 _VALID_MODAL_MODES = {"auto", "direct", "managed"}
@@ -180,6 +179,7 @@ def fal_key_is_configured() -> bool:
         except Exception:
             value = None
     return bool(value and value.strip())
+
 
 # ── backward-compat aliases (NasTech → NasTech rebrand) ─────────────
 managed_nastech_tools_enabled = managed_nous_tools_enabled

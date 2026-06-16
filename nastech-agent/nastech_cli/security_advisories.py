@@ -160,7 +160,10 @@ def _installed_version(pkg_name: str) -> Optional[str]:
     except Exception:
         # Some metadata corruption modes raise ValueError or OSError. Don't
         # let advisory checking crash the CLI startup path.
-        logger.debug("importlib.metadata.version(%s) raised", pkg_name, exc_info=True)
+        logger.debug(
+            "importlib.metadata.version(%s) raised",
+            pkg_name,
+            exc_info=True)
         return None
 
 
@@ -285,7 +288,7 @@ def short_banner_lines(hits: list[AdvisoryHit]) -> list[str]:
     ]
     if len(hits) > 1:
         lines.insert(1, f"  ({len(hits) - 1} additional advisor"
-                       f"{'ies' if len(hits) > 2 else 'y'} also active.)")
+                     f"{'ies' if len(hits) > 2 else 'y'} also active.)")
     return lines
 
 
@@ -294,7 +297,10 @@ def full_remediation_text(hit: AdvisoryHit) -> list[str]:
     a = hit.advisory
     lines = [
         f"=== {a.title} ===",
-        f"ID:        {a.id}    Severity: {a.severity}    Published: {a.published}",
+        f"ID:        {
+            a.id}    Severity: {
+            a.severity}    Published: {
+            a.published}",
         f"Detected:  {hit.package}=={hit.installed_version}",
         f"Reference: {a.url}",
         "",

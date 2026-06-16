@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# ─── Message Deduplication ────────────────────────────────────────────────────
+# ─── Message Deduplication ──────────────────────────────────────────────
 
 
 class MessageDeduplicator:
@@ -149,7 +149,8 @@ class TextBatchAggregator:
             try:
                 await self._handler(event)
             except Exception:
-                logger.exception("[TextBatchAggregator] Error dispatching batched event for %s", key)
+                logger.exception(
+                    "[TextBatchAggregator] Error dispatching batched event for %s", key)
 
         if self._pending_tasks.get(key) is current_task:
             self._pending_tasks.pop(key, None)

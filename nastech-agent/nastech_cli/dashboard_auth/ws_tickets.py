@@ -26,7 +26,8 @@ from typing import Any, Dict, Tuple
 TTL_SECONDS = 30
 
 _lock = threading.Lock()
-_tickets: Dict[str, Tuple[int, Dict[str, Any]]] = {}  # ticket -> (expires_at, info)
+# ticket -> (expires_at, info)
+_tickets: Dict[str, Tuple[int, Dict[str, Any]]] = {}
 
 
 class TicketInvalid(Exception):

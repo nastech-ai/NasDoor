@@ -238,7 +238,9 @@ def heartbeat_current_worker_from_env() -> bool:
             try:
                 kb.heartbeat_claim(conn, tid, claimer=claim_lock)
             except Exception:
-                logger.debug("auto-heartbeat: heartbeat_claim failed", exc_info=True)
+                logger.debug(
+                    "auto-heartbeat: heartbeat_claim failed",
+                    exc_info=True)
             run_id_raw = os.environ.get("NASTECH_KANBAN_RUN_ID")
             run_id: Optional[int]
             try:
@@ -246,9 +248,12 @@ def heartbeat_current_worker_from_env() -> bool:
             except (TypeError, ValueError):
                 run_id = None
             try:
-                kb.heartbeat_worker(conn, tid, note=None, expected_run_id=run_id)
+                kb.heartbeat_worker(
+                    conn, tid, note=None, expected_run_id=run_id)
             except Exception:
-                logger.debug("auto-heartbeat: heartbeat_worker failed", exc_info=True)
+                logger.debug(
+                    "auto-heartbeat: heartbeat_worker failed",
+                    exc_info=True)
         finally:
             try:
                 conn.close()
@@ -767,7 +772,8 @@ def _handle_create(args: dict, **kw) -> str:
         skills = [skills]
     if skills is not None and not isinstance(skills, (list, tuple)):
         return tool_error(
-            f"skills must be a list of skill names, got {type(skills).__name__}"
+            f"skills must be a list of skill names, got {
+                type(skills).__name__}"
         )
     goal_mode, goal_bool_error = _parse_bool_arg(args, "goal_mode")
     if goal_bool_error:
@@ -848,7 +854,8 @@ def _handle_unblock(args: dict, **kw) -> str:
         try:
             ok = kb.unblock_task(conn, str(tid))
             if not ok:
-                return tool_error(f"could not unblock {tid} (not blocked or unknown)")
+                return tool_error(
+                    f"could not unblock {tid} (not blocked or unknown)")
             return _ok(task_id=str(tid), status="ready")
         finally:
             conn.close()
@@ -907,6 +914,7 @@ def _board_schema_prop() -> dict[str, str]:
     only has to land in one place.
     """
     return {"type": "string", "description": _DESC_BOARD}
+
 
 KANBAN_SHOW_SCHEMA = {
     "name": "kanban_show",
@@ -1337,7 +1345,7 @@ KANBAN_LINK_SCHEMA = {
         "type": "object",
         "properties": {
             "parent_id": {"type": "string", "description": "Parent task id."},
-            "child_id":  {"type": "string", "description": "Child task id."},
+            "child_id": {"type": "string", "description": "Child task id."},
             "board": _board_schema_prop(),
         },
         "required": ["parent_id", "child_id"],

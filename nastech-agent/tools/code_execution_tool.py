@@ -42,11 +42,13 @@ import tempfile
 import threading
 import time
 import uuid
-
-_IS_WINDOWS = platform.system() == "Windows"
 from typing import Any, Dict, List, Optional
 
+from tools.registry import registry, tool_error
 from tools.thread_context import propagate_context_to_thread
+
+_IS_WINDOWS = platform.system() == "Windows"
+
 
 # Availability gate.  On Windows we fall back to loopback TCP for the
 # sandbox RPC transport (AF_UNIX is unreliable on Windows Python) — see
@@ -152,7 +154,7 @@ def _scrub_child_env(source_env, is_passthrough=None, is_windows=None):
         try:
             from tools.env_passthrough import is_env_passthrough as _ep
         except Exception:
-            _ep = lambda _: False  # noqa: E731
+            def _ep(_): return False  # noqa: E731
         is_passthrough = _ep
     if is_windows is None:
         is_windows = _IS_WINDOWS
@@ -257,7 +259,7 @@ _TOOL_STUBS = {
 
 
 def generate_nastech_tools_module(enabled_tools: List[str],
-                                 transport: str = "uds") -> str:
+                                  transport: str = "uds") -> str:
     """
     Build the source code for the nastech_tools.py stub module.
 
@@ -462,7 +464,11 @@ def _call(tool_name, args):
 # ---------------------------------------------------------------------------
 
 # Terminal parameters that must not be used from ephemeral sandbox scripts
-_TERMINAL_BLOCKED_PARAMS = {"background", "pty", "notify_on_complete", "watch_patterns"}
+_TERMINAL_BLOCKED_PARAMS = {
+    "background",
+    "pty",
+    "notify_on_complete",
+    "watch_patterns"}
 
 
 def _rpc_server_loop(
@@ -557,7 +563,8 @@ def _rpc_server_loop(
                         sys.stdout, sys.stderr = _real_stdout, _real_stderr
                         devnull.close()
                 except Exception as exc:
-                    logger.error("Tool call failed in sandbox: %s", exc, exc_info=True)
+                    logger.error(
+                        "Tool call failed in sandbox: %s", exc, exc_info=True)
                     result = tool_error(str(exc))
 
                 tool_call_counter[0] += 1
@@ -597,10 +604,16 @@ def _get_or_create_env(task_id: str):
     Returns ``(env, env_type)`` tuple.
     """
     from tools.terminal_tool import (
-        _active_environments, _env_lock, _create_environment,
-        _get_env_config, _last_activity, _start_cleanup_thread,
-        _creation_locks, _creation_locks_lock, _task_env_overrides,
+        _active_environments,
+        _create_environment,
+        _creation_locks,
+        _creation_locks_lock,
+        _env_lock,
+        _get_env_config,
+        _last_activity,
         _resolve_container_task_id,
+        _start_cleanup_thread,
+        _task_env_overrides,
     )
 
     effective_task_id = _resolve_container_task_id(task_id)
@@ -609,7 +622,8 @@ def _get_or_create_env(task_id: str):
     with _env_lock:
         if effective_task_id in _active_environments:
             _last_activity[effective_task_id] = time.time()
-            return _active_environments[effective_task_id], _get_env_config()["env_type"]
+            return _active_environments[effective_task_id], _get_env_config()[
+                "env_type"]
 
     # Slow path: create environment (same pattern as file_tools._get_file_ops)
     with _creation_locks_lock:
@@ -621,7 +635,8 @@ def _get_or_create_env(task_id: str):
         with _env_lock:
             if effective_task_id in _active_environments:
                 _last_activity[effective_task_id] = time.time()
-                return _active_environments[effective_task_id], _get_env_config()["env_type"]
+                return _active_environments[effective_task_id], _get_env_config()[
+                    "env_type"]
 
         config = _get_env_config()
         env_type = config["env_type"]
@@ -630,7 +645,8 @@ def _get_or_create_env(task_id: str):
         if env_type == "docker":
             image = overrides.get("docker_image") or config["docker_image"]
         elif env_type == "singularity":
-            image = overrides.get("singularity_image") or config["singularity_image"]
+            image = overrides.get(
+                "singularity_image") or config["singularity_image"]
         elif env_type == "modal":
             image = overrides.get("modal_image") or config["modal_image"]
         elif env_type == "daytona":
@@ -668,7 +684,7 @@ def _get_or_create_env(task_id: str):
             }
 
         logger.info("Creating new %s environment for execute_code task %s...",
-                     env_type, effective_task_id[:8])
+                    env_type, effective_task_id[:8])
         env = _create_environment(
             env_type=env_type,
             image=image,
@@ -687,7 +703,7 @@ def _get_or_create_env(task_id: str):
 
         _start_cleanup_thread()
         logger.info("%s environment ready for execute_code task %s",
-                     env_type, effective_task_id[:8])
+                    env_type, effective_task_id[:8])
         return env, env_type
 
 
@@ -717,7 +733,8 @@ def _env_temp_dir(env: Any) -> str:
             if isinstance(temp_dir, str) and temp_dir.startswith("/"):
                 return temp_dir.rstrip("/") or "/"
         except Exception as exc:
-            logger.debug("Could not resolve execute_code env temp dir: %s", exc)
+            logger.debug(
+                "Could not resolve execute_code env temp dir: %s", exc)
     candidate = tempfile.gettempdir()
     if isinstance(candidate, str) and candidate.startswith("/"):
         return candidate.rstrip("/") or "/"
@@ -957,7 +974,7 @@ def _execute_remote(
 
         # Execute the script on the remote backend
         logger.info("Executing code on %s backend (task %s)...",
-                     env_type, effective_task_id[:8])
+                    env_type, effective_task_id[:8])
         script_result = env.execute(
             f"cd {quoted_sandbox_dir} && {env_prefix} python3 script.py",
             timeout=timeout,
@@ -1150,7 +1167,9 @@ def execute_code(
         sock_path = None  # not used on Windows; TCP endpoint stored below
         rpc_endpoint = None  # set after bind()
     else:
-        sock_path = os.path.join(_sock_tmpdir, f"nastech_rpc_{uuid.uuid4().hex}.sock")
+        sock_path = os.path.join(
+            _sock_tmpdir, f"nastech_rpc_{
+                uuid.uuid4().hex}.sock")
         rpc_endpoint = sock_path
 
     tool_call_log: list = []
@@ -1246,7 +1265,8 @@ def execute_code(
         # repo-root modules are available to child scripts.  We also prepend
         # the staging tmpdir so ``from nastech_tools import ...`` resolves even
         # when the subprocess CWD is not tmpdir (project mode).
-        _nastech_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        _nastech_root = os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__)))
         _existing_pp = child_env.get("PYTHONPATH", "")
         _pp_parts = [tmpdir, _nastech_root]
         if _existing_pp:
@@ -1313,11 +1333,15 @@ def execute_code(
                         chunks.append(data[:keep])
                     total += len(data)
             except (ValueError, OSError) as e:
-                logger.debug("Error reading process output: %s", e, exc_info=True)
+                logger.debug(
+                    "Error reading process output: %s",
+                    e,
+                    exc_info=True)
 
         stdout_total_bytes = [0]  # mutable ref for total bytes seen
 
-        def _drain_head_tail(pipe, head_chunks, tail_chunks, head_bytes, tail_bytes, total_ref):
+        def _drain_head_tail(pipe, head_chunks, tail_chunks,
+                             head_bytes, tail_bytes, total_ref):
             """Drain stdout keeping both head and tail data."""
             head_collected = 0
             from collections import deque
@@ -1359,7 +1383,8 @@ def execute_code(
             daemon=True
         )
         stderr_reader = threading.Thread(
-            target=_drain, args=(proc.stderr, stderr_chunks, MAX_STDERR_BYTES), daemon=True
+            target=_drain, args=(
+                proc.stderr, stderr_chunks, MAX_STDERR_BYTES), daemon=True
         )
         stdout_reader.start()
         stderr_reader.start()
@@ -1391,8 +1416,10 @@ def execute_code(
         stdout_reader.join(timeout=3)
         stderr_reader.join(timeout=3)
 
-        stdout_head = b"".join(stdout_head_chunks).decode("utf-8", errors="replace")
-        stdout_tail = b"".join(stdout_tail_chunks).decode("utf-8", errors="replace")
+        stdout_head = b"".join(stdout_head_chunks).decode(
+            "utf-8", errors="replace")
+        stdout_tail = b"".join(stdout_tail_chunks).decode(
+            "utf-8", errors="replace")
         stderr_text = b"".join(stderr_chunks).decode("utf-8", errors="replace")
 
         # Assemble stdout with head+tail truncation
@@ -1453,13 +1480,15 @@ def execute_code(
                 duration, timeout, tool_call_counter[0],
             )
         elif status == "interrupted":
-            result["output"] = stdout_text + "\n[execution interrupted — user sent a new message]"
+            result["output"] = stdout_text + \
+                "\n[execution interrupted — user sent a new message]"
         elif exit_code != 0:
             result["status"] = "error"
             result["error"] = stderr_text or f"Script exited with code {exit_code}"
             # Include stderr in output so the LLM sees the traceback
             if stderr_text:
-                result["output"] = stdout_text + "\n--- stderr ---\n" + stderr_text
+                result["output"] = stdout_text + \
+                    "\n--- stderr ---\n" + stderr_text
 
         return json.dumps(result, ensure_ascii=False)
 
@@ -1541,11 +1570,15 @@ def _kill_process_group(proc, escalate: bool = False):
             except psutil.NoSuchProcess:
                 pass
             except (PermissionError, OSError) as e:
-                logger.debug("Could not kill process tree: %s", e, exc_info=True)
+                logger.debug(
+                    "Could not kill process tree: %s",
+                    e,
+                    exc_info=True)
                 try:
                     proc.kill()
                 except Exception as e2:
-                    logger.debug("Could not kill process: %s", e2, exc_info=True)
+                    logger.debug(
+                        "Could not kill process: %s", e2, exc_info=True)
 
 
 def _load_config() -> dict:
@@ -1594,7 +1627,10 @@ def _get_execution_mode() -> str:
 
     Env scrubbing and tool whitelist apply identically in both modes.
     """
-    cfg_value = str(_load_config().get("mode", DEFAULT_EXECUTION_MODE)).strip().lower()
+    cfg_value = str(
+        _load_config().get(
+            "mode",
+            DEFAULT_EXECUTION_MODE)).strip().lower()
     if cfg_value in EXECUTION_MODES:
         return cfg_value
     logger.warning(
@@ -1653,7 +1689,8 @@ def _resolve_child_python(mode: str) -> str:
         for subdir in subdirs:
             for exe in exe_names:
                 candidate = os.path.join(root, subdir, exe)
-                if not (os.path.isfile(candidate) and os.access(candidate, os.X_OK)):
+                if not (os.path.isfile(candidate)
+                        and os.access(candidate, os.X_OK)):
                     continue
                 if _is_usable_python(candidate):
                     return candidate
@@ -1746,7 +1783,10 @@ def build_execute_code_schema(enabled_sandbox_tools: set = None,
     )
 
     # Build example import list from enabled tools
-    import_examples = [n for n in ("web_search", "terminal") if n in enabled_sandbox_tools]
+    import_examples = [
+        n for n in (
+            "web_search",
+            "terminal") if n in enabled_sandbox_tools]
     if not import_examples:
         import_examples = sorted(enabled_sandbox_tools)[:2]
     if import_examples:
@@ -1816,7 +1856,6 @@ EXECUTE_CODE_SCHEMA = build_execute_code_schema()
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
 
 registry.register(
     name="execute_code",

@@ -31,12 +31,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (  # noqa: E402
-    DEFAULT_LOCAL_HOST, ENV_API_KEY,
-    emit_json, folder_aliases_for, http_get, is_cloud_host,
-    iter_embedding_refs, iter_model_deps, iter_nodes, parse_model_list,
-    resolve_api_key, resolve_url, unwrap_workflow,
+    DEFAULT_LOCAL_HOST,
+    ENV_API_KEY,
+    emit_json,
+    folder_aliases_for,
+    http_get,
+    is_cloud_host,
+    iter_embedding_refs,
+    iter_model_deps,
+    iter_nodes,
+    parse_model_list,
+    resolve_api_key,
+    resolve_url,
+    unwrap_workflow,
 )
-
 
 # Known node → custom-node-package map. When a workflow needs a node we don't
 # recognize, suggesting the right `comfy node install ...` makes the difference
@@ -120,7 +128,8 @@ NODE_TO_GIT_URL: dict[str, str] = {
 }
 
 
-def fetch_object_info(url: str, headers: dict) -> tuple[set[str] | None, dict | None]:
+def fetch_object_info(
+        url: str, headers: dict) -> tuple[set[str] | None, dict | None]:
     """Returns (installed_node_set, error_info). Error info is a dict if we
     couldn't query (e.g. cloud free tier), else None.
     """
@@ -141,7 +150,8 @@ def fetch_object_info(url: str, headers: dict) -> tuple[set[str] | None, dict | 
         return None, {"http_status": 403, "reason": "forbidden", "body": body}
     if r.status == 404:
         return None, {"http_status": 404, "reason": "endpoint not found"}
-    return None, {"http_status": r.status, "reason": "unexpected", "body": r.text()[:200]}
+    return None, {"http_status": r.status, "reason": "unexpected", "body": r.text()[
+        :200]}
 
 
 def _fetch_one_folder(
@@ -165,8 +175,10 @@ def _fetch_one_folder(
         if code == "folder_not_found":
             # Folder is genuinely empty/missing on server — not the same as
             # "endpoint missing". Return empty set with informational error.
-            return set(), {"http_status": 404, "reason": "folder_empty_or_unknown", "body": body}
-        return None, {"http_status": 404, "reason": "endpoint not found", "body": body}
+            return set(), {"http_status": 404,
+                           "reason": "folder_empty_or_unknown", "body": body}
+        return None, {"http_status": 404,
+                      "reason": "endpoint not found", "body": body}
     if r.status == 403:
         try:
             body = r.json()
@@ -192,7 +204,8 @@ def fetch_models_for_folder(
     any_success = False
     last_err: dict | None = None
     for alias in aliases:
-        models, err = _fetch_one_folder(base, alias, headers, is_cloud=is_cloud)
+        models, err = _fetch_one_folder(
+            base, alias, headers, is_cloud=is_cloud)
         if models is not None:
             combined.update(models)
             any_success = True
@@ -204,12 +217,20 @@ def fetch_models_for_folder(
     return combined, None
 
 
-def fetch_embeddings(base: str, headers: dict, *, is_cloud: bool) -> tuple[set[str] | None, dict | None]:
+def fetch_embeddings(base: str, headers: dict, *,
+                     is_cloud: bool) -> tuple[set[str] | None, dict | None]:
     """Local ComfyUI exposes /embeddings; cloud uses /experiment/models/embeddings."""
     if is_cloud:
-        return fetch_models_for_folder(base, "embeddings", headers, is_cloud=True)
+        return fetch_models_for_folder(
+            base, "embeddings", headers, is_cloud=True)
     # Local: dedicated /embeddings returns a flat list of names
-    r = http_get(resolve_url(base, "/embeddings", is_cloud=False), headers=headers, retries=2)
+    r = http_get(
+        resolve_url(
+            base,
+            "/embeddings",
+            is_cloud=False),
+        headers=headers,
+        retries=2)
     if r.status == 200:
         try:
             data = r.json()
@@ -285,7 +306,8 @@ def check_deps(
     missing_nodes: list[dict] = []
     node_check_skipped = False
     if installed_nodes is None:
-        # Couldn't query (e.g. cloud free tier). Don't false-alarm; mark skipped.
+        # Couldn't query (e.g. cloud free tier). Don't false-alarm; mark
+        # skipped.
         node_check_skipped = True
     else:
         for cls in sorted(required_nodes):
@@ -322,7 +344,8 @@ def check_deps(
         if installed is None:
             # Couldn't enumerate this folder — record once
             folder_errors.setdefault(folder, err or {})
-            # Don't flag as missing (we don't know); the folder_errors block surfaces this
+            # Don't flag as missing (we don't know); the folder_errors block
+            # surfaces this
             continue
         if not model_present(dep["value"], installed):
             entry = dict(dep)
@@ -374,7 +397,8 @@ def check_deps(
         "missing_models": missing_models,
         "missing_embeddings": missing_embeddings,
         "folder_errors": folder_errors,
-        # 0 is a legitimate count (e.g. empty server). Use None only when not queried.
+        # 0 is a legitimate count (e.g. empty server). Use None only when not
+        # queried.
         "installed_node_count": len(installed_nodes) if installed_nodes is not None else None,
         "required_node_count": len(required_nodes),
         "required_nodes": sorted(required_nodes),
@@ -384,11 +408,20 @@ def check_deps(
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Check ComfyUI workflow dependencies against a running server")
+    p = argparse.ArgumentParser(
+        description="Check ComfyUI workflow dependencies against a running server")
     p.add_argument("workflow", help="Path to workflow API JSON file")
-    p.add_argument("--host", default=DEFAULT_LOCAL_HOST, help="ComfyUI server URL")
-    p.add_argument("--port", type=int, help="Server port (overrides --host port)")
-    p.add_argument("--api-key", help=f"API key for cloud (or set ${ENV_API_KEY} env var)")
+    p.add_argument(
+        "--host",
+        default=DEFAULT_LOCAL_HOST,
+        help="ComfyUI server URL")
+    p.add_argument(
+        "--port",
+        type=int,
+        help="Server port (overrides --host port)")
+    p.add_argument(
+        "--api-key",
+        help=f"API key for cloud (or set ${ENV_API_KEY} env var)")
     p.add_argument("--strict", action="store_true",
                    help="Exit non-zero if node check is skipped (e.g. on cloud free tier)")
     args = p.parse_args(argv)

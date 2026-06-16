@@ -222,7 +222,8 @@ def _normalize_provider_alias(provider_name: str) -> str:
         return raw
 
 
-def _strip_matching_provider_prefix(model_name: str, target_provider: str) -> str:
+def _strip_matching_provider_prefix(
+        model_name: str, target_provider: str) -> str:
     """Strip ``provider/`` only when the prefix matches the target provider.
 
     This prevents arbitrary slash-bearing model IDs from being mangled on
@@ -323,7 +324,8 @@ def _prepend_vendor(model_name: str) -> str:
 # Main normalisation entry point
 # ---------------------------------------------------------------------------
 
-def normalize_model_for_provider(model_input: str, target_provider: str) -> str:
+def normalize_model_for_provider(
+        model_input: str, target_provider: str) -> str:
     """Translate a model name into the format the target provider's API expects.
 
     This is the primary entry point for model name normalisation.  It
@@ -469,4 +471,3 @@ def normalize_model_for_provider(model_input: str, target_provider: str) -> str:
 # ---------------------------------------------------------------------------
 # Batch / convenience helpers
 # ---------------------------------------------------------------------------
-

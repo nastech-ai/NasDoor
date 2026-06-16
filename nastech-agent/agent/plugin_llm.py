@@ -189,7 +189,8 @@ def _coerce_allowlist(raw: Any) -> tuple[Optional[frozenset], bool]:
     """
     if not isinstance(raw, list):
         return None, False
-    normalized = [_normalize_ref(item) for item in raw if isinstance(item, str)]
+    normalized = [_normalize_ref(item)
+                  for item in raw if isinstance(item, str)]
     allow_any = "*" in normalized
     cleaned = {item for item in normalized if item and item != "*"}
     if allow_any and not cleaned:
@@ -228,21 +229,31 @@ def _resolve_trust_policy(plugin_id: str) -> _TrustPolicy:
     if not isinstance(llm_cfg, dict):
         return _TrustPolicy(plugin_id=plugin_id)
 
-    allowed_models, allow_any_model = _coerce_allowlist(llm_cfg.get("allowed_models"))
+    allowed_models, allow_any_model = _coerce_allowlist(
+        llm_cfg.get("allowed_models"))
     allowed_providers, allow_any_provider = _coerce_allowlist(
         llm_cfg.get("allowed_providers")
     )
 
     return _TrustPolicy(
         plugin_id=plugin_id,
-        allow_provider_override=bool(llm_cfg.get("allow_provider_override", False)),
+        allow_provider_override=bool(
+            llm_cfg.get(
+                "allow_provider_override",
+                False)),
         allowed_providers=allowed_providers,
         allow_any_provider=allow_any_provider,
         allow_model_override=bool(llm_cfg.get("allow_model_override", False)),
         allowed_models=allowed_models,
         allow_any_model=allow_any_model,
-        allow_agent_id_override=bool(llm_cfg.get("allow_agent_id_override", False)),
-        allow_profile_override=bool(llm_cfg.get("allow_profile_override", False)),
+        allow_agent_id_override=bool(
+            llm_cfg.get(
+                "allow_agent_id_override",
+                False)),
+        allow_profile_override=bool(
+            llm_cfg.get(
+                "allow_profile_override",
+                False)),
     )
 
 
@@ -274,7 +285,8 @@ def _check_overrides(
         if not policy.allow_provider_override:
             raise PluginLlmTrustError(
                 f"Plugin {policy.plugin_id!r} cannot override the provider "
-                f"(set plugins.entries.{policy.plugin_id}.llm.allow_provider_override "
+                f"(set plugins.entries.{
+                    policy.plugin_id}.llm.allow_provider_override "
                 f"to true to allow)."
             )
         normalized = _normalize_ref(requested_provider)
@@ -294,7 +306,8 @@ def _check_overrides(
         if not policy.allow_model_override:
             raise PluginLlmTrustError(
                 f"Plugin {policy.plugin_id!r} cannot override the model "
-                f"(set plugins.entries.{policy.plugin_id}.llm.allow_model_override "
+                f"(set plugins.entries.{
+                    policy.plugin_id}.llm.allow_model_override "
                 f"to true to allow)."
             )
         normalized = _normalize_ref(requested_model)
@@ -320,8 +333,10 @@ def _check_overrides(
     if requested_profile:
         if not policy.allow_profile_override:
             raise PluginLlmTrustError(
-                f"Plugin {policy.plugin_id!r} cannot override the auth profile "
-                f"(set plugins.entries.{policy.plugin_id}.llm.allow_profile_override "
+                f"Plugin {
+                    policy.plugin_id!r} cannot override the auth profile "
+                f"(set plugins.entries.{
+                    policy.plugin_id}.llm.allow_profile_override "
                 f"to true to allow)."
             )
         final_profile = requested_profile.strip()
@@ -359,7 +374,8 @@ def _normalize_input_block(block: PluginLlmInput) -> Dict[str, Any]:
             return {"type": "text", "text": text}
         if kind == "image":
             if "data" not in block and not block.get("url"):
-                raise ValueError("image input block requires 'data' bytes or 'url'")
+                raise ValueError(
+                    "image input block requires 'data' bytes or 'url'")
             return {
                 "type": "image",
                 "data": block.get("data"),
@@ -405,7 +421,8 @@ def _build_structured_messages(
         header = f"{header}\n\nSchema name: {schema_name}"
     if json_schema is not None:
         try:
-            schema_text = json.dumps(json_schema, ensure_ascii=False, sort_keys=True)
+            schema_text = json.dumps(
+                json_schema, ensure_ascii=False, sort_keys=True)
         except (TypeError, ValueError):
             schema_text = str(json_schema)
         header = f"{header}\n\nJSON schema:\n{schema_text}"
@@ -478,7 +495,8 @@ def _parse_structured_text(
             logger.debug("jsonschema unavailable; skipping schema validation")
         except jsonschema.ValidationError as exc:  # type: ignore[attr-defined]
             raise ValueError(
-                f"Plugin LLM structured output did not match schema: {exc.message}"
+                f"Plugin LLM structured output did not match schema: {
+                    exc.message}"
             ) from exc
 
     return parsed, "json"
@@ -511,9 +529,12 @@ def _extract_usage(response: Any) -> PluginLlmUsage:
 
     usage.input_tokens = _g("prompt_tokens") or _g("input_tokens")
     usage.output_tokens = _g("completion_tokens") or _g("output_tokens")
-    usage.total_tokens = _g("total_tokens") or (usage.input_tokens + usage.output_tokens)
-    usage.cache_read_tokens = _g("cache_read_input_tokens") or _g("cache_read_tokens")
-    usage.cache_write_tokens = _g("cache_creation_input_tokens") or _g("cache_write_tokens")
+    usage.total_tokens = _g("total_tokens") or (
+        usage.input_tokens + usage.output_tokens)
+    usage.cache_read_tokens = _g(
+        "cache_read_input_tokens") or _g("cache_read_tokens")
+    usage.cache_write_tokens = _g(
+        "cache_creation_input_tokens") or _g("cache_write_tokens")
     return usage
 
 
@@ -528,7 +549,8 @@ def _extract_text(response: Any) -> str:
             parts: List[str] = []
             for part in content:
                 if isinstance(part, dict):
-                    if part.get("type") == "text" and isinstance(part.get("text"), str):
+                    if part.get("type") == "text" and isinstance(
+                            part.get("text"), str):
                         parts.append(part["text"])
                 else:
                     txt = getattr(part, "text", None)
@@ -711,9 +733,11 @@ class PluginLlm:
         skipped with a debug log.
         """
         if not instructions or not instructions.strip():
-            raise ValueError("complete_structured requires non-empty instructions")
+            raise ValueError(
+                "complete_structured requires non-empty instructions")
         if not input:
-            raise ValueError("complete_structured requires at least one input block")
+            raise ValueError(
+                "complete_structured requires at least one input block")
 
         policy = self._policy_loader(self._plugin_id)
         eff_provider, eff_model, eff_agent, eff_profile = _check_overrides(
@@ -732,7 +756,8 @@ class PluginLlm:
             schema_name=schema_name,
             system_prompt=system_prompt,
         )
-        extra_body = self._json_response_format(json_mode=json_mode, json_schema=json_schema)
+        extra_body = self._json_response_format(
+            json_mode=json_mode, json_schema=json_schema)
 
         real_provider, real_model, response = self._invoke_sync(
             messages=messages,
@@ -840,9 +865,11 @@ class PluginLlm:
     ) -> PluginLlmStructuredResult:
         """Async sibling of :meth:`complete_structured`."""
         if not instructions or not instructions.strip():
-            raise ValueError("acomplete_structured requires non-empty instructions")
+            raise ValueError(
+                "acomplete_structured requires non-empty instructions")
         if not input:
-            raise ValueError("acomplete_structured requires at least one input block")
+            raise ValueError(
+                "acomplete_structured requires at least one input block")
 
         policy = self._policy_loader(self._plugin_id)
         eff_provider, eff_model, eff_agent, eff_profile = _check_overrides(
@@ -860,7 +887,8 @@ class PluginLlm:
             schema_name=schema_name,
             system_prompt=system_prompt,
         )
-        extra_body = self._json_response_format(json_mode=json_mode, json_schema=json_schema)
+        extra_body = self._json_response_format(
+            json_mode=json_mode, json_schema=json_schema)
         real_provider, real_model, response = await self._invoke_async(
             messages=messages,
             provider_override=eff_provider,
@@ -945,7 +973,8 @@ class PluginLlm:
         from agent.auxiliary_client import call_llm
         merged_extra = dict(extra_body or {})
         if profile_override:
-            merged_extra.setdefault("metadata", {})["auth_profile"] = profile_override
+            merged_extra.setdefault(
+                "metadata", {})["auth_profile"] = profile_override
         response = call_llm(
             task=None,
             provider=provider_override,
@@ -989,7 +1018,8 @@ class PluginLlm:
         from agent.auxiliary_client import async_call_llm
         merged_extra = dict(extra_body or {})
         if profile_override:
-            merged_extra.setdefault("metadata", {})["auth_profile"] = profile_override
+            merged_extra.setdefault(
+                "metadata", {})["auth_profile"] = profile_override
         response = await async_call_llm(
             task=None,
             provider=provider_override,

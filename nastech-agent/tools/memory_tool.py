@@ -30,9 +30,11 @@ import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from nastech_constants import get_nastech_home
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
+from nastech_constants import get_nastech_home
+from tools.registry import registry, tool_error
+from tools.threat_patterns import first_threat_message as _first_threat_message
 from utils import atomic_replace
 
 # fcntl is Unix-only; on Windows use msvcrt for file locking
@@ -52,9 +54,12 @@ logger = logging.getLogger(__name__)
 # (NASTECH_HOME env var changes) are always respected.  The old module-level
 # constant was cached at import time and could go stale if a profile switch
 # happened after the first import.
+
+
 def get_memory_dir() -> Path:
     """Return the profile-scoped memories directory."""
     return get_nastech_home() / "memories"
+
 
 ENTRY_DELIMITER = "\n§\n"
 
@@ -71,8 +76,6 @@ ENTRY_DELIMITER = "\n§\n"
 #    entry persists for the entire session and across sessions until
 #    explicitly removed.
 # ---------------------------------------------------------------------------
-
-from tools.threat_patterns import first_threat_message as _first_threat_message
 
 
 def _scan_memory_content(content: str) -> Optional[str]:
@@ -121,13 +124,15 @@ class MemoryStore:
         Tool responses always reflect this live state.
     """
 
-    def __init__(self, memory_char_limit: int = 2200, user_char_limit: int = 1375):
+    def __init__(self, memory_char_limit: int = 2200,
+                 user_char_limit: int = 1375):
         self.memory_entries: List[str] = []
         self.user_entries: List[str] = []
         self.memory_char_limit = memory_char_limit
         self.user_char_limit = user_char_limit
         # Frozen snapshot for system prompt -- set once at load_from_disk()
-        self._system_prompt_snapshot: Dict[str, str] = {"memory": "", "user": ""}
+        self._system_prompt_snapshot: Dict[str, str] = {
+            "memory": "", "user": ""}
 
     def load_from_disk(self):
         """Load entries from MEMORY.md and USER.md, capture system prompt snapshot.
@@ -160,8 +165,10 @@ class MemoryStore:
         # Sanitize entries for the system-prompt snapshot only.  Live state
         # (memory_entries / user_entries) keeps the raw text so the user
         # can see + remove poisoned entries via the memory tool.
-        sanitized_memory = self._sanitize_entries_for_snapshot(self.memory_entries, "MEMORY.md")
-        sanitized_user = self._sanitize_entries_for_snapshot(self.user_entries, "USER.md")
+        sanitized_memory = self._sanitize_entries_for_snapshot(
+            self.memory_entries, "MEMORY.md")
+        sanitized_user = self._sanitize_entries_for_snapshot(
+            self.user_entries, "USER.md")
 
         # Capture frozen snapshot for system prompt injection
         self._system_prompt_snapshot = {
@@ -170,7 +177,8 @@ class MemoryStore:
         }
 
     @staticmethod
-    def _sanitize_entries_for_snapshot(entries: List[str], filename: str) -> List[str]:
+    def _sanitize_entries_for_snapshot(
+            entries: List[str], filename: str) -> List[str]:
         """Return ``entries`` with any threat-matching entry replaced by a placeholder.
 
         Each entry is scanned with the shared threat-pattern library at the
@@ -319,7 +327,8 @@ class MemoryStore:
 
             # Reject exact duplicates
             if content in entries:
-                return self._success_response(target, "Entry already exists (no duplicate added).")
+                return self._success_response(
+                    target, "Entry already exists (no duplicate added).")
 
             # Calculate what the new total would be
             new_entries = entries + [content]
@@ -331,7 +340,8 @@ class MemoryStore:
                     "success": False,
                     "error": (
                         f"Memory at {current:,}/{limit:,} chars. "
-                        f"Adding this entry ({len(content)} chars) would exceed the limit. "
+                        f"Adding this entry ({
+                            len(content)} chars) would exceed the limit. "
                         f"Consolidate now: use 'replace' to merge overlapping entries into "
                         f"shorter ones or 'remove' stale or less important entries (see "
                         f"current_entries below), then retry this add — all in this turn."
@@ -346,14 +356,16 @@ class MemoryStore:
 
         return self._success_response(target, "Entry added.")
 
-    def replace(self, target: str, old_text: str, new_content: str) -> Dict[str, Any]:
+    def replace(self, target: str, old_text: str,
+                new_content: str) -> Dict[str, Any]:
         """Find entry containing old_text substring, replace it with new_content."""
         old_text = old_text.strip()
         new_content = new_content.strip()
         if not old_text:
             return {"success": False, "error": "old_text cannot be empty."}
         if not new_content:
-            return {"success": False, "error": "new_content cannot be empty. Use 'remove' to delete entries."}
+            return {"success": False,
+                    "error": "new_content cannot be empty. Use 'remove' to delete entries."}
 
         # Scan replacement content for injection/exfiltration
         scan_error = _scan_memory_content(new_content)
@@ -369,13 +381,16 @@ class MemoryStore:
             matches = [(i, e) for i, e in enumerate(entries) if old_text in e]
 
             if not matches:
-                return {"success": False, "error": f"No entry matched '{old_text}'."}
+                return {"success": False,
+                        "error": f"No entry matched '{old_text}'."}
 
             if len(matches) > 1:
-                # If all matches are identical (exact duplicates), operate on the first one
+                # If all matches are identical (exact duplicates), operate on
+                # the first one
                 unique_texts = {e for _, e in matches}
                 if len(unique_texts) > 1:
-                    previews = [e[:80] + ("..." if len(e) > 80 else "") for _, e in matches]
+                    previews = [e[:80] + ("..." if len(e) > 80 else "")
+                                for _, e in matches]
                     return {
                         "success": False,
                         "error": f"Multiple entries matched '{old_text}'. Be more specific.",
@@ -396,7 +411,9 @@ class MemoryStore:
                 return {
                     "success": False,
                     "error": (
-                        f"Replacement would put memory at {new_total:,}/{limit:,} chars. "
+                        f"Replacement would put memory at {
+                            new_total:,}/{
+                            limit:,} chars. "
                         f"Shorten the new content, or 'remove' other stale or less important "
                         f"entries to make room (see current_entries below), then retry — all "
                         f"in this turn."
@@ -426,13 +443,16 @@ class MemoryStore:
             matches = [(i, e) for i, e in enumerate(entries) if old_text in e]
 
             if not matches:
-                return {"success": False, "error": f"No entry matched '{old_text}'."}
+                return {"success": False,
+                        "error": f"No entry matched '{old_text}'."}
 
             if len(matches) > 1:
-                # If all matches are identical (exact duplicates), remove the first one
+                # If all matches are identical (exact duplicates), remove the
+                # first one
                 unique_texts = {e for _, e in matches}
                 if len(unique_texts) > 1:
-                    previews = [e[:80] + ("..." if len(e) > 80 else "") for _, e in matches]
+                    previews = [e[:80] + ("..." if len(e) > 80 else "")
+                                for _, e in matches]
                     return {
                         "success": False,
                         "error": f"Multiple entries matched '{old_text}'. Be more specific.",
@@ -462,7 +482,8 @@ class MemoryStore:
 
     # -- Internal helpers --
 
-    def _success_response(self, target: str, message: str = None) -> Dict[str, Any]:
+    def _success_response(
+            self, target: str, message: str = None) -> Dict[str, Any]:
         entries = self._entries_for(target)
         current = self._char_count(target)
         limit = self._char_limit(target)
@@ -490,9 +511,13 @@ class MemoryStore:
         pct = min(100, int((current / limit) * 100)) if limit > 0 else 0
 
         if target == "user":
-            header = f"USER PROFILE (who the user is) [{pct}% — {current:,}/{limit:,} chars]"
+            header = f"USER PROFILE (who the user is) [{pct}% — {
+                current:,}/{
+                limit:,} chars]"
         else:
-            header = f"MEMORY (your personal notes) [{pct}% — {current:,}/{limit:,} chars]"
+            header = f"MEMORY (your personal notes) [{pct}% — {
+                current:,}/{
+                limit:,} chars]"
 
         separator = "═" * 46
         return f"{separator}\n{header}\n{separator}\n{content}"
@@ -515,7 +540,8 @@ class MemoryStore:
             return []
 
         # Use ENTRY_DELIMITER for consistency with _write_file. Splitting by "§"
-        # alone would incorrectly split entries that contain "§" in their content.
+        # alone would incorrectly split entries that contain "§" in their
+        # content.
         entries = [e.strip() for e in raw.split(ENTRY_DELIMITER)]
         return [e for e in entries if e]
 
@@ -559,7 +585,9 @@ class MemoryStore:
         char_limit = self._char_limit(target)
         max_entry_len = max((len(e) for e in parsed), default=0)
 
-        drift_detected = (raw.strip() != roundtrip) or (max_entry_len > char_limit)
+        drift_detected = (
+            raw.strip() != roundtrip) or (
+            max_entry_len > char_limit)
         if not drift_detected:
             return None
 
@@ -585,7 +613,8 @@ class MemoryStore:
         """
         content = ENTRY_DELIMITER.join(entries) if entries else ""
         try:
-            # Write to temp file in same directory (same filesystem for atomic rename)
+            # Write to temp file in same directory (same filesystem for atomic
+            # rename)
             fd, tmp_path = tempfile.mkstemp(
                 dir=str(path.parent), suffix=".tmp", prefix=".mem_"
             )
@@ -619,30 +648,37 @@ def memory_tool(
     Returns JSON string with results.
     """
     if store is None:
-        return tool_error("Memory is not available. It may be disabled in config or this environment.", success=False)
+        return tool_error(
+            "Memory is not available. It may be disabled in config or this environment.", success=False)
 
     if target not in {"memory", "user"}:
-        return tool_error(f"Invalid target '{target}'. Use 'memory' or 'user'.", success=False)
+        return tool_error(
+            f"Invalid target '{target}'. Use 'memory' or 'user'.", success=False)
 
     if action == "add":
         if not content:
-            return tool_error("Content is required for 'add' action.", success=False)
+            return tool_error(
+                "Content is required for 'add' action.", success=False)
         result = store.add(target, content)
 
     elif action == "replace":
         if not old_text:
-            return tool_error("old_text is required for 'replace' action.", success=False)
+            return tool_error(
+                "old_text is required for 'replace' action.", success=False)
         if not content:
-            return tool_error("content is required for 'replace' action.", success=False)
+            return tool_error(
+                "content is required for 'replace' action.", success=False)
         result = store.replace(target, old_text, content)
 
     elif action == "remove":
         if not old_text:
-            return tool_error("old_text is required for 'remove' action.", success=False)
+            return tool_error(
+                "old_text is required for 'remove' action.", success=False)
         result = store.remove(target, old_text)
 
     else:
-        return tool_error(f"Unknown action '{action}'. Use: add, replace, remove", success=False)
+        return tool_error(
+            f"Unknown action '{action}'. Use: add, replace, remove", success=False)
 
     return json.dumps(result, ensure_ascii=False)
 
@@ -709,7 +745,6 @@ MEMORY_SCHEMA = {
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
 
 registry.register(
     name="memory",
@@ -724,7 +759,3 @@ registry.register(
     check_fn=check_memory_requirements,
     emoji="🧠",
 )
-
-
-
-

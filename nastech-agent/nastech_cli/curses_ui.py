@@ -401,11 +401,13 @@ def _run_curses_menu(
     """
     # Non-TTY (piped/redirected stdin): curses and input() both hang or spin,
     # so return the cancel value directly — matching the pre-refactor guard in
-    # each menu (the numbered fallback is only for curses errors on a real TTY).
+    # each menu (the numbered fallback is only for curses errors on a real
+    # TTY).
     if not sys.stdin.isatty():
         return cancel_value
 
-    use_search = searchable and search_labels is not None and len(search_labels) == item_count
+    use_search = searchable and search_labels is not None and len(
+        search_labels) == item_count
 
     try:
         import curses
@@ -428,7 +430,8 @@ def _run_curses_menu(
             # Non-None labels for filtering; empty when search is disabled so
             # _filter_indices stays a cheap identity range.
             labels: List[str] = (
-                search_labels if (use_search and search_labels is not None) else []
+                search_labels if (
+                    use_search and search_labels is not None) else []
             )
 
             while True:
@@ -445,7 +448,8 @@ def _run_curses_menu(
                 # draw_header accepts an optional `search` kwarg when the menu
                 # wants to render the live filter; tolerate headers that don't.
                 try:
-                    items_start = draw_header(stdscr, max_y, max_x, search=search)
+                    items_start = draw_header(
+                        stdscr, max_y, max_x, search=search)
                 except TypeError:
                     items_start = draw_header(stdscr, max_y, max_x)
 
@@ -456,12 +460,15 @@ def _run_curses_menu(
 
                 if use_search and search.query and not filtered:
                     try:
-                        stdscr.addnstr(items_start, 0, "  No matches", max_x - 1, curses.A_DIM)
+                        stdscr.addnstr(
+                            items_start, 0, "  No matches", max_x - 1, curses.A_DIM)
                     except curses.error:
                         pass
 
                 for draw_i, filtered_pos in enumerate(
-                    range(scroll_offset, min(len(filtered), scroll_offset + visible_rows))
+                    range(
+                        scroll_offset, min(
+                            len(filtered), scroll_offset + visible_rows))
                 ):
                     i = filtered[filtered_pos]
                     y = draw_i + items_start
@@ -486,7 +493,8 @@ def _run_curses_menu(
                         if changed:
                             scroll_offset = 0
                             cursor, cursor_pos = _reconcile_cursor(
-                                _filter_indices(search_labels, search.query), cursor
+                                _filter_indices(
+                                    search_labels, search.query), cursor
                             )
                         if confirm:
                             if filtered:
@@ -507,9 +515,11 @@ def _run_curses_menu(
                     action = read_menu_key(stdscr)
 
                 if action == NAV_UP:
-                    cursor = _move_filtered_cursor(filtered, cursor, cursor_pos, -1)
+                    cursor = _move_filtered_cursor(
+                        filtered, cursor, cursor_pos, -1)
                 elif action == NAV_DOWN:
-                    cursor = _move_filtered_cursor(filtered, cursor, cursor_pos, 1)
+                    cursor = _move_filtered_cursor(
+                        filtered, cursor, cursor_pos, 1)
                 elif action in (NAV_SELECT, NAV_TOGGLE, NAV_CANCEL):
                     if action == NAV_SELECT and use_search and not filtered:
                         continue
@@ -593,7 +603,12 @@ def curses_checklist(
                 sattr = curses.A_DIM
                 if curses.has_colors():
                     sattr |= curses.color_pair(3)
-                stdscr.addnstr(max_y - 1, sx, status_text, max_x - sx - 1, sattr)
+                stdscr.addnstr(
+                    max_y - 1,
+                    sx,
+                    status_text,
+                    max_x - sx - 1,
+                    sattr)
         except curses.error:
             pass
 
@@ -614,7 +629,8 @@ def curses_checklist(
         reserve_bottom=(2 if status_fn else 1),
         draw_footer=_draw_footer if status_fn else None,
         extra_color_pairs=bool(status_fn),
-        fallback=lambda: _numbered_fallback(title, items, selected, cancel_returns, status_fn),
+        fallback=lambda: _numbered_fallback(
+            title, items, selected, cancel_returns, status_fn),
         cancel_value=cancel_returns,
     )
 
@@ -667,7 +683,8 @@ def curses_radiolist(
                 row += 1
 
             if searchable and search is not None and search.active:
-                hint = f"  Search: {search.query}\u258e  BACKSPACE edit  Ctrl+U clear  ESC stop"
+                hint = f"  Search: {
+                    search.query}\u258e  BACKSPACE edit  Ctrl+U clear  ESC stop"
             elif searchable:
                 hint = "  \u2191\u2193 navigate  ENTER/SPACE select  / search  ESC cancel"
             else:
@@ -706,7 +723,8 @@ def curses_radiolist(
         draw_row=_draw_row,
         on_action=_on_action,
         reserve_bottom=1,
-        fallback=lambda: _radio_numbered_fallback(title, items, selected, cancel_returns),
+        fallback=lambda: _radio_numbered_fallback(
+            title, items, selected, cancel_returns),
         cancel_value=cancel_returns,
         searchable=searchable,
         search_labels=list(items) if searchable else None,
@@ -724,11 +742,18 @@ def _radio_numbered_fallback(
     print(color("  Select by number, Enter to confirm.\n", Colors.DIM))
 
     for i, label in enumerate(items):
-        marker = color("(\u25cf)", Colors.GREEN) if i == selected else "(\u25cb)"
+        marker = color(
+            "(\u25cf)",
+            Colors.GREEN) if i == selected else "(\u25cb)"
         print(f"  {marker} {i + 1:>2}. {label}")
     print()
     try:
-        val = input(color(f"  Choice [default {selected + 1}]: ", Colors.DIM)).strip()
+        val = input(
+            color(
+                f"  Choice [default {
+                    selected +
+                    1}]: ",
+                Colors.DIM)).strip()
         if not val:
             return selected
         idx = int(val) - 1
@@ -766,7 +791,8 @@ def curses_single_select(
                 hattr |= curses.color_pair(2)
             stdscr.addnstr(0, 0, title, max_x - 1, hattr)
             if searchable and search is not None and search.active:
-                hint = f"  Search: {search.query}\u258e  BACKSPACE edit  Ctrl+U clear  ESC stop"
+                hint = f"  Search: {
+                    search.query}\u258e  BACKSPACE edit  Ctrl+U clear  ESC stop"
             elif searchable:
                 hint = "  ↑↓ navigate  ENTER confirm  / search  ESC/q cancel"
             else:
@@ -806,7 +832,8 @@ def curses_single_select(
         draw_row=_draw_row,
         on_action=_on_action,
         reserve_bottom=1,
-        fallback=lambda: _numbered_single_fallback(title, all_items, cancel_idx),
+        fallback=lambda: _numbered_single_fallback(
+            title, all_items, cancel_idx),
         cancel_value=None,
         searchable=searchable,
         search_labels=list(all_items) if searchable else None,
@@ -859,7 +886,10 @@ def _numbered_fallback(
                 print(color(f"\n  {status_text}", Colors.DIM))
         print()
         try:
-            val = input(color("  Toggle # (or Enter to confirm): ", Colors.DIM)).strip()
+            val = input(
+                color(
+                    "  Toggle # (or Enter to confirm): ",
+                    Colors.DIM)).strip()
             if not val:
                 break
             idx = int(val) - 1

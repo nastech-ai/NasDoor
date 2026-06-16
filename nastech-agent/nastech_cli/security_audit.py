@@ -51,7 +51,7 @@ SEVERITY_ORDER = {
 }
 
 
-# ─── Data shapes ──────────────────────────────────────────────────────────────
+# ─── Data shapes ────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
@@ -78,7 +78,7 @@ class Finding:
     vuln: Vulnerability
 
 
-# ─── Component discovery ──────────────────────────────────────────────────────
+# ─── Component discovery ────────────────────────────────────────────────
 
 
 def _discover_venv() -> list[Component]:
@@ -99,7 +99,12 @@ def _discover_venv() -> list[Component]:
         if key in seen:
             continue
         seen.add(key)
-        out.append(Component(name=name, version=version, ecosystem="PyPI", source="venv"))
+        out.append(
+            Component(
+                name=name,
+                version=version,
+                ecosystem="PyPI",
+                source="venv"))
     return out
 
 
@@ -184,19 +189,33 @@ def _discover_plugins(nastech_home: Path) -> list[Component]:
             path = plugin_dir / req_file
             if path.is_file():
                 try:
-                    pins = _parse_requirements(path.read_text(encoding="utf-8", errors="replace"))
+                    pins = _parse_requirements(path.read_text(
+                        encoding="utf-8", errors="replace"))
                 except OSError:
                     continue
                 for name, version in pins:
-                    out.append(Component(name=name, version=version, ecosystem="PyPI", source=source))
+                    out.append(
+                        Component(
+                            name=name,
+                            version=version,
+                            ecosystem="PyPI",
+                            source=source))
         pyproject = plugin_dir / "pyproject.toml"
         if pyproject.is_file():
             try:
-                pins = _parse_pyproject_pins(pyproject.read_text(encoding="utf-8", errors="replace"))
+                pins = _parse_pyproject_pins(
+                    pyproject.read_text(
+                        encoding="utf-8",
+                        errors="replace"))
             except OSError:
                 continue
             for name, version in pins:
-                out.append(Component(name=name, version=version, ecosystem="PyPI", source=source))
+                out.append(
+                    Component(
+                        name=name,
+                        version=version,
+                        ecosystem="PyPI",
+                        source=source))
     return out
 
 
@@ -206,14 +225,16 @@ def _discover_plugins(nastech_home: Path) -> list[Component]:
 #   npx pkg@1.2.3 [...args]
 # We deliberately don't try to resolve unversioned names — that maps to
 # "latest" at runtime and isn't a stable audit subject.
-_NPX_PKG = re.compile(r"^(@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+|[A-Za-z0-9._-]+)@([A-Za-z0-9._+-]+)$")
+_NPX_PKG = re.compile(
+    r"^(@[A-Za-z0-9._-]+/[A-Za-z0-9._-]+|[A-Za-z0-9._-]+)@([A-Za-z0-9._+-]+)$")
 # uvx forms:
 #   uvx pkg==1.2.3
 #   uvx --with pkg==1.2.3 entrypoint
 _UVX_PKG = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([A-Za-z0-9._+!-]+)$")
 
 
-def _extract_mcp_component(server_name: str, command: str, args: list[str]) -> Optional[Component]:
+def _extract_mcp_component(server_name: str, command: str,
+                           args: list[str]) -> Optional[Component]:
     """Best-effort: parse `command/args` into a (name, version, ecosystem).
 
     Returns None when the entry doesn't pin a version we can audit (local
@@ -225,7 +246,8 @@ def _extract_mcp_component(server_name: str, command: str, args: list[str]) -> O
         return None
     # npx (any prefix path)
     if cmd.endswith("npx") or cmd == "npx":
-        # Skip flag tokens until we see the first thing that looks like a pkg ref
+        # Skip flag tokens until we see the first thing that looks like a pkg
+        # ref
         for token in args:
             if token.startswith("-"):
                 continue
@@ -279,7 +301,7 @@ def _discover_mcp() -> list[Component]:
     return out
 
 
-# ─── OSV client ───────────────────────────────────────────────────────────────
+# ─── OSV client ─────────────────────────────────────────────────────────
 
 
 def _http_post_json(url: str, payload: dict) -> dict:
@@ -297,7 +319,8 @@ def _http_get_json(url: str) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _osv_query_batch(components: list[Component]) -> dict[Component, list[str]]:
+def _osv_query_batch(
+        components: list[Component]) -> dict[Component, list[str]]:
     """Return {component -> [osv_id, ...]} for components with any vulns.
 
     Components without findings are omitted from the result dict.
@@ -408,7 +431,7 @@ def _osv_fetch_details(vuln_ids: Iterable[str]) -> dict[str, Vulnerability]:
     return out
 
 
-# ─── Orchestration ────────────────────────────────────────────────────────────
+# ─── Orchestration ──────────────────────────────────────────────────────
 
 
 def run_audit(
@@ -457,7 +480,7 @@ def run_audit(
     return findings
 
 
-# ─── Rendering ────────────────────────────────────────────────────────────────
+# ─── Rendering ──────────────────────────────────────────────────────────
 
 
 def _render_human(findings: list[Finding], total_components: int) -> str:
@@ -476,7 +499,10 @@ def _render_human(findings: list[Finding], total_components: int) -> str:
             lines.append(f"[{f.component.source}]")
             last_source = f.component.source
         sev = f.vuln.severity.ljust(8)
-        head = f"  {sev}  {f.component.name}=={f.component.version}  {f.vuln.osv_id}"
+        head = f"  {sev}  {
+            f.component.name}=={
+            f.component.version}  {
+            f.vuln.osv_id}"
         lines.append(head)
         if f.vuln.summary:
             summary = f.vuln.summary
@@ -484,7 +510,8 @@ def _render_human(findings: list[Finding], total_components: int) -> str:
                 summary = summary[:97] + "..."
             lines.append(f"           {summary}")
         if f.vuln.fixed_versions:
-            lines.append(f"           fixed in: {', '.join(f.vuln.fixed_versions[:3])}")
+            lines.append(
+                f"           fixed in: {', '.join(f.vuln.fixed_versions[:3])}")
     return "\n".join(lines)
 
 
@@ -522,7 +549,7 @@ def _count_components(
     return total
 
 
-# ─── CLI entrypoint ───────────────────────────────────────────────────────────
+# ─── CLI entrypoint ─────────────────────────────────────────────────────
 
 
 def cmd_security_audit(args: argparse.Namespace) -> int:
@@ -547,7 +574,8 @@ def cmd_security_audit(args: argparse.Namespace) -> int:
     if total == 0:
         msg = "No components discovered (everything skipped, or empty environment)."
         if output_json:
-            print(json.dumps({"total_components_scanned": 0, "finding_count": 0, "findings": []}))
+            print(json.dumps({"total_components_scanned": 0,
+                  "finding_count": 0, "findings": []}))
         else:
             print(msg)
         return 0

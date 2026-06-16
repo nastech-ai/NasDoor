@@ -41,14 +41,16 @@ def _normalize_forward_env_names(forward_env: list[str] | None) -> list[str]:
 
     for item in forward_env or []:
         if not isinstance(item, str):
-            logger.warning("Ignoring non-string docker_forward_env entry: %r", item)
+            logger.warning(
+                "Ignoring non-string docker_forward_env entry: %r", item)
             continue
 
         key = item.strip()
         if not key:
             continue
         if not _ENV_VAR_NAME_RE.match(key):
-            logger.warning("Ignoring invalid docker_forward_env entry: %r", item)
+            logger.warning(
+                "Ignoring invalid docker_forward_env entry: %r", item)
             continue
         if key in seen:
             continue
@@ -82,7 +84,8 @@ def _normalize_env_dict(env: dict | None) -> dict[str, str]:
             if isinstance(value, (int, float, bool)):
                 value = str(value)
             else:
-                logger.warning("Ignoring non-string docker_env value for %r: %r", key, value)
+                logger.warning(
+                    "Ignoring non-string docker_env value for %r: %r", key, value)
                 continue
         normalized[key] = value
 
@@ -168,9 +171,14 @@ def reap_orphan_containers(
     pair.
     """
     docker = docker_exe or find_docker() or "docker"
-    filters = ["--filter", "label=nastech-agent=1", "--filter", "status=exited"]
+    filters = [
+        "--filter",
+        "label=nastech-agent=1",
+        "--filter",
+        "status=exited"]
     if profile_filter:
-        filters.extend(["--filter", f"label=nastech-profile={_sanitize_label_value(profile_filter)}"])
+        filters.extend(
+            ["--filter", f"label=nastech-profile={_sanitize_label_value(profile_filter)}"])
 
     try:
         listing = subprocess.run(
@@ -187,7 +195,8 @@ def reap_orphan_containers(
         )
         return 0
 
-    candidate_ids = [ln.strip() for ln in listing.stdout.splitlines() if ln.strip()]
+    candidate_ids = [ln.strip()
+                     for ln in listing.stdout.splitlines() if ln.strip()]
     if not candidate_ids:
         return 0
 
@@ -236,11 +245,13 @@ def _container_finished_at(docker_exe: str, container_id: str):
     """
     try:
         result = subprocess.run(
-            [docker_exe, "inspect", "--format", "{{.State.FinishedAt}}", container_id],
+            [docker_exe, "inspect", "--format",
+                "{{.State.FinishedAt}}", container_id],
             capture_output=True, text=True, timeout=10, check=False,
         )
     except (subprocess.TimeoutExpired, OSError) as e:
-        logger.debug("orphan reaper docker inspect %s failed: %s", container_id[:12], e)
+        logger.debug("orphan reaper docker inspect %s failed: %s",
+                     container_id[:12], e)
         return None
     if result.returncode != 0:
         return None
@@ -256,7 +267,8 @@ def _container_finished_at(docker_exe: str, container_id: str):
         import datetime
         return datetime.datetime.fromisoformat(raw)
     except ValueError as e:
-        logger.debug("could not parse FinishedAt %r for %s: %s", raw, container_id[:12], e)
+        logger.debug("could not parse FinishedAt %r for %s: %s",
+                     raw, container_id[:12], e)
         return None
 
 
@@ -524,9 +536,11 @@ class DockerEnvironment(BaseEnvironment):
                 if ":/workspace" in vol:
                     workspace_explicitly_mounted = True
             else:
-                logger.warning(f"Docker volume '{vol}' missing colon, skipping")
+                logger.warning(
+                    f"Docker volume '{vol}' missing colon, skipping")
 
-        host_cwd_abs = os.path.abspath(os.path.expanduser(host_cwd)) if host_cwd else ""
+        host_cwd_abs = os.path.abspath(
+            os.path.expanduser(host_cwd)) if host_cwd else ""
         bind_host_cwd = (
             auto_mount_cwd
             and bool(host_cwd_abs)
@@ -534,7 +548,8 @@ class DockerEnvironment(BaseEnvironment):
             and not workspace_explicitly_mounted
         )
         if auto_mount_cwd and host_cwd and not os.path.isdir(host_cwd_abs):
-            logger.debug(f"Skipping docker cwd mount: host_cwd is not a valid directory: {host_cwd}")
+            logger.debug(
+                f"Skipping docker cwd mount: host_cwd is not a valid directory: {host_cwd}")
 
         self._workspace_dir: Optional[str] = None
         self._home_dir: Optional[str] = None
@@ -563,18 +578,21 @@ class DockerEnvironment(BaseEnvironment):
             ])
 
         if bind_host_cwd:
-            logger.info(f"Mounting configured host cwd to /workspace: {host_cwd_abs}")
+            logger.info(
+                f"Mounting configured host cwd to /workspace: {host_cwd_abs}")
             volume_args = ["-v", f"{host_cwd_abs}:/workspace", *volume_args]
         elif workspace_explicitly_mounted:
-            logger.debug("Skipping docker cwd mount: /workspace already mounted by user config")
+            logger.debug(
+                "Skipping docker cwd mount: /workspace already mounted by user config")
 
         # Mount credential files (OAuth tokens, etc.) declared by skills.
-        # Read-only so the container can authenticate but not modify host creds.
+        # Read-only so the container can authenticate but not modify host
+        # creds.
         try:
             from tools.credential_files import (
+                get_cache_directory_mounts,
                 get_credential_file_mounts,
                 get_skills_directory_mount,
-                get_cache_directory_mounts,
             )
 
             for mount_entry in get_credential_file_mounts():
@@ -646,10 +664,12 @@ class DockerEnvironment(BaseEnvironment):
                     cache_mount["container_path"],
                 )
         except Exception as e:
-            logger.debug("Docker: could not load credential file mounts: %s", e)
+            logger.debug(
+                "Docker: could not load credential file mounts: %s", e)
 
         # Explicit environment variables (docker_env config) — set at container
-        # creation so they're available to all processes (including entrypoint).
+        # creation so they're available to all processes (including
+        # entrypoint).
         env_args = []
         for key in sorted(self._env):
             env_args.extend(["-e", f"{key}={self._env[key]}"])
@@ -663,7 +683,9 @@ class DockerEnvironment(BaseEnvironment):
             user_spec = _resolve_host_user_spec()
             if user_spec is not None:
                 user_args = ["--user", user_spec]
-                logger.info("Docker: running container as host user %s", user_spec)
+                logger.info(
+                    "Docker: running container as host user %s",
+                    user_spec)
             else:
                 logger.warning(
                     "docker_run_as_host_user is enabled but this platform does "
@@ -672,7 +694,8 @@ class DockerEnvironment(BaseEnvironment):
                 )
                 # Fall back to the full cap set — without --user, an image's
                 # init may still need s6-setuidgid/gosu/su to drop privileges.
-        security_args = _build_security_args(run_as_host_user and bool(user_args))
+        security_args = _build_security_args(
+            run_as_host_user and bool(user_args))
 
         logger.info(f"Docker volume_args: {volume_args}")
         # User-supplied extra docker run flags (docker_extra_args in config.yaml).
@@ -680,7 +703,8 @@ class DockerEnvironment(BaseEnvironment):
         validated_extra = []
         for arg in (extra_args or []):
             if not isinstance(arg, str):
-                logger.warning("Ignoring non-string docker_extra_args entry: %r", arg)
+                logger.warning(
+                    "Ignoring non-string docker_extra_args entry: %r", arg)
                 continue
             validated_extra.append(arg)
 
@@ -782,7 +806,8 @@ class DockerEnvironment(BaseEnvironment):
                 check=True,
             )
             self._container_id = result.stdout.strip()
-            logger.info(f"Started container {container_name} ({self._container_id[:12]})")
+            logger.info(
+                f"Started container {container_name} ({self._container_id[:12]})")
 
         # Build the init-time env forwarding args (used only by init_session
         # to inject host env vars into the snapshot; subsequent commands get
@@ -810,7 +835,8 @@ class DockerEnvironment(BaseEnvironment):
         # Explicit docker_forward_env entries are an intentional opt-in and must
         # win over the generic NasTech secret blocklist. Only implicit passthrough
         # keys are filtered.
-        forward_keys = explicit_forward_keys | (passthrough_keys - _NASTECH_PROVIDER_ENV_BLOCKLIST)
+        forward_keys = explicit_forward_keys | (
+            passthrough_keys - _NASTECH_PROVIDER_ENV_BLOCKLIST)
         nastech_env = _load_nastech_env_vars() if forward_keys else {}
         for key in sorted(forward_keys):
             value = os.getenv(key)
@@ -850,7 +876,7 @@ class DockerEnvironment(BaseEnvironment):
     @staticmethod
     def _storage_opt_supported() -> bool:
         """Check if Docker's storage driver supports --storage-opt size=.
-        
+
         Only overlay2 on XFS with pquota supports per-container disk quotas.
         Ubuntu (and most distros) default to ext4, where this flag errors out.
         """
@@ -887,7 +913,8 @@ class DockerEnvironment(BaseEnvironment):
         logger.debug("Docker --storage-opt support: %s", _storage_opt_ok)
         return _storage_opt_ok
 
-    def _find_reusable_container(self, task_label: str, profile_label: str) -> Optional[tuple[str, str]]:
+    def _find_reusable_container(
+            self, task_label: str, profile_label: str) -> Optional[tuple[str, str]]:
         """Look for an existing container labeled for this (task, profile).
 
         Returns ``(container_id, state)`` on hit, ``None`` on miss / on any
@@ -915,7 +942,8 @@ class DockerEnvironment(BaseEnvironment):
                 check=False,
             )
         except (subprocess.TimeoutExpired, OSError) as e:
-            logger.debug("docker ps probe failed: %s — will start a fresh container", e)
+            logger.debug(
+                "docker ps probe failed: %s — will start a fresh container", e)
             return None
         if result.returncode != 0:
             logger.debug(
@@ -1031,7 +1059,8 @@ class DockerEnvironment(BaseEnvironment):
                         capture_output=True, timeout=30,
                     )
                 except (subprocess.TimeoutExpired, OSError) as e:
-                    logger.warning("docker stop %s timed out / failed: %s", log_id, e)
+                    logger.warning(
+                        "docker stop %s timed out / failed: %s", log_id, e)
             if should_remove:
                 try:
                     subprocess.run(
@@ -1048,7 +1077,10 @@ class DockerEnvironment(BaseEnvironment):
         # ``_atexit_cleanup`` in terminal_tool.py which waits up to ~60s for
         # outstanding cleanups, so most exits complete the work cleanly.
         import threading
-        t = threading.Thread(target=_do_cleanup, daemon=True, name=f"nastech-cleanup-{log_id}")
+        t = threading.Thread(
+            target=_do_cleanup,
+            daemon=True,
+            name=f"nastech-cleanup-{log_id}")
         t.start()
         self._cleanup_thread = t
         self._container_id = None

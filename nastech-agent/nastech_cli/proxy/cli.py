@@ -44,7 +44,11 @@ def cmd_proxy_start(args: Any) -> int:
         return 2
 
     if not adapter.is_authenticated():
-        auth_hint = getattr(adapter, "auth_hint", f"nastech auth add {adapter.name}")
+        auth_hint = getattr(
+            adapter,
+            "auth_hint",
+            f"nastech auth add {
+                adapter.name}")
         print(
             f"Not logged into {adapter.display_name}. "
             f"Run `{auth_hint}` first.",
@@ -87,11 +91,14 @@ def cmd_proxy_status(args: Any) -> int:
             cred = adapter.get_credential()
         except Exception as exc:
             print(
-                f"  [{name:8s}] {adapter.display_name} — credentials need attention "
+                f"  [{
+                    name:8s}] {
+                    adapter.display_name} — credentials need attention "
                 f"({exc})"
             )
             continue
-        expires = f" (bearer expires {cred.expires_at})" if cred.expires_at else ""
+        expires = f" (bearer expires {
+            cred.expires_at})" if cred.expires_at else ""
         print(f"  [{name:8s}] {adapter.display_name} — ready{expires}")
     print(
         "\nStart the proxy with: nastech proxy start [--provider <name>]"

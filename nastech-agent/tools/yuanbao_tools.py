@@ -103,7 +103,8 @@ async def query_group_members(
     try:
         raw = await adapter.get_group_member_list(group_code)
         if raw is None:
-            return {"success": False, "error": "get_group_member_list returned None"}
+            return {"success": False,
+                    "error": "get_group_member_list returned None"}
 
         all_members = [
             {
@@ -122,9 +123,12 @@ async def query_group_members(
         hint = {"mention_hint": MENTION_HINT} if mention else {}
 
         if action == "list_bots":
-            bots = [m for m in all_members if m["role"] in {"yuanbao_ai", "bot"}]
+            bots = [
+                m for m in all_members if m["role"] in {
+                    "yuanbao_ai", "bot"}]
             if not bots:
-                return {"success": False, "error": "No bots found in this group."}
+                return {"success": False,
+                        "error": "No bots found in this group."}
             return {
                 "success": True,
                 "msg": f"Found {len(bots)} bot(s).",
@@ -135,7 +139,8 @@ async def query_group_members(
         if action == "find":
             if name:
                 filt = name.strip().lower()
-                matched = [m for m in all_members if filt in m["nickname"].lower()]
+                matched = [
+                    m for m in all_members if filt in m["nickname"].lower()]
                 if matched:
                     return {
                         "success": True,
@@ -221,14 +226,16 @@ async def send_sticker(
 
     Returns: ``{"success": bool, ...}``
     """
-    from gateway.session_context import get_session_env
     from gateway.platforms.yuanbao_sticker import (
+        get_random_sticker,
         get_sticker_by_id,
         get_sticker_by_name,
-        get_random_sticker,
     )
+    from gateway.session_context import get_session_env
 
-    target = (chat_id or "").strip() or get_session_env("NASTECH_SESSION_CHAT_ID", "")
+    target = (
+        chat_id or "").strip() or get_session_env(
+        "NASTECH_SESSION_CHAT_ID", "")
     if not target:
         return {
             "success": False,
@@ -253,7 +260,7 @@ async def send_sticker(
         return {
             "success": False,
             "error": f"Sticker not found: {raw!r}. "
-                     f"Use search_sticker first to discover available stickers.",
+            f"Use search_sticker first to discover available stickers.",
         }
 
     try:
@@ -324,14 +331,17 @@ async def send_dm(
     # Step 1: Resolve user_id from group member list if not provided
     if not resolved_user_id:
         if not group_code:
-            return {"success": False, "error": "group_code is required when user_id is not provided"}
+            return {"success": False,
+                    "error": "group_code is required when user_id is not provided"}
         if not name:
-            return {"success": False, "error": "name is required when user_id is not provided"}
+            return {"success": False,
+                    "error": "name is required when user_id is not provided"}
 
         try:
             raw = await adapter.get_group_member_list(group_code)
             if raw is None:
-                return {"success": False, "error": "get_group_member_list returned None"}
+                return {"success": False,
+                        "error": "get_group_member_list returned None"}
 
             members = raw.get("members", [])
             filt = name.strip().lower()
@@ -361,7 +371,8 @@ async def send_dm(
                 }
 
             resolved_user_id = matched[0].get("user_id", "")
-            resolved_nickname = matched[0].get("nickname", matched[0].get("nick_name", name))
+            resolved_nickname = matched[0].get(
+                "nickname", matched[0].get("nick_name", name))
         except Exception as exc:
             logger.exception("[yuanbao_tools] send_dm member lookup error")
             return {"success": False, "error": str(exc)}
@@ -390,7 +401,8 @@ async def send_dm(
                 errors.append(last_result.error or "media send failed")
 
         if last_result is None:
-            return {"success": False, "error": "No deliverable text or media remained"}
+            return {"success": False,
+                    "error": "No deliverable text or media remained"}
 
         if errors and (last_result is None or not last_result.success):
             return {"success": False, "error": "; ".join(errors)}
@@ -456,12 +468,17 @@ async def _handle_yb_send_dm(args, **kw):
         except Exception:
             pass
 
-    # Parse media_files: list of {{"path": str, "is_voice": bool}} → List[Tuple[str, bool]]
+    # Parse media_files: list of {{"path": str, "is_voice": bool}} →
+    # List[Tuple[str, bool]]
     raw_media = args.get("media_files") or []
     media_files = []
     for item in raw_media:
         if isinstance(item, dict):
-            media_files.append((item.get("path", ""), bool(item.get("is_voice", False))))
+            media_files.append(
+                (item.get(
+                    "path", ""), bool(
+                    item.get(
+                        "is_voice", False))))
         elif isinstance(item, (list, tuple)) and len(item) >= 2:
             media_files.append((str(item[0]), bool(item[1])))
 
@@ -475,7 +492,7 @@ async def _handle_yb_send_dm(args, **kw):
     media_files = BasePlatformAdapter.filter_media_delivery_paths(media_files)
 
     return tool_result(await send_dm(
-        group_code=group_code,        name=args.get("name", ""),
+        group_code=group_code, name=args.get("name", ""),
         message=message,
         user_id=args.get("user_id", ""),
         media_files=media_files or None,

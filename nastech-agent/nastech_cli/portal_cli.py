@@ -61,10 +61,15 @@ def _cmd_status(args) -> int:
         print(f"  Login:   nastech portal")
 
     # Provider selection (independent of auth)
-    model_cfg = config.get("model") if isinstance(config.get("model"), dict) else {}
+    model_cfg = config.get("model") if isinstance(
+        config.get("model"), dict) else {}
     provider = str(model_cfg.get("provider") or "").strip().lower()
     if provider == "nous":
-        print(f"  Model:   {color('✓ using Nous as inference provider', Colors.GREEN)}")
+        print(
+            f"  Model:   {
+                color(
+                    '✓ using Nous as inference provider',
+                    Colors.GREEN)}")
     elif provider:
         print(f"  Model:   currently {provider} (switch with `nastech model`)")
 
@@ -131,11 +136,11 @@ def _cmd_tools(args) -> int:
 
     # Static catalog — the partners Tool Gateway routes to today.
     catalog = [
-        ("web",       "Web search & extract",  "Firecrawl"),
-        ("image_gen", "Image generation",      "FAL"),
-        ("tts",       "Text-to-speech",        "OpenAI TTS"),
-        ("browser",   "Browser automation",    "Browser Use"),
-        ("modal",     "Cloud terminal",        "Modal"),
+        ("web", "Web search & extract", "Firecrawl"),
+        ("image_gen", "Image generation", "FAL"),
+        ("tts", "Text-to-speech", "OpenAI TTS"),
+        ("browser", "Browser automation", "Browser Use"),
+        ("modal", "Cloud terminal", "Modal"),
     ]
 
     print()
@@ -143,7 +148,10 @@ def _cmd_tools(args) -> int:
     print(color("  ────────────────────", Colors.MAGENTA))
 
     if not features.nastech_auth_present:
-        print(color("  Not logged into Nous Portal — sign in with `nastech portal`.", Colors.YELLOW))
+        print(
+            color(
+                "  Not logged into Nous Portal — sign in with `nastech portal`.",
+                Colors.YELLOW))
         print()
 
     label_width = max(len(label) for _, label, _ in catalog)

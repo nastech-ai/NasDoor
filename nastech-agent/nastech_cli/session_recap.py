@@ -171,7 +171,8 @@ def _recent_window(
     cut = 0
     for i in range(len(messages) - 1, -1, -1):
         msg = messages[i]
-        if isinstance(msg, Mapping) and msg.get("role") in {"user", "assistant"}:
+        if isinstance(msg, Mapping) and msg.get(
+                "role") in {"user", "assistant"}:
             count += 1
             if count >= window:
                 cut = i
@@ -191,10 +192,10 @@ def _shortened_path(path: str) -> str:
         if abs_path == cwd:
             return "."
         if abs_path.startswith(cwd + os.sep):
-            return abs_path[len(cwd) + 1 :]
+            return abs_path[len(cwd) + 1:]
         home = os.path.expanduser("~")
         if abs_path.startswith(home + os.sep):
-            return "~/" + abs_path[len(home) + 1 :]
+            return "~/" + abs_path[len(home) + 1:]
         return abs_path
     except Exception:
         return path
@@ -212,7 +213,8 @@ def _summarise_tool_activity(
     counter: Counter[str] = Counter()
     files_seen: List[str] = []
     files_set: set[str] = set()
-    # Walk in reverse so "most recent first" drops out of order-preserved iteration.
+    # Walk in reverse so "most recent first" drops out of order-preserved
+    # iteration.
     for name, args in reversed(list(tool_calls)):
         counter[name] += 1
         arg_key = _FILE_EDIT_TOOLS.get(name)
@@ -276,11 +278,14 @@ def build_recap(
 
     scope = (
         f"{win_users} user turn{'s' if win_users != 1 else ''} / "
-        f"{win_assistants} assistant repl{'ies' if win_assistants != 1 else 'y'}"
+        f"{win_assistants} assistant repl{
+            'ies' if win_assistants != 1 else 'y'}"
     )
     if (users, assistants) != (win_users, win_assistants):
         scope += f" (of {users}/{assistants} total)"
-    lines.append(f"  Recent: {scope}, {tool_msgs} tool result{'s' if tool_msgs != 1 else ''}")
+    lines.append(
+        f"  Recent: {scope}, {tool_msgs} tool result{
+            's' if tool_msgs != 1 else ''}")
 
     tool_calls = list(_iter_assistant_tool_calls(window))
     tool_counts, files = _summarise_tool_activity(tool_calls)
@@ -300,11 +305,19 @@ def build_recap(
 
     latest_user = _latest_user_prompt(window)
     if latest_user:
-        lines.append(f"  Last ask: {_truncate(latest_user, _PROMPT_PREVIEW_CHARS)}")
+        lines.append(
+            f"  Last ask: {
+                _truncate(
+                    latest_user,
+                    _PROMPT_PREVIEW_CHARS)}")
 
     latest_reply = _latest_assistant_text(window)
     if latest_reply:
-        lines.append(f"  Last reply: {_truncate(latest_reply, _ASSISTANT_PREVIEW_CHARS)}")
+        lines.append(
+            f"  Last reply: {
+                _truncate(
+                    latest_reply,
+                    _ASSISTANT_PREVIEW_CHARS)}")
 
     if len(lines) == 2:
         # Only the header + scope line — nothing substantive to show.

@@ -108,7 +108,8 @@ class CodeAssistError(RuntimeError):
 
 
 class ProjectIdRequiredError(CodeAssistError):
-    def __init__(self, message: str = "GCP project id required for this tier") -> None:
+    def __init__(
+            self, message: str = "GCP project id required for this tier") -> None:
         super().__init__(message, code="code_assist_project_id_required")
 
 
@@ -116,7 +117,8 @@ class ProjectIdRequiredError(CodeAssistError):
 # HTTP primitive (auth via Bearer token passed per-call)
 # =============================================================================
 
-def _build_headers(access_token: str, *, user_agent_model: str = "") -> Dict[str, str]:
+def _build_headers(access_token: str, *,
+                   user_agent_model: str = "") -> Dict[str, str]:
     ua = _GEMINI_CLI_USER_AGENT
     if user_agent_model:
         ua = f"{ua} model/{user_agent_model}"
@@ -150,7 +152,9 @@ def _post_json(
     data = json.dumps(body).encode("utf-8")
     request = urllib.request.Request(
         url, data=data, method="POST",
-        headers=_build_headers(access_token, user_agent_model=user_agent_model),
+        headers=_build_headers(
+            access_token,
+            user_agent_model=user_agent_model),
     )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -240,11 +244,17 @@ def load_code_assist(
     for endpoint in endpoints:
         url = f"{endpoint}/v1internal:loadCodeAssist"
         try:
-            resp = _post_json(url, body, access_token, user_agent_model=user_agent_model)
+            resp = _post_json(
+                url,
+                body,
+                access_token,
+                user_agent_model=user_agent_model)
             return _parse_load_response(resp)
         except CodeAssistError as exc:
             if exc.code == "code_assist_vpc_sc":
-                logger.info("VPC-SC violation on %s — defaulting to standard-tier", endpoint)
+                logger.info(
+                    "VPC-SC violation on %s — defaulting to standard-tier",
+                    endpoint)
                 return CodeAssistProjectInfo(
                     current_tier_id=STANDARD_TIER_ID,
                     cloudaicompanion_project=project_id,
@@ -259,7 +269,9 @@ def load_code_assist(
 
 def _parse_load_response(resp: Dict[str, Any]) -> CodeAssistProjectInfo:
     current_tier = resp.get("currentTier") or {}
-    tier_id = str(current_tier.get("id") or "") if isinstance(current_tier, dict) else ""
+    tier_id = str(
+        current_tier.get("id") or "") if isinstance(
+        current_tier, dict) else ""
     project = str(resp.get("cloudaicompanionProject") or "")
     allowed = resp.get("allowedTiers") or []
     allowed_ids: List[str] = []
@@ -312,7 +324,11 @@ def onboard_user(
 
     endpoint = CODE_ASSIST_ENDPOINT
     url = f"{endpoint}/v1internal:onboardUser"
-    resp = _post_json(url, body, access_token, user_agent_model=user_agent_model)
+    resp = _post_json(
+        url,
+        body,
+        access_token,
+        user_agent_model=user_agent_model)
 
     # Poll if LRO (long-running operation)
     if not resp.get("done"):
@@ -323,13 +339,19 @@ def onboard_user(
             time.sleep(_ONBOARDING_POLL_INTERVAL_SECONDS)
             poll_url = f"{endpoint}/v1internal/{op_name}"
             try:
-                poll_resp = _post_json(poll_url, {}, access_token, user_agent_model=user_agent_model)
+                poll_resp = _post_json(
+                    poll_url, {}, access_token, user_agent_model=user_agent_model)
             except CodeAssistError as exc:
-                logger.warning("Onboarding poll attempt %d failed: %s", attempt + 1, exc)
+                logger.warning(
+                    "Onboarding poll attempt %d failed: %s",
+                    attempt + 1,
+                    exc)
                 continue
             if poll_resp.get("done"):
                 return poll_resp
-        logger.warning("Onboarding did not complete within %d attempts", _ONBOARDING_POLL_ATTEMPTS)
+        logger.warning(
+            "Onboarding did not complete within %d attempts",
+            _ONBOARDING_POLL_ATTEMPTS)
     return resp
 
 
@@ -357,7 +379,11 @@ def retrieve_user_quota(
     if project_id:
         body["project"] = project_id
     url = f"{CODE_ASSIST_ENDPOINT}/v1internal:retrieveUserQuota"
-    resp = _post_json(url, body, access_token, user_agent_model=user_agent_model)
+    resp = _post_json(
+        url,
+        body,
+        access_token,
+        user_agent_model=user_agent_model)
     raw_buckets = resp.get("buckets") or []
     buckets: List[QuotaBucket] = []
     if not isinstance(raw_buckets, list):

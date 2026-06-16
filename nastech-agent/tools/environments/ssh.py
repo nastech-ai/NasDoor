@@ -70,7 +70,8 @@ class SSHEnvironment(BaseEnvironment):
 
         self._ensure_remote_dirs()
         self._sync_manager = FileSyncManager(
-            get_files_fn=lambda: iter_sync_files(f"{self._remote_home}/.nastech"),
+            get_files_fn=lambda: iter_sync_files(
+                f"{self._remote_home}/.nastech"),
             upload_fn=self._scp_upload,
             delete_fn=self._ssh_delete,
             bulk_upload_fn=self._ssh_bulk_upload,
@@ -101,19 +102,22 @@ class SSHEnvironment(BaseEnvironment):
         cmd = self._build_ssh_command()
         cmd.append("echo 'SSH connection established'")
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=15)
             if result.returncode != 0:
                 error_msg = result.stderr.strip() or result.stdout.strip()
                 raise RuntimeError(f"SSH connection failed: {error_msg}")
         except subprocess.TimeoutExpired:
-            raise RuntimeError(f"SSH connection to {self.user}@{self.host} timed out")
+            raise RuntimeError(
+                f"SSH connection to {self.user}@{self.host} timed out")
 
     def _detect_remote_home(self) -> str:
         """Detect the remote user's home directory."""
         try:
             cmd = self._build_ssh_command()
             cmd.append("echo $HOME")
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=10)
             home = result.stdout.strip()
             if home and result.returncode == 0:
                 logger.debug("SSH: remote home = %s", home)
@@ -151,7 +155,11 @@ class SSHEnvironment(BaseEnvironment):
         if self.key_path:
             scp_cmd.extend(["-i", self.key_path])
         scp_cmd.extend([host_path, f"{self.user}@{self.host}:{remote_path}"])
-        result = subprocess.run(scp_cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(
+            scp_cmd,
+            capture_output=True,
+            text=True,
+            timeout=30)
         if result.returncode != 0:
             raise RuntimeError(f"scp failed: {result.stderr.strip()}")
 
@@ -174,9 +182,12 @@ class SSHEnvironment(BaseEnvironment):
         if parents:
             cmd = self._build_ssh_command()
             cmd.append(quoted_mkdir_command(parents))
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=30)
             if result.returncode != 0:
-                raise RuntimeError(f"remote mkdir failed: {result.stderr.strip()}")
+                raise RuntimeError(
+                    f"remote mkdir failed: {
+                        result.stderr.strip()}")
 
         # Symlink staging avoids fragile GNU tar --transform rules.
         with tempfile.TemporaryDirectory(prefix="nastech-ssh-bulk-") as staging:
@@ -185,12 +196,16 @@ class SSHEnvironment(BaseEnvironment):
                     rel_remote = os.path.relpath(remote_path, base)
                 except ValueError as exc:
                     raise RuntimeError(
-                        f"remote path {remote_path!r} is not under sync base {base!r}"
+                        f"remote path {
+                            remote_path!r} is not under sync base {
+                            base!r}"
                     ) from exc
 
                 if rel_remote == "." or rel_remote.startswith("../"):
                     raise RuntimeError(
-                        f"remote path {remote_path!r} escapes sync base {base!r}"
+                        f"remote path {
+                            remote_path!r} escapes sync base {
+                            base!r}"
                     )
 
                 staged = os.path.join(staging, rel_remote)
@@ -203,7 +218,8 @@ class SSHEnvironment(BaseEnvironment):
             # existing directories (e.g. /home/<user>) with the staging
             # directory's mode.  Without this, a umask 002 produces 0775
             # dirs which breaks sshd StrictModes (refuses authorized_keys).
-            ssh_cmd.append(f"tar xf - --no-overwrite-dir -C {shlex.quote(base)}")
+            ssh_cmd.append(
+                f"tar xf - --no-overwrite-dir -C {shlex.quote(base)}")
 
             tar_proc = subprocess.Popen(
                 tar_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
@@ -253,20 +269,32 @@ class SSHEnvironment(BaseEnvironment):
     def _ssh_bulk_download(self, dest: Path) -> None:
         """Download remote .nastech/ as a tar archive."""
         # Tar from / with the full path so archive entries preserve absolute
-        # paths (e.g. home/user/.nastech/skills/f.py), matching _pushed_hashes keys.
+        # paths (e.g. home/user/.nastech/skills/f.py), matching _pushed_hashes
+        # keys.
         rel_base = f"{self._remote_home}/.nastech".lstrip("/")
         ssh_cmd = self._build_ssh_command()
         ssh_cmd.append(f"tar cf - -C / {shlex.quote(rel_base)}")
         with open(dest, "wb") as f:
-            result = subprocess.run(ssh_cmd, stdout=f, stderr=subprocess.PIPE, timeout=120)
+            result = subprocess.run(
+                ssh_cmd,
+                stdout=f,
+                stderr=subprocess.PIPE,
+                timeout=120)
         if result.returncode != 0:
-            raise RuntimeError(f"SSH bulk download failed: {result.stderr.decode(errors='replace').strip()}")
+            raise RuntimeError(
+                f"SSH bulk download failed: {
+                    result.stderr.decode(
+                        errors='replace').strip()}")
 
     def _ssh_delete(self, remote_paths: list[str]) -> None:
         """Batch-delete remote files in one SSH call."""
         cmd = self._build_ssh_command()
         cmd.append(quoted_rm_command(remote_paths))
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=10)
         if result.returncode != 0:
             raise RuntimeError(f"remote rm failed: {result.stderr.strip()}")
 

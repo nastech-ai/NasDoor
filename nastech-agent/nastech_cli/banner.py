@@ -11,8 +11,11 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from nastech_constants import get_nastech_home
 from typing import TYPE_CHECKING, Dict, List, Optional
+
+from nastech_cli import __release_date__ as RELEASE_DATE
+from nastech_cli import __version__ as VERSION
+from nastech_constants import get_nastech_home
 
 # rich and prompt_toolkit are imported lazily (inside the functions that use
 # them) rather than at module level.  Importing this module is on the TUI
@@ -58,7 +61,6 @@ def _skin_color(key: str, fallback: str) -> str:
 # ASCII Art & Branding
 # =========================================================================
 
-from nastech_cli import __version__ as VERSION, __release_date__ as RELEASE_DATE
 
 NASTECH_AGENT_LOGO = """[bold #FFD700]██╗  ██╗███████╗██████╗ ███╗   ███╗███████╗███████╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗[/]
 [bold #FFD700]██║  ██║██╔════╝██╔══██╗████╗ ████║██╔════╝██╔════╝      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝[/]
@@ -82,7 +84,6 @@ NASTECH_CADUCEUS = """[#CD7F32]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⡀⠀⣀⣀�
 [#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⠁⢰⡆⠈⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
 [#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⠈⣡⠞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
 [#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]"""
-
 
 
 # =========================================================================
@@ -184,7 +185,8 @@ def _fetch_pypi_latest(package: str = "nastech-agent") -> Optional[str]:
     try:
         import urllib.request
         url = f"https://pypi.org/pypi/{package}/json"
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        req = urllib.request.Request(
+            url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
             return data.get("info", {}).get("version")
@@ -248,7 +250,8 @@ def check_for_updates() -> Optional[int]:
     # changed since the last check. The version guard matters for pip installs:
     # `check_via_pypi()` compares against VERSION, so a `pip install --upgrade`
     # changes VERSION but leaves rev unchanged (both None), and without this
-    # the stale "behind" count would survive the upgrade for up to 6h. See #34491.
+    # the stale "behind" count would survive the upgrade for up to 6h. See
+    # #34491.
     now = time.time()
     try:
         if cache_file.exists():
@@ -278,7 +281,8 @@ def check_for_updates() -> Optional[int]:
 
     try:
         cache_file.write_text(
-            json.dumps({"ts": now, "behind": behind, "rev": embedded_rev, "ver": VERSION})
+            json.dumps({"ts": now, "behind": behind,
+                       "rev": embedded_rev, "ver": VERSION})
         )
     except Exception:
         pass
@@ -512,7 +516,7 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
         get_toolset_for_tool: Callable to map tool name -> toolset name.
         context_length: Model's context window size in tokens.
     """
-    from model_tools import check_tool_availability, TOOLSET_REQUIREMENTS
+    from model_tools import TOOLSET_REQUIREMENTS, check_tool_availability
     from rich.panel import Panel
     from rich.table import Table
     if get_toolset_for_tool is None:
@@ -550,7 +554,8 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
     try:
         from nastech_cli.skin_engine import get_active_skin
         _bskin = get_active_skin()
-        _hero = _bskin.banner_hero if hasattr(_bskin, 'banner_hero') and _bskin.banner_hero else NASTECH_CADUCEUS
+        _hero = _bskin.banner_hero if hasattr(
+            _bskin, 'banner_hero') and _bskin.banner_hero else NASTECH_CADUCEUS
     except Exception:
         _bskin = None
         _hero = NASTECH_CADUCEUS
@@ -560,11 +565,14 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
         model_short = model_short[:-5]
     if len(model_short) > 28:
         model_short = model_short[:25] + "..."
-    ctx_str = f" [dim {dim}]·[/] [dim {dim}]{_format_context_length(context_length)} context[/]" if context_length else ""
-    left_lines.append(f"[{accent}]{model_short}[/]{ctx_str} [dim {dim}]·[/] [dim {dim}]NasTech[/]")
+    ctx_str = f" [dim {dim}]·[/] [dim {dim}]{
+        _format_context_length(context_length)} context[/]" if context_length else ""
+    left_lines.append(
+        f"[{accent}]{model_short}[/]{ctx_str} [dim {dim}]·[/] [dim {dim}]NasTech[/]")
 
     if os.getenv("NASTECH_YOLO_MODE"):
-        left_lines.append(f"[bold red]⚠ YOLO mode[/] [dim {dim}]— all approval prompts bypassed[/]")
+        left_lines.append(
+            f"[bold red]⚠ YOLO mode[/] [dim {dim}]— all approval prompts bypassed[/]")
     left_lines.append(f"[dim {dim}]{cwd}[/]")
     if session_id:
         left_lines.append(f"[dim {session_color}]Session: {session_id}[/]")
@@ -575,7 +583,8 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
 
     for tool in tools:
         tool_name = tool["function"]["name"]
-        toolset = _display_toolset_name(get_toolset_for_tool(tool_name) or "other")
+        toolset = _display_toolset_name(
+            get_toolset_for_tool(tool_name) or "other")
         toolsets_dict.setdefault(toolset, []).append(tool_name)
 
     for item in unavailable_toolsets:
@@ -627,7 +636,8 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
         right_lines.append(f"[dim {dim}]{toolset}:[/] {tools_str}")
 
     if remaining_toolsets > 0:
-        right_lines.append(f"[dim {dim}](and {remaining_toolsets} more toolsets...)[/]")
+        right_lines.append(
+            f"[dim {dim}](and {remaining_toolsets} more toolsets...)[/]")
 
     # MCP Servers section (only if configured)
     try:
@@ -642,12 +652,16 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
         for srv in mcp_status:
             if srv["connected"]:
                 right_lines.append(
-                    f"[dim {dim}]{srv['name']}[/] [{text}]({srv['transport']})[/] "
+                    f"[dim {dim}]{
+                        srv['name']}[/] [{text}]({
+                        srv['transport']})[/] "
                     f"[dim {dim}]—[/] [{text}]{srv['tools']} tool(s)[/]"
                 )
             elif srv.get("disabled"):
                 right_lines.append(
-                    f"[dim {dim}]{srv['name']}[/] [dim]({srv['transport']})[/] "
+                    f"[dim {dim}]{
+                        srv['name']}[/] [dim]({
+                        srv['transport']})[/] "
                     f"[dim {dim}]— disabled[/]"
                 )
             else:
@@ -666,17 +680,20 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
             skill_names = sorted(skills_by_category[category])
             if len(skill_names) > 8:
                 display_names = skill_names[:8]
-                skills_str = ", ".join(display_names) + f" +{len(skill_names) - 8} more"
+                skills_str = ", ".join(display_names) + \
+                    f" +{len(skill_names) - 8} more"
             else:
                 skills_str = ", ".join(skill_names)
             if len(skills_str) > 50:
                 skills_str = skills_str[:47] + "..."
-            right_lines.append(f"[dim {dim}]{category}:[/] [{text}]{skills_str}[/]")
+            right_lines.append(
+                f"[dim {dim}]{category}:[/] [{text}]{skills_str}[/]")
     else:
         right_lines.append(f"[dim {dim}]No skills installed[/]")
 
     right_lines.append("")
-    mcp_connected = sum(1 for s in mcp_status if s["connected"]) if mcp_status else 0
+    mcp_connected = sum(
+        1 for s in mcp_status if s["connected"]) if mcp_status else 0
     summary_parts = [f"{len(tools)} tools", f"{total_skills} skills"]
     if mcp_connected:
         summary_parts.append(f"{mcp_connected} MCP servers")
@@ -699,7 +716,8 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
         from nastech_cli.profiles import get_active_profile_name
         _profile_name = get_active_profile_name()
         if _profile_name and _profile_name != "default":
-            right_lines.append(f"[bold {accent}]Profile:[/] [{text}]{_profile_name}[/]")
+            right_lines.append(
+                f"[bold {accent}]Profile:[/] [{text}]{_profile_name}[/]")
     except Exception:
         pass  # Never break the banner over a profiles.py bug
 
@@ -709,12 +727,16 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
     try:
         behind = get_update_result(timeout=0.5)
         if behind is not None and behind != 0:
-            from nastech_cli.config import get_managed_update_command, recommended_update_command
+            from nastech_cli.config import (
+                get_managed_update_command,
+                recommended_update_command,
+            )
             if behind > 0:
                 commits_word = "commit" if behind == 1 else "commits"
                 right_lines.append(
                     f"[bold yellow]⚠ {behind} {commits_word} behind[/]"
-                    f"[dim yellow] — run [bold]{recommended_update_command()}[/bold] to update[/]"
+                    f"[dim yellow] — run [bold]{
+                        recommended_update_command()}[/bold] to update[/]"
                 )
             else:
                 # UPDATE_AVAILABLE_NO_COUNT: nix-built nastech; we know an update
@@ -765,7 +787,8 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
     console.print()
     term_width = shutil.get_terminal_size().columns
     if term_width >= 95:
-        _logo = _bskin.banner_logo if _bskin and hasattr(_bskin, 'banner_logo') and _bskin.banner_logo else NASTECH_AGENT_LOGO
+        _logo = _bskin.banner_logo if _bskin and hasattr(
+            _bskin, 'banner_logo') and _bskin.banner_logo else NASTECH_AGENT_LOGO
         console.print(_logo)
         console.print()
     console.print(outer_panel)

@@ -60,13 +60,24 @@ from urllib.parse import urlencode, urlparse
 # Local import — _common.py sits next to this script.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (  # noqa: E402
-    DEFAULT_LOCAL_HOST, ENV_API_KEY,
-    coerce_seed, emit_json, http_get, http_post, http_request,
-    is_cloud_host, is_link, log, looks_like_video_workflow,
-    media_type_from_filename, new_client_id, resolve_api_key, resolve_url,
-    safe_path_join, unwrap_workflow,
+    DEFAULT_LOCAL_HOST,
+    ENV_API_KEY,
+    coerce_seed,
+    emit_json,
+    http_get,
+    http_post,
+    http_request,
+    is_cloud_host,
+    is_link,
+    log,
+    looks_like_video_workflow,
+    media_type_from_filename,
+    new_client_id,
+    resolve_api_key,
+    resolve_url,
+    safe_path_join,
+    unwrap_workflow,
 )
-
 
 # =============================================================================
 # Runner
@@ -114,7 +125,10 @@ class ComfyRunner:
     # ---------- server health ----------
     def check_server(self) -> tuple[bool, dict | None]:
         try:
-            r = http_get(self._url("/system_stats"), headers=self.headers, retries=2)
+            r = http_get(
+                self._url("/system_stats"),
+                headers=self.headers,
+                retries=2)
             if r.status == 200:
                 try:
                     return True, r.json()
@@ -130,7 +144,8 @@ class ComfyRunner:
         """Upload an image file via multipart. Returns server-side ref dict."""
         if not path.exists():
             raise FileNotFoundError(f"input image not found: {path}")
-        # Stream the file via a handle to avoid OOM on huge inputs (16MP+ photos).
+        # Stream the file via a handle to avoid OOM on huge inputs (16MP+
+        # photos).
         with path.open("rb") as fh:
             files = {"image": (path.name, fh)}
             form = {"type": image_type}
@@ -171,11 +186,16 @@ class ComfyRunner:
 
     # ---------- submit ----------
     def submit(self, workflow: dict) -> dict:
-        payload: dict[str, Any] = {"prompt": workflow, "client_id": self.client_id}
+        payload: dict[str, Any] = {
+            "prompt": workflow, "client_id": self.client_id}
         if self.partner_key:
             payload["extra_data"] = {"api_key_comfy_org": self.partner_key}
 
-        r = http_post(self._url("/prompt"), headers=self.headers, json_body=payload, timeout=120)
+        r = http_post(
+            self._url("/prompt"),
+            headers=self.headers,
+            json_body=payload,
+            timeout=120)
         try:
             body = r.json()
         except Exception:
@@ -204,13 +224,14 @@ class ComfyRunner:
                     s = data.get("status")
                     if s == "completed":
                         return {"status": "success", "data": data}
-                    if s in {"failed",}:
+                    if s in {"failed", }:
                         return {"status": "error", "data": data}
                     if s == "cancelled":
                         return {"status": "cancelled", "data": data}
                     # pending / in_progress → continue
                 elif r.status == 404:
-                    # Cloud sometimes 404s briefly between submit and dispatcher pickup
+                    # Cloud sometimes 404s briefly between submit and
+                    # dispatcher pickup
                     pass
                 else:
                     # transient error — retry loop covers it
@@ -229,12 +250,14 @@ class ComfyRunner:
                     entry = data.get(prompt_id)
                     if isinstance(entry, dict):
                         st = entry.get("status") or {}
-                        # IMPORTANT: check error first — `completed: true` can coexist with errors
+                        # IMPORTANT: check error first — `completed: true` can
+                        # coexist with errors
                         status_str = st.get("status_str")
                         if status_str == "error":
                             return {"status": "error", "data": entry}
                         if st.get("completed", False):
-                            return {"status": "success", "outputs": entry.get("outputs", {})}
+                            return {"status": "success",
+                                    "outputs": entry.get("outputs", {})}
                 # not in history yet → continue polling
 
             time.sleep(interval)
@@ -278,7 +301,8 @@ class ComfyRunner:
             while time.time() < deadline:
                 msg = ws.recv()
                 if isinstance(msg, bytes):
-                    # Binary preview frame — ignore for now; ws_monitor.py prints them
+                    # Binary preview frame — ignore for now; ws_monitor.py
+                    # prints them
                     continue
                 try:
                     payload = json.loads(msg)
@@ -287,7 +311,8 @@ class ComfyRunner:
                 mtype = payload.get("type", "")
                 mdata = payload.get("data", {}) or {}
 
-                # Filter to our job (cloud broadcasts; local filters via client_id)
+                # Filter to our job (cloud broadcasts; local filters via
+                # client_id)
                 pid = mdata.get("prompt_id")
                 if pid is not None and pid != prompt_id:
                     continue
@@ -302,12 +327,14 @@ class ComfyRunner:
                         })
                 elif mtype == "progress_state":
                     if callable(on_progress):
-                        on_progress({"type": "progress_state", "nodes": mdata.get("nodes", {})})
+                        on_progress({"type": "progress_state",
+                                    "nodes": mdata.get("nodes", {})})
                 elif mtype == "executing":
                     node = mdata.get("node")
                     if callable(on_progress):
                         on_progress({"type": "executing", "node": node})
-                    # When `node` is None on a local server, that signals end-of-run
+                    # When `node` is None on a local server, that signals
+                    # end-of-run
                     if node is None and not self.is_cloud and seen_executed:
                         success = True
                         break
@@ -319,7 +346,8 @@ class ComfyRunner:
                         outputs[nid] = out
                 elif mtype == "notification":
                     if callable(on_progress):
-                        on_progress({"type": "notification", "message": mdata.get("value", "")})
+                        on_progress({"type": "notification",
+                                    "message": mdata.get("value", "")})
                 elif mtype == "execution_success":
                     success = True
                     break
@@ -344,15 +372,24 @@ class ComfyRunner:
     # ---------- outputs ----------
     def get_outputs(self, prompt_id: str) -> dict:
         if self.is_cloud:
-            # Try /jobs/{id} first (returns full job with outputs); fall back to /history_v2
-            r = http_get(self._url(f"/jobs/{prompt_id}"), headers=self.headers, retries=2)
+            # Try /jobs/{id} first (returns full job with outputs); fall back
+            # to /history_v2
+            r = http_get(
+                self._url(
+                    f"/jobs/{prompt_id}"),
+                headers=self.headers,
+                retries=2)
             if r.status == 200:
                 try:
                     return (r.json() or {}).get("outputs", {}) or {}
                 except Exception:
                     pass
             # Fallback
-            r = http_get(self._url(f"/history/{prompt_id}"), headers=self.headers, retries=2)
+            r = http_get(
+                self._url(
+                    f"/history/{prompt_id}"),
+                headers=self.headers,
+                retries=2)
             if r.status == 200:
                 try:
                     body = r.json() or {}
@@ -364,7 +401,11 @@ class ComfyRunner:
                     return body["outputs"] or {}
             return {}
         # Local
-        r = http_get(self._url(f"/history/{prompt_id}"), headers=self.headers, retries=2)
+        r = http_get(
+            self._url(
+                f"/history/{prompt_id}"),
+            headers=self.headers,
+            retries=2)
         if r.status != 200:
             return {}
         try:
@@ -379,14 +420,18 @@ class ComfyRunner:
         output_dir: Path, preserve_subfolder: bool = True, overwrite: bool = False,
     ) -> Path:
         """Stream a single output to disk. Path-traversal-safe."""
-        params = {"filename": filename, "subfolder": subfolder, "type": file_type}
+        params = {
+            "filename": filename,
+            "subfolder": subfolder,
+            "type": file_type}
         url = self._url("/view") + "?" + urlencode(params)
 
         # Compute target path safely. If preserve_subfolder, include subfolder in the
         # local path; otherwise put the file in output_dir flat.
         target_parts: list[str] = []
         if preserve_subfolder and subfolder:
-            target_parts.extend(p for p in subfolder.split("/") if p and p not in {".", ".."})
+            target_parts.extend(p for p in subfolder.split(
+                "/") if p and p not in {".", ".."})
         target_parts.append(filename)
         out_path = safe_path_join(output_dir, *target_parts)
 
@@ -478,15 +523,18 @@ def inject_params(
 
     for name, value in args.items():
         if name not in params:
-            warnings.append(f"unknown parameter '{name}' (not in schema), skipping")
+            warnings.append(
+                f"unknown parameter '{name}' (not in schema), skipping")
             continue
         m = params[name]
         nid, field = m["node_id"], m["field"]
         node = wf.get(nid)
         if not isinstance(node, dict) or "inputs" not in node:
-            warnings.append(f"node '{nid}' for parameter '{name}' missing in workflow")
+            warnings.append(
+                f"node '{nid}' for parameter '{name}' missing in workflow")
             continue
-        # Refuse to overwrite a link with a literal — would silently break wiring
+        # Refuse to overwrite a link with a literal — would silently break
+        # wiring
         cur = node["inputs"].get(field)
         if is_link(cur):
             warnings.append(
@@ -512,7 +560,15 @@ def download_outputs(
     output_dir.mkdir(parents=True, exist_ok=True)
     downloaded: list[dict] = []
 
-    OUTPUT_KEYS = ("images", "gifs", "videos", "video", "audio", "files", "models", "3d")
+    OUTPUT_KEYS = (
+        "images",
+        "gifs",
+        "videos",
+        "video",
+        "audio",
+        "files",
+        "models",
+        "3d")
 
     for node_id, node_output in (outputs or {}).items():
         if not isinstance(node_output, dict):
@@ -567,17 +623,28 @@ def main(argv: list[str] | None = None) -> int:
         description="Run a ComfyUI workflow with parameter injection.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("--workflow", required=True, help="Path to workflow API JSON file")
+    p.add_argument(
+        "--workflow",
+        required=True,
+        help="Path to workflow API JSON file")
     p.add_argument("--args", default="{}",
                    help="JSON parameters to inject (or `@/path/to/args.json`)")
-    p.add_argument("--schema", help="Path to schema JSON (auto-generated if omitted)")
-    p.add_argument("--host", default=DEFAULT_LOCAL_HOST, help="ComfyUI server URL")
+    p.add_argument(
+        "--schema",
+        help="Path to schema JSON (auto-generated if omitted)")
+    p.add_argument(
+        "--host",
+        default=DEFAULT_LOCAL_HOST,
+        help="ComfyUI server URL")
     p.add_argument("--api-key",
                    help=f"API key for cloud (or set ${ENV_API_KEY} env var)")
     p.add_argument("--partner-key",
                    help="Partner-node API key (extra_data.api_key_comfy_org). "
                         "Required for Flux Pro / Ideogram / etc. Defaults to --api-key if not set.")
-    p.add_argument("--output-dir", default="./outputs", help="Directory to save outputs")
+    p.add_argument(
+        "--output-dir",
+        default="./outputs",
+        help="Directory to save outputs")
     p.add_argument("--timeout", type=int, default=0,
                    help="Max seconds to wait (0=auto: 300 / 900 for video workflows)")
     p.add_argument("--input-image", action="append", default=[],
@@ -587,7 +654,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="If schema has a 'seed' parameter and --args didn't set one, randomize it")
     p.add_argument("--ws", action="store_true",
                    help="Use WebSocket for real-time progress (requires `websocket-client`)")
-    p.add_argument("--no-download", action="store_true", help="Skip downloading outputs")
+    p.add_argument(
+        "--no-download",
+        action="store_true",
+        help="Skip downloading outputs")
     p.add_argument("--flat-output", action="store_true",
                    help="Don't preserve server-side subfolder structure when saving outputs")
     p.add_argument("--overwrite", action="store_true",
@@ -671,7 +741,8 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as e:
             emit_json({"error": f"Upload failed for {path}: {e}"})
             return 1
-        # Register as a user arg so inject_params consumes it through the schema
+        # Register as a user arg so inject_params consumes it through the
+        # schema
         uploaded_name = ref.get("name") or path.name
         if param_name not in user_args:
             user_args[param_name] = uploaded_name
@@ -705,16 +776,20 @@ def main(argv: list[str] | None = None) -> int:
 
     prompt_id = submit_resp.get("prompt_id")
     if not prompt_id:
-        emit_json({"error": "No prompt_id in submit response", "response": submit_resp})
+        emit_json({"error": "No prompt_id in submit response",
+                  "response": submit_resp})
         return 1
 
     node_errors = submit_resp.get("node_errors") or {}
     if node_errors:
-        emit_json({"error": "Workflow validation failed", "node_errors": node_errors})
+        emit_json({"error": "Workflow validation failed",
+                  "node_errors": node_errors})
         return 1
 
     if args.submit_only:
-        emit_json({"status": "submitted", "prompt_id": prompt_id, "warnings": warnings})
+        emit_json({"status": "submitted",
+                   "prompt_id": prompt_id,
+                   "warnings": warnings})
         return 0
 
     # ---- Wait ----
@@ -735,7 +810,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.ws:
-            wait_result = runner.monitor_ws(prompt_id, timeout=timeout, on_progress=_on_progress)
+            wait_result = runner.monitor_ws(
+                prompt_id, timeout=timeout, on_progress=_on_progress)
         else:
             wait_result = runner.poll_status(prompt_id, timeout=timeout)
     except KeyboardInterrupt:
@@ -760,7 +836,8 @@ def main(argv: list[str] | None = None) -> int:
         })
         return 1
     if wait_result["status"] == "error":
-        emit_json({"status": "error", "prompt_id": prompt_id, "details": wait_result.get("data")})
+        emit_json({"status": "error", "prompt_id": prompt_id,
+                  "details": wait_result.get("data")})
         return 1
     if wait_result["status"] == "cancelled":
         emit_json({"status": "cancelled", "prompt_id": prompt_id})

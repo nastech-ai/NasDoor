@@ -15,15 +15,15 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+from nastech_cli.colors import Colors, color
+from nastech_cli.config import get_nastech_home  # noqa: F401 — used by test mocks
 from nastech_cli.config import (
     cfg_get,
+    get_env_value,
     load_config,
     save_config,
-    get_env_value,
     save_env_value,
-    get_nastech_home,  # noqa: F401 — used by test mocks
 )
-from nastech_cli.colors import Colors, color
 from nastech_constants import display_nastech_home
 from tools.mcp_tool import _ENV_VAR_PATTERN
 
@@ -40,16 +40,19 @@ _MCP_PRESETS: Dict[str, Dict[str, Any]] = {
 }
 
 
-# ─── UI Helpers ───────────────────────────────────────────────────────────────
+# ─── UI Helpers ─────────────────────────────────────────────────────────
 
 def _info(text: str):
     print(color(f"  {text}", Colors.DIM))
 
+
 def _success(text: str):
     print(color(f"  ✓ {text}", Colors.GREEN))
 
+
 def _warning(text: str):
     print(color(f"  ⚠ {text}", Colors.YELLOW))
+
 
 def _error(text: str):
     print(color(f"  ✗ {text}", Colors.RED))
@@ -58,7 +61,10 @@ def _error(text: str):
 def _confirm(question: str, default: bool = True) -> bool:
     default_str = "Y/n" if default else "y/N"
     try:
-        val = input(color(f"  {question} [{default_str}]: ", Colors.YELLOW)).strip().lower()
+        val = input(
+            color(
+                f"  {question} [{default_str}]: ",
+                Colors.YELLOW)).strip().lower()
     except (KeyboardInterrupt, EOFError):
         print()
         return default
@@ -67,12 +73,13 @@ def _confirm(question: str, default: bool = True) -> bool:
     return val in {"y", "yes"}
 
 
-def _prompt(question: str, *, password: bool = False, default: str = "") -> str:
+def _prompt(question: str, *, password: bool = False,
+            default: str = "") -> str:
     from nastech_cli.cli_output import prompt as _shared_prompt
     return _shared_prompt(question, default=default, password=password)
 
 
-# ─── Config Helpers ───────────────────────────────────────────────────────────
+# ─── Config Helpers ─────────────────────────────────────────────────────
 
 def _get_mcp_servers(config: Optional[dict] = None) -> Dict[str, dict]:
     """Return the ``mcp_servers`` dict from config, or empty dict."""
@@ -132,11 +139,13 @@ def _parse_env_assignments(raw_env: Optional[List[str]]) -> Dict[str, str]:
         if not text:
             continue
         if "=" not in text:
-            raise ValueError(f"Invalid --env value '{text}' (expected KEY=VALUE)")
+            raise ValueError(
+                f"Invalid --env value '{text}' (expected KEY=VALUE)")
         key, value = text.split("=", 1)
         key = key.strip()
         if not key:
-            raise ValueError(f"Invalid --env value '{text}' (missing variable name)")
+            raise ValueError(
+                f"Invalid --env value '{text}' (missing variable name)")
         if not _ENV_VAR_NAME_RE.match(key):
             raise ValueError(f"Invalid --env variable name '{key}'")
         parsed[key] = value
@@ -209,9 +218,9 @@ def _probe_single_server(
     Raises on connection failure.
     """
     from tools.mcp_tool import (
+        _connect_server,
         _ensure_mcp_loop,
         _run_on_mcp_loop,
-        _connect_server,
         _stop_mcp_loop,
     )
 
@@ -277,7 +286,7 @@ def _unwrap_exception_group(exc: BaseException) -> Exception:
     return RuntimeError(str(exc))
 
 
-# ─── nastech mcp add ──────────────────────────────────────────────────────────
+# ─── nastech mcp add ────────────────────────────────────────────────────
 
 def cmd_mcp_add(args):
     """Add a new MCP server with discovery-first tool selection."""
@@ -308,7 +317,8 @@ def cmd_mcp_add(args):
         return
 
     if url and explicit_env:
-        _error("--env is only supported for stdio MCP servers (--command or stdio presets)")
+        _error(
+            "--env is only supported for stdio MCP servers (--command or stdio presets)")
         return
 
     # Validate transport
@@ -323,7 +333,8 @@ def cmd_mcp_add(args):
     # Check if server already exists
     existing = _get_mcp_servers()
     if name in existing:
-        if not _confirm(f"Server '{name}' already exists. Overwrite?", default=False):
+        if not _confirm(
+                f"Server '{name}' already exists. Overwrite?", default=False):
             _info("Cancelled.")
             return
 
@@ -337,7 +348,6 @@ def cmd_mcp_add(args):
         if explicit_env:
             server_config["env"] = explicit_env
 
-
     # ── Authentication ────────────────────────────────────────────────
 
     if url and auth_type == "oauth":
@@ -349,8 +359,9 @@ def cmd_mcp_add(args):
             oauth_auth = get_manager().get_or_build_provider(name, url, None)
             if oauth_auth:
                 server_config["auth"] = "oauth"
-                _success("OAuth configured (tokens will be acquired on first connection)")
-                oauth_ok=True
+                _success(
+                    "OAuth configured (tokens will be acquired on first connection)")
+                oauth_ok = True
             else:
                 _warning("OAuth setup failed — MCP SDK auth module not available")
         except Exception as exc:
@@ -369,7 +380,9 @@ def cmd_mcp_add(args):
         # Prompt for API key / Bearer token for HTTP servers
         print()
         _info(f"Connecting to {url}")
-        needs_auth = _confirm("Does this server require authentication?", default=True)
+        needs_auth = _confirm(
+            "Does this server require authentication?",
+            default=True)
         if needs_auth:
             if auth_type == "header" or not auth_type:
                 env_key = _env_key_for_server(name)
@@ -382,7 +395,9 @@ def cmd_mcp_add(args):
                     if api_key:
                         api_key = _strip_bearer_prefix(api_key)
                         save_env_value(env_key, api_key)
-                        _success(f"Saved to {display_nastech_home()}/.env as {env_key}")
+                        _success(
+                            f"Saved to {
+                                display_nastech_home()}/.env as {env_key}")
 
                 # Set header with env var interpolation
                 if api_key or existing_key:
@@ -426,7 +441,10 @@ def cmd_mcp_add(args):
     # Ask: enable all, select, or cancel
     try:
         choice = input(
-            color(f"  Enable all {len(tools)} tools? [Y/n/select]: ", Colors.YELLOW)
+            color(
+                f"  Enable all {
+                    len(tools)} tools? [Y/n/select]: ",
+                Colors.YELLOW)
         ).strip().lower()
     except (KeyboardInterrupt, EOFError):
         print()
@@ -470,11 +488,13 @@ def cmd_mcp_add(args):
     _save_mcp_server(name, server_config)
 
     print()
-    _success(f"Saved '{name}' to {display_nastech_home()}/config.yaml ({tool_count}/{total} tools enabled)")
+    _success(
+        f"Saved '{name}' to {
+            display_nastech_home()}/config.yaml ({tool_count}/{total} tools enabled)")
     _info("Start a new session to use these tools.")
 
 
-# ─── nastech mcp remove ───────────────────────────────────────────────────────
+# ─── nastech mcp remove ─────────────────────────────────────────────────
 
 def cmd_mcp_remove(args):
     """Remove an MCP server from config."""
@@ -506,7 +526,7 @@ def cmd_mcp_remove(args):
         pass
 
 
-# ─── nastech mcp list ──────────────────────────────────────────────────────────
+# ─── nastech mcp list ───────────────────────────────────────────────────
 
 def cmd_mcp_list(args=None):
     """List all configured MCP servers."""
@@ -568,14 +588,18 @@ def cmd_mcp_list(args=None):
         enabled = cfg.get("enabled", True)
         if isinstance(enabled, str):
             enabled = enabled.lower() in {"true", "1", "yes"}
-        status = color("✓ enabled", Colors.GREEN) if enabled else color("✗ disabled", Colors.DIM)
+        status = color(
+            "✓ enabled",
+            Colors.GREEN) if enabled else color(
+            "✗ disabled",
+            Colors.DIM)
 
         print(f"  {name:<16} {transport:<30} {tools_str:<12} {status}")
 
     print()
 
 
-# ─── nastech mcp test ──────────────────────────────────────────────────────────
+# ─── nastech mcp test ───────────────────────────────────────────────────
 
 def cmd_mcp_test(args):
     """Test connection to an MCP server."""
@@ -607,9 +631,11 @@ def cmd_mcp_test(args):
         _info("Auth: OAuth 2.1 PKCE")
     elif headers:
         for k, v in headers.items():
-            if isinstance(v, str) and ("key" in k.lower() or "auth" in k.lower()):
+            if isinstance(v, str) and (
+                    "key" in k.lower() or "auth" in k.lower()):
                 # Mask the value
-                resolved = _ENV_VAR_PATTERN.sub(lambda m: os.getenv(m.group(1), ""), v)
+                resolved = _ENV_VAR_PATTERN.sub(
+                    lambda m: os.getenv(m.group(1), ""), v)
                 if len(resolved) > 8:
                     masked = resolved[:4] + "***" + resolved[-4:]
                 else:
@@ -639,7 +665,7 @@ def cmd_mcp_test(args):
     print()
 
 
-# ─── nastech mcp login ────────────────────────────────────────────────────────
+# ─── nastech mcp login ──────────────────────────────────────────────────
 
 def cmd_mcp_login(args):
     """Force re-authentication for an OAuth-based MCP server.
@@ -669,7 +695,9 @@ def cmd_mcp_login(args):
         _error(f"Server '{name}' has no URL — not an OAuth-capable server")
         return
     if server_config.get("auth") != "oauth":
-        _error(f"Server '{name}' is not configured for OAuth (auth={server_config.get('auth')})")
+        _error(
+            f"Server '{name}' is not configured for OAuth (auth={
+                server_config.get('auth')})")
         _info("Use `nastech mcp remove` + `nastech mcp add` to reconfigure auth.")
         return
 
@@ -713,8 +741,14 @@ def cmd_mcp_login(args):
             print(color(f"        url: {url}", Colors.DIM))
             print(color(f"        auth: oauth", Colors.DIM))
             print(color(f"        oauth:", Colors.DIM))
-            print(color(f"          client_id: \"<your-oauth-client-id>\"", Colors.DIM))
-            print(color(f"          client_secret: \"<your-oauth-client-secret>\"", Colors.DIM))
+            print(
+                color(
+                    f"          client_id: \"<your-oauth-client-id>\"",
+                    Colors.DIM))
+            print(
+                color(
+                    f"          client_secret: \"<your-oauth-client-secret>\"",
+                    Colors.DIM))
             print()
             _info("Then re-run `nastech mcp login " + name + "`.")
             return
@@ -726,13 +760,15 @@ def cmd_mcp_login(args):
         _error(f"Authentication failed: {exc}")
 
 
-# ─── nastech mcp configure ────────────────────────────────────────────────────
+# ─── nastech mcp configure ──────────────────────────────────────────────
 
 def cmd_mcp_configure(args):
     """Reconfigure which tools are enabled for an existing MCP server."""
     import sys as _sys
     if not _sys.stdin.isatty():
-        print("Error: 'nastech mcp configure' requires an interactive terminal.", file=_sys.stderr)
+        print(
+            "Error: 'nastech mcp configure' requires an interactive terminal.",
+            file=_sys.stderr)
         _sys.exit(1)
     name = args.name
     servers = _get_mcp_servers()
@@ -825,7 +861,7 @@ def cmd_mcp_configure(args):
     _info("Start a new session for changes to take effect.")
 
 
-# ─── Dispatcher ───────────────────────────────────────────────────────────────
+# ─── Dispatcher ─────────────────────────────────────────────────────────
 
 def mcp_command(args):
     """Main dispatcher for ``nastech mcp`` subcommands."""
@@ -847,8 +883,9 @@ def mcp_command(args):
         show_catalog()
         return
     if action == "install":
-        from nastech_cli.mcp_picker import install_by_name
         import sys as _sys
+
+        from nastech_cli.mcp_picker import install_by_name
         rc = install_by_name(getattr(args, "identifier", "") or "")
         if rc:
             _sys.exit(rc)

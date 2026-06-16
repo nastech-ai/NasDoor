@@ -52,21 +52,34 @@ def main():
     parser = argparse.ArgumentParser(description="NeuTTS synthesis helper")
     parser.add_argument("--text", required=True, help="Text to synthesize")
     parser.add_argument("--out", required=True, help="Output WAV path")
-    parser.add_argument("--ref-audio", required=True, help="Reference voice audio path")
-    parser.add_argument("--ref-text", required=True, help="Reference voice transcript path")
+    parser.add_argument(
+        "--ref-audio",
+        required=True,
+        help="Reference voice audio path")
+    parser.add_argument(
+        "--ref-text",
+        required=True,
+        help="Reference voice transcript path")
     parser.add_argument("--model", default="neuphonic/neutts-air-q4-gguf",
                         help="HuggingFace backbone model repo")
-    parser.add_argument("--device", default="cpu", help="Device (cpu/cuda/mps)")
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="Device (cpu/cuda/mps)")
     args = parser.parse_args()
 
     # Validate inputs
     ref_audio = Path(args.ref_audio).expanduser()
     ref_text_path = Path(args.ref_text).expanduser()
     if not ref_audio.exists():
-        print(f"Error: reference audio not found: {ref_audio}", file=sys.stderr)
+        print(
+            f"Error: reference audio not found: {ref_audio}",
+            file=sys.stderr)
         sys.exit(1)
     if not ref_text_path.exists():
-        print(f"Error: reference text not found: {ref_text_path}", file=sys.stderr)
+        print(
+            f"Error: reference text not found: {ref_text_path}",
+            file=sys.stderr)
         sys.exit(1)
 
     ref_text = ref_text_path.read_text(encoding="utf-8").strip()
@@ -75,7 +88,9 @@ def main():
     try:
         from neutts import NeuTTS
     except ImportError:
-        print("Error: neutts not installed. Run: python -m pip install -U neutts[all]", file=sys.stderr)
+        print(
+            "Error: neutts not installed. Run: python -m pip install -U neutts[all]",
+            file=sys.stderr)
         sys.exit(1)
 
     tts = NeuTTS(

@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 # Matches ${NASTECH_SKILL_DIR} / ${NASTECH_SESSION_ID} tokens in SKILL.md.
 # Tokens that don't resolve (e.g. ${NASTECH_SESSION_ID} with no session) are
 # left as-is so the user can debug them.
-_SKILL_TEMPLATE_RE = re.compile(r"\$\{(NASTECH_SKILL_DIR|NASTECH_SESSION_ID)\}")
+_SKILL_TEMPLATE_RE = re.compile(
+    r"\$\{(NASTECH_SKILL_DIR|NASTECH_SESSION_ID)\}")
 
 # Matches inline shell snippets like:  !`date +%Y-%m-%d`
 # Non-greedy, single-line only -- no newlines inside the backticks.

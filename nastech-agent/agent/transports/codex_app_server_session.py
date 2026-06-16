@@ -51,7 +51,8 @@ _STDERR_TAIL_LINES = 12
 
 # Permission profile mapping mirrors the docstring in PR proposal:
 # NasTech' tools.terminal.security_mode → Codex's permissions profile id.
-# Defaults if config is missing → workspace-write (matches Codex's own default).
+# Defaults if config is missing → workspace-write (matches Codex's own
+# default).
 _NASTECH_TO_CODEX_PERMISSION_PROFILE = {
     "auto": "workspace-write",
     "approval-required": "read-only-with-approval",
@@ -577,12 +578,14 @@ class CodexAppServerSession:
                 turn_status = (
                     (note.get("params") or {}).get("turn") or {}
                 ).get("status")
-                if turn_status and turn_status not in {"completed", "interrupted"}:
+                if turn_status and turn_status not in {
+                        "completed", "interrupted"}:
                     err_obj = (
                         (note.get("params") or {}).get("turn") or {}
                     ).get("error")
                     if err_obj:
-                        err_msg = _format_responses_error(err_obj, str(turn_status))
+                        err_msg = _format_responses_error(
+                            err_obj, str(turn_status))
                         # If the turn failed for an auth/refresh reason,
                         # rewrite the error into a re-auth hint AND mark
                         # the session for retirement.
@@ -811,7 +814,7 @@ def _approval_choice_to_codex_decision(choice: str) -> str:
     (verified against codex-rs/app-server-protocol/src/protocol/v2/item.rs
     on codex 0.130.0).
     """
-    if choice in {"once",}:
+    if choice in {"once", }:
         return "accept"
     if choice in {"session", "always"}:
         return "acceptForSession"

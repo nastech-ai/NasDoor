@@ -24,14 +24,16 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-from gateway.platforms.base import BasePlatformAdapter as _BasePlatformAdapter
-from gateway.platforms.base import _custom_unit_to_cp
-from gateway.platforms.base import MEDIA_TAG_CLEANUP_RE
+from gateway.config import (
+    DEFAULT_STREAMING_BUFFER_THRESHOLD as _DEFAULT_STREAMING_BUFFER_THRESHOLD,
+)
+from gateway.config import DEFAULT_STREAMING_CURSOR as _DEFAULT_STREAMING_CURSOR
 from gateway.config import (
     DEFAULT_STREAMING_EDIT_INTERVAL as _DEFAULT_STREAMING_EDIT_INTERVAL,
-    DEFAULT_STREAMING_BUFFER_THRESHOLD as _DEFAULT_STREAMING_BUFFER_THRESHOLD,
-    DEFAULT_STREAMING_CURSOR as _DEFAULT_STREAMING_CURSOR,
 )
+from gateway.platforms.base import MEDIA_TAG_CLEANUP_RE
+from gateway.platforms.base import BasePlatformAdapter as _BasePlatformAdapter
+from gateway.platforms.base import _custom_unit_to_cp
 
 logger = logging.getLogger("gateway.stream_consumer")
 
@@ -165,7 +167,8 @@ class GatewayStreamConsumer:
             getattr(adapter, "REQUIRES_EDIT_FINALIZE", False) is True
         )
 
-        # Think-block filter state (mirrors CLI's _stream_delta tag suppression)
+        # Think-block filter state (mirrors CLI's _stream_delta tag
+        # suppression)
         self._in_think_block = False
         self._think_buffer = ""
 
@@ -223,7 +226,8 @@ class GatewayStreamConsumer:
 
         if self.metadata:
             try:
-                params = inspect.signature(self.adapter.edit_message).parameters
+                params = inspect.signature(
+                    self.adapter.edit_message).parameters
                 if "metadata" in params or any(
                     param.kind is inspect.Parameter.VAR_KEYWORD
                     for param in params.values()
@@ -332,7 +336,8 @@ class GatewayStreamConsumer:
                     # No closing tag yet — hold tail that could be a
                     # partial closing tag prefix, discard the rest.
                     max_tag = max(len(t) for t in self._CLOSE_THINK_TAGS)
-                    self._think_buffer = buf[-max_tag:] if len(buf) > max_tag else buf
+                    self._think_buffer = buf[-max_tag:] if len(
+                        buf) > max_tag else buf
                     return
             else:
                 # Look for earliest opening tag at a block boundary
@@ -363,7 +368,8 @@ class GatewayStreamConsumer:
                                     and preceding.strip() == ""
                                 )
                             else:
-                                is_boundary = preceding[last_nl + 1:].strip() == ""
+                                is_boundary = preceding[last_nl +
+                                                        1:].strip() == ""
 
                         if is_boundary and (best_idx == -1 or idx < best_idx):
                             best_idx = idx
@@ -444,7 +450,8 @@ class GatewayStreamConsumer:
                         if item is _NEW_SEGMENT:
                             got_segment_break = True
                             break
-                        if isinstance(item, tuple) and len(item) == 2 and item[0] is _COMMENTARY:
+                        if isinstance(item, tuple) and len(
+                                item) == 2 and item[0] is _COMMENTARY:
                             commentary_text = item[1]
                             break
                         self._filter_and_accumulate(item)
@@ -550,7 +557,8 @@ class GatewayStreamConsumer:
                             # fallback final-send path can deliver the remaining
                             # continuation without dropping content.
                             break
-                        self._accumulated = self._accumulated[split_at:].lstrip("\n")
+                        self._accumulated = self._accumulated[split_at:].lstrip(
+                            "\n")
                         self._message_id = None
                         self._last_sent_text = ""
 
@@ -568,7 +576,8 @@ class GatewayStreamConsumer:
                         display_text,
                         finalize=(got_done or got_segment_break),
                         # A segment-break finalize closes a preamble, not the
-                        # turn-final answer — only got_done marks delivered (#29346).
+                        # turn-final answer — only got_done marks delivered
+                        # (#29346).
                         is_turn_final=got_done,
                     )
                     self._last_edit_time = time.monotonic()
@@ -695,7 +704,8 @@ class GatewayStreamConsumer:
         # Strip trailing whitespace/newlines but preserve leading content
         return cleaned.rstrip()
 
-    async def _send_new_chunk(self, text: str, reply_to_id: Optional[str]) -> Optional[str]:
+    async def _send_new_chunk(self, text: str,
+                              reply_to_id: Optional[str]) -> Optional[str]:
         """Send a new message chunk, optionally threaded to a previous message.
 
         Returns the message_id so callers can thread subsequent chunks.
@@ -775,7 +785,8 @@ class GatewayStreamConsumer:
             # message after a long tool call), the prefix-based continuation
             # calculation may wrongly conclude "already shown" because the
             # streamed prefix was from a *previous* segment (before the tool
-            # boundary).  In that case, send the full final_text as-is (#10807).
+            # boundary).  In that case, send the full final_text as-is
+            # (#10807).
             if final_text.strip() and final_text != self._visible_prefix():
                 continuation = final_text
             else:
@@ -814,7 +825,8 @@ class GatewayStreamConsumer:
             else len
         )
         safe_limit = max(500, raw_limit - 100)
-        chunks = self._split_text_chunks(continuation, safe_limit, len_fn=_len_fn)
+        chunks = self._split_text_chunks(
+            continuation, safe_limit, len_fn=_len_fn)
 
         stale_message_id = self._message_id  # partial message to clean up
         last_message_id: Optional[str] = None
@@ -926,7 +938,9 @@ class GatewayStreamConsumer:
                 metadata=self.metadata,
             )
         except Exception:
-            logger.debug("supports_draft_streaming probe raised", exc_info=True)
+            logger.debug(
+                "supports_draft_streaming probe raised",
+                exc_info=True)
             supported = False
         if not supported:
             if transport == "draft":
@@ -1046,7 +1060,8 @@ class GatewayStreamConsumer:
             # Commentary messages are interim status updates (e.g. "Using browser
             # tool..."), not the final response. Setting already_sent would cause
             # the final response to be incorrectly suppressed when there are
-            # multiple tool calls. See: https://github.com/NasTech/nastech-agent/issues/10454
+            # multiple tool calls. See:
+            # https://github.com/NasTech/nastech-agent/issues/10454
             if result.success:
                 # Commentary counts as fresh content — close off any
                 # stale tool bubble above it so the next tool starts a
@@ -1079,7 +1094,8 @@ class GatewayStreamConsumer:
         age = time.monotonic() - self._message_created_ts
         return age >= threshold
 
-    async def _try_fresh_final(self, text: str, *, is_turn_final: bool = True) -> bool:
+    async def _try_fresh_final(self, text: str, *,
+                               is_turn_final: bool = True) -> bool:
         """Send ``text`` as a brand-new message (best-effort delete the old
         preview) so the platform's visible timestamp reflects completion
         time.  Returns True on successful delivery, False on any failure so
@@ -1100,7 +1116,8 @@ class GatewayStreamConsumer:
                 metadata=self.metadata,
             )
         except Exception as e:
-            logger.debug("Fresh-final send failed, falling back to edit: %s", e)
+            logger.debug(
+                "Fresh-final send failed, falling back to edit: %s", e)
             return False
         if not getattr(result, "success", False):
             return False
@@ -1158,7 +1175,8 @@ class GatewayStreamConsumer:
         # can render as a stray tofu/white-box message on some clients.
         visible_without_cursor = text
         if self.cfg.cursor:
-            visible_without_cursor = visible_without_cursor.replace(self.cfg.cursor, "")
+            visible_without_cursor = visible_without_cursor.replace(
+                self.cfg.cursor, "")
         _visible_stripped = visible_without_cursor.strip()
         if not _visible_stripped:
             return True  # cursor-only / whitespace-only update
@@ -1257,8 +1275,10 @@ class GatewayStreamConsumer:
                         # Fire on_new_message so tool-progress bubbles linearize
                         # below the new continuation, not the original.
                         # ``getattr`` with default keeps backwards compat with
-                        # SimpleNamespace mocks in tests that pre-date the field.
-                        _continuation_ids = getattr(result, "continuation_message_ids", ()) or ()
+                        # SimpleNamespace mocks in tests that pre-date the
+                        # field.
+                        _continuation_ids = getattr(
+                            result, "continuation_message_ids", ()) or ()
                         if (
                             _continuation_ids
                             and result.message_id

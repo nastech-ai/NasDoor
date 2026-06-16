@@ -21,7 +21,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from nastech_constants import get_default_nastech_root, get_nastech_home, display_nastech_home
+from nastech_constants import (
+    display_nastech_home,
+    get_default_nastech_root,
+    get_nastech_home,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +38,13 @@ logger = logging.getLogger(__name__)
 _EXCLUDED_DIRS = {
     "nastech-agent",     # the codebase repo — re-clone instead
     "__pycache__",      # bytecode caches — regenerated on import
-    ".git",             # nested git dirs (profiles shouldn't have these, but safety)
+    # nested git dirs (profiles shouldn't have these, but safety)
+    ".git",
     "node_modules",     # js deps if website/ somehow leaks in
     "backups",          # prior auto-backups — don't nest backups exponentially
     "checkpoints",      # session-local trajectory caches — regenerated per-session,
-                        # session-hash-keyed so they don't port to another machine anyway
+                        # session-hash-keyed so they don't port to another
+                        # machine anyway
 }
 
 # File-name suffixes to skip
@@ -61,7 +67,8 @@ _EXCLUDED_NAMES = {
     "cron.pid",
 }
 
-# zipfile.open() drops Unix mode bits on extract; restore tightens these to 0600.
+# zipfile.open() drops Unix mode bits on extract; restore tightens these
+# to 0600.
 _SECRET_FILE_NAMES = {".env", "auth.json", "state.db"}
 
 
@@ -85,7 +92,8 @@ def _should_exclude(rel_path: Path) -> bool:
     return False
 
 
-def _should_skip_backup_file(abs_path: Path, rel_path: Path, out_path: Path) -> bool:
+def _should_skip_backup_file(
+        abs_path: Path, rel_path: Path, out_path: Path) -> bool:
     """Return True when a candidate file should not be written to a backup zip."""
     if _should_exclude(rel_path):
         return True
@@ -172,7 +180,8 @@ def run_backup(args) -> None:
     files_to_add: list[tuple[Path, Path]] = []  # (absolute, relative)
     skipped_dirs = set()
 
-    for dirpath, dirnames, filenames in os.walk(nastech_root, followlinks=False):
+    for dirpath, dirnames, filenames in os.walk(
+            nastech_root, followlinks=False):
         dp = Path(dirpath)
         rel_dir = dp.relative_to(nastech_root)
 
@@ -275,7 +284,8 @@ def _validate_backup_zip(zf: zipfile.ZipFile) -> tuple[bool, str]:
     markers = {"config.yaml", ".env", "state.db"}
     found = set()
     for n in names:
-        # Could be at the root or one level deep (if someone zipped the directory)
+        # Could be at the root or one level deep (if someone zipped the
+        # directory)
         basename = Path(n).name
         if basename in markers:
             found.add(basename)
@@ -422,15 +432,18 @@ def run_import(args) -> None:
         if profiles_dir.is_dir():
             try:
                 from nastech_cli.profiles import (
-                    create_wrapper_script, check_alias_collision,
-                    _is_wrapper_dir_in_path, _get_wrapper_dir,
+                    _get_wrapper_dir,
+                    _is_wrapper_dir_in_path,
+                    check_alias_collision,
+                    create_wrapper_script,
                 )
                 for entry in sorted(profiles_dir.iterdir()):
                     if not entry.is_dir():
                         continue
                     profile_name = entry.name
                     # Only create wrappers for directories with config
-                    if not (entry / "config.yaml").exists() and not (entry / ".env").exists():
+                    if not (
+                            entry / "config.yaml").exists() and not (entry / ".env").exists():
                         continue
                     collision = check_alias_collision(profile_name)
                     if collision:
@@ -438,24 +451,33 @@ def run_import(args) -> None:
                         restored_profiles.append((profile_name, False))
                     else:
                         wrapper = create_wrapper_script(profile_name)
-                        restored_profiles.append((profile_name, wrapper is not None))
+                        restored_profiles.append(
+                            (profile_name, wrapper is not None))
 
                 if restored_profiles:
                     created = [n for n, ok in restored_profiles if ok]
                     skipped = [n for n, ok in restored_profiles if not ok]
                     if created:
-                        print(f"\n  Profile aliases restored: {', '.join(created)}")
+                        print(
+                            f"\n  Profile aliases restored: {
+                                ', '.join(created)}")
                     if skipped:
-                        print(f"  Profile aliases skipped:  {', '.join(skipped)}")
+                        print(
+                            f"  Profile aliases skipped:  {
+                                ', '.join(skipped)}")
                     if not _is_wrapper_dir_in_path():
-                        print(f"\n  Note: {_get_wrapper_dir()} is not in your PATH.")
+                        print(
+                            f"\n  Note: {
+                                _get_wrapper_dir()} is not in your PATH.")
                         print('  Add to your shell config (~/.bashrc or ~/.zshrc):')
                         print('    export PATH="$HOME/.local/bin:$PATH"')
             except ImportError:
                 # nastech_cli.profiles might not be available (fresh install)
                 if any(profiles_dir.iterdir()):
-                    print(f"\n  Profiles detected but aliases could not be created.")
-                    print(f"  Run: nastech profile list  (after installing nastech)")
+                    print(
+                        f"\n  Profiles detected but aliases could not be created.")
+                    print(
+                        f"  Run: nastech profile list  (after installing nastech)")
 
         # Guidance
         print()
@@ -588,10 +610,15 @@ def create_quick_snapshot(
 
     # Auto-prune. Defaults preserve historical manual /snapshot behavior; callers
     # with known high-churn safety snapshots (for example pre-update) can pass a
-    # smaller keep value so large state.db copies do not accumulate indefinitely.
-    _prune_quick_snapshots(root, keep=_QUICK_DEFAULT_KEEP if keep is None else keep)
+    # smaller keep value so large state.db copies do not accumulate
+    # indefinitely.
+    _prune_quick_snapshots(
+        root, keep=_QUICK_DEFAULT_KEEP if keep is None else keep)
 
-    logger.info("State snapshot created: %s (%d files)", snap_id, len(manifest))
+    logger.info(
+        "State snapshot created: %s (%d files)",
+        snap_id,
+        len(manifest))
     return snap_id
 
 
@@ -614,7 +641,8 @@ def list_quick_snapshots(
                 with open(manifest_path, encoding="utf-8") as f:
                     results.append(json.load(f))
             except (json.JSONDecodeError, OSError):
-                results.append({"id": d.name, "file_count": 0, "total_size": 0})
+                results.append(
+                    {"id": d.name, "file_count": 0, "total_size": 0})
         if len(results) >= limit:
             break
 
@@ -671,7 +699,8 @@ def restore_quick_snapshot(
 
 
 # Relative path of the cron job database inside NASTECH_HOME. Kept in sync with
-# the entry in ``_QUICK_STATE_FILES`` and with ``cron/jobs.py``'s ``JOBS_FILE``.
+# the entry in ``_QUICK_STATE_FILES`` and with ``cron/jobs.py``'s
+# ``JOBS_FILE``.
 _CRON_JOBS_REL = "cron/jobs.json"
 
 
@@ -766,7 +795,8 @@ def restore_cron_jobs_if_emptied(
         snap_count,
         snapshot_id,
     )
-    return {"restored": True, "job_count": snap_count, "snapshot_id": snapshot_id}
+    return {"restored": True, "job_count": snap_count,
+            "snapshot_id": snapshot_id}
 
 
 def _prune_quick_snapshots(root: Path, keep: int = _QUICK_DEFAULT_KEEP) -> int:
@@ -796,7 +826,8 @@ def prune_quick_snapshots(
     nastech_home: Optional[Path] = None,
 ) -> int:
     """Manually prune quick snapshots. Returns count deleted."""
-    return _prune_quick_snapshots(_quick_snapshot_root(nastech_home), keep=keep)
+    return _prune_quick_snapshots(
+        _quick_snapshot_root(nastech_home), keep=keep)
 
 
 def run_quick_backup(args) -> None:
@@ -806,7 +837,10 @@ def run_quick_backup(args) -> None:
     if snap_id:
         print(f"State snapshot created: {snap_id}")
         snaps = list_quick_snapshots()
-        print(f"  {len(snaps)} snapshot(s) stored in {display_nastech_home()}/state-snapshots/")
+        print(
+            f"  {
+                len(snaps)} snapshot(s) stored in {
+                display_nastech_home()}/state-snapshots/")
         print(f"  Restore with: /snapshot restore {snap_id}")
     else:
         print("No state files found to snapshot.")
@@ -816,7 +850,8 @@ def run_quick_backup(args) -> None:
 # Shared full-zip backup helper
 # ---------------------------------------------------------------------------
 
-def _write_full_zip_backup(out_path: Path, nastech_root: Path) -> Optional[Path]:
+def _write_full_zip_backup(
+        out_path: Path, nastech_root: Path) -> Optional[Path]:
     """Write a full zip snapshot of ``nastech_root`` to ``out_path``.
 
     Uses the same exclusion rules and SQLite safe-copy as :func:`run_backup`.
@@ -825,7 +860,8 @@ def _write_full_zip_backup(out_path: Path, nastech_root: Path) -> Optional[Path]
     """
     files_to_add: list[tuple[Path, Path]] = []
     try:
-        for dirpath, dirnames, filenames in os.walk(nastech_root, followlinks=False):
+        for dirpath, dirnames, filenames in os.walk(
+                nastech_root, followlinks=False):
             dp = Path(dirpath)
             # Prune excluded directories in-place so os.walk doesn't descend
             dirnames[:] = [d for d in dirnames if d not in _EXCLUDED_DIRS]
@@ -863,7 +899,8 @@ def _write_full_zip_backup(out_path: Path, nastech_root: Path) -> Optional[Path]
                     else:
                         zf.write(abs_path, arcname=str(rel_path))
                 except (PermissionError, OSError, ValueError) as exc:
-                    logger.debug("Skipping %s in zip backup: %s", rel_path, exc)
+                    logger.debug(
+                        "Skipping %s in zip backup: %s", rel_path, exc)
                     continue
     except OSError as exc:
         logger.warning("Full-zip backup: zip write failed: %s", exc)
@@ -950,7 +987,10 @@ def create_pre_update_backup(
     try:
         backup_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        logger.warning("Could not create pre-update backup dir %s: %s", backup_dir, exc)
+        logger.warning(
+            "Could not create pre-update backup dir %s: %s",
+            backup_dir,
+            exc)
         return None
 
     stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
@@ -995,7 +1035,10 @@ def _prune_pre_migration_backups(backup_dir: Path, keep: int) -> int:
             p.unlink()
             deleted += 1
         except OSError as exc:
-            logger.warning("Failed to prune pre-migration backup %s: %s", p.name, exc)
+            logger.warning(
+                "Failed to prune pre-migration backup %s: %s",
+                p.name,
+                exc)
 
     return deleted
 
@@ -1027,7 +1070,10 @@ def create_pre_migration_backup(
     try:
         backup_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        logger.warning("Could not create pre-migration backup dir %s: %s", backup_dir, exc)
+        logger.warning(
+            "Could not create pre-migration backup dir %s: %s",
+            backup_dir,
+            exc)
         return None
 
     stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")

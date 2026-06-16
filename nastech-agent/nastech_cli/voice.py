@@ -27,6 +27,13 @@ import sys
 import threading
 from typing import Any, Callable, Optional
 
+from tools.voice_mode import (
+    create_audio_recorder,
+    is_whisper_hallucination,
+    play_audio_file,
+    transcribe_recording,
+)
+
 # Modifier aliases mirrored from the TUI parser (``ui-tui/src/lib/platform.ts``)
 # ``_MOD_ALIASES`` table — the contract that removes the cross-runtime
 # mismatch Copilot flagged in round-9 on #19835.
@@ -213,13 +220,6 @@ def format_voice_record_key_for_status(raw: Any) -> str:
     return prefix + key[0].upper() + key[1:]
 
 
-from tools.voice_mode import (
-    create_audio_recorder,
-    is_whisper_hallucination,
-    play_audio_file,
-    transcribe_recording,
-)
-
 logger = logging.getLogger(__name__)
 
 
@@ -273,6 +273,7 @@ def _play_beep(frequency: int, count: int = 1) -> None:
         play_beep(frequency=frequency, count=count)
     except Exception as e:
         _debug(f"beep {frequency}Hz failed: {e}")
+
 
 # ── Push-to-talk state ───────────────────────────────────────────────
 _recorder = None
@@ -487,7 +488,8 @@ def stop_continuous(force_transcribe: bool = False) -> None:
                 try:
                     rec.cancel()
                 except Exception as cancel_error:
-                    logger.warning("failed to cancel recorder: %s", cancel_error)
+                    logger.warning(
+                        "failed to cancel recorder: %s", cancel_error)
                 wav_path = None
 
             def _transcribe_and_cleanup():
@@ -513,7 +515,8 @@ def stop_continuous(force_transcribe: bool = False) -> None:
                         try:
                             on_transcript(transcript)
                         except Exception as e:
-                            logger.warning("on_transcript callback raised: %s", e)
+                            logger.warning(
+                                "on_transcript callback raised: %s", e)
 
                     if track_no_speech:
                         with _continuous_lock:
@@ -542,7 +545,9 @@ def stop_continuous(force_transcribe: bool = False) -> None:
                         except Exception:
                             pass
 
-            threading.Thread(target=_transcribe_and_cleanup, daemon=True).start()
+            threading.Thread(
+                target=_transcribe_and_cleanup,
+                daemon=True).start()
             return
         else:
             try:
@@ -608,7 +613,8 @@ def _continuous_on_silence() -> None:
     # for SILENCE_RMS_THRESHOLD (200) or the VAD + peak checks disagree.
     peak_rms = getattr(rec, "_peak_rms", -1)
     _debug(
-        f"_continuous_on_silence: rec.stop -> {wav_path!r} (peak_rms={peak_rms})"
+        f"_continuous_on_silence: rec.stop -> {
+            wav_path!r} (peak_rms={peak_rms})"
     )
 
     # CLI parity: double 660 Hz beep after the stream stops (safe from the
@@ -635,7 +641,9 @@ def _continuous_on_silence() -> None:
                 transcript = text
         except Exception as e:
             logger.warning("continuous transcription failed: %s", e)
-            _debug(f"_continuous_on_silence: transcribe raised {type(e).__name__}: {e}")
+            _debug(
+                f"_continuous_on_silence: transcribe raised {
+                    type(e).__name__}: {e}")
         finally:
             try:
                 if os.path.isfile(wav_path):
@@ -701,13 +709,16 @@ def _continuous_on_silence() -> None:
 
     if _continuous_auto_restart:
         # Restart for the next turn.
-        _debug(f"_continuous_on_silence: restarting loop (no_speech={no_speech})")
+        _debug(
+            f"_continuous_on_silence: restarting loop (no_speech={no_speech})")
         _play_beep(frequency=880, count=1)
         try:
             rec.start(on_silence_stop=_continuous_on_silence)
         except Exception as e:
             logger.error("failed to restart continuous recording: %s", e)
-            _debug(f"_continuous_on_silence: restart raised {type(e).__name__}: {e}")
+            _debug(
+                f"_continuous_on_silence: restart raised {
+                    type(e).__name__}: {e}")
             with _continuous_lock:
                 _continuous_active = False
             if on_status:
@@ -782,16 +793,39 @@ def speak_text(text: str) -> None:
         from tools.tts_tool import text_to_speech_tool
 
         tts_text = text[:4000] if len(text) > 4000 else text
-        tts_text = re.sub(r'```[\s\S]*?```', ' ', tts_text)             # fenced code blocks
-        tts_text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', tts_text)    # [text](url) → text
-        tts_text = re.sub(r'https?://\S+', '', tts_text)                # bare URLs
+        tts_text = re.sub(
+            r'```[\s\S]*?```',
+            ' ',
+            tts_text)             # fenced code blocks
+        tts_text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1',
+                          tts_text)    # [text](url) → text
+        tts_text = re.sub(
+            r'https?://\S+',
+            '',
+            tts_text)                # bare URLs
         tts_text = re.sub(r'\*\*(.+?)\*\*', r'\1', tts_text)            # bold
-        tts_text = re.sub(r'\*(.+?)\*', r'\1', tts_text)                # italic
-        tts_text = re.sub(r'`(.+?)`', r'\1', tts_text)                  # inline code
-        tts_text = re.sub(r'^#+\s*', '', tts_text, flags=re.MULTILINE)  # headers
-        tts_text = re.sub(r'^\s*[-*]\s+', '', tts_text, flags=re.MULTILINE)  # list bullets
-        tts_text = re.sub(r'---+', '', tts_text)                        # horizontal rules
-        tts_text = re.sub(r'\n{3,}', '\n\n', tts_text)                  # excess newlines
+        tts_text = re.sub(
+            r'\*(.+?)\*',
+            r'\1',
+            tts_text)                # italic
+        tts_text = re.sub(
+            r'`(.+?)`',
+            r'\1',
+            tts_text)                  # inline code
+        tts_text = re.sub(
+            r'^#+\s*',
+            '',
+            tts_text,
+            flags=re.MULTILINE)  # headers
+        tts_text = re.sub(
+            r'^\s*[-*]\s+',
+            '',
+            tts_text,
+            flags=re.MULTILINE)  # list bullets
+        # horizontal rules
+        tts_text = re.sub(r'---+', '', tts_text)
+        # excess newlines
+        tts_text = re.sub(r'\n{3,}', '\n\n', tts_text)
         tts_text = tts_text.strip()
         if not tts_text:
             return
@@ -799,7 +833,11 @@ def speak_text(text: str) -> None:
         # MP3 output path, pre-chosen so we can play the MP3 directly even
         # when text_to_speech_tool auto-converts to OGG for messaging
         # platforms.  afplay's OGG support is flaky, MP3 always works.
-        os.makedirs(os.path.join(tempfile.gettempdir(), "nastech_voice"), exist_ok=True)
+        os.makedirs(
+            os.path.join(
+                tempfile.gettempdir(),
+                "nastech_voice"),
+            exist_ok=True)
         mp3_path = os.path.join(
             tempfile.gettempdir(),
             "nastech_voice",
@@ -810,7 +848,9 @@ def speak_text(text: str) -> None:
         text_to_speech_tool(text=tts_text, output_path=mp3_path)
 
         if os.path.isfile(mp3_path) and os.path.getsize(mp3_path) > 0:
-            _debug(f"speak_text: playing {mp3_path} ({os.path.getsize(mp3_path)} bytes)")
+            _debug(
+                f"speak_text: playing {mp3_path} ({
+                    os.path.getsize(mp3_path)} bytes)")
             play_audio_file(mp3_path)
             try:
                 os.unlink(mp3_path)

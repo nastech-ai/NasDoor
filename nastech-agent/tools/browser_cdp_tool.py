@@ -78,7 +78,8 @@ def _resolve_cdp_endpoint() -> str:
     2. ``browser.cdp_url`` in ``config.yaml``
     """
     try:
-        from tools.browser_tool import _get_cdp_override  # type: ignore[import-not-found]
+        # type: ignore[import-not-found]
+        from tools.browser_tool import _get_cdp_override
 
         return (_get_cdp_override() or "").strip()
     except Exception as exc:  # pragma: no cover — defensive
@@ -202,7 +203,8 @@ def _browser_cdp_via_supervisor(
     ``asyncio.run_coroutine_threadsafe`` onto the supervisor loop).
     """
     try:
-        from tools.browser_supervisor import SUPERVISOR_REGISTRY  # type: ignore[import-not-found]
+        # type: ignore[import-not-found]
+        from tools.browser_supervisor import SUPERVISOR_REGISTRY
     except Exception as exc:  # pragma: no cover — defensive
         return tool_error(
             f"CDP supervisor is not available: {exc}. frame_id routing requires "
@@ -233,7 +235,8 @@ def _browser_cdp_via_supervisor(
     if frame_info is None:
         # Check the raw frames dict too (frame_tree is capped at 30 entries)
         with supervisor._state_lock:  # type: ignore[attr-defined]
-            raw = supervisor._frames.get(frame_id)  # type: ignore[attr-defined]
+            # type: ignore[attr-defined]
+            raw = supervisor._frames.get(frame_id)
         if raw is not None:
             frame_info = raw.to_dict()
 
@@ -374,7 +377,8 @@ def browser_cdp(
     call_params: Dict[str, Any] = params or {}
     if not isinstance(call_params, dict):
         return tool_error(
-            f"'params' must be an object/dict, got {type(call_params).__name__}"
+            f"'params' must be an object/dict, got {
+                type(call_params).__name__}"
         )
 
     try:

@@ -94,7 +94,8 @@ class CodexAppServerClient:
                 else spawn_env.get(
                     "NASTECH_KANBAN_ROOT",
                     os.path.join(
-                        spawn_env.get("NASTECH_HOME", os.path.expanduser("~/.nastech")),
+                        spawn_env.get(
+                            "NASTECH_HOME", os.path.expanduser("~/.nastech")),
                         "kanban",
                     ),
                 )
@@ -134,7 +135,8 @@ class CodexAppServerClient:
 
         self._reader = threading.Thread(target=self._read_stdout, daemon=True)
         self._reader.start()
-        self._stderr_reader = threading.Thread(target=self._read_stderr, daemon=True)
+        self._stderr_reader = threading.Thread(
+            target=self._read_stderr, daemon=True)
         self._stderr_reader.start()
 
     # ---------- lifecycle ----------
@@ -211,7 +213,8 @@ class CodexAppServerClient:
             with self._pending_lock:
                 self._pending.pop(rid, None)
             raise TimeoutError(
-                f"codex app-server method {method!r} timed out after {timeout}s"
+                f"codex app-server method {
+                    method!r} timed out after {timeout}s"
             )
         if "error" in msg:
             err = msg["error"]

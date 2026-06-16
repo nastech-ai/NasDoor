@@ -9,13 +9,9 @@ Usage:
     python -m nastech_cli.main web --port 8080
 """
 
-from contextlib import asynccontextmanager
-
 import asyncio
 import base64
 import binascii
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hmac
 import importlib.util
 import json
@@ -32,36 +28,42 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
-
-PROJECT_ROOT = Path(__file__).parent.parent.resolve()
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from nastech_cli import __version__, __release_date__
+from gateway.status import get_running_pid, read_runtime_status
+from nastech_cli import __release_date__, __version__
 from nastech_cli.config import (
-    cfg_get,
     DEFAULT_CONFIG,
     OPTIONAL_ENV_VARS,
+    cfg_get,
+    check_config_version,
+    detect_install_method,
+    format_docker_update_message,
     get_config_path,
     get_env_path,
     get_nastech_home,
     load_config,
     load_env,
-    save_config,
-    save_env_value,
-    remove_env_value,
-    check_config_version,
-    detect_install_method,
-    format_docker_update_message,
     recommended_update_command_for_method,
     redact_key,
+    remove_env_value,
+    save_config,
+    save_env_value,
 )
-from gateway.status import get_running_pid, read_runtime_status
+from nastech_cli.dashboard_auth.public_paths import (
+    PUBLIC_API_PATHS as _PUBLIC_API_PATHS,
+)
 from utils import env_var_enabled
+
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 
 try:
     from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -76,7 +78,13 @@ except ImportError:
     try:
         from tools.lazy_deps import ensure as _lazy_ensure
         _lazy_ensure("tool.dashboard", prompt=False)
-        from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+        from fastapi import (
+            FastAPI,
+            HTTPException,
+            Request,
+            WebSocket,
+            WebSocketDisconnect,
+        )
         from fastapi.middleware.cors import CORSMiddleware
         from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
         from fastapi.staticfiles import StaticFiles
@@ -84,10 +92,12 @@ except ImportError:
     except Exception:
         raise SystemExit(
             "Web UI requires fastapi and uvicorn.\n"
-            f"Install with: {sys.executable} -m pip install 'fastapi' 'uvicorn[standard]'"
+            f"Install with: {
+                sys.executable} -m pip install 'fastapi' 'uvicorn[standard]'"
         )
 
-WEB_DIST = Path(os.environ["NASTECH_WEB_DIST"]) if "NASTECH_WEB_DIST" in os.environ else Path(__file__).parent / "web_dist"
+WEB_DIST = Path(os.environ["NASTECH_WEB_DIST"]) if "NASTECH_WEB_DIST" in os.environ else Path(
+    __file__).parent / "web_dist"
 _log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -102,7 +112,9 @@ _log = logging.getLogger(__name__)
 # when the same module is used across TestClient instances or uvicorn reloads.
 # ---------------------------------------------------------------------------
 
-def _start_desktop_cron_ticker(stop_event: "threading.Event", interval: int = 60) -> None:
+
+def _start_desktop_cron_ticker(
+        stop_event: "threading.Event", interval: int = 60) -> None:
     """Tick the cron scheduler from inside the desktop dashboard backend.
 
     The scheduler tick loop normally lives in ``nastech gateway run`` — but the
@@ -180,7 +192,8 @@ app = FastAPI(title="NasTech Agent", version=__version__, lifespan=_lifespan)
 # on every server start. Either way it dies when the process exits and is
 # injected into the SPA HTML so only the legitimate web UI can use it.
 # ---------------------------------------------------------------------------
-_SESSION_TOKEN = os.environ.get("NASTECH_DASHBOARD_SESSION_TOKEN") or secrets.token_urlsafe(32)
+_SESSION_TOKEN = os.environ.get(
+    "NASTECH_DASHBOARD_SESSION_TOKEN") or secrets.token_urlsafe(32)
 _SESSION_HEADER_NAME = "X-NasTech-Session-Token"
 
 # In-browser Chat tab (/chat, /api/pty, /api/ws, …).  Always enabled: the
@@ -220,9 +233,6 @@ app.add_middleware(
 # Keep the upstream list minimal — only truly non-sensitive, read-only
 # endpoints belong there.
 # ---------------------------------------------------------------------------
-from nastech_cli.dashboard_auth.public_paths import (
-    PUBLIC_API_PATHS as _PUBLIC_API_PATHS,
-)
 
 
 def _has_valid_session_token(request: Request) -> bool:
@@ -553,7 +563,7 @@ def _build_schema_from_config(
         full_key = f"{prefix}.{key}" if prefix else key
 
         # Skip internal / version keys
-        if full_key in {"_config_version",}:
+        if full_key in {"_config_version", }:
             continue
 
         # Category is the first path component for nested keys, or "general"
@@ -578,7 +588,8 @@ def _build_schema_from_config(
             if full_key in _SCHEMA_OVERRIDES:
                 entry.update(_SCHEMA_OVERRIDES[full_key])
             # Merge small categories
-            entry["category"] = _CATEGORY_MERGE.get(entry["category"], entry["category"])
+            entry["category"] = _CATEGORY_MERGE.get(
+                entry["category"], entry["category"])
             schema[full_key] = entry
     return schema
 
@@ -861,7 +872,8 @@ async def get_media(path: str):
         raise HTTPException(status_code=413, detail="File too large")
 
     encoded = base64.b64encode(target.read_bytes()).decode("ascii")
-    return {"data_url": f"data:{_MEDIA_CONTENT_TYPES[target.suffix.lower()]};base64,{encoded}"}
+    return {
+        "data_url": f"data:{_MEDIA_CONTENT_TYPES[target.suffix.lower()]};base64,{encoded}"}
 
 
 @app.get("/api/status")
@@ -905,7 +917,8 @@ async def get_status():
     # Prefer the detailed health endpoint response (has full state) when the
     # local runtime status file is absent or stale (cross-container).
     runtime = read_runtime_status()
-    if runtime is None and remote_health_body and remote_health_body.get("gateway_state"):
+    if runtime is None and remote_health_body and remote_health_body.get(
+            "gateway_state"):
         runtime = remote_health_body
 
     if runtime:
@@ -920,7 +933,8 @@ async def get_status():
         gateway_exit_reason = runtime.get("exit_reason")
         gateway_updated_at = runtime.get("updated_at")
         if not gateway_running:
-            gateway_state = gateway_state if gateway_state in {"stopped", "startup_failed"} else "stopped"
+            gateway_state = gateway_state if gateway_state in {
+                "stopped", "startup_failed"} else "stopped"
             gateway_platforms = {}
         elif gateway_running and remote_health_body is not None:
             # The health probe confirmed the gateway is alive, but the local
@@ -930,7 +944,8 @@ async def get_status():
                 gateway_state = "running"
 
     # If there was no runtime info at all but the health probe confirmed alive,
-    # ensure we still report the gateway as running (no shared volume scenario).
+    # ensure we still report the gateway as running (no shared volume
+    # scenario).
     if gateway_running and gateway_state is None and remote_health_body is not None:
         gateway_state = "running"
 
@@ -1078,7 +1093,9 @@ async def get_curator_status():
     try:
         from agent import curator
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Curator unavailable: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Curator unavailable: {exc}")
     try:
         state = curator.load_state()
     except Exception:
@@ -1112,7 +1129,8 @@ async def run_curator():
     try:
         proc = _spawn_nastech_action(["curator", "run"], "curator-run")
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to run curator: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to run curator: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "curator-run"}
 
 
@@ -1155,7 +1173,8 @@ async def get_portal_status():
                     state = "active"
                 else:
                     state = "not configured"
-                features.append({"label": getattr(feat, "label", ""), "state": state})
+                features.append(
+                    {"label": getattr(feat, "label", ""), "state": state})
     except Exception:
         _log.exception("portal features failed")
 
@@ -1291,14 +1310,16 @@ _ACTION_PROCS: Dict[str, subprocess.Popen] = {}
 _ACTION_RESULTS: Dict[str, Dict[str, Any]] = {}
 
 
-def _record_completed_action(name: str, message: str, exit_code: int = 1) -> None:
+def _record_completed_action(name: str, message: str,
+                             exit_code: int = 1) -> None:
     """Record a non-spawned action result and write it to the action log."""
     log_file_name = _ACTION_LOG_FILES[name]
     _ACTION_LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_path = _ACTION_LOG_DIR / log_file_name
     with open(log_path, "ab", buffering=0) as log_file:
         log_file.write(
-            f"\n=== {name} completed {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode()
+            f"\n=== {name} completed {
+                time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode()
         )
         log_file.write(message.encode("utf-8", errors="replace"))
         if not message.endswith("\n"):
@@ -1307,7 +1328,8 @@ def _record_completed_action(name: str, message: str, exit_code: int = 1) -> Non
     _ACTION_RESULTS[name] = {"exit_code": exit_code, "pid": None}
 
 
-def _spawn_nastech_action(subcommand: List[str], name: str) -> subprocess.Popen:
+def _spawn_nastech_action(
+        subcommand: List[str], name: str) -> subprocess.Popen:
     """Spawn ``nastech <subcommand>`` detached and record the Popen handle.
 
     Uses the running interpreter's ``nastech_cli.main`` module so the action
@@ -1318,7 +1340,8 @@ def _spawn_nastech_action(subcommand: List[str], name: str) -> subprocess.Popen:
     log_path = _ACTION_LOG_DIR / log_file_name
     log_file = open(log_path, "ab", buffering=0)
     log_file.write(
-        f"\n=== {name} started {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode()
+        f"\n=== {name} started {
+            time.strftime('%Y-%m-%d %H:%M:%S')} ===\n".encode()
     )
 
     cmd = [sys.executable, "-m", "nastech_cli.main", *subcommand]
@@ -1369,7 +1392,8 @@ async def restart_gateway():
         proc = _spawn_nastech_action(["gateway", "restart"], "gateway-restart")
     except Exception as exc:
         _log.exception("Failed to spawn gateway restart")
-        raise HTTPException(status_code=500, detail=f"Failed to restart gateway: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to restart gateway: {exc}")
     return {
         "ok": True,
         "pid": proc.pid,
@@ -1397,7 +1421,8 @@ async def update_nastech():
         proc = _spawn_nastech_action(["update"], "nastech-update")
     except Exception as exc:
         _log.exception("Failed to spawn nastech update")
-        raise HTTPException(status_code=500, detail=f"Failed to start update: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to start update: {exc}")
     return {
         "ok": True,
         "pid": proc.pid,
@@ -1556,12 +1581,15 @@ async def transcribe_audio_upload(payload: AudioTranscriptionRequest):
     try:
         audio_bytes = base64.b64decode(encoded, validate=True)
     except (binascii.Error, ValueError):
-        raise HTTPException(status_code=400, detail="Audio payload is not valid base64")
+        raise HTTPException(status_code=400,
+                            detail="Audio payload is not valid base64")
 
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Audio recording is empty")
     if len(audio_bytes) > _MAX_TRANSCRIPTION_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Audio recording is too large")
+        raise HTTPException(
+            status_code=413,
+            detail="Audio recording is too large")
 
     temp_path = ""
     try:
@@ -1582,7 +1610,9 @@ async def transcribe_audio_upload(payload: AudioTranscriptionRequest):
         raise
     except Exception as exc:
         _log.exception("Desktop voice transcription failed")
-        raise HTTPException(status_code=500, detail=f"Transcription failed: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Transcription failed: {exc}")
     finally:
         if temp_path:
             try:
@@ -1621,7 +1651,8 @@ async def get_elevenlabs_voices():
     The desktop UI uses this for the ``tts.elevenlabs.voice_id`` dropdown.
     Only non-secret voice metadata is returned; the API key stays server-side.
     """
-    api_key = (load_env().get("ELEVENLABS_API_KEY") or os.environ.get("ELEVENLABS_API_KEY") or "").strip()
+    api_key = (load_env().get("ELEVENLABS_API_KEY")
+               or os.environ.get("ELEVENLABS_API_KEY") or "").strip()
     if not api_key:
         return {"available": False, "voices": []}
 
@@ -1643,7 +1674,8 @@ async def get_elevenlabs_voices():
         payload = await loop.run_in_executor(None, _fetch)
     except Exception as exc:
         _log.warning("ElevenLabs voice list failed: %s", exc)
-        raise HTTPException(status_code=502, detail="Could not load ElevenLabs voices")
+        raise HTTPException(status_code=502,
+                            detail="Could not load ElevenLabs voices")
 
     voices = []
     for voice in payload.get("voices") or []:
@@ -1683,10 +1715,12 @@ async def speak_text(payload: TTSSpeakRequest):
         result_json = await loop.run_in_executor(None, text_to_speech_tool, text)
     except Exception as exc:
         _log.exception("Desktop voice TTS failed")
-        raise HTTPException(status_code=500, detail=f"Speech synthesis failed: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Speech synthesis failed: {exc}")
 
     try:
-        result = json.loads(result_json) if isinstance(result_json, str) else result_json
+        result = json.loads(result_json) if isinstance(
+            result_json, str) else result_json
     except Exception:
         raise HTTPException(status_code=500, detail="Invalid TTS response")
 
@@ -1713,7 +1747,9 @@ async def speak_text(payload: TTSSpeakRequest):
         with open(file_path, "rb") as fh:
             audio_bytes = fh.read()
     except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"Could not read audio: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not read audio: {exc}")
     finally:
         try:
             os.unlink(file_path)
@@ -1809,7 +1845,9 @@ async def get_sessions(
             # ``exclude_sources`` (comma-separated) drops classes. The desktop
             # uses these to split recents (exclude=cron) from the cron-jobs
             # section (source=cron) into two independent lists.
-            exclude_list = [s for s in (exclude_sources or "").split(",") if s.strip()]
+            exclude_list = [
+                s for s in (
+                    exclude_sources or "").split(",") if s.strip()]
             sessions = db.list_sessions_rich(
                 source=source or None,
                 exclude_sources=exclude_list or None,
@@ -1836,7 +1874,8 @@ async def get_sessions(
                 )
                 # SQLite stores the flag as 0/1; expose a real JSON boolean.
                 s["archived"] = bool(s.get("archived"))
-            return {"sessions": sessions, "total": total, "limit": limit, "offset": offset}
+            return {"sessions": sessions, "total": total,
+                    "limit": limit, "offset": offset}
         finally:
             db.close()
     except Exception:
@@ -1865,12 +1904,15 @@ async def get_profiles_sessions(
     same rows as ``/api/sessions``, just tagged ``profile="default"``.
     """
     if archived not in ("exclude", "only", "include"):
-        raise HTTPException(status_code=400, detail="archived must be one of: exclude, only, include")
+        raise HTTPException(
+            status_code=400,
+            detail="archived must be one of: exclude, only, include")
     if order not in ("created", "recent"):
-        raise HTTPException(status_code=400, detail="order must be one of: created, recent")
+        raise HTTPException(status_code=400,
+                            detail="order must be one of: created, recent")
 
-    from nastech_state import SessionDB
     from nastech_cli import profiles as profiles_mod
+    from nastech_state import SessionDB
 
     targets: List[Tuple[str, Path]] = []
     if profile and profile != "all":
@@ -1884,7 +1926,8 @@ async def get_profiles_sessions(
             _log.exception("GET /api/profiles/sessions: list_profiles failed")
             targets = []
         if not targets:
-            targets.append(("default", profiles_mod.get_profile_dir("default")))
+            targets.append(
+                ("default", profiles_mod.get_profile_dir("default")))
 
     min_message_count = max(0, min_messages)
     archived_only = archived == "only"
@@ -1951,7 +1994,8 @@ async def get_profiles_sessions(
             db.close()
 
     sort_key = "last_active" if order == "recent" else "started_at"
-    merged.sort(key=lambda s: s.get(sort_key) or s.get("started_at") or 0, reverse=True)
+    merged.sort(key=lambda s: s.get(sort_key)
+                or s.get("started_at") or 0, reverse=True)
     window = merged[offset:offset + limit]
     return {
         "sessions": window,
@@ -2011,7 +2055,8 @@ async def search_sessions(q: str = "", limit: int = 20):
                     if not s:
                         root = cur
                         break
-                    parent = s.get("parent_session_id") if isinstance(s, dict) else None
+                    parent = s.get("parent_session_id") if isinstance(
+                        s, dict) else None
                     if not parent:
                         root = cur
                         break
@@ -2074,7 +2119,8 @@ async def search_sessions(q: str = "", limit: int = 20):
             # logs, or another NasTech surface. FTS can't find those unless the
             # id happens to appear in message text. search_sessions_by_id is
             # SQL-bounded, so this stays cheap even with thousands of sessions.
-            for row in db.search_sessions_by_id(q, limit=safe_limit, include_archived=True):
+            for row in db.search_sessions_by_id(
+                    q, limit=safe_limit, include_archived=True):
                 sid = row.get("id")
                 preview = (row.get("preview") or "").strip()
                 snippet = preview or f"Session ID: {sid}"
@@ -2143,7 +2189,8 @@ def _normalize_config_for_web(config: Dict[str, Any]) -> Dict[str, Any]:
         # Extract context_length before flattening the dict
         ctx_len = model_val.get("context_length", 0)
         config["model"] = model_val.get("default", model_val.get("name", ""))
-        config["model_context_length"] = ctx_len if isinstance(ctx_len, int) else 0
+        config["model_context_length"] = ctx_len if isinstance(
+            ctx_len, int) else 0
     else:
         config["model_context_length"] = 0
     return config
@@ -2307,7 +2354,9 @@ def get_model_options():
         )
     except Exception:
         _log.exception("GET /api/model/options failed")
-        raise HTTPException(status_code=500, detail="Failed to list model options")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to list model options")
 
 
 @app.get("/api/model/recommended-default")
@@ -2328,15 +2377,15 @@ def get_recommended_default_model(provider: str = ""):
 
     if slug == "nous":
         try:
+            from nastech_cli.auth import get_provider_auth_state
             from nastech_cli.models import (
+                check_nastech_free_tier,
                 get_curated_nastech_model_ids,
                 get_pricing_for_provider,
-                check_nastech_free_tier,
                 partition_nastech_models_by_tier,
                 union_with_portal_free_recommendations,
                 union_with_portal_paid_recommendations,
             )
-            from nastech_cli.auth import get_provider_auth_state
 
             model_ids = get_curated_nastech_model_ids()
             pricing = get_pricing_for_provider("nous") or {}
@@ -2362,7 +2411,8 @@ def get_recommended_default_model(provider: str = ""):
                 )
 
             model = model_ids[0] if model_ids else ""
-            return {"provider": "nous", "model": model, "free_tier": bool(free_tier)}
+            return {"provider": "nous", "model": model,
+                    "free_tier": bool(free_tier)}
         except Exception:
             _log.exception("GET /api/model/recommended-default (nous) failed")
             return {"provider": "nous", "model": "", "free_tier": None}
@@ -2375,7 +2425,8 @@ def get_recommended_default_model(provider: str = ""):
         for row in payload.get("providers", []):
             if str(row.get("slug", "")).lower() == slug:
                 models = row.get("models") or []
-                return {"provider": slug, "model": models[0] if models else "", "free_tier": None}
+                return {"provider": slug,
+                        "model": models[0] if models else "", "free_tier": None}
         return {"provider": slug, "model": "", "free_tier": None}
     except Exception:
         _log.exception("GET /api/model/recommended-default failed")
@@ -2403,7 +2454,9 @@ def get_auxiliary_models():
 
         tasks = []
         for slot in _AUX_TASK_SLOTS:
-            slot_cfg = aux_cfg.get(slot, {}) if isinstance(aux_cfg.get(slot), dict) else {}
+            slot_cfg = aux_cfg.get(
+                slot, {}) if isinstance(
+                aux_cfg.get(slot), dict) else {}
             tasks.append({
                 "task": slot,
                 "provider": str(slot_cfg.get("provider", "auto") or "auto"),
@@ -2418,12 +2471,14 @@ def get_auxiliary_models():
                 "model": str(model_cfg.get("default", model_cfg.get("name", "")) or ""),
             }
         else:
-            main = {"provider": "", "model": str(model_cfg) if model_cfg else ""}
+            main = {"provider": "", "model": str(
+                model_cfg) if model_cfg else ""}
 
         return {"tasks": tasks, "main": main}
     except Exception:
         _log.exception("GET /api/model/auxiliary failed")
-        raise HTTPException(status_code=500, detail="Failed to read auxiliary config")
+        raise HTTPException(status_code=500,
+                            detail="Failed to read auxiliary config")
 
 
 @app.post("/api/model/set")
@@ -2441,14 +2496,17 @@ async def set_model_assignment(body: ModelAssignment):
     base_url = (body.base_url or "").strip()
 
     if scope not in {"main", "auxiliary"}:
-        raise HTTPException(status_code=400, detail="scope must be 'main' or 'auxiliary'")
+        raise HTTPException(status_code=400,
+                            detail="scope must be 'main' or 'auxiliary'")
 
     try:
         cfg = load_config()
 
         if scope == "main":
             if not provider or not model:
-                raise HTTPException(status_code=400, detail="provider and model required for main")
+                raise HTTPException(
+                    status_code=400,
+                    detail="provider and model required for main")
             model_cfg = _apply_main_model_assignment(
                 cfg.get("model", {}), provider, model, base_url
             )
@@ -2466,7 +2524,9 @@ async def set_model_assignment(body: ModelAssignment):
             gateway_tools: list[str] = []
             if provider.strip().lower() == "nous":
                 try:
-                    from nastech_cli.nastech_subscription import apply_nastech_managed_defaults
+                    from nastech_cli.nastech_subscription import (
+                        apply_nastech_managed_defaults,
+                    )
                     from nastech_cli.tools_config import _get_platform_tools
 
                     enabled = _get_platform_tools(
@@ -2481,7 +2541,9 @@ async def set_model_assignment(body: ModelAssignment):
                 except Exception:
                     # Portal lookup hiccups / non-subscriber / non-nous gating
                     # must never block saving the model assignment.
-                    _log.debug("apply_nastech_managed_defaults skipped", exc_info=True)
+                    _log.debug(
+                        "apply_nastech_managed_defaults skipped",
+                        exc_info=True)
 
             save_config(cfg)
 
@@ -2502,7 +2564,10 @@ async def set_model_assignment(body: ModelAssignment):
                     slot_cfg = aux_cfg.get(slot)
                     if not isinstance(slot_cfg, dict):
                         continue
-                    slot_provider = str(slot_cfg.get("provider", "") or "").strip()
+                    slot_provider = str(
+                        slot_cfg.get(
+                            "provider",
+                            "") or "").strip()
                     if (
                         slot_provider
                         and slot_provider.lower() not in {"auto", ""}
@@ -2530,7 +2595,8 @@ async def set_model_assignment(body: ModelAssignment):
             aux = {}
 
         if task == "__reset__":
-            # Reset every slot to provider="auto", model="" — keeps other fields intact.
+            # Reset every slot to provider="auto", model="" — keeps other
+            # fields intact.
             for slot in _AUX_TASK_SLOTS:
                 slot_cfg = aux.get(slot)
                 if not isinstance(slot_cfg, dict):
@@ -2543,12 +2609,15 @@ async def set_model_assignment(body: ModelAssignment):
             return {"ok": True, "scope": "auxiliary", "reset": True}
 
         if not provider:
-            raise HTTPException(status_code=400, detail="provider required for auxiliary")
+            raise HTTPException(status_code=400,
+                                detail="provider required for auxiliary")
 
         targets = [task] if task else list(_AUX_TASK_SLOTS)
         for slot in targets:
             if slot not in _AUX_TASK_SLOTS:
-                raise HTTPException(status_code=400, detail=f"unknown auxiliary task: {slot}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"unknown auxiliary task: {slot}")
             slot_cfg = aux.get(slot)
             if not isinstance(slot_cfg, dict):
                 slot_cfg = {}
@@ -2569,9 +2638,8 @@ async def set_model_assignment(body: ModelAssignment):
         raise
     except Exception:
         _log.exception("POST /api/model/set failed")
-        raise HTTPException(status_code=500, detail="Failed to save model assignment")
-
-
+        raise HTTPException(status_code=500,
+                            detail="Failed to save model assignment")
 
 
 def _denormalize_config_from_web(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -2731,7 +2799,8 @@ async def validate_provider_credential(body: EnvVarUpdate, request: Request):
     key = (body.key or "").strip()
     value = (body.value or "").strip()
     if not value:
-        return {"ok": False, "reachable": True, "message": "Enter a value first."}
+        return {"ok": False, "reachable": True,
+                "message": "Enter a value first."}
 
     # Local / custom endpoint: validate connectivity, not auth — any HTTP
     # response (even 401) proves the endpoint is up. Also surface the model
@@ -2742,9 +2811,11 @@ async def validate_provider_credential(body: EnvVarUpdate, request: Request):
         try:
             with httpx.Client(timeout=httpx.Timeout(8.0)) as client:
                 resp = client.get(url)
-            return {"ok": True, "reachable": True, "message": "", "models": _parse_model_ids(resp)}
+            return {"ok": True, "reachable": True,
+                    "message": "", "models": _parse_model_ids(resp)}
         except Exception:
-            return {"ok": False, "reachable": False, "message": f"Could not reach {url}."}
+            return {"ok": False, "reachable": False,
+                    "message": f"Could not reach {url}."}
 
     probe = _CREDENTIAL_PROBES.get(key)
     if not probe:
@@ -2763,14 +2834,17 @@ async def validate_provider_credential(body: EnvVarUpdate, request: Request):
         with httpx.Client(timeout=httpx.Timeout(10.0)) as client:
             resp = client.get(url, headers=headers, params=params)
     except Exception:
-        return {"ok": False, "reachable": False, "message": "Could not reach the provider to verify the key."}
+        return {"ok": False, "reachable": False,
+                "message": "Could not reach the provider to verify the key."}
 
     if resp.status_code in (401, 403):
-        return {"ok": False, "reachable": True, "message": "That API key was rejected. Double-check it and try again."}
+        return {"ok": False, "reachable": True,
+                "message": "That API key was rejected. Double-check it and try again."}
     if resp.status_code == 429 or resp.is_success:
         # 429 = key is valid but rate-limited; success = valid.
         return {"ok": True, "reachable": True, "message": ""}
-    return {"ok": False, "reachable": True, "message": f"Provider returned HTTP {resp.status_code} for this key."}
+    return {"ok": False, "reachable": True,
+            "message": f"Provider returned HTTP {resp.status_code} for this key."}
 
 
 @app.delete("/api/env")
@@ -2778,7 +2852,9 @@ async def remove_env_var(body: EnvVarDelete):
     try:
         removed = remove_env_value(body.key)
         if not removed:
-            raise HTTPException(status_code=404, detail=f"{body.key} not found in .env")
+            raise HTTPException(
+                status_code=404, detail=f"{
+                    body.key} not found in .env")
         return {"ok": True, "key": body.key}
     except HTTPException:
         raise
@@ -2809,14 +2885,18 @@ async def reveal_env_var(body: EnvVarReveal, request: Request):
     cutoff = now - _REVEAL_WINDOW_SECONDS
     _reveal_timestamps[:] = [t for t in _reveal_timestamps if t > cutoff]
     if len(_reveal_timestamps) >= _REVEAL_MAX_PER_WINDOW:
-        raise HTTPException(status_code=429, detail="Too many reveal requests. Try again shortly.")
+        raise HTTPException(
+            status_code=429,
+            detail="Too many reveal requests. Try again shortly.")
     _reveal_timestamps.append(now)
 
     # --- Reveal ---
     env_on_disk = load_env()
     value = env_on_disk.get(body.key)
     if value is None:
-        raise HTTPException(status_code=404, detail=f"{body.key} not found in .env")
+        raise HTTPException(
+            status_code=404, detail=f"{
+                body.key} not found in .env")
 
     _log.info("env/reveal: %s", body.key)
     return {"key": body.key, "value": value}
@@ -3202,13 +3282,20 @@ def _messaging_platform_catalog() -> tuple[dict[str, Any], ...]:
             if plugin_entry.name in seen:
                 continue
             seen.add(plugin_entry.name)
-            entries.append(_build_catalog_entry(plugin_entry.name, plugin_entry))
+            entries.append(
+                _build_catalog_entry(
+                    plugin_entry.name,
+                    plugin_entry))
     except Exception:
         _log.debug("plugin platform registry unavailable", exc_info=True)
 
     order = {pid: idx for idx, pid in enumerate(_PLATFORM_ORDER)}
     entries.sort(
-        key=lambda e: (order.get(e["id"], len(_PLATFORM_ORDER)), e["name"].lower())
+        key=lambda e: (
+            order.get(
+                e["id"],
+                len(_PLATFORM_ORDER)),
+            e["name"].lower())
     )
     return tuple(entries)
 
@@ -3228,7 +3315,9 @@ def _channel_managed_env_keys() -> frozenset[str]:
             keys.update(entry.get("env_vars", ()))
         return frozenset(keys)
     except Exception:
-        _log.debug("could not build channel-managed env key set", exc_info=True)
+        _log.debug(
+            "could not build channel-managed env key set",
+            exc_info=True)
         return frozenset()
 
 
@@ -3282,7 +3371,8 @@ def _merge_platform_env_vars(
     if "env_vars" in override:
         return tuple(dict.fromkeys((*override["env_vars"], *discovered)))
     if plugin_entry is not None and plugin_entry.required_env:
-        return tuple(dict.fromkeys((*tuple(plugin_entry.required_env), *discovered)))
+        return tuple(dict.fromkeys(
+            (*tuple(plugin_entry.required_env), *discovered)))
     return discovered
 
 
@@ -3329,7 +3419,8 @@ def _catalog_lookup(platform_id: str) -> dict[str, Any] | None:
 
 
 def _messaging_env_info(key: str) -> dict[str, Any]:
-    info = OPTIONAL_ENV_VARS.get(key) or _MESSAGING_ENV_FALLBACKS.get(key) or {}
+    info = OPTIONAL_ENV_VARS.get(
+        key) or _MESSAGING_ENV_FALLBACKS.get(key) or {}
     return {
         "description": info.get("description", ""),
         "prompt": info.get("prompt", key),
@@ -3395,7 +3486,8 @@ def _messaging_platform_payload(
         home_channel = None
 
     state = (
-        runtime_platform.get("state") if isinstance(runtime_platform, dict) else None
+        runtime_platform.get("state") if isinstance(
+            runtime_platform, dict) else None
     )
     if not enabled:
         state = "disabled"
@@ -3679,7 +3771,8 @@ async def get_telegram_onboarding_status(pairing_id: str):
                 status_code=502,
                 detail="Telegram setup service returned an incomplete response.",
             )
-        owner_user_id = _normalize_telegram_user_id(payload.get("owner_user_id"))
+        owner_user_id = _normalize_telegram_user_id(
+            payload.get("owner_user_id"))
         with _telegram_onboarding_lock:
             record = _telegram_onboarding_pairings.get(pairing_id)
             if not record:
@@ -3796,7 +3889,8 @@ async def get_messaging_platforms():
 
 
 @app.put("/api/messaging/platforms/{platform_id}")
-async def update_messaging_platform(platform_id: str, body: MessagingPlatformUpdate):
+async def update_messaging_platform(
+        platform_id: str, body: MessagingPlatformUpdate):
     entry = _catalog_lookup(platform_id)
     if not entry:
         raise HTTPException(
@@ -3843,9 +3937,11 @@ async def test_messaging_platform(platform_id: str):
         )
 
     env_on_disk = load_env()
-    payload = _messaging_platform_payload(entry, env_on_disk, read_runtime_status())
+    payload = _messaging_platform_payload(
+        entry, env_on_disk, read_runtime_status())
     if not payload["enabled"]:
-        message = f"{entry['name']} is disabled. Enable it, then restart the gateway."
+        message = f"{
+            entry['name']} is disabled. Enable it, then restart the gateway."
         return {"ok": False, "state": payload["state"], "message": message}
     if not payload["configured"]:
         missing = [
@@ -3932,9 +4028,9 @@ def _anthropic_oauth_status() -> Dict[str, Any]:
     """
     try:
         from agent.anthropic_adapter import (
-            read_nastech_oauth_credentials,
-            read_claude_code_credentials,
             _NASTECH_OAUTH_FILE,
+            read_claude_code_credentials,
+            read_nastech_oauth_credentials,
         )
     except ImportError:
         read_claude_code_credentials = None  # type: ignore
@@ -3973,7 +4069,8 @@ def _anthropic_oauth_status() -> Dict[str, Any]:
             "has_refresh_token": bool(cc_creds.get("refreshToken")),
         }
 
-    env_token = os.getenv("ANTHROPIC_TOKEN") or os.getenv("CLAUDE_CODE_OAUTH_TOKEN")
+    env_token = os.getenv("ANTHROPIC_TOKEN") or os.getenv(
+        "CLAUDE_CODE_OAUTH_TOKEN")
     if env_token:
         return {
             "logged_in": True,
@@ -4199,7 +4296,7 @@ async def disconnect_oauth_provider(provider_id: str, request: Request):
         raise HTTPException(
             status_code=400,
             detail=f"Unknown provider: {provider_id}. "
-                   f"Available: {', '.join(sorted(valid_ids))}",
+            f"Available: {', '.join(sorted(valid_ids))}",
         )
 
     # Anthropic and claude-code clear the same NasTech-managed PKCE file
@@ -4289,13 +4386,13 @@ _oauth_sessions_lock = threading.Lock()
 # Guarded so nastech web still starts if anthropic_adapter is unavailable;
 # Phase 2 endpoints will return 501 in that case.
 try:
+    from agent.anthropic_adapter import _OAUTH_CLIENT_ID as _ANTHROPIC_OAUTH_CLIENT_ID
     from agent.anthropic_adapter import (
-        _OAUTH_CLIENT_ID as _ANTHROPIC_OAUTH_CLIENT_ID,
-        _OAUTH_TOKEN_URL as _ANTHROPIC_OAUTH_TOKEN_URL,
         _OAUTH_REDIRECT_URI as _ANTHROPIC_OAUTH_REDIRECT_URI,
-        _OAUTH_SCOPES as _ANTHROPIC_OAUTH_SCOPES,
-        _generate_pkce as _generate_pkce_pair,
     )
+    from agent.anthropic_adapter import _OAUTH_SCOPES as _ANTHROPIC_OAUTH_SCOPES
+    from agent.anthropic_adapter import _OAUTH_TOKEN_URL as _ANTHROPIC_OAUTH_TOKEN_URL
+    from agent.anthropic_adapter import _generate_pkce as _generate_pkce_pair
     _ANTHROPIC_OAUTH_AVAILABLE = True
 except ImportError:
     _ANTHROPIC_OAUTH_AVAILABLE = False
@@ -4306,12 +4403,15 @@ def _gc_oauth_sessions() -> None:
     """Drop expired sessions. Called opportunistically on /start."""
     cutoff = time.time() - _OAUTH_SESSION_TTL_SECONDS
     with _oauth_sessions_lock:
-        stale = [sid for sid, sess in _oauth_sessions.items() if sess["created_at"] < cutoff]
+        stale = [
+            sid for sid,
+            sess in _oauth_sessions.items() if sess["created_at"] < cutoff]
         for sid in stale:
             _oauth_sessions.pop(sid, None)
 
 
-def _new_oauth_session(provider_id: str, flow: str) -> tuple[str, Dict[str, Any]]:
+def _new_oauth_session(
+        provider_id: str, flow: str) -> tuple[str, Dict[str, Any]]:
     """Create + register a new OAuth session, return (session_id, session_dict)."""
     sid = secrets.token_urlsafe(16)
     sess = {
@@ -4327,7 +4427,8 @@ def _new_oauth_session(provider_id: str, flow: str) -> tuple[str, Dict[str, Any]
     return sid, sess
 
 
-def _save_anthropic_oauth_creds(access_token: str, refresh_token: str, expires_at_ms: int) -> None:
+def _save_anthropic_oauth_creds(
+        access_token: str, refresh_token: str, expires_at_ms: int) -> None:
     """Persist Anthropic PKCE creds to both NasTech file AND credential pool.
 
     Mirrors what auth_commands.add_command does so the dashboard flow leaves
@@ -4363,16 +4464,21 @@ def _save_anthropic_oauth_creds(access_token: str, refresh_token: str, expires_a
     # the file write — pool registration only matters for the rotation
     # strategy, not for runtime credential resolution.
     try:
+        import uuid
+
         from agent.credential_pool import (
-            PooledCredential,
-            load_pool,
             AUTH_TYPE_OAUTH,
             SOURCE_MANUAL,
+            PooledCredential,
+            load_pool,
         )
-        import uuid
         pool = load_pool("anthropic")
-        # Avoid duplicate entries: delete any prior dashboard-issued OAuth entry
-        existing = [e for e in pool.entries() if getattr(e, "source", "").startswith(f"{SOURCE_MANUAL}:dashboard_pkce")]
+        # Avoid duplicate entries: delete any prior dashboard-issued OAuth
+        # entry
+        existing = [
+            e for e in pool.entries() if getattr(
+                e, "source", "").startswith(
+                f"{SOURCE_MANUAL}:dashboard_pkce")]
         for e in existing:
             try:
                 pool.remove_entry(getattr(e, "id", ""))
@@ -4397,7 +4503,9 @@ def _save_anthropic_oauth_creds(access_token: str, refresh_token: str, expires_a
 def _start_anthropic_pkce() -> Dict[str, Any]:
     """Begin PKCE flow. Returns the auth URL the UI should open."""
     if not _ANTHROPIC_OAUTH_AVAILABLE:
-        raise HTTPException(status_code=501, detail="Anthropic OAuth not available (missing adapter)")
+        raise HTTPException(
+            status_code=501,
+            detail="Anthropic OAuth not available (missing adapter)")
     verifier, challenge = _generate_pkce_pair()
     sid, sess = _new_oauth_session("anthropic", "pkce")
     sess["verifier"] = verifier
@@ -4412,7 +4520,8 @@ def _start_anthropic_pkce() -> Dict[str, Any]:
         "code_challenge_method": "S256",
         "state": verifier,
     }
-    auth_url = f"{_ANTHROPIC_OAUTH_AUTHORIZE_URL}?{urllib.parse.urlencode(params)}"
+    auth_url = f"{_ANTHROPIC_OAUTH_AUTHORIZE_URL}?{
+        urllib.parse.urlencode(params)}"
     return {
         "session_id": sid,
         "flow": "pkce",
@@ -4426,12 +4535,16 @@ def _submit_anthropic_pkce(session_id: str, code_input: str) -> Dict[str, Any]:
     with _oauth_sessions_lock:
         sess = _oauth_sessions.get(session_id)
     if not sess or sess["provider"] != "anthropic" or sess["flow"] != "pkce":
-        raise HTTPException(status_code=404, detail="Unknown or expired session")
+        raise HTTPException(
+            status_code=404,
+            detail="Unknown or expired session")
     if sess["status"] != "pending":
-        return {"ok": False, "status": sess["status"], "message": sess.get("error_message")}
+        return {"ok": False, "status": sess["status"], "message": sess.get(
+            "error_message")}
 
     # Anthropic's redirect callback page formats the code as `<code>#<state>`.
-    # Strip the state suffix if present (we already have the verifier server-side).
+    # Strip the state suffix if present (we already have the verifier
+    # server-side).
     parts = code_input.strip().split("#", 1)
     code = parts[0].strip()
     if not code:
@@ -4462,7 +4575,8 @@ def _submit_anthropic_pkce(session_id: str, code_input: str) -> Dict[str, Any]:
         with _oauth_sessions_lock:
             sess["status"] = "error"
             sess["error_message"] = f"Token exchange failed: {e}"
-        return {"ok": False, "status": "error", "message": sess["error_message"]}
+        return {"ok": False, "status": "error",
+                "message": sess["error_message"]}
 
     access_token = result.get("access_token", "")
     refresh_token = result.get("refresh_token", "")
@@ -4471,7 +4585,8 @@ def _submit_anthropic_pkce(session_id: str, code_input: str) -> Dict[str, Any]:
         with _oauth_sessions_lock:
             sess["status"] = "error"
             sess["error_message"] = "No access token returned"
-        return {"ok": False, "status": "error", "message": sess["error_message"]}
+        return {"ok": False, "status": "error",
+                "message": sess["error_message"]}
 
     expires_at_ms = int(time.time() * 1000) + (expires_in * 1000)
     try:
@@ -4480,7 +4595,8 @@ def _submit_anthropic_pkce(session_id: str, code_input: str) -> Dict[str, Any]:
         with _oauth_sessions_lock:
             sess["status"] = "error"
             sess["error_message"] = f"Save failed: {e}"
-        return {"ok": False, "status": "error", "message": sess["error_message"]}
+        return {"ok": False, "status": "error",
+                "message": sess["error_message"]}
     with _oauth_sessions_lock:
         sess["status"] = "approved"
     _log.info("oauth/pkce: anthropic login completed (session=%s)", session_id)
@@ -4495,11 +4611,11 @@ async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
     so the UI can render the verification page link + user code.
     """
     if provider_id == "nous":
-        from nastech_cli.auth import (
-            _request_device_code,
-            PROVIDER_REGISTRY,
-        )
         import httpx
+        from nastech_cli.auth import (
+            PROVIDER_REGISTRY,
+            _request_device_code,
+        )
         pconfig = PROVIDER_REGISTRY["nous"]
         portal_base_url = (
             os.getenv("NASTECH_PORTAL_BASE_URL")
@@ -4569,9 +4685,12 @@ async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
         with _oauth_sessions_lock:
             s = _oauth_sessions.get(sid, {})
         if s.get("status") == "error":
-            raise HTTPException(status_code=500, detail=s.get("error_message") or "device-auth failed")
+            raise HTTPException(status_code=500, detail=s.get(
+                "error_message") or "device-auth failed")
         if not s.get("user_code"):
-            raise HTTPException(status_code=504, detail="device-auth timed out before returning a user code")
+            raise HTTPException(
+                status_code=504,
+                detail="device-auth timed out before returning a user code")
         return {
             "session_id": sid,
             "flow": "device_code",
@@ -4588,17 +4707,18 @@ async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
         # flow; the PKCE bit (verifier + challenge from
         # _minimax_pkce_pair) is a security extension that binds the
         # token exchange to the original session.
+        import httpx
         from nastech_cli.auth import (
-            _minimax_pkce_pair,
-            _minimax_request_user_code,
             MINIMAX_OAUTH_CLIENT_ID,
             MINIMAX_OAUTH_GLOBAL_BASE,
+            _minimax_pkce_pair,
+            _minimax_request_user_code,
         )
-        import httpx
         verifier, challenge, state = _minimax_pkce_pair()
         portal_base_url = (
             os.getenv("MINIMAX_PORTAL_BASE_URL") or MINIMAX_OAUTH_GLOBAL_BASE
         ).rstrip("/")
+
         def _do_minimax_request():
             with httpx.Client(
                 timeout=httpx.Timeout(15.0),
@@ -4657,7 +4777,9 @@ async def _start_device_code_flow(provider_id: str) -> Dict[str, Any]:
             "poll_interval": max(2, (sess["interval_ms"] or 2000) // 1000),
         }
 
-    raise HTTPException(status_code=400, detail=f"Provider {provider_id} does not support device-code flow")
+    raise HTTPException(
+        status_code=400,
+        detail=f"Provider {provider_id} does not support device-code flow")
 
 
 # xAI Grok OAuth uses a loopback-redirect PKCE flow (RFC 8252). Unlike the
@@ -4801,7 +4923,9 @@ def _xai_loopback_worker(session_id: str) -> None:
             or os.getenv("XAI_BASE_URL", "").strip().rstrip("/"),
             fallback=hauth.DEFAULT_XAI_OAUTH_BASE_URL,
         )
-        last_refresh = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        last_refresh = datetime.now(
+            timezone.utc).isoformat().replace(
+            "+00:00", "Z")
         tokens = {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -4817,7 +4941,11 @@ def _xai_loopback_worker(session_id: str) -> None:
             redirect_uri=sess["redirect_uri"],
             last_refresh=last_refresh,
         )
-        _add_xai_oauth_pool_entry(access_token, refresh_token, base_url, last_refresh)
+        _add_xai_oauth_pool_entry(
+            access_token,
+            refresh_token,
+            base_url,
+            last_refresh)
     except Exception as exc:
         _fail(f"xAI token exchange failed: {exc}")
         return
@@ -4826,7 +4954,9 @@ def _xai_loopback_worker(session_id: str) -> None:
         s = _oauth_sessions.get(session_id)
         if s is not None:
             s["status"] = "approved"
-    _log.info("oauth/loopback: xai-oauth login completed (session=%s)", session_id)
+    _log.info(
+        "oauth/loopback: xai-oauth login completed (session=%s)",
+        session_id)
 
 
 def _add_xai_oauth_pool_entry(
@@ -4842,10 +4972,10 @@ def _add_xai_oauth_pool_entry(
         import uuid
 
         from agent.credential_pool import (
-            PooledCredential,
-            load_pool,
             AUTH_TYPE_OAUTH,
             SOURCE_MANUAL,
+            PooledCredential,
+            load_pool,
         )
         pool = load_pool("xai-oauth")
         existing = [
@@ -4876,12 +5006,13 @@ def _add_xai_oauth_pool_entry(
 
 def _nastech_poller(session_id: str) -> None:
     """Background poller that drives a Nous device-code flow to completion."""
+    from datetime import datetime, timezone
+
+    import httpx
     from nastech_cli.auth import (
         _poll_for_token,
         refresh_nastech_oauth_from_state,
     )
-    from datetime import datetime, timezone
-    import httpx
     with _oauth_sessions_lock:
         sess = _oauth_sessions.get(session_id)
     if not sess:
@@ -4902,7 +5033,8 @@ def _nastech_poller(session_id: str) -> None:
                 expires_in=expires_in,
                 poll_interval=interval,
             )
-        # Same post-processing as _nastech_device_code_login (validate/refresh JWT)
+        # Same post-processing as _nastech_device_code_login (validate/refresh
+        # JWT)
         now = datetime.now(timezone.utc)
         token_ttl = int(token_data.get("expires_in") or 0)
         auth_state = {
@@ -4915,7 +5047,9 @@ def _nastech_poller(session_id: str) -> None:
             "refresh_token": token_data.get("refresh_token"),
             "obtained_at": now.isoformat(),
             "expires_at": (
-                datetime.fromtimestamp(now.timestamp() + token_ttl, tz=timezone.utc).isoformat()
+                datetime.fromtimestamp(
+                    now.timestamp() + token_ttl,
+                    tz=timezone.utc).isoformat()
                 if token_ttl else None
             ),
             "expires_in": token_ttl,
@@ -4929,9 +5063,14 @@ def _nastech_poller(session_id: str) -> None:
         persist_nastech_credentials(full_state)
         with _oauth_sessions_lock:
             sess["status"] = "approved"
-        _log.info("oauth/device: nous login completed (session=%s)", session_id)
+        _log.info(
+            "oauth/device: nous login completed (session=%s)",
+            session_id)
     except Exception as e:
-        _log.warning("nous device-code poll failed (session=%s): %s", session_id, e)
+        _log.warning(
+            "nous device-code poll failed (session=%s): %s",
+            session_id,
+            e)
         with _oauth_sessions_lock:
             sess["status"] = "error"
             sess["error_message"] = str(e)
@@ -4948,15 +5087,16 @@ def _minimax_poller(session_id: str) -> None:
     path leaves the system in the same state as
     ``nastech auth add minimax-oauth``.
     """
+    from datetime import datetime, timezone
+
+    import httpx
     from nastech_cli.auth import (
+        MINIMAX_OAUTH_GLOBAL_INFERENCE,
+        MINIMAX_OAUTH_SCOPE,
         _minimax_poll_token,
         _minimax_resolve_token_expiry_unix,
         _minimax_save_auth_state,
-        MINIMAX_OAUTH_GLOBAL_INFERENCE,
-        MINIMAX_OAUTH_SCOPE,
     )
-    from datetime import datetime, timezone
-    import httpx
     with _oauth_sessions_lock:
         sess = _oauth_sessions.get(session_id)
     if not sess:
@@ -5012,9 +5152,14 @@ def _minimax_poller(session_id: str) -> None:
         _minimax_save_auth_state(auth_state)
         with _oauth_sessions_lock:
             sess["status"] = "approved"
-        _log.info("oauth/device: minimax login completed (session=%s)", session_id)
+        _log.info(
+            "oauth/device: minimax login completed (session=%s)",
+            session_id)
     except Exception as e:
-        _log.warning("minimax device-code poll failed (session=%s): %s", session_id, e)
+        _log.warning(
+            "minimax device-code poll failed (session=%s): %s",
+            session_id,
+            e)
         with _oauth_sessions_lock:
             sess["status"] = "error"
             sess["error_message"] = str(e)
@@ -5052,13 +5197,15 @@ def _codex_full_login_worker(session_id: str) -> None:
                 headers={"Content-Type": "application/json"},
             )
         if resp.status_code != 200:
-            raise RuntimeError(f"deviceauth/usercode returned {resp.status_code}")
+            raise RuntimeError(
+                f"deviceauth/usercode returned {resp.status_code}")
         device_data = resp.json()
         user_code = device_data.get("user_code", "")
         device_auth_id = device_data.get("device_auth_id", "")
         poll_interval = max(3, int(device_data.get("interval", "5")))
         if not user_code or not device_auth_id:
-            raise RuntimeError("device-code response missing user_code or device_auth_id")
+            raise RuntimeError(
+                "device-code response missing user_code or device_auth_id")
         verification_url = f"{issuer}/codex/device"
         with _oauth_sessions_lock:
             sess = _oauth_sessions.get(session_id)
@@ -5079,7 +5226,9 @@ def _codex_full_login_worker(session_id: str) -> None:
                 time.sleep(poll_interval)
                 poll = client.post(
                     f"{issuer}/api/accounts/deviceauth/token",
-                    json={"device_auth_id": device_auth_id, "user_code": user_code},
+                    json={
+                        "device_auth_id": device_auth_id,
+                        "user_code": user_code},
                     headers={"Content-Type": "application/json"},
                 )
                 if poll.status_code == 200:
@@ -5087,7 +5236,8 @@ def _codex_full_login_worker(session_id: str) -> None:
                     break
                 if poll.status_code in {403, 404}:
                     continue  # user hasn't authorized yet
-                raise RuntimeError(f"deviceauth/token poll returned {poll.status_code}")
+                raise RuntimeError(
+                    f"deviceauth/token poll returned {poll.status_code}")
 
         if code_resp is None:
             with _oauth_sessions_lock:
@@ -5099,7 +5249,8 @@ def _codex_full_login_worker(session_id: str) -> None:
         authorization_code = code_resp.get("authorization_code", "")
         code_verifier = code_resp.get("code_verifier", "")
         if not authorization_code or not code_verifier:
-            raise RuntimeError("device-auth response missing authorization_code/code_verifier")
+            raise RuntimeError(
+                "device-auth response missing authorization_code/code_verifier")
         with httpx.Client(timeout=httpx.Timeout(15.0)) as client:
             token_resp = client.post(
                 CODEX_OAUTH_TOKEN_URL,
@@ -5113,7 +5264,9 @@ def _codex_full_login_worker(session_id: str) -> None:
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
         if token_resp.status_code != 200:
-            raise RuntimeError(f"token exchange returned {token_resp.status_code}")
+            raise RuntimeError(
+                f"token exchange returned {
+                    token_resp.status_code}")
         tokens = token_resp.json()
         access_token = tokens.get("access_token", "")
         refresh_token = tokens.get("refresh_token", "")
@@ -5128,9 +5281,14 @@ def _codex_full_login_worker(session_id: str) -> None:
         })
         with _oauth_sessions_lock:
             sess["status"] = "approved"
-        _log.info("oauth/device: openai-codex login completed (session=%s)", session_id)
+        _log.info(
+            "oauth/device: openai-codex login completed (session=%s)",
+            session_id)
     except Exception as e:
-        _log.warning("codex device-code worker failed (session=%s): %s", session_id, e)
+        _log.warning(
+            "codex device-code worker failed (session=%s): %s",
+            session_id,
+            e)
         with _oauth_sessions_lock:
             s = _oauth_sessions.get(session_id)
             if s:
@@ -5145,12 +5303,15 @@ async def start_oauth_login(provider_id: str, request: Request):
     _gc_oauth_sessions()
     valid = {p["id"] for p in _OAUTH_PROVIDER_CATALOG}
     if provider_id not in valid:
-        raise HTTPException(status_code=400, detail=f"Unknown provider {provider_id}")
-    catalog_entry = next(p for p in _OAUTH_PROVIDER_CATALOG if p["id"] == provider_id)
+        raise HTTPException(status_code=400,
+                            detail=f"Unknown provider {provider_id}")
+    catalog_entry = next(
+        p for p in _OAUTH_PROVIDER_CATALOG if p["id"] == provider_id)
     if catalog_entry["flow"] == "external":
         raise HTTPException(
             status_code=400,
-            detail=f"{provider_id} uses an external CLI; run `{catalog_entry['cli_command']}` manually",
+            detail=f"{provider_id} uses an external CLI; run `{
+                catalog_entry['cli_command']}` manually",
         )
     try:
         # The pkce branch is gated on provider_id == "anthropic" because
@@ -5181,14 +5342,17 @@ class OAuthSubmitBody(BaseModel):
 
 
 @app.post("/api/providers/oauth/{provider_id}/submit")
-async def submit_oauth_code(provider_id: str, body: OAuthSubmitBody, request: Request):
+async def submit_oauth_code(
+        provider_id: str, body: OAuthSubmitBody, request: Request):
     """Submit the auth code for PKCE flows. Token-protected."""
     _require_token(request)
     if provider_id == "anthropic":
         return await asyncio.get_running_loop().run_in_executor(
             None, _submit_anthropic_pkce, body.session_id, body.code,
         )
-    raise HTTPException(status_code=400, detail=f"submit not supported for {provider_id}")
+    raise HTTPException(
+        status_code=400,
+        detail=f"submit not supported for {provider_id}")
 
 
 @app.get("/api/providers/oauth/{provider_id}/poll/{session_id}")
@@ -5203,9 +5367,12 @@ async def poll_oauth_session(provider_id: str, session_id: str):
     with _oauth_sessions_lock:
         sess = _oauth_sessions.get(session_id)
     if not sess:
-        raise HTTPException(status_code=404, detail="Session not found or expired")
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found or expired")
     if sess["provider"] != provider_id:
-        raise HTTPException(status_code=400, detail="Provider mismatch for session")
+        raise HTTPException(status_code=400,
+                            detail="Provider mismatch for session")
     return {
         "session_id": session_id,
         "status": sess["status"],
@@ -5255,7 +5422,6 @@ async def cancel_oauth_session(session_id: str, request: Request):
 # ---------------------------------------------------------------------------
 # Session detail endpoints
 # ---------------------------------------------------------------------------
-
 
 
 def _session_latest_descendant(session_id: str):
@@ -5322,7 +5488,8 @@ def _session_latest_descendant(session_id: str):
         seen = {sid}
 
         while children.get(current):
-            candidates = [r for r in children[current] if r.get("id") not in seen]
+            candidates = [r for r in children[current]
+                          if r.get("id") not in seen]
             if not candidates:
                 break
             candidates.sort(key=started, reverse=True)
@@ -5508,7 +5675,6 @@ async def get_session_detail(session_id: str, profile: Optional[str] = None):
         db.close()
 
 
-
 @app.get("/api/sessions/{session_id}/latest-descendant")
 async def get_session_latest_descendant(session_id: str):
     latest, path = _session_latest_descendant(session_id)
@@ -5520,6 +5686,7 @@ async def get_session_latest_descendant(session_id: str):
         "path": path,
         "changed": bool(path and latest != path[0]),
     }
+
 
 @app.get("/api/sessions/{session_id}/messages")
 async def get_session_messages(session_id: str, profile: Optional[str] = None):
@@ -5536,10 +5703,12 @@ async def get_session_messages(session_id: str, profile: Optional[str] = None):
 
 
 @app.delete("/api/sessions/{session_id}")
-async def delete_session_endpoint(session_id: str, profile: Optional[str] = None):
+async def delete_session_endpoint(
+        session_id: str, profile: Optional[str] = None):
     # ``profile`` deletes a session belonging to another (local) profile by
     # opening its state.db directly. Remote profiles never reach here — the
-    # desktop routes their DELETE to the remote backend. Omit for current/default.
+    # desktop routes their DELETE to the remote backend. Omit for
+    # current/default.
     db = _open_session_db_for_profile(profile)
     try:
         if not db.delete_session(session_id):
@@ -5618,7 +5787,9 @@ class SessionPrune(BaseModel):
 async def prune_sessions_endpoint(body: SessionPrune):
     """Delete ended sessions older than N days (mirrors `nastech sessions prune`)."""
     if body.older_than_days < 1:
-        raise HTTPException(status_code=400, detail="older_than_days must be >= 1")
+        raise HTTPException(
+            status_code=400,
+            detail="older_than_days must be >= 1")
     from nastech_state import SessionDB
 
     db = SessionDB()
@@ -5647,11 +5818,13 @@ async def get_logs(
     component: Optional[str] = None,
     search: Optional[str] = None,
 ):
-    from nastech_cli.logs import _read_tail, LOG_FILES
+    from nastech_cli.logs import LOG_FILES, _read_tail
 
     log_name = LOG_FILES.get(file)
     if not log_name:
-        raise HTTPException(status_code=400, detail=f"Unknown log file: {file}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown log file: {file}")
     log_path = get_nastech_home() / "logs" / log_name
     if not log_path.exists():
         return {"file": file, "lines": []}
@@ -5671,7 +5844,7 @@ async def get_logs(
             raise HTTPException(
                 status_code=400,
                 detail=f"Unknown component: {component}. "
-                       f"Available: {', '.join(sorted(COMPONENT_PREFIXES))}",
+                f"Available: {', '.join(sorted(COMPONENT_PREFIXES))}",
             )
     else:
         comp_prefixes = None
@@ -5717,7 +5890,8 @@ def _cron_profile_dicts() -> List[Dict[str, Any]]:
     try:
         return [_profile_to_dict(p) for p in profiles_mod.list_profiles()]
     except Exception:
-        _log.exception("Failed to list profiles for cron dashboard; falling back to directory scan")
+        _log.exception(
+            "Failed to list profiles for cron dashboard; falling back to directory scan")
         return _fallback_profile_dicts(profiles_mod)
 
 
@@ -5732,11 +5906,13 @@ def _cron_profile_home(profile: Optional[str]) -> Tuple[str, Path]:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if not profiles_mod.profile_exists(canon):
-        raise HTTPException(status_code=404, detail=f"Profile '{canon}' does not exist.")
+        raise HTTPException(status_code=404,
+                            detail=f"Profile '{canon}' does not exist.")
     return canon, profiles_mod.get_profile_dir(canon)
 
 
-def _annotate_cron_job(job: Dict[str, Any], profile: str, home: Path) -> Dict[str, Any]:
+def _annotate_cron_job(job: Dict[str, Any],
+                       profile: str, home: Path) -> Dict[str, Any]:
     annotated = dict(job)
     annotated["profile"] = profile
     annotated["profile_name"] = profile
@@ -5745,7 +5921,8 @@ def _annotate_cron_job(job: Dict[str, Any], profile: str, home: Path) -> Dict[st
     return annotated
 
 
-def _call_cron_for_profile(profile: Optional[str], func_name: str, *args, **kwargs):
+def _call_cron_for_profile(
+        profile: Optional[str], func_name: str, *args, **kwargs):
     """Run cron.jobs helpers against the selected profile's cron directory.
 
     cron.jobs keeps CRON_DIR/JOBS_FILE/OUTPUT_DIR as module globals resolved
@@ -5818,7 +5995,8 @@ async def get_cron_job(job_id: str, profile: Optional[str] = None):
 
 
 @app.get("/api/cron/jobs/{job_id}/runs")
-async def list_cron_job_runs(job_id: str, profile: Optional[str] = None, limit: int = 20):
+async def list_cron_job_runs(
+        job_id: str, profile: Optional[str] = None, limit: int = 20):
     """Run sessions produced by a cron job, newest first.
 
     Cron runs are stored as ordinary sessions whose id is
@@ -5834,7 +6012,8 @@ async def list_cron_job_runs(job_id: str, profile: Optional[str] = None, limit: 
     cron history.
     """
     selected = profile or _find_cron_job_profile(job_id)
-    # job_id may be a human name; resolve to the canonical id used in run-session ids.
+    # job_id may be a human name; resolve to the canonical id used in
+    # run-session ids.
     canonical = job_id
     if selected:
         job = _call_cron_for_profile(selected, "get_job", job_id)
@@ -5908,12 +6087,14 @@ async def get_cron_delivery_targets():
 
 
 @app.put("/api/cron/jobs/{job_id}")
-async def update_cron_job(job_id: str, body: CronJobUpdate, profile: Optional[str] = None):
+async def update_cron_job(job_id: str, body: CronJobUpdate,
+                          profile: Optional[str] = None):
     selected = profile or _find_cron_job_profile(job_id)
     if not selected:
         raise HTTPException(status_code=404, detail="Job not found")
     try:
-        job = _call_cron_for_profile(selected, "update_job", job_id, body.updates)
+        job = _call_cron_for_profile(
+            selected, "update_job", job_id, body.updates)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not job:
@@ -6001,7 +6182,8 @@ def _redact_mcp_env(env: Dict[str, Any]) -> Dict[str, str]:
 
 
 def _mcp_server_summary(name: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
-    transport = "http" if cfg.get("url") else ("stdio" if cfg.get("command") else "unknown")
+    transport = "http" if cfg.get("url") else (
+        "stdio" if cfg.get("command") else "unknown")
     return {
         "name": name,
         "transport": transport,
@@ -6036,7 +6218,8 @@ async def add_mcp_server(body: MCPServerCreate):
     if not name:
         raise HTTPException(status_code=400, detail="Server name is required")
     if name in _get_mcp_servers():
-        raise HTTPException(status_code=409, detail=f"Server '{name}' already exists")
+        raise HTTPException(status_code=409,
+                            detail=f"Server '{name}' already exists")
     if not body.url and not body.command:
         raise HTTPException(
             status_code=400,
@@ -6069,7 +6252,9 @@ async def remove_mcp_server(name: str):
     from nastech_cli.mcp_config import _remove_mcp_server
 
     if not _remove_mcp_server(name):
-        raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Server '{name}' not found")
     return {"ok": True}
 
 
@@ -6080,7 +6265,9 @@ async def test_mcp_server(name: str):
 
     servers = _get_mcp_servers()
     if name not in servers:
-        raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Server '{name}' not found")
 
     try:
         # Probe blocks on a dedicated MCP event loop — run in a thread so the
@@ -6113,7 +6300,9 @@ async def set_mcp_server_enabled(name: str, body: MCPEnabledToggle):
     cfg = load_config()
     servers = cfg.get("mcp_servers")
     if not isinstance(servers, dict) or name not in servers:
-        raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Server '{name}' not found")
     if not isinstance(servers[name], dict):
         raise HTTPException(status_code=400, detail="Malformed server config")
     servers[name]["enabled"] = bool(body.enabled)
@@ -6133,7 +6322,9 @@ async def list_mcp_catalog():
         from nastech_cli import mcp_catalog
     except Exception as exc:
         _log.exception("mcp_catalog import failed")
-        raise HTTPException(status_code=500, detail=f"Catalog unavailable: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Catalog unavailable: {exc}")
 
     entries = []
     try:
@@ -6145,7 +6336,8 @@ async def list_mcp_catalog():
                 "source": entry.source,
                 "transport": entry.transport.type,
                 "auth_type": getattr(auth, "type", "none"),
-                # Env vars the user must supply (names + prompts only, never values).
+                # Env vars the user must supply (names + prompts only, never
+                # values).
                 "required_env": [
                     {"name": e.name, "prompt": e.prompt, "required": e.required}
                     for e in getattr(auth, "env", []) or []
@@ -6190,7 +6382,9 @@ async def install_mcp_catalog_entry(body: MCPCatalogInstall):
     name = (body.name or "").strip()
     entry = mcp_catalog.get_entry(name)
     if entry is None:
-        raise HTTPException(status_code=404, detail=f"No catalog entry '{name}'")
+        raise HTTPException(
+            status_code=404,
+            detail=f"No catalog entry '{name}'")
 
     # Persist any supplied env vars first (catalog entries declare which names
     # they need; we only write the ones the user provided).
@@ -6203,10 +6397,14 @@ async def install_mcp_catalog_entry(body: MCPCatalogInstall):
     # action path so the request returns immediately and the UI can tail logs.
     if entry.install is not None:
         try:
-            proc = _spawn_nastech_action(["mcp", "install", name], "mcp-install")
+            proc = _spawn_nastech_action(
+                ["mcp", "install", name], "mcp-install")
         except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Install failed: {exc}")
-        return {"ok": True, "name": name, "background": True, "action": "mcp-install"}
+            raise HTTPException(
+                status_code=500,
+                detail=f"Install failed: {exc}")
+        return {"ok": True, "name": name,
+                "background": True, "action": "mcp-install"}
 
     # No git step — install synchronously via the catalog API.
     try:
@@ -6260,7 +6458,8 @@ async def approve_pairing(body: PairingApprove):
     platform = (body.platform or "").lower().strip()
     code = (body.code or "").upper().strip()
     if not platform or not code:
-        raise HTTPException(status_code=400, detail="platform and code are required")
+        raise HTTPException(status_code=400,
+                            detail="platform and code are required")
 
     result = store.approve_code(platform, code)
     if result:
@@ -6281,12 +6480,14 @@ async def revoke_pairing(body: PairingRevoke):
     store = _pairing_store()
     platform = (body.platform or "").lower().strip()
     if not platform or not body.user_id:
-        raise HTTPException(status_code=400, detail="platform and user_id are required")
+        raise HTTPException(status_code=400,
+                            detail="platform and user_id are required")
     if store.revoke(platform, body.user_id):
         return {"ok": True}
     raise HTTPException(
         status_code=404,
-        detail=f"User {body.user_id} not found in approved list for {platform}.",
+        detail=f"User {
+            body.user_id} not found in approved list for {platform}.",
     )
 
 
@@ -6319,7 +6520,8 @@ class WebhookCreate(BaseModel):
     secret: Optional[str] = None
 
 
-def _webhook_route_summary(name: str, route: Dict[str, Any], base_url: str) -> Dict[str, Any]:
+def _webhook_route_summary(
+        name: str, route: Dict[str, Any], base_url: str) -> Dict[str, Any]:
     return {
         "name": name,
         "description": route.get("description", ""),
@@ -6358,6 +6560,7 @@ async def create_webhook(body: WebhookCreate):
     import re as _re
     import secrets as _secrets
     import time as _time
+
     import nastech_cli.webhook as wh
 
     if not wh._is_webhook_enabled():
@@ -6412,7 +6615,8 @@ async def delete_webhook(name: str):
     key = (name or "").strip().lower()
     subs = wh._load_subscriptions()
     if key not in subs:
-        raise HTTPException(status_code=404, detail=f"No subscription named '{key}'")
+        raise HTTPException(status_code=404,
+                            detail=f"No subscription named '{key}'")
     del subs[key]
     wh._save_subscriptions(subs)
     return {"ok": True}
@@ -6436,7 +6640,8 @@ async def set_webhook_enabled(name: str, body: WebhookEnabledToggle):
     key = (name or "").strip().lower()
     subs = wh._load_subscriptions()
     if key not in subs:
-        raise HTTPException(status_code=404, detail=f"No subscription named '{key}'")
+        raise HTTPException(status_code=404,
+                            detail=f"No subscription named '{key}'")
     subs[key]["enabled"] = bool(body.enabled)
     wh._save_subscriptions(subs)
     return {"ok": True, "name": key, "enabled": bool(body.enabled)}
@@ -6458,7 +6663,8 @@ async def start_gateway():
         proc = _spawn_nastech_action(["gateway", "start"], "gateway-start")
     except Exception as exc:
         _log.exception("Failed to spawn gateway start")
-        raise HTTPException(status_code=500, detail=f"Failed to start gateway: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to start gateway: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "gateway-start"}
 
 
@@ -6468,7 +6674,8 @@ async def stop_gateway():
         proc = _spawn_nastech_action(["gateway", "stop"], "gateway-stop")
     except Exception as exc:
         _log.exception("Failed to spawn gateway stop")
-        raise HTTPException(status_code=500, detail=f"Failed to stop gateway: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to stop gateway: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "gateway-stop"}
 
 
@@ -6539,17 +6746,19 @@ async def list_credential_pool():
 @app.post("/api/credentials/pool")
 async def add_credential_pool_entry(body: CredentialPoolAdd):
     import uuid as _uuid
+
     from agent.credential_pool import (
-        load_pool,
-        PooledCredential,
         AUTH_TYPE_API_KEY,
         SOURCE_MANUAL,
+        PooledCredential,
+        load_pool,
     )
 
     provider = (body.provider or "").strip().lower()
     api_key = (body.api_key or "").strip()
     if not provider or not api_key:
-        raise HTTPException(status_code=400, detail="provider and api_key are required")
+        raise HTTPException(status_code=400,
+                            detail="provider and api_key are required")
 
     try:
         pool = load_pool(provider)
@@ -6583,7 +6792,9 @@ async def remove_credential_pool_entry(provider: str, index: int):
         _log.exception("DELETE /api/credentials/pool failed")
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if removed is None:
-        raise HTTPException(status_code=404, detail="No pool entry at that index")
+        raise HTTPException(
+            status_code=404,
+            detail="No pool entry at that index")
     return {"ok": True, "provider": provider, "count": len(pool.entries())}
 
 
@@ -6671,7 +6882,8 @@ async def set_memory_provider(body: MemoryProviderSelect):
 async def reset_memory(body: MemoryReset):
     target = (body.target or "all").strip().lower()
     if target not in {"all", "memory", "user"}:
-        raise HTTPException(status_code=400, detail="target must be all, memory, or user")
+        raise HTTPException(status_code=400,
+                            detail="target must be all, memory, or user")
 
     mem_dir = get_nastech_home() / "memories"
     deleted = []
@@ -6687,7 +6899,9 @@ async def reset_memory(body: MemoryReset):
                 path.unlink()
                 deleted.append(fname)
             except OSError as exc:
-                raise HTTPException(status_code=500, detail=f"Could not delete {fname}: {exc}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Could not delete {fname}: {exc}")
     return {"ok": True, "deleted": deleted}
 
 
@@ -6710,7 +6924,9 @@ async def run_doctor():
         proc = _spawn_nastech_action(["doctor"], "doctor")
     except Exception as exc:
         _log.exception("Failed to spawn doctor")
-        raise HTTPException(status_code=500, detail=f"Failed to run doctor: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to run doctor: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "doctor"}
 
 
@@ -6720,7 +6936,8 @@ async def run_security_audit():
         proc = _spawn_nastech_action(["security", "audit"], "security-audit")
     except Exception as exc:
         _log.exception("Failed to spawn security audit")
-        raise HTTPException(status_code=500, detail=f"Failed to run security audit: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to run security audit: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "security-audit"}
 
 
@@ -6738,7 +6955,9 @@ async def run_backup(body: BackupRequest):
         proc = _spawn_nastech_action(args, "backup")
     except Exception as exc:
         _log.exception("Failed to spawn backup")
-        raise HTTPException(status_code=500, detail=f"Failed to run backup: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to run backup: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "backup"}
 
 
@@ -6752,12 +6971,15 @@ async def run_import(body: ImportRequest):
     if not archive:
         raise HTTPException(status_code=400, detail="archive path is required")
     if not os.path.isfile(archive):
-        raise HTTPException(status_code=404, detail=f"Archive not found: {archive}")
+        raise HTTPException(status_code=404,
+                            detail=f"Archive not found: {archive}")
     try:
         proc = _spawn_nastech_action(["import", archive], "import")
     except Exception as exc:
         _log.exception("Failed to spawn import")
-        raise HTTPException(status_code=500, detail=f"Failed to run import: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to run import: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "import"}
 
 
@@ -6769,8 +6991,8 @@ async def list_hooks():
     currently executable, plus the set of valid hook events so the create
     form can offer them.
     """
-    from nastech_cli.config import load_config as _load_config
     from agent import shell_hooks
+    from nastech_cli.config import load_config as _load_config
 
     try:
         from nastech_cli.plugins import VALID_HOOKS
@@ -6834,14 +7056,17 @@ async def create_hook(body: HookCreate):
     event = (body.event or "").strip()
     command = (body.command or "").strip()
     if not event or not command:
-        raise HTTPException(status_code=400, detail="event and command are required")
+        raise HTTPException(status_code=400,
+                            detail="event and command are required")
 
     try:
         from nastech_cli.plugins import VALID_HOOKS
         if event not in VALID_HOOKS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unknown event '{event}'. Valid: {', '.join(sorted(VALID_HOOKS))}",
+                detail=f"Unknown event '{event}'. Valid: {
+                    ', '.join(
+                        sorted(VALID_HOOKS))}",
             )
     except HTTPException:
         raise
@@ -6874,7 +7099,8 @@ async def create_hook(body: HookCreate):
         except Exception:
             _log.exception("hook consent record failed")
 
-    return {"ok": True, "event": event, "command": command, "approved": approved}
+    return {"ok": True, "event": event,
+            "command": command, "approved": approved}
 
 
 class HookDelete(BaseModel):
@@ -6890,7 +7116,8 @@ async def delete_hook(body: HookDelete):
     event = (body.event or "").strip()
     command = (body.command or "").strip()
     if not event or not command:
-        raise HTTPException(status_code=400, detail="event and command are required")
+        raise HTTPException(status_code=400,
+                            detail="event and command are required")
 
     cfg = load_config()
     hooks_cfg = cfg.get("hooks")
@@ -6954,10 +7181,12 @@ async def list_checkpoints():
 @app.post("/api/ops/checkpoints/prune")
 async def prune_checkpoints():
     try:
-        proc = _spawn_nastech_action(["checkpoints", "prune"], "checkpoints-prune")
+        proc = _spawn_nastech_action(
+            ["checkpoints", "prune"], "checkpoints-prune")
     except Exception as exc:
         _log.exception("Failed to spawn checkpoints prune")
-        raise HTTPException(status_code=500, detail=f"Failed to prune checkpoints: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to prune checkpoints: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "checkpoints-prune"}
 
 
@@ -6981,10 +7210,12 @@ async def install_skill_hub(body: SkillInstallRequest):
     if not identifier:
         raise HTTPException(status_code=400, detail="identifier is required")
     try:
-        proc = _spawn_nastech_action(["skills", "install", identifier], "skills-install")
+        proc = _spawn_nastech_action(
+            ["skills", "install", identifier], "skills-install")
     except Exception as exc:
         _log.exception("Failed to spawn skills install")
-        raise HTTPException(status_code=500, detail=f"Failed to install skill: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to install skill: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "skills-install"}
 
 
@@ -6998,10 +7229,12 @@ async def uninstall_skill_hub(body: SkillUninstallRequest):
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
     try:
-        proc = _spawn_nastech_action(["skills", "uninstall", name, "--yes"], "skills-uninstall")
+        proc = _spawn_nastech_action(
+            ["skills", "uninstall", name, "--yes"], "skills-uninstall")
     except Exception as exc:
         _log.exception("Failed to spawn skills uninstall")
-        raise HTTPException(status_code=500, detail=f"Failed to uninstall skill: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to uninstall skill: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "skills-uninstall"}
 
 
@@ -7011,7 +7244,8 @@ async def update_skills_hub():
         proc = _spawn_nastech_action(["skills", "update"], "skills-update")
     except Exception as exc:
         _log.exception("Failed to spawn skills update")
-        raise HTTPException(status_code=500, detail=f"Failed to update skills: {exc}")
+        raise HTTPException(status_code=500,
+                            detail=f"Failed to update skills: {exc}")
     return {"ok": True, "pid": proc.pid, "name": "skills-update"}
 
 
@@ -7092,7 +7326,8 @@ async def list_skills_hub_sources():
             # GitHub exposes a rate-limit flag; the index an availability flag.
             if sid == "github":
                 try:
-                    entry["rate_limited"] = bool(getattr(src, "is_rate_limited", False))
+                    entry["rate_limited"] = bool(
+                        getattr(src, "is_rate_limited", False))
                 except Exception:
                     entry["rate_limited"] = False
             if sid == "nastech-index":
@@ -7101,7 +7336,8 @@ async def list_skills_hub_sources():
                 except Exception:
                     index_available = False
                 entry["available"] = index_available
-                # Empty-query search on the index returns featured/popular skills.
+                # Empty-query search on the index returns featured/popular
+                # skills.
                 if index_available:
                     try:
                         featured = [
@@ -7121,7 +7357,9 @@ async def list_skills_hub_sources():
         return await asyncio.to_thread(_run)
     except Exception as exc:
         _log.exception("skills hub sources listing failed")
-        raise HTTPException(status_code=502, detail=f"Hub sources failed: {exc}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Hub sources failed: {exc}")
 
 
 @app.get("/api/skills/hub/search")
@@ -7135,7 +7373,8 @@ async def search_skills_hub(q: str = "", source: str = "all", limit: int = 20):
     """
     query = (q or "").strip()
     if not query:
-        return {"results": [], "source_counts": {}, "timed_out": [], "installed": {}}
+        return {"results": [], "source_counts": {},
+                "timed_out": [], "installed": {}}
 
     def _run():
         from tools.skills_hub import create_source_router, parallel_search_sources
@@ -7146,7 +7385,8 @@ async def search_skills_hub(q: str = "", source: str = "all", limit: int = 20):
             sources, query=query, source_filter=source or "all", overall_timeout=30
         )
 
-        # Dedupe by identifier, preferring higher trust (mirrors unified_search).
+        # Dedupe by identifier, preferring higher trust (mirrors
+        # unified_search).
         _rank = {"builtin": 2, "trusted": 1, "community": 0}
         seen = {}
         for r in all_results:
@@ -7167,7 +7407,9 @@ async def search_skills_hub(q: str = "", source: str = "all", limit: int = 20):
         return await asyncio.to_thread(_run)
     except Exception as exc:
         _log.exception("skills hub search failed")
-        raise HTTPException(status_code=502, detail=f"Hub search failed: {exc}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Hub search failed: {exc}")
 
 
 @app.get("/api/skills/hub/preview")
@@ -7199,7 +7441,8 @@ async def preview_skill_hub(identifier: str = ""):
                 if isinstance(content, bytes):
                     # Some sources (e.g. official optional skills) store every
                     # file as bytes.  Decode text so SKILL.md / docs render;
-                    # only fall back to a placeholder for genuinely-binary data.
+                    # only fall back to a placeholder for genuinely-binary
+                    # data.
                     try:
                         files[rel] = content.decode("utf-8")
                     except UnicodeDecodeError:
@@ -7225,9 +7468,13 @@ async def preview_skill_hub(identifier: str = ""):
         result = await asyncio.to_thread(_run)
     except Exception as exc:
         _log.exception("skills hub preview failed")
-        raise HTTPException(status_code=502, detail=f"Hub preview failed: {exc}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Hub preview failed: {exc}")
     if result is None:
-        raise HTTPException(status_code=404, detail=f"Skill not found: {ident}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Skill not found: {ident}")
     return result
 
 
@@ -7249,8 +7496,8 @@ async def scan_skill_hub(identifier: str = ""):
         import shutil as _shutil
 
         from nastech_cli.skills_hub import _resolve_source_meta_and_bundle
-        from tools.skills_hub import create_source_router, quarantine_bundle
         from tools.skills_guard import scan_skill, should_allow_install
+        from tools.skills_hub import create_source_router, quarantine_bundle
 
         sources = create_source_router()
         meta, bundle, _src = _resolve_source_meta_and_bundle(ident, sources)
@@ -7318,7 +7565,9 @@ async def scan_skill_hub(identifier: str = ""):
         _log.exception("skills hub scan failed")
         raise HTTPException(status_code=502, detail=f"Hub scan failed: {exc}")
     if result is None:
-        raise HTTPException(status_code=404, detail=f"Skill not found: {ident}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Skill not found: {ident}")
     return result
 
 
@@ -7403,7 +7652,8 @@ def _fallback_profile_dicts(profiles_mod) -> List[Dict[str, Any]]:
     profiles: List[Dict[str, Any]] = []
     default_home = profiles_mod._get_default_nastech_home()
     if default_home.is_dir():
-        model, provider = _safe(lambda: profiles_mod._read_config_model(default_home), (None, None))
+        model, provider = _safe(
+            lambda: profiles_mod._read_config_model(default_home), (None, None))
         profiles.append({
             "name": "default",
             "path": str(default_home),
@@ -7426,7 +7676,8 @@ def _fallback_profile_dicts(profiles_mod) -> List[Dict[str, Any]]:
         for entry in sorted(profiles_root.iterdir()):
             if not entry.is_dir() or not profiles_mod._PROFILE_ID_RE.match(entry.name):
                 continue
-            model, provider = _safe(lambda entry=entry: profiles_mod._read_config_model(entry), (None, None))
+            model, provider = _safe(
+                lambda entry=entry: profiles_mod._read_config_model(entry), (None, None))
             profiles.append({
                 "name": entry.name,
                 "path": str(entry),
@@ -7455,7 +7706,8 @@ def _resolve_profile_dir(name: str) -> Path:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if not profiles_mod.profile_exists(name):
-        raise HTTPException(status_code=404, detail=f"Profile '{name}' does not exist.")
+        raise HTTPException(status_code=404,
+                            detail=f"Profile '{name}' does not exist.")
     return profiles_mod.get_profile_dir(name)
 
 
@@ -7474,12 +7726,13 @@ def _write_profile_model(profile_dir: Path, provider: str, model: str) -> None:
     Clears any stale ``base_url`` / ``context_length`` the same way
     ``POST /api/model/set`` does, since the new model may differ.
     """
-    from nastech_constants import set_nastech_home_override, reset_nastech_home_override
+    from nastech_constants import reset_nastech_home_override, set_nastech_home_override
 
     token = set_nastech_home_override(str(profile_dir))
     try:
         cfg = load_config()
-        cfg["model"] = _apply_main_model_assignment(cfg.get("model", {}), provider, model)
+        cfg["model"] = _apply_main_model_assignment(
+            cfg.get("model", {}), provider, model)
         save_config(cfg)
     finally:
         reset_nastech_home_override(token)
@@ -7489,9 +7742,11 @@ def _write_profile_model(profile_dir: Path, provider: str, model: str) -> None:
 async def list_profiles_endpoint():
     from nastech_cli import profiles as profiles_mod
     try:
-        return {"profiles": [_profile_to_dict(p) for p in profiles_mod.list_profiles()]}
+        return {"profiles": [_profile_to_dict(
+            p) for p in profiles_mod.list_profiles()]}
     except Exception:
-        _log.exception("GET /api/profiles failed; falling back to profile directory scan")
+        _log.exception(
+            "GET /api/profiles failed; falling back to profile directory scan")
         return {"profiles": _fallback_profile_dicts(profiles_mod)}
 
 
@@ -7549,9 +7804,12 @@ async def create_profile_endpoint(body: ProfileCreate):
             _write_profile_model(path, provider, model)
             model_set = True
         except Exception:
-            _log.exception("Setting model for new profile %s failed", body.name)
+            _log.exception(
+                "Setting model for new profile %s failed",
+                body.name)
 
-    return {"ok": True, "name": body.name, "path": str(path), "model_set": model_set}
+    return {"ok": True, "name": body.name,
+            "path": str(path), "model_set": model_set}
 
 
 @app.get("/api/profiles/active")
@@ -7592,7 +7850,8 @@ async def set_active_profile_endpoint(body: ProfileActiveUpdate):
     except Exception as e:
         _log.exception("POST /api/profiles/active failed")
         raise HTTPException(status_code=500, detail=str(e))
-    return {"ok": True, "active": profiles_mod.normalize_profile_name(body.name)}
+    return {"ok": True,
+            "active": profiles_mod.normalize_profile_name(body.name)}
 
 
 @app.get("/api/profiles/{name}/setup-command")
@@ -7618,11 +7877,15 @@ async def open_profile_terminal_endpoint(name: str):
             subprocess.Popen(["osascript", "-e", applescript])
         else:
             terminal_commands = [
-                ("x-terminal-emulator", ["x-terminal-emulator", "-e", "sh", "-lc", command]),
-                ("gnome-terminal", ["gnome-terminal", "--", "sh", "-lc", command]),
+                ("x-terminal-emulator",
+                 ["x-terminal-emulator", "-e", "sh", "-lc", command]),
+                ("gnome-terminal", ["gnome-terminal",
+                 "--", "sh", "-lc", command]),
                 ("konsole", ["konsole", "-e", "sh", "-lc", command]),
-                ("xfce4-terminal", ["xfce4-terminal", "-e", f"sh -lc '{command}'"]),
-                ("mate-terminal", ["mate-terminal", "-e", f"sh -lc '{command}'"]),
+                ("xfce4-terminal", ["xfce4-terminal",
+                 "-e", f"sh -lc '{command}'"]),
+                ("mate-terminal", ["mate-terminal",
+                 "-e", f"sh -lc '{command}'"]),
                 ("lxterminal", ["lxterminal", "-e", f"sh -lc '{command}'"]),
                 ("tilix", ["tilix", "-e", "sh", "-lc", command]),
                 ("alacritty", ["alacritty", "-e", "sh", "-lc", command]),
@@ -7692,9 +7955,12 @@ async def get_profile_soul(name: str):
     soul_path = _resolve_profile_dir(name) / "SOUL.md"
     if soul_path.exists():
         try:
-            return {"content": soul_path.read_text(encoding="utf-8"), "exists": True}
+            return {"content": soul_path.read_text(
+                encoding="utf-8"), "exists": True}
         except OSError as e:
-            raise HTTPException(status_code=500, detail=f"Could not read SOUL.md: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Could not read SOUL.md: {e}")
     return {"content": "", "exists": False}
 
 
@@ -7705,12 +7971,14 @@ async def update_profile_soul(name: str, body: ProfileSoulUpdate):
         soul_path.write_text(body.content, encoding="utf-8")
     except OSError as e:
         _log.exception("PUT /api/profiles/%s/soul failed", name)
-        raise HTTPException(status_code=500, detail=f"Could not write SOUL.md: {e}")
+        raise HTTPException(status_code=500,
+                            detail=f"Could not write SOUL.md: {e}")
     return {"ok": True}
 
 
 @app.put("/api/profiles/{name}/description")
-async def update_profile_description_endpoint(name: str, body: ProfileDescriptionUpdate):
+async def update_profile_description_endpoint(
+        name: str, body: ProfileDescriptionUpdate):
     """Set or clear a profile's role description (kanban routing signal).
 
     Empty string clears the description. Non-empty stores it as a
@@ -7743,7 +8011,8 @@ async def update_profile_model_endpoint(name: str, body: ProfileModelUpdate):
     provider = (body.provider or "").strip()
     model = (body.model or "").strip()
     if not provider or not model:
-        raise HTTPException(status_code=400, detail="provider and model are required")
+        raise HTTPException(status_code=400,
+                            detail="provider and model are required")
     try:
         _write_profile_model(profile_dir, provider, model)
     except Exception as e:
@@ -7765,7 +8034,8 @@ async def describe_profile_auto_endpoint(name: str, body: ProfileDescribeAuto):
     _resolve_profile_dir(name)
     try:
         from nastech_cli import profile_describer
-        outcome = profile_describer.describe_profile(name, overwrite=bool(body.overwrite))
+        outcome = profile_describer.describe_profile(
+            name, overwrite=bool(body.overwrite))
     except Exception as e:
         _log.exception("POST /api/profiles/%s/describe-auto failed", name)
         raise HTTPException(status_code=500, detail=str(e))
@@ -7792,8 +8062,8 @@ class SkillToggle(BaseModel):
 
 @app.get("/api/skills")
 async def get_skills():
-    from tools.skills_tool import _find_all_skills
     from nastech_cli.skills_config import get_disabled_skills
+    from tools.skills_tool import _find_all_skills
     config = load_config()
     disabled = get_disabled_skills(config)
     skills = _find_all_skills(skip_disabled=True)
@@ -7894,13 +8164,13 @@ async def get_toolset_config(name: str):
     entry. Toolsets without a ``TOOL_CATEGORIES`` entry return an empty
     provider list and ``has_category: false``. Returns 400 for unknown keys.
     """
+    from nastech_cli.config import get_env_value
     from nastech_cli.tools_config import (
         TOOL_CATEGORIES,
         _get_effective_configurable_toolsets,
         _is_provider_active,
         _visible_providers,
     )
-    from nastech_cli.config import get_env_value
 
     valid = {ts_key for ts_key, _, _ in _get_effective_configurable_toolsets()}
     if name not in valid:
@@ -7961,8 +8231,8 @@ async def select_toolset_provider(name: str, body: ToolsetProviderSelect):
     400 for unknown toolset or provider names.
     """
     from nastech_cli.tools_config import (
-        apply_provider_selection,
         _get_effective_configurable_toolsets,
+        apply_provider_selection,
     )
 
     valid = {ts_key for ts_key, _, _ in _get_effective_configurable_toolsets()}
@@ -7994,14 +8264,17 @@ async def save_toolset_env(name: str, body: ToolsetEnvUpdate):
     "leave unchanged" and skipped. Returns the saved/skipped key lists and the
     refreshed ``is_set`` status. Returns 400 for unknown toolset or env keys.
     """
+    from nastech_cli.config import get_env_value, save_env_value
     from nastech_cli.tools_config import (
         TOOL_CATEGORIES,
         _get_effective_configurable_toolsets,
         _visible_providers,
     )
-    from nastech_cli.config import get_env_value, save_env_value
 
-    valid_ts = {ts_key for ts_key, _, _ in _get_effective_configurable_toolsets()}
+    valid_ts = {
+        ts_key for ts_key,
+        _,
+        _ in _get_effective_configurable_toolsets()}
     if name not in valid_ts:
         raise HTTPException(status_code=400, detail=f"Unknown toolset: {name}")
 
@@ -8017,7 +8290,9 @@ async def save_toolset_env(name: str, body: ToolsetEnvUpdate):
     if unknown:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown env var(s) for toolset {name}: {', '.join(sorted(unknown))}",
+            detail=f"Unknown env var(s) for toolset {name}: {
+                ', '.join(
+                    sorted(unknown))}",
         )
 
     saved: List[str] = []
@@ -8033,7 +8308,8 @@ async def save_toolset_env(name: str, body: ToolsetEnvUpdate):
             skipped.append(key)
 
     status = {k: bool(get_env_value(k)) for k in allowed}
-    return {"ok": True, "name": name, "saved": saved, "skipped": skipped, "is_set": status}
+    return {"ok": True, "name": name, "saved": saved,
+            "skipped": skipped, "is_set": status}
 
 
 class ToolsetPostSetup(BaseModel):
@@ -8057,7 +8333,10 @@ async def run_toolset_post_setup(name: str, body: ToolsetPostSetup):
         valid_post_setup_keys,
     )
 
-    valid_ts = {ts_key for ts_key, _, _ in _get_effective_configurable_toolsets()}
+    valid_ts = {
+        ts_key for ts_key,
+        _,
+        _ in _get_effective_configurable_toolsets()}
     if name not in valid_ts:
         raise HTTPException(status_code=400, detail=f"Unknown toolset: {name}")
 
@@ -8075,7 +8354,8 @@ async def run_toolset_post_setup(name: str, body: ToolsetPostSetup):
         raise HTTPException(
             status_code=500, detail=f"Failed to run post-setup: {exc}"
         )
-    return {"ok": True, "pid": proc.pid, "name": "tools-post-setup", "key": body.key}
+    return {"ok": True, "pid": proc.pid,
+            "name": "tools-post-setup", "key": body.key}
 
 
 # ---------------------------------------------------------------------------
@@ -8100,7 +8380,9 @@ async def update_config_raw(body: RawConfigUpdate):
     try:
         parsed = yaml.safe_load(body.yaml_text)
         if not isinstance(parsed, dict):
-            raise HTTPException(status_code=400, detail="YAML must be a mapping")
+            raise HTTPException(
+                status_code=400,
+                detail="YAML must be a mapping")
         save_config(parsed)
         return {"ok": True}
     except yaml.YAMLError as e:
@@ -8114,8 +8396,8 @@ async def update_config_raw(body: RawConfigUpdate):
 
 @app.get("/api/analytics/usage")
 async def get_usage_analytics(days: int = 30):
-    from nastech_state import SessionDB
     from agent.insights import InsightsEngine
+    from nastech_state import SessionDB
 
     db = SessionDB()
     try:
@@ -8221,7 +8503,8 @@ async def get_models_analytics(days: int = 30):
             caps = {}
             try:
                 from agent.models_dev import get_model_capabilities
-                mc = get_model_capabilities(provider=provider, model=model_name)
+                mc = get_model_capabilities(
+                    provider=provider, model=model_name)
                 if mc is not None:
                     caps = {
                         "supports_tools": mc.supports_tools,
@@ -8294,7 +8577,8 @@ async def get_models_analytics(days: int = 30):
 # so the /api/pty WebSocket handler needs no platform guards.
 if sys.platform.startswith("win"):
     try:
-        from nastech_cli.win_pty_bridge import WinPtyBridge as PtyBridge, PtyUnavailableError
+        from nastech_cli.win_pty_bridge import PtyUnavailableError
+        from nastech_cli.win_pty_bridge import WinPtyBridge as PtyBridge
         _PTY_BRIDGE_AVAILABLE = True
     except ImportError:  # pragma: no cover - pywinpty missing
         PtyBridge = None  # type: ignore[assignment]
@@ -8577,7 +8861,9 @@ def _resolve_chat_argv(
         from nastech_cli.config import apply_terminal_config_to_env
         apply_terminal_config_to_env(env=env)
     except Exception:
-        _log.debug("Failed to apply terminal config bridge for dashboard chat", exc_info=True)
+        _log.debug(
+            "Failed to apply terminal config bridge for dashboard chat",
+            exc_info=True)
     env.setdefault("NODE_ENV", "production")
     # Browser-embedded chat should prefer stable wheel-based scrollback over
     # native terminal mouse tracking. When mouse tracking is enabled, wheel
@@ -8656,7 +8942,8 @@ def _build_sidecar_url(channel: str) -> Optional[str]:
     if not host or not port:
         return None
 
-    netloc = f"[{host}]:{port}" if ":" in host and not host.startswith("[") else f"{host}:{port}"
+    netloc = f"[{host}]:{port}" if ":" in host and not host.startswith(
+        "[") else f"{host}:{port}"
 
     if getattr(app.state, "auth_required", False):
         # Gated mode — use the internal credential so the WS upgrade survives
@@ -8667,7 +8954,8 @@ def _build_sidecar_url(channel: str) -> Optional[str]:
             {"internal": internal_ws_credential(), "channel": channel}
         )
     else:
-        qs = urllib.parse.urlencode({"token": _SESSION_TOKEN, "channel": channel})
+        qs = urllib.parse.urlencode(
+            {"token": _SESSION_TOKEN, "channel": channel})
 
     return f"ws://{netloc}/api/pub?{qs}"
 
@@ -8684,7 +8972,10 @@ async def _broadcast_event(app: Any, channel: str, payload: str) -> None:
         except Exception:
             # Subscriber went away mid-send; the /api/events finally clause
             # will remove it from the registry on its next iteration.
-            _log.warning("broadcast send failed for subscriber on %s", channel, exc_info=True)
+            _log.warning(
+                "broadcast send failed for subscriber on %s",
+                channel,
+                exc_info=True)
 
 
 def _channel_or_close_code(ws: WebSocket) -> Optional[str]:
@@ -8765,13 +9056,13 @@ async def pty_ws(ws: WebSocket) -> None:
     sidecar_url = _build_sidecar_url(channel) if channel else None
 
     try:
-        argv, cwd, env = _resolve_chat_argv(resume=resume, sidecar_url=sidecar_url)
+        argv, cwd, env = _resolve_chat_argv(
+            resume=resume, sidecar_url=sidecar_url)
     except SystemExit as exc:
         # _make_tui_argv calls sys.exit(1) when node/npm is missing.
         await ws.send_text(f"\r\n\x1b[31mChat unavailable: {exc}\x1b[0m\r\n")
         await ws.close(code=1011)
         return
-
 
     try:
         bridge = PtyBridge.spawn(argv, cwd=cwd, env=env)
@@ -9026,10 +9317,16 @@ def mount_spa(application: FastAPI):
             # browser fetches them through the same proxy prefix.
             html = html.replace('href="/assets/', f'href="{prefix}/assets/')
             html = html.replace('src="/assets/', f'src="{prefix}/assets/')
-            html = html.replace('href="/favicon.ico"', f'href="{prefix}/favicon.ico"')
+            html = html.replace(
+                'href="/favicon.ico"',
+                f'href="{prefix}/favicon.ico"')
             html = html.replace('href="/fonts/', f'href="{prefix}/fonts/')
-            html = html.replace('href="/ds-assets/', f'href="{prefix}/ds-assets/')
-            html = html.replace('src="/ds-assets/', f'src="{prefix}/ds-assets/')
+            html = html.replace(
+                'href="/ds-assets/',
+                f'href="{prefix}/ds-assets/')
+            html = html.replace(
+                'src="/ds-assets/',
+                f'src="{prefix}/ds-assets/')
         html = html.replace("</head>", f"{bootstrap_script}</head>", 1)
         return HTMLResponse(
             html,
@@ -9053,13 +9350,25 @@ def mount_spa(application: FastAPI):
         prefix = _normalise_prefix(request.headers.get("x-forwarded-prefix"))
         css = css_path.read_text()
         if prefix:
-            for asset_dir in ("/fonts/", "/fonts-terminal/", "/ds-assets/", "/assets/"):
-                css = css.replace(f"url({asset_dir}", f"url({prefix}{asset_dir}")
-                css = css.replace(f"url(\"{asset_dir}", f"url(\"{prefix}{asset_dir}")
-                css = css.replace(f"url('{asset_dir}", f"url('{prefix}{asset_dir}")
+            for asset_dir in ("/fonts/", "/fonts-terminal/",
+                              "/ds-assets/", "/assets/"):
+                css = css.replace(
+                    f"url({asset_dir}",
+                    f"url({prefix}{asset_dir}")
+                css = css.replace(
+                    f"url(\"{asset_dir}",
+                    f"url(\"{prefix}{asset_dir}")
+                css = css.replace(
+                    f"url('{asset_dir}",
+                    f"url('{prefix}{asset_dir}")
         return Response(content=css, media_type="text/css")
 
-    application.mount("/assets", StaticFiles(directory=WEB_DIST / "assets"), name="assets")
+    application.mount(
+        "/assets",
+        StaticFiles(
+            directory=WEB_DIST /
+            "assets"),
+        name="assets")
 
     @application.get("/{full_path:path}")
     async def serve_spa(full_path: str, request: Request):
@@ -9094,20 +9403,32 @@ def mount_spa(application: FastAPI):
 # Built-in dashboard themes — label + description only.  The actual color
 # definitions live in the frontend (web/src/themes/presets.ts).
 _BUILTIN_DASHBOARD_THEMES = [
-    {"name": "default",       "label": "NasTech Teal",         "description": "Classic dark teal — the canonical NasTech look"},
-    {"name": "default-large", "label": "NasTech Teal (Large)", "description": "NasTech Teal with bigger fonts and roomier spacing"},
-    {"name": "midnight",      "label": "Midnight",             "description": "Deep blue-violet with cool accents"},
-    {"name": "ember",         "label": "Ember",                "description": "Warm crimson and bronze — forge vibes"},
-    {"name": "mono",          "label": "Mono",                 "description": "Clean grayscale — minimal and focused"},
-    {"name": "cyberpunk",     "label": "Cyberpunk",            "description": "Neon green on black — matrix terminal"},
-    {"name": "rose",          "label": "Rosé",                 "description": "Soft pink and warm ivory — easy on the eyes"},
-    {"name": "amoled",        "label": "AMOLED Black",         "description": "Pure black OLED glass — iOS frosted panels, cyan accents, zero grain"},
-    {"name": "cloud",         "label": "Cloud",                "description": "Soft, rounded, airy — lavender haze with pillowy corners"},
-    {"name": "nord",          "label": "Nord",                 "description": "Arctic blue — calm, clean, Scandinavian minimalism"},
+    {"name": "default", "label": "NasTech Teal",
+        "description": "Classic dark teal — the canonical NasTech look"},
+    {"name": "default-large",
+     "label": "NasTech Teal (Large)",
+     "description": "NasTech Teal with bigger fonts and roomier spacing"},
+    {"name": "midnight", "label": "Midnight",
+        "description": "Deep blue-violet with cool accents"},
+    {"name": "ember", "label": "Ember",
+        "description": "Warm crimson and bronze — forge vibes"},
+    {"name": "mono", "label": "Mono",
+        "description": "Clean grayscale — minimal and focused"},
+    {"name": "cyberpunk", "label": "Cyberpunk",
+        "description": "Neon green on black — matrix terminal"},
+    {"name": "rose", "label": "Rosé",
+        "description": "Soft pink and warm ivory — easy on the eyes"},
+    {"name": "amoled", "label": "AMOLED Black",
+        "description": "Pure black OLED glass — iOS frosted panels, cyan accents, zero grain"},
+    {"name": "cloud", "label": "Cloud",
+        "description": "Soft, rounded, airy — lavender haze with pillowy corners"},
+    {"name": "nord", "label": "Nord",
+        "description": "Arctic blue — calm, clean, Scandinavian minimalism"},
 ]
 
 
-def _parse_theme_layer(value: Any, default_hex: str, default_alpha: float = 1.0) -> Optional[Dict[str, Any]]:
+def _parse_theme_layer(value: Any, default_hex: str,
+                       default_alpha: float = 1.0) -> Optional[Dict[str, Any]]:
     """Normalise a theme layer spec from YAML into `{hex, alpha}` form.
 
     Accepts shorthand (a bare hex string) or full dict form.  Returns
@@ -9176,7 +9497,8 @@ _THEME_LAYOUT_VARIANTS = {"standard", "cockpit", "tiled"}
 _THEME_CUSTOM_CSS_MAX = 32 * 1024
 
 
-def _normalise_theme_definition(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _normalise_theme_definition(
+        data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Normalise a user theme YAML into the wire format `ThemeProvider`
     expects.  Returns ``None`` if the theme is unusable.
 
@@ -9190,14 +9512,24 @@ def _normalise_theme_definition(data: Dict[str, Any]) -> Optional[Dict[str, Any]
         return None
 
     # Palette
-    palette_src = data.get("palette", {}) if isinstance(data.get("palette"), dict) else {}
+    palette_src = data.get(
+        "palette",
+        {}) if isinstance(
+        data.get("palette"),
+        dict) else {}
     # Allow top-level `colors.background` as a shorthand too.
-    colors_src = data.get("colors", {}) if isinstance(data.get("colors"), dict) else {}
+    colors_src = data.get(
+        "colors",
+        {}) if isinstance(
+        data.get("colors"),
+        dict) else {}
 
-    def _layer(key: str, default_hex: str, default_alpha: float = 1.0) -> Dict[str, Any]:
+    def _layer(key: str, default_hex: str,
+               default_alpha: float = 1.0) -> Dict[str, Any]:
         spec = palette_src.get(key, colors_src.get(key))
         parsed = _parse_theme_layer(spec, default_hex, default_alpha)
-        return parsed if parsed is not None else {"hex": default_hex, "alpha": default_alpha}
+        return parsed if parsed is not None else {
+            "hex": default_hex, "alpha": default_alpha}
 
     palette = {
         "background": _layer("background", "#041c1c", 1.0),
@@ -9208,26 +9540,37 @@ def _normalise_theme_definition(data: Dict[str, Any]) -> Optional[Dict[str, Any]
     }
     raw_noise = palette_src.get("noiseOpacity", data.get("noiseOpacity"))
     try:
-        palette["noiseOpacity"] = float(raw_noise) if raw_noise is not None else 1.0
+        palette["noiseOpacity"] = float(
+            raw_noise) if raw_noise is not None else 1.0
     except (TypeError, ValueError):
         palette["noiseOpacity"] = 1.0
 
     # Typography
-    typo_src = data.get("typography", {}) if isinstance(data.get("typography"), dict) else {}
+    typo_src = data.get(
+        "typography",
+        {}) if isinstance(
+        data.get("typography"),
+        dict) else {}
     typography = dict(_THEME_DEFAULT_TYPOGRAPHY)
-    for key in ("fontSans", "fontMono", "fontDisplay", "fontUrl", "baseSize", "lineHeight", "letterSpacing"):
+    for key in ("fontSans", "fontMono", "fontDisplay", "fontUrl",
+                "baseSize", "lineHeight", "letterSpacing"):
         val = typo_src.get(key)
         if isinstance(val, str) and val.strip():
             typography[key] = val
 
     # Layout
-    layout_src = data.get("layout", {}) if isinstance(data.get("layout"), dict) else {}
+    layout_src = data.get(
+        "layout",
+        {}) if isinstance(
+        data.get("layout"),
+        dict) else {}
     layout = dict(_THEME_DEFAULT_LAYOUT)
     radius = layout_src.get("radius")
     if isinstance(radius, str) and radius.strip():
         layout["radius"] = radius
     density = layout_src.get("density")
-    if isinstance(density, str) and density in {"compact", "comfortable", "spacious"}:
+    if isinstance(density, str) and density in {
+            "compact", "comfortable", "spacious"}:
         layout["density"] = density
 
     # Color overrides — keep only valid keys with string values.
@@ -9235,7 +9578,8 @@ def _normalise_theme_definition(data: Dict[str, Any]) -> Optional[Dict[str, Any]
     color_overrides: Dict[str, str] = {}
     if isinstance(overrides_src, dict):
         for key, val in overrides_src.items():
-            if key in _THEME_OVERRIDE_KEYS and isinstance(val, str) and val.strip():
+            if key in _THEME_OVERRIDE_KEYS and isinstance(
+                    val, str) and val.strip():
                 color_overrides[key] = val
 
     # Assets — named slots + arbitrary user-defined keys.  Values must be
@@ -9244,7 +9588,11 @@ def _normalise_theme_definition(data: Dict[str, Any]) -> Optional[Dict[str, Any]
     # CSS vars.  Empty values are dropped so a theme can explicitly clear a
     # slot by setting ``hero: ""``.
     assets_out: Dict[str, Any] = {}
-    assets_src = data.get("assets", {}) if isinstance(data.get("assets"), dict) else {}
+    assets_src = data.get(
+        "assets",
+        {}) if isinstance(
+        data.get("assets"),
+        dict) else {}
     for key in _THEME_NAMED_ASSET_KEYS:
         val = assets_src.get(key)
         if isinstance(val, str) and val.strip():
@@ -9280,7 +9628,8 @@ def _normalise_theme_definition(data: Dict[str, Any]) -> Optional[Dict[str, Any]
     component_styles: Dict[str, Dict[str, str]] = {}
     if isinstance(component_styles_src, dict):
         for bucket, props in component_styles_src.items():
-            if bucket not in _THEME_COMPONENT_BUCKETS or not isinstance(props, dict):
+            if bucket not in _THEME_COMPONENT_BUCKETS or not isinstance(
+                    props, dict):
                 continue
             clean: Dict[str, str] = {}
             for prop, value in props.items():
@@ -9439,7 +9788,8 @@ async def set_dashboard_font(body: FontSetBody):
 # Dashboard plugin system
 # ---------------------------------------------------------------------------
 
-def _safe_plugin_api_relpath(api_field: Any, *, dashboard_dir: Path) -> Optional[str]:
+def _safe_plugin_api_relpath(api_field: Any, *,
+                             dashboard_dir: Path) -> Optional[str]:
     """Validate the manifest's ``api`` field for the plugin loader.
 
     The web server later imports this file as a Python module via
@@ -9525,19 +9875,23 @@ def _discover_dashboard_plugins() -> list:
                 # ``override`` to replace a built-in route, and ``hidden`` to
                 # register the plugin component/slots without adding a tab
                 # (useful for slot-only plugins like a header-crest injector).
-                raw_tab = data.get("tab", {}) if isinstance(data.get("tab"), dict) else {}
+                raw_tab = data.get(
+                    "tab", {}) if isinstance(
+                    data.get("tab"), dict) else {}
                 tab_info = {
                     "path": raw_tab.get("path", f"/{name}"),
                     "position": raw_tab.get("position", "end"),
                 }
                 override_path = raw_tab.get("override")
-                if isinstance(override_path, str) and override_path.startswith("/"):
+                if isinstance(override_path,
+                              str) and override_path.startswith("/"):
                     tab_info["override"] = override_path
                 if bool(raw_tab.get("hidden")):
                     tab_info["hidden"] = True
                 # Slots: list of named slot locations this plugin populates.
                 # The frontend exposes ``registerSlot(pluginName, slotName, Component)``
-                # on window; plugins with non-empty slots call it from their JS bundle.
+                # on window; plugins with non-empty slots call it from their JS
+                # bundle.
                 slots_src = data.get("slots")
                 slots: List[str] = []
                 if isinstance(slots_src, list):
@@ -9550,7 +9904,8 @@ def _discover_dashboard_plugins() -> list:
                 # (RCE, GHSA-5qr3-c538-wm9j).
                 raw_api = data.get("api")
                 dashboard_dir = child / "dashboard"
-                safe_api = _safe_plugin_api_relpath(raw_api, dashboard_dir=dashboard_dir)
+                safe_api = _safe_plugin_api_relpath(
+                    raw_api, dashboard_dir=dashboard_dir)
                 if raw_api and safe_api is None:
                     _log.warning(
                         "Plugin %s: refusing unsafe api path %r (must be a "
@@ -9575,7 +9930,10 @@ def _discover_dashboard_plugins() -> list:
                     "_api_file": safe_api,
                 })
             except Exception as exc:
-                _log.warning("Bad dashboard plugin manifest %s: %s", manifest_file, exc)
+                _log.warning(
+                    "Bad dashboard plugin manifest %s: %s",
+                    manifest_file,
+                    exc)
                 continue
     return plugins
 
@@ -9600,7 +9958,11 @@ async def get_dashboard_plugins():
     plugins = _get_dashboard_plugins()
     # Read user's hidden plugins list from config.
     config = load_config()
-    hidden: list = cfg_get(config, "dashboard", "hidden_plugins", default=[]) or []
+    hidden: list = cfg_get(
+        config,
+        "dashboard",
+        "hidden_plugins",
+        default=[]) or []
     # Strip internal fields before sending to frontend and filter out hidden.
     return [
         {k: v for k, v in p.items() if not k.startswith("_")}
@@ -9630,14 +9992,14 @@ def _merged_plugins_hub() -> Dict[str, Any]:
     """Agent discovery + dashboard manifests + optional provider picker metadata."""
     from nastech_cli.plugins_cmd import (
         _discover_all_plugins,
-        _get_current_context_engine,
-        _get_current_memory_provider,
         _discover_context_engines,
         _discover_memory_providers,
+        _get_current_context_engine,
+        _get_current_memory_provider,
         _get_disabled_set,
         _get_enabled_set,
-        _read_manifest as _read_plugin_manifest_at,
     )
+    from nastech_cli.plugins_cmd import _read_manifest as _read_plugin_manifest_at
 
     dashboard_list = _get_dashboard_plugins()
     dash_by_name = {str(p["name"]): p for p in dashboard_list}
@@ -9647,7 +10009,11 @@ def _merged_plugins_hub() -> Dict[str, Any]:
 
     # Read user-hidden plugins from config for the user_hidden field.
     config = load_config()
-    hidden_plugins: list = cfg_get(config, "dashboard", "hidden_plugins", default=[]) or []
+    hidden_plugins: list = cfg_get(
+        config,
+        "dashboard",
+        "hidden_plugins",
+        default=[]) or []
 
     plugins_root_resolved = (get_nastech_home() / "plugins").resolve()
     rows: List[Dict[str, Any]] = []
@@ -9668,7 +10034,8 @@ def _merged_plugins_hub() -> Dict[str, Any]:
 
         dir_path = Path(dir_str)
         dm = dash_by_name.get(name)
-        has_dash_manifest = dm is not None or (dir_path / "dashboard" / "manifest.json").exists()
+        has_dash_manifest = dm is not None or (
+            dir_path / "dashboard" / "manifest.json").exists()
 
         under_user_tree = False
         try:
@@ -9678,7 +10045,8 @@ def _merged_plugins_hub() -> Dict[str, Any]:
             pass
 
         can_remove_update = (
-            source in {"user", "git"} and under_user_tree and Path(dir_str).is_dir()
+            source in {"user", "git"} and under_user_tree and Path(
+                dir_str).is_dir()
         )
 
         # Check if this plugin provides tools that require auth
@@ -9755,11 +10123,13 @@ async def get_plugins_hub(request: Request):
         return _merged_plugins_hub()
     except Exception as exc:
         _log.warning("plugins/hub failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Failed to build plugins hub.") from exc
+        raise HTTPException(status_code=500,
+                            detail="Failed to build plugins hub.") from exc
 
 
 @app.post("/api/dashboard/agent-plugins/install")
-async def post_agent_plugin_install(request: Request, body: _AgentPluginInstallBody):
+async def post_agent_plugin_install(
+        request: Request, body: _AgentPluginInstallBody):
     _require_token(request)
     from nastech_cli.plugins_cmd import dashboard_install_plugin
 
@@ -9795,7 +10165,8 @@ async def post_agent_plugin_enable(request: Request, name: str):
 
     result = dashboard_set_agent_plugin_enabled(name, enabled=True)
     if not result.get("ok"):
-        raise HTTPException(status_code=400, detail=result.get("error") or "Enable failed.")
+        raise HTTPException(status_code=400,
+                            detail=result.get("error") or "Enable failed.")
     return result
 
 
@@ -9807,7 +10178,8 @@ async def post_agent_plugin_disable(request: Request, name: str):
 
     result = dashboard_set_agent_plugin_enabled(name, enabled=False)
     if not result.get("ok"):
-        raise HTTPException(status_code=400, detail=result.get("error") or "Disable failed.")
+        raise HTTPException(status_code=400,
+                            detail=result.get("error") or "Disable failed.")
     return result
 
 
@@ -9819,7 +10191,8 @@ async def post_agent_plugin_update(request: Request, name: str):
 
     result = dashboard_update_user_plugin(name)
     if not result.get("ok"):
-        raise HTTPException(status_code=400, detail=result.get("error") or "Update failed.")
+        raise HTTPException(status_code=400,
+                            detail=result.get("error") or "Update failed.")
     _get_dashboard_plugins(force_rescan=True)
     return result
 
@@ -9832,7 +10205,8 @@ async def delete_agent_plugin(request: Request, name: str):
 
     result = dashboard_remove_user_plugin(name)
     if not result.get("ok"):
-        raise HTTPException(status_code=400, detail=result.get("error") or "Remove failed.")
+        raise HTTPException(status_code=400,
+                            detail=result.get("error") or "Remove failed.")
     _get_dashboard_plugins(force_rescan=True)
     return result
 
@@ -9843,7 +10217,8 @@ class _PluginProvidersPutBody(BaseModel):
 
 
 @app.put("/api/dashboard/plugin-providers")
-async def put_plugin_providers(request: Request, body: _PluginProvidersPutBody):
+async def put_plugin_providers(
+        request: Request, body: _PluginProvidersPutBody):
     """Persist memory provider / context engine selection (writes config.yaml)."""
     _require_token(request)
     from nastech_cli.plugins_cmd import (
@@ -9863,13 +10238,15 @@ class _PluginVisibilityBody(BaseModel):
 
 
 @app.post("/api/dashboard/plugins/{name:path}/visibility")
-async def post_plugin_visibility(request: Request, name: str, body: _PluginVisibilityBody):
+async def post_plugin_visibility(
+        request: Request, name: str, body: _PluginVisibilityBody):
     """Toggle a plugin's sidebar visibility (persists to config.yaml dashboard.hidden_plugins)."""
     _require_token(request)
     name = _validate_plugin_name(name)
 
     config = load_config()
-    if "dashboard" not in config or not isinstance(config.get("dashboard"), dict):
+    if "dashboard" not in config or not isinstance(
+            config.get("dashboard"), dict):
         config["dashboard"] = {}
     hidden_list: list = config["dashboard"].get("hidden_plugins") or []
     if not isinstance(hidden_list, list):
@@ -9997,11 +10374,15 @@ def _mount_plugin_api_routes():
             )
             continue
         if not api_path.exists():
-            _log.warning("Plugin %s declares api=%s but file not found", plugin["name"], api_file_name)
+            _log.warning(
+                "Plugin %s declares api=%s but file not found",
+                plugin["name"],
+                api_file_name)
             continue
         try:
             module_name = f"nastech_dashboard_plugin_{plugin['name']}"
-            spec = importlib.util.spec_from_file_location(module_name, api_path)
+            spec = importlib.util.spec_from_file_location(
+                module_name, api_path)
             if spec is None or spec.loader is None:
                 continue
             mod = importlib.util.module_from_spec(spec)
@@ -10019,12 +10400,19 @@ def _mount_plugin_api_routes():
                 raise
             router = getattr(mod, "router", None)
             if router is None:
-                _log.warning("Plugin %s api file has no 'router' attribute", plugin["name"])
+                _log.warning(
+                    "Plugin %s api file has no 'router' attribute",
+                    plugin["name"])
                 continue
             app.include_router(router, prefix=f"/api/plugins/{plugin['name']}")
-            _log.info("Mounted plugin API routes: /api/plugins/%s/", plugin["name"])
+            _log.info(
+                "Mounted plugin API routes: /api/plugins/%s/",
+                plugin["name"])
         except Exception as exc:
-            _log.warning("Failed to load plugin %s API routes: %s", plugin["name"], exc)
+            _log.warning(
+                "Failed to load plugin %s API routes: %s",
+                plugin["name"],
+                exc)
 
 
 # Mount plugin API routes before the SPA catch-all.
@@ -10034,7 +10422,10 @@ _mount_plugin_api_routes()
 # SPA catch-all so /{full_path:path} doesn't swallow them.  These are
 # always mounted — the gate middleware decides whether to enforce auth,
 # not whether the routes exist.
-from nastech_cli.dashboard_auth.routes import router as _dashboard_auth_router  # noqa: E402
+from nastech_cli.dashboard_auth.routes import (  # noqa: E402
+    router as _dashboard_auth_router,
+)
+
 app.include_router(_dashboard_auth_router)
 
 mount_spa(app)

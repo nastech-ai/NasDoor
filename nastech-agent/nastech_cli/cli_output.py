@@ -8,8 +8,7 @@ mcp_config.py, and memory_setup.py.
 from nastech_cli.colors import Colors, color
 from nastech_cli.secret_prompt import masked_secret_prompt
 
-
-# ─── Print Helpers ────────────────────────────────────────────────────────────
+# ─── Print Helpers ──────────────────────────────────────────────────────
 
 
 def print_info(text: str) -> None:
@@ -37,7 +36,7 @@ def print_header(text: str) -> None:
     print(color(f"\n  {text}", Colors.YELLOW))
 
 
-# ─── Input Prompts ────────────────────────────────────────────────────────────
+# ─── Input Prompts ──────────────────────────────────────────────────────
 
 
 def prompt(

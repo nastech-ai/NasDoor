@@ -19,10 +19,10 @@ import secrets
 import stat
 import subprocess
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 from nastech_constants import get_nastech_home
-from typing import Any, Dict, List, Optional, Tuple
 from utils import base_url_host_matches, normalize_proxy_env_vars
 
 # NOTE: `import anthropic` is deliberately NOT at module top — the SDK pulls
@@ -53,6 +53,7 @@ def _get_anthropic_sdk():
             _anthropic_sdk = None
     return _anthropic_sdk
 
+
 logger = logging.getLogger(__name__)
 
 THINKING_BUDGET = {"xhigh": 32000, "high": 16000, "medium": 8000, "low": 4000}
@@ -65,11 +66,11 @@ THINKING_BUDGET = {"xhigh": 32000, "high": 16000, "medium": 8000, "low": 4000}
 # maps to low on every model.  See:
 # https://platform.claude.com/docs/en/about-claude/models/migration-guide
 ADAPTIVE_EFFORT_MAP = {
-    "max":     "max",
-    "xhigh":   "xhigh",
-    "high":    "high",
-    "medium":  "medium",
-    "low":     "low",
+    "max": "max",
+    "xhigh": "xhigh",
+    "high": "high",
+    "medium": "medium",
+    "low": "low",
     "minimal": "low",
 }
 
@@ -125,35 +126,35 @@ _FAST_MODE_SUPPORTED_SUBSTRINGS = ("opus-4-6", "opus-4.6")
 # starves thinking-enabled models (thinking tokens count toward the limit).
 _ANTHROPIC_OUTPUT_LIMITS = {
     # Mythos-class named models (claude-fable-5, …) — 1M context, reasoning
-    "claude-fable":      128_000,
+    "claude-fable": 128_000,
     # Claude 4.8
-    "claude-opus-4-8":   128_000,
+    "claude-opus-4-8": 128_000,
     # Claude 4.7
-    "claude-opus-4-7":   128_000,
+    "claude-opus-4-7": 128_000,
     # Claude 4.6
-    "claude-opus-4-6":   128_000,
-    "claude-sonnet-4-6":  64_000,
+    "claude-opus-4-6": 128_000,
+    "claude-sonnet-4-6": 64_000,
     # Claude 4.5
-    "claude-opus-4-5":    64_000,
-    "claude-sonnet-4-5":  64_000,
-    "claude-haiku-4-5":   64_000,
+    "claude-opus-4-5": 64_000,
+    "claude-sonnet-4-5": 64_000,
+    "claude-haiku-4-5": 64_000,
     # Claude 4
-    "claude-opus-4":      32_000,
-    "claude-sonnet-4":    64_000,
+    "claude-opus-4": 32_000,
+    "claude-sonnet-4": 64_000,
     # Claude 3.7
     "claude-3-7-sonnet": 128_000,
     # Claude 3.5
-    "claude-3-5-sonnet":   8_192,
-    "claude-3-5-haiku":    8_192,
+    "claude-3-5-sonnet": 8_192,
+    "claude-3-5-haiku": 8_192,
     # Claude 3
-    "claude-3-opus":       4_096,
-    "claude-3-sonnet":     4_096,
-    "claude-3-haiku":      4_096,
+    "claude-3-opus": 4_096,
+    "claude-3-sonnet": 4_096,
+    "claude-3-haiku": 4_096,
     # Third-party Anthropic-compatible providers
-    "minimax":            131_072,
+    "minimax": 131_072,
     # Qwen models via DashScope Anthropic-compatible endpoint
     # DashScope enforces max_tokens ∈ [1, 65536]
-    "qwen3":               65_536,
+    "qwen3": 65_536,
 }
 
 # For any model not in the table, assume the highest current limit.
@@ -443,7 +444,8 @@ def _is_kimi_coding_endpoint(base_url: str | None) -> bool:
     normalized = _normalize_base_url_text(base_url)
     if not normalized:
         return False
-    return normalized.rstrip("/").lower().startswith("https://api.kimi.com/coding")
+    return normalized.rstrip(
+        "/").lower().startswith("https://api.kimi.com/coding")
 
 
 # Model-name prefixes that identify the Kimi / Moonshot family.  Covers
@@ -473,7 +475,8 @@ def _model_name_is_kimi_family(model: str | None) -> bool:
     return m.startswith(_KIMI_FAMILY_MODEL_PREFIXES)
 
 
-def _is_kimi_family_endpoint(base_url: str | None, model: str | None = None) -> bool:
+def _is_kimi_family_endpoint(base_url: str | None,
+                             model: str | None = None) -> bool:
     """Return True for any Kimi / Moonshot Anthropic-Messages-speaking endpoint.
 
     Broader than ``_is_kimi_coding_endpoint`` — matches:
@@ -541,7 +544,9 @@ def _requires_bearer_auth(base_url: str | None) -> bool:
         return False
     normalized = normalized.rstrip("/").lower()
     return (
-        normalized.startswith(("https://api.minimax.io/anthropic", "https://api.minimaxi.com/anthropic"))
+        normalized.startswith(
+            ("https://api.minimax.io/anthropic",
+             "https://api.minimaxi.com/anthropic"))
         or "azure.com" in normalized
     )
 
@@ -656,17 +661,19 @@ def _build_anthropic_client_with_bearer_hook(
 
     normalize_proxy_env_vars()
 
-    from httpx import Timeout
     from agent.azure_identity_adapter import build_bearer_http_client
+    from httpx import Timeout
 
-    _read_timeout = timeout if (isinstance(timeout, (int, float)) and timeout > 0) else 900.0
+    _read_timeout = timeout if (isinstance(
+        timeout, (int, float)) and timeout > 0) else 900.0
     timeout_obj = Timeout(timeout=float(_read_timeout), connect=10.0)
 
     # Strip any trailing /v1 — the Anthropic SDK appends /v1/messages.
     normalized_base_url = _normalize_base_url_text(base_url)
     if normalized_base_url:
         import re as _re
-        normalized_base_url = _re.sub(r"/v1/?$", "", normalized_base_url.rstrip("/"))
+        normalized_base_url = _re.sub(
+            r"/v1/?$", "", normalized_base_url.rstrip("/"))
 
     http_client = build_bearer_http_client(token_provider, timeout=timeout_obj)
 
@@ -681,7 +688,8 @@ def _build_anthropic_client_with_bearer_hook(
     }
 
     if normalized_base_url:
-        if _is_azure_anthropic_endpoint(normalized_base_url) and "api-version" not in normalized_base_url:
+        if _is_azure_anthropic_endpoint(
+                normalized_base_url) and "api-version" not in normalized_base_url:
             kwargs["base_url"] = normalized_base_url
             kwargs["default_query"] = {"api-version": "2025-04-15"}
         else:
@@ -751,7 +759,8 @@ def build_anthropic_client(
     from httpx import Timeout
 
     normalized_base_url = _normalize_base_url_text(base_url)
-    _read_timeout = timeout if (isinstance(timeout, (int, float)) and timeout > 0) else 900.0
+    _read_timeout = timeout if (isinstance(
+        timeout, (int, float)) and timeout > 0) else 900.0
     kwargs = {
         "timeout": Timeout(timeout=float(_read_timeout), connect=10.0),
     }
@@ -760,7 +769,8 @@ def build_anthropic_client(
         # Pass it via default_query so the SDK appends it to every request URL
         # without corrupting the base_url (appending it directly produces
         # malformed paths like /anthropic?api-version=.../v1/messages).
-        if _is_azure_anthropic_endpoint(normalized_base_url) and "api-version" not in normalized_base_url:
+        if _is_azure_anthropic_endpoint(
+                normalized_base_url) and "api-version" not in normalized_base_url:
             kwargs["base_url"] = normalized_base_url.rstrip("/")
             kwargs["default_query"] = {"api-version": "2025-04-15"}
         else:
@@ -773,11 +783,12 @@ def build_anthropic_client(
     if _is_kimi_coding_endpoint(base_url):
         # Kimi's /coding endpoint requires User-Agent: claude-code/0.1.0
         # to be recognized as a valid Coding Agent. Without it, returns 403.
-        # Check this BEFORE _requires_bearer_auth since both match api.kimi.com/coding.
+        # Check this BEFORE _requires_bearer_auth since both match
+        # api.kimi.com/coding.
         kwargs["api_key"] = api_key
         kwargs["default_headers"] = {
             "User-Agent": "claude-code/0.1.0",
-            **( {"anthropic-beta": ",".join(common_betas)} if common_betas else {} )
+            **({"anthropic-beta": ",".join(common_betas)} if common_betas else {})
         }
     elif _requires_bearer_auth(normalized_base_url):
         # Some Anthropic-compatible providers (e.g. MiniMax) expect the API key in
@@ -788,7 +799,8 @@ def build_anthropic_client(
         # Anthropic OAuth/setup tokens.
         kwargs["auth_token"] = api_key
         if common_betas:
-            kwargs["default_headers"] = {"anthropic-beta": ",".join(common_betas)}
+            kwargs["default_headers"] = {
+                "anthropic-beta": ",".join(common_betas)}
     elif _is_third_party_anthropic_endpoint(base_url):
         # Third-party proxies (Microsoft Foundry, AWS Bedrock, etc.) use their
         # own API keys with x-api-key auth. Skip OAuth detection — their keys
@@ -796,7 +808,8 @@ def build_anthropic_client(
         # misclassified as OAuth tokens.
         kwargs["api_key"] = api_key
         if common_betas:
-            kwargs["default_headers"] = {"anthropic-beta": ",".join(common_betas)}
+            kwargs["default_headers"] = {
+                "anthropic-beta": ",".join(common_betas)}
     elif _is_oauth_token(api_key):
         # OAuth access token / setup-token → Bearer auth + Claude Code identity.
         # Anthropic routes OAuth requests based on user-agent and headers;
@@ -812,7 +825,8 @@ def build_anthropic_client(
         # Regular API key → x-api-key header + common betas
         kwargs["api_key"] = api_key
         if common_betas:
-            kwargs["default_headers"] = {"anthropic-beta": ",".join(common_betas)}
+            kwargs["default_headers"] = {
+                "anthropic-beta": ",".join(common_betas)}
 
     return _anthropic_sdk.Anthropic(**kwargs)
 
@@ -849,7 +863,8 @@ def build_anthropic_bedrock_client(region: str):
     return _anthropic_sdk.AnthropicBedrock(
         aws_region=region,
         timeout=Timeout(timeout=900.0, connect=10.0),
-        default_headers={"anthropic-beta": ",".join([*_COMMON_BETAS, _CONTEXT_1M_BETA])},
+        default_headers={
+            "anthropic-beta": ",".join([*_COMMON_BETAS, _CONTEXT_1M_BETA])},
     )
 
 
@@ -966,7 +981,8 @@ def is_claude_code_token_valid(creds: Dict[str, Any]) -> bool:
     return now_ms < (expires_at - 60_000)
 
 
-def refresh_anthropic_oauth_pure(refresh_token: str, *, use_json: bool = False) -> Dict[str, Any]:
+def refresh_anthropic_oauth_pure(
+        refresh_token: str, *, use_json: bool = False) -> Dict[str, Any]:
     """Refresh an Anthropic OAuth token without mutating local credential files."""
     import time
     import urllib.parse
@@ -1011,12 +1027,16 @@ def refresh_anthropic_oauth_pure(refresh_token: str, *, use_json: bool = False) 
                 result = json.loads(resp.read().decode())
         except Exception as exc:
             last_error = exc
-            logger.debug("Anthropic token refresh failed at %s: %s", endpoint, exc)
+            logger.debug(
+                "Anthropic token refresh failed at %s: %s",
+                endpoint,
+                exc)
             continue
 
         access_token = result.get("access_token", "")
         if not access_token:
-            raise ValueError("Anthropic refresh response was missing access_token")
+            raise ValueError(
+                "Anthropic refresh response was missing access_token")
         next_refresh = result.get("refresh_token", refresh_token)
         expires_in = result.get("expires_in", 3600)
         return {
@@ -1089,7 +1109,10 @@ def _write_claude_code_credentials(
         cred_path.parent.mkdir(parents=True, exist_ok=True)
         # Per-process random suffix avoids collisions between concurrent
         # writers and stale leftovers from a prior crashed write.
-        _tmp_cred = cred_path.with_suffix(f".tmp.{os.getpid()}.{secrets.token_hex(4)}")
+        _tmp_cred = cred_path.with_suffix(
+            f".tmp.{
+                os.getpid()}.{
+                secrets.token_hex(4)}")
         try:
             # Create the temp file atomically at 0o600. The previous
             # write_text + post-replace chmod opened a TOCTOU window where
@@ -1119,7 +1142,8 @@ def _write_claude_code_credentials(
         logger.debug("Failed to write refreshed credentials: %s", e)
 
 
-def _resolve_claude_code_token_from_credentials(creds: Optional[Dict[str, Any]] = None) -> Optional[str]:
+def _resolve_claude_code_token_from_credentials(
+        creds: Optional[Dict[str, Any]] = None) -> Optional[str]:
     """Resolve a token from Claude Code credential files, refreshing if needed."""
     creds = creds or read_claude_code_credentials()
     if creds and is_claude_code_token_valid(creds):
@@ -1130,11 +1154,13 @@ def _resolve_claude_code_token_from_credentials(creds: Optional[Dict[str, Any]] 
         refreshed = _refresh_oauth_token(creds)
         if refreshed:
             return refreshed
-        logger.debug("Token refresh failed — re-run 'claude setup-token' to reauthenticate")
+        logger.debug(
+            "Token refresh failed — re-run 'claude setup-token' to reauthenticate")
     return None
 
 
-def _prefer_refreshable_claude_code_token(env_token: str, creds: Optional[Dict[str, Any]]) -> Optional[str]:
+def _prefer_refreshable_claude_code_token(
+        env_token: str, creds: Optional[Dict[str, Any]]) -> Optional[str]:
     """Prefer Claude Code creds when a persisted env OAuth token would shadow refresh.
 
     NasTech historically persisted setup tokens into ANTHROPIC_TOKEN. That makes
@@ -1142,7 +1168,8 @@ def _prefer_refreshable_claude_code_token(env_token: str, creds: Optional[Dict[s
     inspect Claude Code's refreshable credential file. If we have a refreshable
     Claude Code credential record, prefer it over the static env OAuth token.
     """
-    if not env_token or not _is_oauth_token(env_token) or not isinstance(creds, dict):
+    if not env_token or not _is_oauth_token(
+            env_token) or not isinstance(creds, dict):
         return None
     if not creds.get("refreshToken"):
         return None
@@ -1192,7 +1219,8 @@ def resolve_anthropic_token() -> Optional[str]:
         return resolved_claude_token
 
     # 4. Regular API key, or a legacy OAuth token saved in ANTHROPIC_API_KEY.
-    # This remains as a compatibility fallback for pre-migration NasTech configs.
+    # This remains as a compatibility fallback for pre-migration NasTech
+    # configs.
     api_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
     if api_key:
         return api_key
@@ -1260,7 +1288,8 @@ def _generate_pkce() -> tuple:
     import hashlib
     import secrets
 
-    verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
+    verifier = base64.urlsafe_b64encode(
+        secrets.token_bytes(32)).rstrip(b"=").decode()
     challenge = base64.urlsafe_b64encode(
         hashlib.sha256(verifier.encode()).digest()
     ).rstrip(b"=").decode()
@@ -1304,7 +1333,7 @@ def run_nastech_oauth_login_pure() -> Optional[Dict[str, Any]]:
     try:
         from nastech_cli.auth import _can_open_graphical_browser as _can_open_gui
     except Exception:
-        _can_open_gui = lambda: True  # noqa: E731 — degrade to prior behavior
+        def _can_open_gui(): return True  # noqa: E731 — degrade to prior behavior
 
     if _can_open_gui():
         try:
@@ -1407,7 +1436,8 @@ def _is_bedrock_model_id(model: str) -> bool:
     """
     lower = model.lower()
     # Regional inference-profile prefixes
-    if any(lower.startswith(p) for p in ("global.", "us.", "eu.", "ap.", "jp.")):
+    if any(lower.startswith(p)
+           for p in ("global.", "us.", "eu.", "ap.", "jp.")):
         return True
     # Bare Bedrock model IDs: provider.model-family
     if lower.startswith("anthropic."):
@@ -1493,7 +1523,8 @@ def _normalize_tool_input_schema(schema: Any) -> Dict[str, Any]:
         normalized = {k: v for k, v in normalized.items() if k not in banned}
         if "type" not in normalized:
             normalized["type"] = "object"
-    if normalized.get("type") == "object" and not isinstance(normalized.get("properties"), dict):
+    if normalized.get("type") == "object" and not isinstance(
+            normalized.get("properties"), dict):
         normalized = {**normalized, "properties": {}}
     return normalized
 
@@ -1582,17 +1613,24 @@ def _convert_content_part_to_anthropic(part: Any) -> Optional[Dict[str, Any]]:
             block["citations"] = cits
     elif ptype in {"image_url", "input_image"}:
         image_value = part.get("image_url", {})
-        url = image_value.get("url", "") if isinstance(image_value, dict) else str(image_value or "")
+        url = image_value.get(
+            "url",
+            "") if isinstance(
+            image_value,
+            dict) else str(
+            image_value or "")
         block = {"type": "image", "source": _image_source_from_openai_url(url)}
     else:
         block = dict(part)
 
-    if isinstance(part.get("cache_control"), dict) and "cache_control" not in block:
+    if isinstance(part.get("cache_control"),
+                  dict) and "cache_control" not in block:
         block["cache_control"] = dict(part["cache_control"])
     return block
 
 
-def _to_plain_data(value: Any, *, _depth: int = 0, _path: Optional[set] = None) -> Any:
+def _to_plain_data(value: Any, *, _depth: int = 0,
+                   _path: Optional[set] = None) -> Any:
     """Recursively convert SDK objects to plain Python data structures.
 
     Guards against circular references (``_path`` tracks ``id()`` of objects
@@ -1613,17 +1651,29 @@ def _to_plain_data(value: Any, *, _depth: int = 0, _path: Optional[set] = None) 
 
     if hasattr(value, "model_dump"):
         _path.add(obj_id)
-        result = _to_plain_data(value.model_dump(), _depth=_depth + 1, _path=_path)
+        result = _to_plain_data(
+            value.model_dump(),
+            _depth=_depth + 1,
+            _path=_path)
         _path.discard(obj_id)
         return result
     if isinstance(value, dict):
         _path.add(obj_id)
-        result = {k: _to_plain_data(v, _depth=_depth + 1, _path=_path) for k, v in value.items()}
+        result = {
+            k: _to_plain_data(
+                v,
+                _depth=_depth + 1,
+                _path=_path) for k,
+            v in value.items()}
         _path.discard(obj_id)
         return result
     if isinstance(value, (list, tuple)):
         _path.add(obj_id)
-        result = [_to_plain_data(v, _depth=_depth + 1, _path=_path) for v in value]
+        result = [
+            _to_plain_data(
+                v,
+                _depth=_depth + 1,
+                _path=_path) for v in value]
         _path.discard(obj_id)
         return result
     if hasattr(value, "__dict__"):
@@ -1638,7 +1688,8 @@ def _to_plain_data(value: Any, *, _depth: int = 0, _path: Optional[set] = None) 
     return value
 
 
-def _extract_preserved_thinking_blocks(message: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _extract_preserved_thinking_blocks(
+        message: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Return Anthropic thinking blocks previously preserved on the message."""
     raw_details = message.get("reasoning_details")
     if not isinstance(raw_details, list):
@@ -1727,7 +1778,8 @@ def _sanitize_replay_block(b: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return out
     if btype == "redacted_thinking":
         # Only valid with its data payload; drop if missing.
-        return {"type": "redacted_thinking", "data": b["data"]} if b.get("data") else None
+        return {"type": "redacted_thinking",
+                "data": b["data"]} if b.get("data") else None
     if btype == "tool_use":
         out = {
             "type": "tool_use",
@@ -1740,7 +1792,8 @@ def _sanitize_replay_block(b: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return out
     if btype == "image":
         src = b.get("source")
-        return {"type": "image", "source": src} if isinstance(src, dict) else None
+        return {"type": "image", "source": src} if isinstance(
+            src, dict) else None
     # Unknown/unsupported block type on the input path — drop rather than risk
     # another "Extra inputs are not permitted".
     return None
@@ -1782,10 +1835,12 @@ def _convert_assistant_message(m: Dict[str, Any]) -> Dict[str, Any]:
             fn = tc.get("function", {}) or {}
             raw_args = fn.get("arguments", "{}")
             try:
-                parsed_args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+                parsed_args = json.loads(raw_args) if isinstance(
+                    raw_args, str) else raw_args
             except (json.JSONDecodeError, ValueError):
                 parsed_args = {}
-            redacted_input_by_id[_sanitize_tool_id(tc.get("id", ""))] = parsed_args
+            redacted_input_by_id[_sanitize_tool_id(
+                tc.get("id", ""))] = parsed_args
         replayed: List[Dict[str, Any]] = []
         for b in ordered_blocks:
             clean = _sanitize_replay_block(b)
@@ -1845,7 +1900,8 @@ def _convert_assistant_message(m: Dict[str, Any]) -> Dict[str, Any]:
     # downgraded to a spurious text block on the last assistant message.
     reasoning_content = m.get("reasoning_content")
     _already_has_thinking = any(
-        isinstance(b, dict) and b.get("type") in {"thinking", "redacted_thinking"}
+        isinstance(b, dict) and b.get("type") in {
+            "thinking", "redacted_thinking"}
         for b in blocks
     )
     if isinstance(reasoning_content, str) and not _already_has_thinking:
@@ -1885,7 +1941,8 @@ def _convert_tool_message_to_result(
     if multimodal_blocks is None:
         stashed = m.get("_anthropic_content_blocks")
         if isinstance(stashed, list) and stashed:
-            text_content = content if isinstance(content, str) and content.strip() else None
+            text_content = content if isinstance(
+                content, str) and content.strip() else None
             multimodal_blocks = (
                 [{"type": "text", "text": text_content}] + stashed
                 if text_content else list(stashed)
@@ -1967,13 +2024,15 @@ def _strip_orphaned_tool_blocks(result: List[Dict[str, Any]]) -> None:
             # replaying it verbatim.  See nastech-agent: extended-thinking + parallel
             # tool batch interrupted mid-flight → non-retryable 400 crash-loop.
             if len(kept) != len(m["content"]) and any(
-                isinstance(b, dict) and b.get("type") in {"thinking", "redacted_thinking"}
+                isinstance(b, dict) and b.get("type") in {
+                    "thinking", "redacted_thinking"}
                 for b in m["content"]
             ):
                 m["_thinking_signature_invalidated"] = True
             m["content"] = kept
             if not m["content"]:
-                m["content"] = [{"type": "text", "text": "(tool call removed)"}]
+                m["content"] = [
+                    {"type": "text", "text": "(tool call removed)"}]
 
     # Strip orphaned tool_result blocks (no matching tool_use precedes them)
     tool_use_ids = set()
@@ -1990,10 +2049,12 @@ def _strip_orphaned_tool_blocks(result: List[Dict[str, Any]]) -> None:
                 if b.get("type") != "tool_result" or b.get("tool_use_id") in tool_use_ids
             ]
             if not m["content"]:
-                m["content"] = [{"type": "text", "text": "(tool result removed)"}]
+                m["content"] = [
+                    {"type": "text", "text": "(tool result removed)"}]
 
 
-def _merge_consecutive_roles(result: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _merge_consecutive_roles(
+        result: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Merge consecutive same-role messages to enforce Anthropic alternation.
 
     Returns a new list (caller must rebind ``result``).
@@ -2004,7 +2065,8 @@ def _merge_consecutive_roles(result: List[Dict[str, Any]]) -> List[Dict[str, Any
             if m["role"] == "user":
                 prev_content = fixed[-1]["content"]
                 curr_content = m["content"]
-                if isinstance(prev_content, str) and isinstance(curr_content, str):
+                if isinstance(prev_content, str) and isinstance(
+                        curr_content, str):
                     fixed[-1]["content"] = prev_content + "\n" + curr_content
                 elif isinstance(prev_content, list) and isinstance(curr_content, list):
                     fixed[-1]["content"] = prev_content + curr_content
@@ -2017,7 +2079,8 @@ def _merge_consecutive_roles(result: List[Dict[str, Any]]) -> List[Dict[str, Any
             else:
                 # Consecutive assistant messages — merge text content.
                 # Propagate the orphan-strip signature-invalidation flag onto the
-                # surviving (prev) dict so _manage_thinking_signatures still sees it.
+                # surviving (prev) dict so _manage_thinking_signatures still
+                # sees it.
                 if m.get("_thinking_signature_invalidated"):
                     fixed[-1]["_thinking_signature_invalidated"] = True
                 # Drop thinking blocks from the *second* message: their
@@ -2030,7 +2093,8 @@ def _merge_consecutive_roles(result: List[Dict[str, Any]]) -> List[Dict[str, Any
                     ]
                 prev_blocks = fixed[-1]["content"]
                 curr_blocks = m["content"]
-                if isinstance(prev_blocks, list) and isinstance(curr_blocks, list):
+                if isinstance(prev_blocks, list) and isinstance(
+                        curr_blocks, list):
                     fixed[-1]["content"] = prev_blocks + curr_blocks
                 elif isinstance(prev_blocks, str) and isinstance(curr_blocks, str):
                     fixed[-1]["content"] = prev_blocks + "\n" + curr_blocks
@@ -2082,18 +2146,21 @@ def _manage_thinking_signatures(
             break
 
     for idx, m in enumerate(result):
-        if m.get("role") != "assistant" or not isinstance(m.get("content"), list):
+        if m.get("role") != "assistant" or not isinstance(
+                m.get("content"), list):
             continue
 
         if _preserve_unsigned_thinking:
             # Kimi / DeepSeek: strip signed, preserve unsigned.
             new_content = []
             for b in m["content"]:
-                if not isinstance(b, dict) or b.get("type") not in _THINKING_TYPES:
+                if not isinstance(b, dict) or b.get(
+                        "type") not in _THINKING_TYPES:
                     new_content.append(b)
                     continue
                 if b.get("signature") or b.get("data"):
-                    # Signed (or redacted-with-data) — upstream can't validate, strip.
+                    # Signed (or redacted-with-data) — upstream can't validate,
+                    # strip.
                     continue
                 new_content.append(b)
             m["content"] = new_content or [{"type": "text", "text": "(empty)"}]
@@ -2104,7 +2171,8 @@ def _manage_thinking_signatures(
                 b for b in m["content"]
                 if not (isinstance(b, dict) and b.get("type") in _THINKING_TYPES)
             ]
-            m["content"] = stripped or [{"type": "text", "text": "(thinking elided)"}]
+            m["content"] = stripped or [
+                {"type": "text", "text": "(thinking elided)"}]
         else:
             # Latest assistant on direct Anthropic: keep signed, downgrade unsigned
             # to text so the reasoning isn't lost.
@@ -2116,21 +2184,25 @@ def _manage_thinking_signatures(
             # "thinking blocks in the latest assistant message cannot be modified",
             # and a bare signed block with no following tool_use is also invalid.
             # Demote ALL thinking blocks on this turn to text so the turn replays
-            # cleanly and the model can re-plan from the surviving tool results.
+            # cleanly and the model can re-plan from the surviving tool
+            # results.
             signature_dead = bool(m.get("_thinking_signature_invalidated"))
             new_content = []
             for b in m["content"]:
-                if not isinstance(b, dict) or b.get("type") not in _THINKING_TYPES:
+                if not isinstance(b, dict) or b.get(
+                        "type") not in _THINKING_TYPES:
                     new_content.append(b)
                     continue
                 if signature_dead:
                     thinking_text = b.get("thinking", "")
                     if thinking_text:
-                        new_content.append({"type": "text", "text": thinking_text})
+                        new_content.append(
+                            {"type": "text", "text": thinking_text})
                     continue
                 if b.get("type") == "redacted_thinking":
                     # Redacted blocks use 'data' for the signature payload —
-                    # drop the block when 'data' is missing (can't be validated).
+                    # drop the block when 'data' is missing (can't be
+                    # validated).
                     if b.get("data"):
                         new_content.append(b)
                 elif b.get("signature"):
@@ -2138,7 +2210,8 @@ def _manage_thinking_signatures(
                 else:
                     thinking_text = b.get("thinking", "")
                     if thinking_text:
-                        new_content.append({"type": "text", "text": thinking_text})
+                        new_content.append(
+                            {"type": "text", "text": thinking_text})
             m["content"] = new_content or [{"type": "text", "text": "(empty)"}]
 
         # Strip cache_control from any remaining thinking/redacted_thinking
@@ -2147,7 +2220,8 @@ def _manage_thinking_signatures(
             if isinstance(b, dict) and b.get("type") in _THINKING_TYPES:
                 b.pop("cache_control", None)
 
-        # Drop the internal bookkeeping flag — it must never reach the API payload.
+        # Drop the internal bookkeeping flag — it must never reach the API
+        # payload.
         m.pop("_thinking_signature_invalidated", None)
 
 
@@ -2166,7 +2240,8 @@ def _evict_old_screenshots(result: List[Dict[str, Any]]) -> None:
         if not isinstance(content, list):
             continue
         for block in content:
-            if not isinstance(block, dict) or block.get("type") != "tool_result":
+            if not isinstance(block, dict) or block.get(
+                    "type") != "tool_result":
                 continue
             inner = block.get("content")
             if not isinstance(inner, list):
@@ -2350,13 +2425,15 @@ def build_anthropic_kwargs(
         #    Skip names that already begin with the marker — native MCP server
         #    tools (from mcp_servers: in config.yaml) are registered under their
         #    full mcp_<server>_<tool> name and would double-prefix otherwise,
-        #    breaking round-trip registry lookup in normalize_response. GH-25255.
+        # breaking round-trip registry lookup in normalize_response. GH-25255.
         if anthropic_tools:
             for tool in anthropic_tools:
-                if "name" in tool and not tool["name"].startswith(_MCP_TOOL_PREFIX):
+                if "name" in tool and not tool["name"].startswith(
+                        _MCP_TOOL_PREFIX):
                     tool["name"] = _MCP_TOOL_PREFIX + tool["name"]
 
-        # 4. Prefix tool names in message history (tool_use and tool_result blocks)
+        # 4. Prefix tool names in message history (tool_use and tool_result
+        # blocks)
         for msg in anthropic_messages:
             content = msg.get("content")
             if isinstance(content, list):
@@ -2364,7 +2441,8 @@ def build_anthropic_kwargs(
                     if isinstance(block, dict):
                         if block.get("type") == "tool_use" and "name" in block:
                             if not block["name"].startswith(_MCP_TOOL_PREFIX):
-                                block["name"] = _MCP_TOOL_PREFIX + block["name"]
+                                block["name"] = _MCP_TOOL_PREFIX + \
+                                    block["name"]
                         elif block.get("type") == "tool_result" and "tool_use_id" in block:
                             pass  # tool_result uses ID, not name
 
@@ -2385,7 +2463,8 @@ def build_anthropic_kwargs(
         elif tool_choice == "required":
             kwargs["tool_choice"] = {"type": "any"}
         elif tool_choice == "none":
-            # Anthropic has no tool_choice "none" — omit tools entirely to prevent use
+            # Anthropic has no tool_choice "none" — omit tools entirely to
+            # prevent use
             kwargs.pop("tools", None)
         elif isinstance(tool_choice, str):
             # Specific tool name
@@ -2415,8 +2494,10 @@ def build_anthropic_kwargs(
     # request "summarized" so the reasoning blocks stay populated — matching
     # 4.6 behavior and preserving the activity-feed UX during long tool runs.
     _is_kimi_coding = _is_kimi_family_endpoint(base_url, model)
-    if reasoning_config and isinstance(reasoning_config, dict) and not _is_kimi_coding:
-        if reasoning_config.get("enabled") is not False and "haiku" not in model.lower():
+    if reasoning_config and isinstance(
+            reasoning_config, dict) and not _is_kimi_coding:
+        if reasoning_config.get(
+                "enabled") is not False and "haiku" not in model.lower():
             effort = str(reasoning_config.get("effort", "medium")).lower()
             budget = THINKING_BUDGET.get(effort, 8000)
             if _supports_adaptive_thinking(model):
@@ -2427,14 +2508,17 @@ def build_anthropic_kwargs(
                 adaptive_effort = ADAPTIVE_EFFORT_MAP.get(effort, "medium")
                 # Downgrade xhigh→max on models that don't list xhigh as a
                 # supported level (Opus/Sonnet 4.6). Opus 4.7+ keeps xhigh.
-                if adaptive_effort == "xhigh" and not _supports_xhigh_effort(model):
+                if adaptive_effort == "xhigh" and not _supports_xhigh_effort(
+                        model):
                     adaptive_effort = "max"
                 kwargs["output_config"] = {
                     "effort": adaptive_effort,
                 }
             else:
-                kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
-                # Anthropic requires temperature=1 when thinking is enabled on older models
+                kwargs["thinking"] = {
+                    "type": "enabled", "budget_tokens": budget}
+                # Anthropic requires temperature=1 when thinking is enabled on
+                # older models
                 kwargs["temperature"] = 1
                 kwargs["max_tokens"] = max(effective_max_tokens, budget + 4096)
 

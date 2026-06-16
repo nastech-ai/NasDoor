@@ -10,7 +10,6 @@ import sysconfig
 from contextvars import ContextVar, Token
 from pathlib import Path
 
-
 _profile_fallback_warned: bool = False
 _UNSET = object()
 _NASTECH_HOME_OVERRIDE: ContextVar[str | object] = ContextVar(
@@ -45,7 +44,8 @@ def _get_platform_default_nastech_home() -> Path:
     """Return the platform-native default NasTech home path."""
     if sys.platform == "win32":
         local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
-        base = Path(local_appdata) if local_appdata else Path.home() / "AppData" / "Local"
+        base = Path(local_appdata) if local_appdata else Path.home() / \
+            "AppData" / "Local"
         return base / "nastech"
     return Path.home() / ".nastech"
 
@@ -93,7 +93,8 @@ def get_nastech_home() -> Path:
             # on consoles where a StreamHandler is already attached.
             msg = (
                 f"[NASTECH_HOME fallback] NASTECH_HOME is unset but active "
-                f"profile is {active!r}. Falling back to {fallback_home}, which "
+                f"profile is {
+                    active!r}. Falling back to {fallback_home}, which "
                 f"is the DEFAULT profile — not {active!r}. Any data this "
                 f"process writes will land in the wrong profile. The "
                 f"subprocess spawner should pass NASTECH_HOME explicitly "
@@ -398,8 +399,10 @@ def is_termux_proot_distro() -> bool:
 
     try:
         from pathlib import Path as _Path
-        proc_ver = _Path("/proc/version").read_text(encoding="utf-8", errors="replace").lower()
-        if any(hint in proc_ver for hint in ("android", "qualcomm", "exynos", "mediatek", "kirin")):
+        proc_ver = _Path(
+            "/proc/version").read_text(encoding="utf-8", errors="replace").lower()
+        if any(hint in proc_ver for hint in (
+                "android", "qualcomm", "exynos", "mediatek", "kirin")):
             _termux_proot_cache = True
             return True
     except OSError:
@@ -494,7 +497,7 @@ def is_container() -> bool:
     return False
 
 
-# ─── Well-Known Paths ─────────────────────────────────────────────────────────
+# ─── Well-Known Paths ───────────────────────────────────────────────────
 
 
 def get_config_path() -> Path:
@@ -509,7 +512,6 @@ def get_config_path() -> Path:
 def get_skills_dir() -> Path:
     """Return the path to the skills directory under NASTECH_HOME."""
     return get_nastech_home() / "skills"
-
 
 
 def get_env_path() -> Path:
@@ -555,10 +557,12 @@ def apply_ipv4_preference(force: bool = False) -> None:
                 )
             except socket.gaierror:
                 # No A record — fall back to full resolution (pure-IPv6 hosts)
-                return _original_getaddrinfo(host, port, family, type, proto, flags)
+                return _original_getaddrinfo(
+                    host, port, family, type, proto, flags)
         return _original_getaddrinfo(host, port, family, type, proto, flags)
 
-    _ipv4_getaddrinfo._nastech_ipv4_patched = True  # type: ignore[attr-defined]
+    # type: ignore[attr-defined]
+    _ipv4_getaddrinfo._nastech_ipv4_patched = True
     socket.getaddrinfo = _ipv4_getaddrinfo  # type: ignore[assignment]
 
 

@@ -111,7 +111,8 @@ def _macos_osascript(dest: Path) -> bool:
             ["osascript", "-e", script],
             capture_output=True, text=True, timeout=5,
         )
-        if r.returncode == 0 and "fail" not in r.stdout and dest.exists() and dest.stat().st_size > 0:
+        if r.returncode == 0 and "fail" not in r.stdout and dest.exists(
+        ) and dest.stat().st_size > 0:
             return True
     except Exception as e:
         logger.debug("osascript clipboard extract failed: %s", e)
@@ -197,7 +198,8 @@ _POWERSHELL_EXTRACT_IMAGE_SCRIPTS = (
 )
 
 
-def _run_powershell(exe: str, script: str, timeout: int) -> subprocess.CompletedProcess:
+def _run_powershell(exe: str, script: str,
+                    timeout: int) -> subprocess.CompletedProcess:
     return subprocess.run(
         [exe, "-NoProfile", "-NonInteractive", "-Command", script],
         capture_output=True, text=True, timeout=timeout,
@@ -224,7 +226,8 @@ def _powershell_has_image(exe: str, *, timeout: int, label: str) -> bool:
     return False
 
 
-def _powershell_save_image(exe: str, dest: Path, *, timeout: int, label: str) -> bool:
+def _powershell_save_image(exe: str, dest: Path, *,
+                           timeout: int, label: str) -> bool:
     for script in _POWERSHELL_EXTRACT_IMAGE_SCRIPTS:
         try:
             r = _run_powershell(exe, script, timeout=timeout)
@@ -292,7 +295,8 @@ def _windows_save(dest: Path) -> bool:
     """Extract clipboard image on native Windows via PowerShell → base64 PNG."""
     ps = _get_ps_exe()
     if ps is None:
-        logger.debug("No PowerShell found — Windows clipboard image paste unavailable")
+        logger.debug(
+            "No PowerShell found — Windows clipboard image paste unavailable")
         return False
     return _powershell_save_image(ps, dest, timeout=15, label="Windows")
 
@@ -323,7 +327,8 @@ def _wsl_has_image() -> bool:
 
 def _wsl_save(dest: Path) -> bool:
     """Extract clipboard image via powershell.exe → base64 → decode to PNG."""
-    return _powershell_save_image("powershell.exe", dest, timeout=15, label="WSL")
+    return _powershell_save_image(
+        "powershell.exe", dest, timeout=15, label="WSL")
 
 
 # ── Wayland (wl-paste) ──────────────────────────────────────────────────
@@ -474,7 +479,8 @@ def _xclip_save(dest: Path) -> bool:
         if "image/png" not in targets.stdout:
             return False
     except FileNotFoundError:
-        logger.debug("xclip not installed — X11 clipboard image paste unavailable")
+        logger.debug(
+            "xclip not installed — X11 clipboard image paste unavailable")
         return False
     except Exception:
         return False

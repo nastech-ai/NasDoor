@@ -19,7 +19,8 @@ def _nastech_home_path() -> Path:
 def _nastech_root_path() -> Path:
     """Resolve the NasTech root dir (always the parent of any profile, never per-profile)."""
     try:
-        from nastech_constants import get_default_nastech_root  # local import to avoid cycles
+        # local import to avoid cycles
+        from nastech_constants import get_default_nastech_root
         return get_default_nastech_root()
     except Exception:
         return Path(os.path.expanduser("~/.nastech"))
@@ -39,12 +40,14 @@ def build_write_denied_paths(home: str) -> set[str]:
             # Active profile .env (or top-level .env when not in profile mode).
             str(nastech_home / ".env"),
             # Top-level .env, even when running under a profile — overwriting it
-            # leaks credentials across every profile that inherits from root (#15981).
+            # leaks credentials across every profile that inherits from root
+            # (#15981).
             str(nastech_root / ".env"),
             # Active profile Anthropic PKCE credential store.
             str(nastech_home / ".anthropic_oauth.json"),
             # Top-level Anthropic PKCE credential store remains sensitive even
-            # when a profile is active; default/non-profile sessions still read it.
+            # when a profile is active; default/non-profile sessions still read
+            # it.
             str(nastech_root / ".anthropic_oauth.json"),
             os.path.join(home, ".bashrc"),
             os.path.join(home, ".zshrc"),
@@ -109,7 +112,10 @@ def is_write_denied(path: str) -> bool:
     # profile-mode session leaves <root>/auth.json + <root>/config.yaml
     # writable — letting a prompt-injected write_file overwrite the global
     # files that every profile inherits from (same shape as #15981).
-    control_file_names = ("auth.json", "config.yaml", "webhook_subscriptions.json")
+    control_file_names = (
+        "auth.json",
+        "config.yaml",
+        "webhook_subscriptions.json")
     mcp_tokens_dir_name = "mcp-tokens"
 
     nastech_dirs = []
@@ -129,20 +135,25 @@ def is_write_denied(path: str) -> bool:
             except Exception:
                 continue
         try:
-            mcp_real = os.path.realpath(os.path.join(base_real, mcp_tokens_dir_name))
+            mcp_real = os.path.realpath(
+                os.path.join(
+                    base_real,
+                    mcp_tokens_dir_name))
             if resolved == mcp_real or resolved.startswith(mcp_real + os.sep):
                 return True
         except Exception:
             pass
         try:
             pairing_real = os.path.realpath(os.path.join(base_real, "pairing"))
-            if resolved == pairing_real or resolved.startswith(pairing_real + os.sep):
+            if resolved == pairing_real or resolved.startswith(
+                    pairing_real + os.sep):
                 return True
         except Exception:
             pass
 
     safe_root = get_safe_write_root()
-    if safe_root and not (resolved == safe_root or resolved.startswith(safe_root + os.sep)):
+    if safe_root and not (
+            resolved == safe_root or resolved.startswith(safe_root + os.sep)):
         return True
 
     return False
@@ -487,7 +498,8 @@ def _find_sandbox_mirror_segments(parts: tuple) -> Optional[int]:
     for i, part in enumerate(parts):
         if part != "sandboxes":
             continue
-        # Need at least: sandboxes / <backend> / <task> / home / .nastech / <thing>
+        # Need at least: sandboxes / <backend> / <task> / home / .nastech /
+        # <thing>
         if i + 5 >= len(parts):
             continue
         if parts[i + 3] == "home" and parts[i + 4] == ".nastech":
@@ -522,7 +534,8 @@ def classify_sandbox_mirror_target(path: str) -> Optional[dict]:
         return None
 
     mirror_root = str(Path(*parts[: inner_idx + 1]))
-    inner_path = str(Path(*parts[inner_idx + 1 :])) if inner_idx + 1 < len(parts) else ""
+    inner_path = str(Path(*parts[inner_idx + 1:])
+                     ) if inner_idx + 1 < len(parts) else ""
 
     return {
         "target_path": str(target),

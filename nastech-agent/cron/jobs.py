@@ -8,21 +8,22 @@ Output is saved to ~/.nastech/cron/output/{job_id}/{timestamp}.md
 import copy
 import json
 import logging
+import os
+import re
 import shutil
 import tempfile
 import threading
-import os
-import re
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
 from nastech_constants import get_nastech_home
-from typing import Optional, Dict, List, Any, Union
+from nastech_time import now as _nastech_now
+from utils import atomic_replace
 
 logger = logging.getLogger(__name__)
 
-from nastech_time import now as _nastech_now
-from utils import atomic_replace
 
 try:
     from croniter import croniter
@@ -68,7 +69,8 @@ def _job_output_dir(job_id: str) -> Path:
     return OUTPUT_DIR / text
 
 
-def _normalize_skill_list(skill: Optional[str] = None, skills: Optional[Any] = None) -> List[str]:
+def _normalize_skill_list(
+        skill: Optional[str] = None, skills: Optional[Any] = None) -> List[str]:
     """Normalize legacy/single-skill and multi-skill inputs into a unique ordered list."""
     if skills is None:
         raw_items = [skill] if skill else []
@@ -88,7 +90,9 @@ def _normalize_skill_list(skill: Optional[str] = None, skills: Optional[Any] = N
 def _apply_skill_fields(job: Dict[str, Any]) -> Dict[str, Any]:
     """Return a job dict with canonical `skills` and legacy `skill` fields aligned."""
     normalized = dict(job)
-    skills = _normalize_skill_list(normalized.get("skill"), normalized.get("skills"))
+    skills = _normalize_skill_list(
+        normalized.get("skill"),
+        normalized.get("skills"))
     normalized["skills"] = skills
     normalized["skill"] = skills[0] if skills else None
     return normalized
@@ -188,20 +192,22 @@ def ensure_dirs():
 def parse_duration(s: str) -> int:
     """
     Parse duration string into minutes.
-    
+
     Examples:
         "30m" → 30
         "2h" → 120
         "1d" → 1440
     """
     s = s.strip().lower()
-    match = re.match(r'^(\d+)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days)$', s)
+    match = re.match(
+        r'^(\d+)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days)$', s)
     if not match:
-        raise ValueError(f"Invalid duration: '{s}'. Use format like '30m', '2h', or '1d'")
-    
+        raise ValueError(
+            f"Invalid duration: '{s}'. Use format like '30m', '2h', or '1d'")
+
     value = int(match.group(1))
     unit = match.group(2)[0]  # First char: m, h, or d
-    
+
     multipliers = {'m': 1, 'h': 60, 'd': 1440}
     return value * multipliers[unit]
 
@@ -209,13 +215,13 @@ def parse_duration(s: str) -> int:
 def parse_schedule(schedule: str) -> Dict[str, Any]:
     """
     Parse schedule string into structured format.
-    
+
     Returns dict with:
         - kind: "once" | "interval" | "cron"
         - For "once": "run_at" (ISO timestamp)
         - For "interval": "minutes" (int)
         - For "cron": "expr" (cron expression)
-    
+
     Examples:
         "30m"              → once in 30 minutes
         "2h"               → once in 2 hours
@@ -227,7 +233,7 @@ def parse_schedule(schedule: str) -> Dict[str, Any]:
     schedule = schedule.strip()
     original = schedule
     schedule_lower = schedule.lower()
-    
+
     # "every X" pattern → recurring interval
     if schedule_lower.startswith("every "):
         duration_str = schedule[6:].strip()
@@ -237,7 +243,7 @@ def parse_schedule(schedule: str) -> Dict[str, Any]:
             "minutes": minutes,
             "display": f"every {minutes}m"
         }
-    
+
     # Check for cron expression (5 or 6 space-separated fields)
     # Cron fields: minute hour day month weekday [year]
     parts = schedule.split()
@@ -245,7 +251,8 @@ def parse_schedule(schedule: str) -> Dict[str, Any]:
         re.match(r'^[\d\*\-,/]+$', p) for p in parts[:5]
     ):
         if not HAS_CRONITER:
-            raise ValueError("Cron expressions require 'croniter' package. Install with: pip install croniter")
+            raise ValueError(
+                "Cron expressions require 'croniter' package. Install with: pip install croniter")
         # Validate cron expression
         try:
             croniter(schedule)
@@ -256,14 +263,15 @@ def parse_schedule(schedule: str) -> Dict[str, Any]:
             "expr": schedule,
             "display": schedule
         }
-    
+
     # ISO timestamp (contains T or looks like date)
     if 'T' in schedule or re.match(r'^\d{4}-\d{2}-\d{2}', schedule):
         try:
             # Parse and validate
             dt = datetime.fromisoformat(schedule.replace('Z', '+00:00'))
             # Make naive timestamps timezone-aware at parse time so the stored
-            # value doesn't depend on the system timezone matching at check time.
+            # value doesn't depend on the system timezone matching at check
+            # time.
             if dt.tzinfo is None:
                 dt = dt.astimezone()  # Interpret as local timezone
             return {
@@ -273,7 +281,7 @@ def parse_schedule(schedule: str) -> Dict[str, Any]:
             }
         except ValueError as e:
             raise ValueError(f"Invalid timestamp '{schedule}': {e}")
-    
+
     # Duration like "30m", "2h", "1d" → one-shot from now
     try:
         minutes = parse_duration(schedule)
@@ -285,7 +293,7 @@ def parse_schedule(schedule: str) -> Dict[str, Any]:
         }
     except ValueError:
         pass
-    
+
     raise ValueError(
         f"Invalid schedule '{original}'. Use:\n"
         f"  - Duration: '30m', '2h', '1d' (one-shot)\n"
@@ -373,7 +381,8 @@ def _compute_grace_seconds(schedule: dict) -> int:
     return MIN_GRACE
 
 
-def compute_next_run(schedule: Dict[str, Any], last_run_at: Optional[str] = None) -> Optional[str]:
+def compute_next_run(
+        schedule: Dict[str, Any], last_run_at: Optional[str] = None) -> Optional[str]:
     """
     Compute the next run time for a schedule.
 
@@ -382,7 +391,8 @@ def compute_next_run(schedule: Dict[str, Any], last_run_at: Optional[str] = None
     now = _nastech_now()
 
     if schedule["kind"] == "once":
-        return _recoverable_oneshot_run_at(schedule, now, last_run_at=last_run_at)
+        return _recoverable_oneshot_run_at(
+            schedule, now, last_run_at=last_run_at)
 
     elif schedule["kind"] == "interval":
         minutes = schedule["minutes"]
@@ -428,7 +438,7 @@ def load_jobs() -> List[Dict[str, Any]]:
     ensure_dirs()
     if not JOBS_FILE.exists():
         return []
-    
+
     try:
         with open(JOBS_FILE, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -442,11 +452,13 @@ def load_jobs() -> List[Dict[str, Any]]:
                 if jobs:
                     # Auto-repair: rewrite with proper escaping
                     save_jobs(jobs)
-                    logger.warning("Auto-repaired jobs.json (had invalid control characters)")
+                    logger.warning(
+                        "Auto-repaired jobs.json (had invalid control characters)")
                 return jobs
         except Exception as e:
             logger.error("Failed to auto-repair jobs.json: %s", e)
-            raise RuntimeError(f"Cron database corrupted and unrepairable: {e}") from e
+            raise RuntimeError(
+                f"Cron database corrupted and unrepairable: {e}") from e
     except IOError as e:
         logger.error("IOError reading jobs.json: %s", e)
         raise RuntimeError(f"Failed to read cron database: {e}") from e
@@ -455,10 +467,12 @@ def load_jobs() -> List[Dict[str, Any]]:
 def save_jobs(jobs: List[Dict[str, Any]]):
     """Save all jobs to storage."""
     ensure_dirs()
-    fd, tmp_path = tempfile.mkstemp(dir=str(JOBS_FILE.parent), suffix='.tmp', prefix='.jobs_')
+    fd, tmp_path = tempfile.mkstemp(
+        dir=str(JOBS_FILE.parent), suffix='.tmp', prefix='.jobs_')
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
-            json.dump({"jobs": jobs, "updated_at": _nastech_now().isoformat()}, f, indent=2)
+            json.dump(
+                {"jobs": jobs, "updated_at": _nastech_now().isoformat()}, f, indent=2)
             f.flush()
             os.fsync(f.fileno())
         atomic_replace(tmp_path, JOBS_FILE)
@@ -618,14 +632,18 @@ def create_job(
 
     normalized_skills = _normalize_skill_list(skill, skills)
     normalized_model = str(model).strip() if isinstance(model, str) else None
-    normalized_provider = str(provider).strip() if isinstance(provider, str) else None
-    normalized_base_url = str(base_url).strip().rstrip("/") if isinstance(base_url, str) else None
+    normalized_provider = str(provider).strip(
+    ) if isinstance(provider, str) else None
+    normalized_base_url = str(base_url).strip().rstrip(
+        "/") if isinstance(base_url, str) else None
     normalized_model = normalized_model or None
     normalized_provider = normalized_provider or None
     normalized_base_url = normalized_base_url or None
-    normalized_script = str(script).strip() if isinstance(script, str) else None
+    normalized_script = str(script).strip(
+    ) if isinstance(script, str) else None
     normalized_script = normalized_script or None
-    normalized_toolsets = [str(t).strip() for t in enabled_toolsets if str(t).strip()] if enabled_toolsets else None
+    normalized_toolsets = [str(t).strip() for t in enabled_toolsets if str(
+        t).strip()] if enabled_toolsets else None
     normalized_toolsets = normalized_toolsets or None
     normalized_workdir = _normalize_workdir(workdir)
     normalized_profile = _normalize_profile(profile)
@@ -644,12 +662,16 @@ def create_job(
     if isinstance(context_from, str):
         context_from = [context_from.strip()] if context_from.strip() else None
     elif isinstance(context_from, list):
-        context_from = [str(j).strip() for j in context_from if str(j).strip()] or None
+        context_from = [str(j).strip()
+                        for j in context_from if str(j).strip()] or None
     else:
         context_from = None
 
     prompt_text = _coerce_job_text(prompt)
-    label_source = (prompt_text or (normalized_skills[0] if normalized_skills else None) or (normalized_script if normalized_no_agent else None)) or "cron job"
+    label_source = (
+        prompt_text or (
+            normalized_skills[0] if normalized_skills else None) or (
+            normalized_script if normalized_no_agent else None)) or "cron job"
     job = {
         "id": job_id,
         "name": name or label_source[:50].strip(),
@@ -710,7 +732,8 @@ class AmbiguousJobReference(LookupError):
         self.matches = matches
         ids = ", ".join(m["id"] for m in matches)
         super().__init__(
-            f"Job name '{ref}' is ambiguous — matches {len(matches)} jobs: {ids}. "
+            f"Job name '{ref}' is ambiguous — matches {
+                len(matches)} jobs: {ids}. "
             f"Use the job ID instead."
         )
 
@@ -730,7 +753,9 @@ def resolve_job_ref(ref: str) -> Optional[Dict[str, Any]]:
         if job["id"] == ref:
             return _normalize_job_record(job)
     ref_lower = ref.lower()
-    name_matches = [j for j in jobs if (j.get("name") or "").lower() == ref_lower]
+    name_matches = [
+        j for j in jobs if (
+            j.get("name") or "").lower() == ref_lower]
     if not name_matches:
         return None
     if len(name_matches) > 1:
@@ -748,7 +773,8 @@ def list_jobs(include_disabled: bool = False) -> List[Dict[str, Any]]:
     return jobs
 
 
-def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def update_job(
+        job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Update a job by ID, refreshing derived schedule fields when needed."""
     # Block mutation of immutable fields. ``id`` in particular is a filesystem
     # path component under OUTPUT_DIR — letting an update change it leaks
@@ -756,7 +782,9 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
     bad_fields = _IMMUTABLE_JOB_FIELDS.intersection(updates or {})
     if bad_fields:
         raise ValueError(
-            f"Cron job field(s) cannot be updated: {', '.join(sorted(bad_fields))}"
+            f"Cron job field(s) cannot be updated: {
+                ', '.join(
+                    sorted(bad_fields))}"
         )
 
     jobs = load_jobs()
@@ -786,7 +814,8 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
         schedule_changed = "schedule" in updates
 
         if "skills" in updates or "skill" in updates:
-            normalized_skills = _normalize_skill_list(updated.get("skill"), updated.get("skills"))
+            normalized_skills = _normalize_skill_list(
+                updated.get("skill"), updated.get("skills"))
             updated["skills"] = normalized_skills
             updated["skill"] = normalized_skills[0] if normalized_skills else None
 
@@ -800,12 +829,14 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
                 updated["schedule"] = updated_schedule
             updated["schedule_display"] = updates.get(
                 "schedule_display",
-                updated_schedule.get("display", updated.get("schedule_display")),
+                updated_schedule.get(
+                    "display", updated.get("schedule_display")),
             )
             if updated.get("state") != "paused":
                 updated["next_run_at"] = compute_next_run(updated_schedule)
 
-        if updated.get("enabled", True) and updated.get("state") != "paused" and not updated.get("next_run_at"):
+        if updated.get("enabled", True) and updated.get(
+                "state") != "paused" and not updated.get("next_run_at"):
             updated["next_run_at"] = compute_next_run(updated["schedule"])
 
         jobs[i] = updated
@@ -814,7 +845,8 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
     return None
 
 
-def pause_job(job_id: str, reason: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def pause_job(
+        job_id: str, reason: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Pause a job without deleting it. Accepts a job ID or name."""
     job = resolve_job_ref(job_id)
     if not job:
@@ -892,7 +924,7 @@ def mark_job_run(job_id: str, success: bool, error: Optional[str] = None,
                  delivery_error: Optional[str] = None):
     """
     Mark a job as having been run.
-    
+
     Updates last_run_at, last_status, increments completed count,
     computes next_run_at, and auto-deletes if repeat limit reached.
 
@@ -907,13 +939,15 @@ def mark_job_run(job_id: str, success: bool, error: Optional[str] = None,
                 job["last_run_at"] = now
                 job["last_status"] = "ok" if success else "error"
                 job["last_error"] = error if not success else None
-                # Track delivery failures separately — cleared on successful delivery
+                # Track delivery failures separately — cleared on successful
+                # delivery
                 job["last_delivery_error"] = delivery_error
-                
+
                 # Increment completed count
                 if job.get("repeat"):
-                    job["repeat"]["completed"] = job["repeat"].get("completed", 0) + 1
-                    
+                    job["repeat"]["completed"] = job["repeat"].get(
+                        "completed", 0) + 1
+
                     # Check if we've hit the repeat limit
                     times = job["repeat"].get("times")
                     completed = job["repeat"]["completed"]
@@ -922,7 +956,7 @@ def mark_job_run(job_id: str, success: bool, error: Optional[str] = None,
                         jobs.pop(i)
                         save_jobs(jobs)
                         return
-                
+
                 # Compute next run
                 job["next_run_at"] = compute_next_run(job["schedule"], now)
 
@@ -958,7 +992,9 @@ def mark_job_run(job_id: str, success: bool, error: Optional[str] = None,
                 save_jobs(jobs)
                 return
 
-        logger.warning("mark_job_run: job_id %s not found, skipping save", job_id)
+        logger.warning(
+            "mark_job_run: job_id %s not found, skipping save",
+            job_id)
 
 
 def advance_next_run(job_id: str) -> bool:
@@ -1063,9 +1099,11 @@ def _get_due_jobs_locked() -> List[Dict[str, Any]]:
             # (gateway was down and missed the window). Fast-forward to
             # the next future occurrence instead of firing a stale run.
             grace = _compute_grace_seconds(schedule)
-            if kind in {"cron", "interval"} and (now - next_run_dt).total_seconds() > grace:
+            if kind in {"cron", "interval"} and (
+                    now - next_run_dt).total_seconds() > grace:
                 # Job is past its catch-up grace window — this is a stale missed run.
-                # Grace scales with schedule period: daily=2h, hourly=30m, 10min=5m.
+                # Grace scales with schedule period: daily=2h, hourly=30m,
+                # 10min=5m.
                 new_next = compute_next_run(schedule, now.isoformat())
                 if new_next:
                     logger.info(
@@ -1098,11 +1136,12 @@ def save_job_output(job_id: str, output: str):
     job_output_dir = _job_output_dir(job_id)
     job_output_dir.mkdir(parents=True, exist_ok=True)
     _secure_dir(job_output_dir)
-    
+
     timestamp = _nastech_now().strftime("%Y-%m-%d_%H-%M-%S")
     output_file = job_output_dir / f"{timestamp}.md"
-    
-    fd, tmp_path = tempfile.mkstemp(dir=str(job_output_dir), suffix='.tmp', prefix='.output_')
+
+    fd, tmp_path = tempfile.mkstemp(
+        dir=str(job_output_dir), suffix='.tmp', prefix='.output_')
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as f:
             f.write(output)
@@ -1116,7 +1155,7 @@ def save_job_output(job_id: str, output: str):
         except OSError:
             pass
         raise
-    
+
     return output_file
 
 
@@ -1189,7 +1228,8 @@ def rewrite_skill_refs(
         changed = False
 
         for job in jobs:
-            skills_before = _normalize_skill_list(job.get("skill"), job.get("skills"))
+            skills_before = _normalize_skill_list(
+                job.get("skill"), job.get("skills"))
             if not skills_before:
                 continue
 
@@ -1227,7 +1267,8 @@ def rewrite_skill_refs(
         if changed:
             save_jobs(jobs)
             logger.info(
-                "Curator rewrote skill references in %d cron job(s)", len(rewrites)
+                "Curator rewrote skill references in %d cron job(s)", len(
+                    rewrites)
             )
 
         return {

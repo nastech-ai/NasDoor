@@ -9,14 +9,15 @@ import threading
 from pathlib import Path
 
 from agent.file_safety import get_read_block_error
+from agent.redact import redact_sensitive_text
+from tools import file_state
 from tools.binary_extensions import has_binary_extension
 from tools.file_operations import (
     ShellFileOperations,
     normalize_read_pagination,
     normalize_search_pagination,
 )
-from tools import file_state
-from agent.redact import redact_sensitive_text
+from tools.registry import registry, tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ def _get_max_read_chars() -> int:
         pass
     _max_read_chars_cached = _DEFAULT_MAX_READ_CHARS
     return _max_read_chars_cached
+
 
 # If the total file size exceeds this AND the caller didn't specify a narrow
 # range (limit <= 200), we include a hint encouraging targeted reads.
@@ -122,7 +124,8 @@ def _get_live_tracking_cwd(task_id: str = "default") -> str | None:
         container_key = task_id
 
     with _file_ops_lock:
-        cached = _file_ops_cache.get(container_key) or _file_ops_cache.get(task_id)
+        cached = _file_ops_cache.get(
+            container_key) or _file_ops_cache.get(task_id)
     if cached is not None:
         live_cwd = getattr(getattr(cached, "env", None), "cwd", None) or getattr(
             cached, "cwd", None
@@ -134,7 +137,8 @@ def _get_live_tracking_cwd(task_id: str = "default") -> str | None:
         from tools.terminal_tool import _active_environments, _env_lock
 
         with _env_lock:
-            env = _active_environments.get(container_key) or _active_environments.get(task_id)
+            env = _active_environments.get(
+                container_key) or _active_environments.get(task_id)
             live_cwd = getattr(env, "cwd", None) if env is not None else None
         if live_cwd:
             return live_cwd
@@ -208,7 +212,8 @@ def _resolve_path_for_task(filepath: str, task_id: str = "default") -> Path:
     return (_resolve_base_dir(task_id) / p).resolve()
 
 
-def _path_resolution_warning(filepath: str, resolved: Path, task_id: str = "default") -> str | None:
+def _path_resolution_warning(
+        filepath: str, resolved: Path, task_id: str = "default") -> str | None:
     """Warn when a relative path resolved OUTSIDE the task's workspace root.
 
     Surfaces the worktree-cwd divergence the moment it would matter: if the
@@ -235,8 +240,11 @@ def _path_resolution_warning(filepath: str, resolved: Path, task_id: str = "defa
             return None  # Inside the workspace — expected.
         except ValueError:
             return (
-                f"Relative path {filepath!r} resolved to {str(resolved)!r}, which is "
-                f"OUTSIDE the active workspace ({str(root)!r}). The edit will land in "
+                f"Relative path {
+                    filepath!r} resolved to {
+                    str(resolved)!r}, which is "
+                f"OUTSIDE the active workspace ({
+                    str(root)!r}). The edit will land in "
                 f"a different directory than the terminal's cwd. If this is not "
                 f"intended (e.g. a git-worktree session writing into the main "
                 f"checkout), pass an absolute path under the workspace instead."
@@ -284,7 +292,8 @@ def _is_blocked_device(filepath: str) -> bool:
 
 
 # Paths that file tools should refuse to write to without going through the
-# terminal tool's approval system.  These match prefixes after os.path.realpath.
+# terminal tool's approval system.  These match prefixes after
+# os.path.realpath.
 _SENSITIVE_PATH_PREFIXES = (
     "/etc/", "/boot/", "/usr/lib/systemd/",
     "/private/etc/", "/private/var/",
@@ -306,13 +315,15 @@ def _get_nastech_config_resolved() -> str | None:
         _nastech_config_resolved = str(get_config_path().resolve())
     except Exception:
         try:
-            _nastech_config_resolved = str(Path("~/.nastech/config.yaml").expanduser().resolve())
+            _nastech_config_resolved = str(
+                Path("~/.nastech/config.yaml").expanduser().resolve())
         except Exception:
             _nastech_config_resolved = None
     return _nastech_config_resolved
 
 
-def _check_sensitive_path(filepath: str, task_id: str = "default") -> str | None:
+def _check_sensitive_path(
+        filepath: str, task_id: str = "default") -> str | None:
     """Return an error message if the path targets a sensitive system location."""
     try:
         resolved = str(_resolve_path_for_task(filepath, task_id))
@@ -333,7 +344,8 @@ def _check_sensitive_path(filepath: str, task_id: str = "default") -> str | None
     # prompt-injected agent could silently disable exec approval by writing to
     # this file.
     nastech_config = _get_nastech_config_resolved()
-    if nastech_config and (resolved == nastech_config or normalized == nastech_config):
+    if nastech_config and (
+            resolved == nastech_config or normalized == nastech_config):
         return (
             f"Refusing to write to NasTech config file: {filepath}\n"
             "Agent cannot modify security-sensitive configuration. "
@@ -342,7 +354,8 @@ def _check_sensitive_path(filepath: str, task_id: str = "default") -> str | None
     return None
 
 
-def _get_container_mirror_prefix_for_task(task_id: str = "default") -> str | None:
+def _get_container_mirror_prefix_for_task(
+        task_id: str = "default") -> str | None:
     """Return the container-side NasTech mirror prefix for Docker file tools."""
     try:
         from tools.terminal_tool import (
@@ -358,7 +371,8 @@ def _get_container_mirror_prefix_for_task(task_id: str = "default") -> str | Non
 
     try:
         with _env_lock:
-            env = _active_environments.get(container_key) or _active_environments.get(task_id)
+            env = _active_environments.get(
+                container_key) or _active_environments.get(task_id)
 
         if env is not None:
             if env.__class__.__name__ == "DockerEnvironment" and bool(
@@ -371,12 +385,14 @@ def _get_container_mirror_prefix_for_task(task_id: str = "default") -> str | Non
     except Exception:
         return None
 
-    if config.get("env_type") == "docker" and config.get("container_persistent", True):
+    if config.get("env_type") == "docker" and config.get(
+            "container_persistent", True):
         return "/root/.nastech"
     return None
 
 
-def _check_cross_profile_path(filepath: str, task_id: str = "default") -> str | None:
+def _check_cross_profile_path(
+        filepath: str, task_id: str = "default") -> str | None:
     """Return a soft-guard warning when ``filepath`` lands in another NasTech
     profile's scoped area, a host-side sandbox-mirror of authoritative profile
     state, or the Docker container's sandbox mirror of NasTech state.
@@ -503,6 +519,7 @@ def _reset_patch_failures(task_id: str, resolved_paths: list) -> None:
         for rp in resolved_paths:
             task_failures.pop(rp, None)
 
+
 # Per-task bounds for the containers inside each _read_tracker[task_id].
 # A CLI session uses one stable task_id for its lifetime; without these
 # caps, a 10k-read session would accumulate ~1.5MB of dict/set state that
@@ -616,14 +633,19 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
     parent's container and its cached file_ops. RL/benchmark task_ids with
     a registered env override keep their isolation.
     """
+    import time
+
     from tools.terminal_tool import (
-        _active_environments, _env_lock, _create_environment,
-        _get_env_config, _last_activity, _start_cleanup_thread,
+        _active_environments,
+        _create_environment,
         _creation_locks,
         _creation_locks_lock,
+        _env_lock,
+        _get_env_config,
+        _last_activity,
         _resolve_container_task_id,
+        _start_cleanup_thread,
     )
-    import time
 
     task_id = _resolve_container_task_id(task_id)
 
@@ -667,16 +689,19 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
             if env_type == "docker":
                 image = overrides.get("docker_image") or config["docker_image"]
             elif env_type == "singularity":
-                image = overrides.get("singularity_image") or config["singularity_image"]
+                image = overrides.get(
+                    "singularity_image") or config["singularity_image"]
             elif env_type == "modal":
                 image = overrides.get("modal_image") or config["modal_image"]
             elif env_type == "daytona":
-                image = overrides.get("daytona_image") or config["daytona_image"]
+                image = overrides.get(
+                    "daytona_image") or config["daytona_image"]
             else:
                 image = ""
 
             cwd = overrides.get("cwd") or config["cwd"]
-            logger.info("Creating new %s environment for task %s...", env_type, task_id[:8])
+            logger.info("Creating new %s environment for task %s...",
+                        env_type, task_id[:8])
 
             container_config = None
             if env_type in {"docker", "singularity", "modal", "daytona"}:
@@ -724,7 +749,8 @@ def _get_file_ops(task_id: str = "default") -> ShellFileOperations:
                 _last_activity[task_id] = time.time()
 
             _start_cleanup_thread()
-            logger.info("%s environment ready for task %s", env_type, task_id[:8])
+            logger.info("%s environment ready for task %s",
+                        env_type, task_id[:8])
 
     # Build file_ops from the (guaranteed live) environment and cache it
     file_ops = ShellFileOperations(terminal_env)
@@ -742,7 +768,8 @@ def clear_file_ops_cache(task_id: str = None):
             _file_ops_cache.clear()
 
 
-def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = "default") -> str:
+def read_file_tool(path: str, offset: int = 1, limit: int = 500,
+                   task_id: str = "default") -> str:
     """Read a file with pagination and line numbers."""
     try:
         offset, limit = normalize_read_pagination(offset, limit)
@@ -873,7 +900,8 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = 
 
         # ── Redact secrets (after guard check to skip oversized content) ──
         if result.content:
-            result.content = redact_sensitive_text(result.content, code_file=True)
+            result.content = redact_sensitive_text(
+                result.content, code_file=True)
             result_dict["content"] = result.content
 
         # Large-file hint: if the file is big and the caller didn't ask
@@ -911,16 +939,18 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = 
             # Store mtime at read time for two purposes:
             # 1. Dedup: skip identical re-reads of unchanged files.
             # 2. Staleness: warn on write/patch if the file changed since
-            #    the agent last read it (external edit, concurrent agent, etc.).
+            # the agent last read it (external edit, concurrent agent, etc.).
             try:
                 _mtime_now = os.path.getmtime(resolved_str)
                 task_data["dedup"][dedup_key] = _mtime_now
-                task_data.setdefault("read_timestamps", {})[resolved_str] = _mtime_now
+                task_data.setdefault("read_timestamps", {})[
+                    resolved_str] = _mtime_now
             except OSError:
                 pass  # Can't stat — skip tracking for this entry
 
             # Bound the per-task containers so a long CLI session doesn't
-            # accumulate megabytes of dict/set state.  See _cap_read_tracker_data.
+            # accumulate megabytes of dict/set state.  See
+            # _cap_read_tracker_data.
             _cap_read_tracker_data(task_data)
 
         # Cross-agent file-state registry (separate from per-task read
@@ -957,8 +987,6 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = 
         return json.dumps(result_dict, ensure_ascii=False)
     except Exception as e:
         return tool_error(str(e))
-
-
 
 
 def reset_file_dedup(task_id: str = None):
@@ -1058,7 +1086,8 @@ def _update_read_timestamp(filepath: str, task_id: str) -> None:
     with _read_tracker_lock:
         task_data = _read_tracker.get(task_id)
         if task_data is not None:
-            task_data.setdefault("read_timestamps", {})[resolved] = current_mtime
+            task_data.setdefault("read_timestamps", {})[
+                resolved] = current_mtime
             _cap_read_tracker_data(task_data)
 
 
@@ -1143,8 +1172,10 @@ def write_file_tool(path: str, content: str, task_id: str = "default",
             cross_warning = file_state.check_stale(task_id, _resolved)
             stale_warning = _check_file_staleness(path, task_id)
             # Workspace-divergence warning: relative path resolving outside the
-            # terminal's cwd (the worktree-cwd bug). Lowest priority of the three.
-            cwd_warning = _path_resolution_warning(path, Path(_resolved), task_id)
+            # terminal's cwd (the worktree-cwd bug). Lowest priority of the
+            # three.
+            cwd_warning = _path_resolution_warning(
+                path, Path(_resolved), task_id)
             file_ops = _get_file_ops(task_id)
             result = file_ops.write_file(_resolved, content)
             result_dict = result.to_dict()
@@ -1165,9 +1196,16 @@ def write_file_tool(path: str, content: str, task_id: str = "default",
         return json.dumps(result_dict, ensure_ascii=False)
     except Exception as e:
         if _is_expected_write_exception(e):
-            logger.debug("write_file expected denial: %s: %s", type(e).__name__, e)
+            logger.debug(
+                "write_file expected denial: %s: %s",
+                type(e).__name__,
+                e)
         else:
-            logger.error("write_file error: %s: %s", type(e).__name__, e, exc_info=True)
+            logger.error(
+                "write_file error: %s: %s",
+                type(e).__name__,
+                e,
+                exc_info=True)
         return tool_error(str(e))
 
 
@@ -1180,14 +1218,17 @@ def patch_tool(mode: str = "replace", path: str = None, old_string: str = None,
     targets under another profile's skills/plugins/cron/memories
     directory. Same shape as ``write_file``'s flag.
     """
-    # Check sensitive paths for both replace (explicit path) and V4A patch (extract paths)
+    # Check sensitive paths for both replace (explicit path) and V4A patch
+    # (extract paths)
     _paths_to_check = []
     if path:
         _paths_to_check.append(path)
     if mode == "patch" and patch:
         import re as _re
+
         from tools.path_security import has_traversal_component
-        for _m in _re.finditer(r'^\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)$', patch, _re.MULTILINE):
+        for _m in _re.finditer(
+                r'^\*\*\*\s+(?:Update|Add|Delete)\s+File:\s*(.+)$', patch, _re.MULTILINE):
             v4a_path = _m.group(1).strip()
             # V4A path headers come from patch CONTENT, not the explicit
             # ``path=`` arg — so they're more attacker-influenceable (skill
@@ -1268,7 +1309,8 @@ def patch_tool(mode: str = "replace", path: str = None, old_string: str = None,
                 # path would let the two layers disagree about which file is
                 # being edited.
                 _replace_target = _path_to_resolved.get(path) or path
-                result = file_ops.patch_replace(_replace_target, old_string, new_string, replace_all)
+                result = file_ops.patch_replace(
+                    _replace_target, old_string, new_string, replace_all)
             elif mode == "patch":
                 if not patch:
                     return tool_error("patch content required")
@@ -1278,7 +1320,8 @@ def patch_tool(mode: str = "replace", path: str = None, old_string: str = None,
 
             result_dict = result.to_dict()
             if stale_warnings:
-                result_dict["_warning"] = stale_warnings[0] if len(stale_warnings) == 1 else " | ".join(stale_warnings)
+                result_dict["_warning"] = stale_warnings[0] if len(
+                    stale_warnings) == 1 else " | ".join(stale_warnings)
             # Report the ABSOLUTE path(s) actually patched so a wrong-cwd
             # mismatch (e.g. a worktree session editing the main checkout) is
             # visible in the response instead of silently landing elsewhere.
@@ -1306,7 +1349,8 @@ def patch_tool(mode: str = "replace", path: str = None, old_string: str = None,
         # retries with stale content instead of re-reading the file.
         # Suppressed when patch_replace already attached a rich "Did you mean?"
         # snippet (which is strictly more useful than the generic hint).
-        if result_dict.get("error") and "Could not find" in str(result_dict["error"]):
+        if result_dict.get("error") and "Could not find" in str(
+                result_dict["error"]):
             # Track per-file consecutive failures for replace mode.  The
             # ``path`` arg only exists for replace mode; for V4A patches
             # we'd need to walk the headers, but in practice V4A failures
@@ -1392,7 +1436,8 @@ def search_tool(pattern: str, target: str = "content", path: str = ".",
         if hasattr(result, 'matches'):
             for m in result.matches:
                 if hasattr(m, 'content') and m.content:
-                    m.content = redact_sensitive_text(m.content, code_file=True)
+                    m.content = redact_sensitive_text(
+                        m.content, code_file=True)
         result_dict = result.to_dict()
 
         if count >= 3:
@@ -1403,7 +1448,8 @@ def search_tool(pattern: str, target: str = "content", path: str = ".",
 
         result_json = json.dumps(result_dict, ensure_ascii=False)
         # Hint when results were truncated — explicit next offset is clearer
-        # than relying on the model to infer it from total_count vs match count.
+        # than relying on the model to infer it from total_count vs match
+        # count.
         if result_dict.get("truncated"):
             next_offset = offset + limit
             result_json += f"\n\n[Hint: Results truncated. Use offset={next_offset} to see more, or narrow with a more specific pattern or file_glob.]"
@@ -1412,18 +1458,16 @@ def search_tool(pattern: str, target: str = "content", path: str = ".",
         return tool_error(str(e))
 
 
-
-
 # ---------------------------------------------------------------------------
 # Schemas + Registry
 # ---------------------------------------------------------------------------
-from tools.registry import registry, tool_error
 
 
 def _check_file_reqs():
     """Lazy wrapper to avoid circular import with tools/__init__.py."""
     from tools import check_file_requirements
     return check_file_requirements()
+
 
 READ_FILE_SCHEMA = {
     "name": "read_file",
@@ -1530,7 +1574,8 @@ SEARCH_FILES_SCHEMA = {
 
 def _handle_read_file(args, **kw):
     tid = kw.get("task_id") or "default"
-    return read_file_tool(path=args.get("path", ""), offset=args.get("offset", 1), limit=args.get("limit", 500), task_id=tid)
+    return read_file_tool(path=args.get("path", ""), offset=args.get(
+        "offset", 1), limit=args.get("limit", 500), task_id=tid)
 
 
 def _handle_write_file(args, **kw):
@@ -1580,7 +1625,35 @@ def _handle_search_files(args, **kw):
         output_mode=args.get("output_mode", "content"), context=args.get("context", 0), task_id=tid)
 
 
-registry.register(name="read_file", toolset="file", schema=READ_FILE_SCHEMA, handler=_handle_read_file, check_fn=_check_file_reqs, emoji="📖", max_result_size_chars=100_000)
-registry.register(name="write_file", toolset="file", schema=WRITE_FILE_SCHEMA, handler=_handle_write_file, check_fn=_check_file_reqs, emoji="✍️", max_result_size_chars=100_000)
-registry.register(name="patch", toolset="file", schema=PATCH_SCHEMA, handler=_handle_patch, check_fn=_check_file_reqs, emoji="🔧", max_result_size_chars=100_000)
-registry.register(name="search_files", toolset="file", schema=SEARCH_FILES_SCHEMA, handler=_handle_search_files, check_fn=_check_file_reqs, emoji="🔎", max_result_size_chars=100_000)
+registry.register(
+    name="read_file",
+    toolset="file",
+    schema=READ_FILE_SCHEMA,
+    handler=_handle_read_file,
+    check_fn=_check_file_reqs,
+    emoji="📖",
+    max_result_size_chars=100_000)
+registry.register(
+    name="write_file",
+    toolset="file",
+    schema=WRITE_FILE_SCHEMA,
+    handler=_handle_write_file,
+    check_fn=_check_file_reqs,
+    emoji="✍️",
+    max_result_size_chars=100_000)
+registry.register(
+    name="patch",
+    toolset="file",
+    schema=PATCH_SCHEMA,
+    handler=_handle_patch,
+    check_fn=_check_file_reqs,
+    emoji="🔧",
+    max_result_size_chars=100_000)
+registry.register(
+    name="search_files",
+    toolset="file",
+    schema=SEARCH_FILES_SCHEMA,
+    handler=_handle_search_files,
+    check_fn=_check_file_reqs,
+    emoji="🔎",
+    max_result_size_chars=100_000)

@@ -17,7 +17,7 @@ import logging
 import os
 import shlex
 from pathlib import Path
-from typing import Dict, Any, Optional, Set
+from typing import Any, Dict, Optional, Set
 
 from agent.prompt_builder import _scan_context_content
 
@@ -53,6 +53,7 @@ def _is_ancestor_or_same(a: Path, b: Path) -> bool:
         return True
     except ValueError:
         return False
+
 
 class SubdirectoryHintTracker:
     """Track which directories the agent visits and load hints on first access.
@@ -131,7 +132,8 @@ class SubdirectoryHintTracker:
             if not p.is_absolute():
                 p = self.working_dir / p
             p = p.resolve()
-            # Use parent if it's a file path (has extension or doesn't exist as dir)
+            # Use parent if it's a file path (has extension or doesn't exist as
+            # dir)
             if p.suffix or (p.exists() and p.is_file()):
                 p = p.parent
             # Walk up ancestors — stop at already-loaded or root

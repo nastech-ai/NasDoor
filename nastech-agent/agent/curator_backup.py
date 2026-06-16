@@ -48,8 +48,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from nastech_constants import get_nastech_home
 from agent.skill_utils import is_excluded_skill_path
+from nastech_constants import get_nastech_home
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +200,8 @@ def _write_manifest(dest: Path, reason: str, archive_path: Path,
             "jobs_count": int(cron_info.get("jobs_count", 0)),
         }
         if not cron_info.get("backed_up"):
-            manifest["cron_jobs"]["reason"] = cron_info.get("reason", "not captured")
+            manifest["cron_jobs"]["reason"] = cron_info.get(
+                "reason", "not captured")
         if cron_info.get("parse_warning"):
             manifest["cron_jobs"]["parse_warning"] = cron_info["parse_warning"]
     (dest / "manifest.json").write_text(
@@ -456,7 +457,7 @@ def _restore_cron_skill_links(snapshot_dir: Path) -> Dict[str, Any]:
 
     # Load and rewrite the live jobs under the scheduler's lock.
     try:
-        from cron.jobs import load_jobs, save_jobs, _jobs_file_lock
+        from cron.jobs import _jobs_file_lock, load_jobs, save_jobs
     except ImportError as e:
         report["error"] = f"cron module unavailable: {e}"
         return report
@@ -525,8 +526,8 @@ def _restore_cron_skill_links(snapshot_dir: Path) -> Dict[str, Any]:
     return report
 
 
-
-def rollback(backup_id: Optional[str] = None) -> Tuple[bool, str, Optional[Path]]:
+def rollback(backup_id: Optional[str]
+             = None) -> Tuple[bool, str, Optional[Path]]:
     """Restore ``~/.nastech/skills/`` from a snapshot.
 
     Strategy:
@@ -553,7 +554,8 @@ def rollback(backup_id: Optional[str] = None) -> Tuple[bool, str, Optional[Path]
         )
     archive = target / "skills.tar.gz"
     if not archive.exists():
-        return (False, f"snapshot {target.name} has no skills.tar.gz — corrupted?", None)
+        return (
+            False, f"snapshot {target.name} has no skills.tar.gz — corrupted?", None)
 
     skills = _skills_dir()
     skills.mkdir(parents=True, exist_ok=True)
@@ -612,7 +614,8 @@ def rollback(backup_id: Optional[str] = None) -> Tuple[bool, str, Optional[Path]
                         f"refusing to extract unsafe path: {name!r}"
                     )
             try:
-                tf.extractall(str(skills), filter="data")  # type: ignore[call-arg]
+                # type: ignore[call-arg]
+                tf.extractall(str(skills), filter="data")
             except TypeError:
                 # Python < 3.12 — no filter kwarg
                 tf.extractall(str(skills))
@@ -650,14 +653,16 @@ def rollback(backup_id: Optional[str] = None) -> Tuple[bool, str, Optional[Path]
         if cron_report.get("error"):
             summary_bits.append(f"cron links: error — {cron_report['error']}")
         elif restored_n == 0 and skipped_n == 0 and cron_report.get("unchanged", 0) == 0:
-            # Attempted but nothing matched — empty snapshot or no overlapping ids.
+            # Attempted but nothing matched — empty snapshot or no overlapping
+            # ids.
             pass
         else:
             parts = []
             if restored_n:
                 parts.append(f"{restored_n} job(s) had skill links restored")
             if skipped_n:
-                parts.append(f"{skipped_n} backed-up job(s) no longer exist (skipped)")
+                parts.append(
+                    f"{skipped_n} backed-up job(s) no longer exist (skipped)")
             if cron_report.get("unchanged"):
                 parts.append(f"{cron_report['unchanged']} already matched")
             summary_bits.append("cron links: " + ", ".join(parts))
@@ -687,8 +692,8 @@ def summarize_backups() -> str:
     lines.append("─" * len(lines[0]))
     for r in rows:
         lines.append(
-            f"{r.get('id','?'):<24}  "
-            f"{(r.get('reason','?') or '?')[:40]:<40}  "
+            f"{r.get('id', '?'):<24}  "
+            f"{(r.get('reason', '?') or '?')[:40]:<40}  "
             f"{r.get('skill_files', 0):>6}  "
             f"{format_size(int(r.get('archive_bytes', 0))):>8}"
         )

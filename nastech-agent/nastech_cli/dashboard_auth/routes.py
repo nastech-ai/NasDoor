@@ -21,7 +21,6 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-
 from nastech_cli.dashboard_auth import (
     get_provider,
     list_providers,

@@ -16,9 +16,9 @@ new service.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
 import sqlite3
+from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
 
 from nastech_cli import kanban_db as kb
@@ -100,7 +100,8 @@ def create_swarm(
 
     goal = _require_text(goal, "goal")
     verifier_assignee = _require_text(verifier_assignee, "verifier_assignee")
-    synthesizer_assignee = _require_text(synthesizer_assignee, "synthesizer_assignee")
+    synthesizer_assignee = _require_text(
+        synthesizer_assignee, "synthesizer_assignee")
     worker_specs = list(workers)
     if not worker_specs:
         raise ValueError("at least one worker is required")
@@ -236,11 +237,14 @@ def post_blackboard_update(
     _require_text(root_id, "root_id")
     author = _require_text(author, "author")
     key = _require_text(key, "key")
-    payload = json.dumps({"key": key, "value": value}, ensure_ascii=False, sort_keys=True)
-    return kb.add_comment(conn, root_id, author=author, body=BLACKBOARD_PREFIX + payload)
+    payload = json.dumps({"key": key, "value": value},
+                         ensure_ascii=False, sort_keys=True)
+    return kb.add_comment(conn, root_id, author=author,
+                          body=BLACKBOARD_PREFIX + payload)
 
 
-def latest_blackboard(conn: sqlite3.Connection, root_id: str) -> dict[str, Any]:
+def latest_blackboard(conn: sqlite3.Connection,
+                      root_id: str) -> dict[str, Any]:
     """Merge structured blackboard comments on a root card.
 
     Later comments replace earlier values for the same key. ``_authors`` records
@@ -272,8 +276,10 @@ def parse_worker_arg(raw: str) -> SwarmWorkerSpec:
 
     parts = [p.strip() for p in raw.split(":", 2)]
     if len(parts) < 2:
-        raise ValueError("worker must be profile:title or profile:title:skill,skill")
+        raise ValueError(
+            "worker must be profile:title or profile:title:skill,skill")
     skills: list[str] = []
     if len(parts) == 3 and parts[2]:
         skills = [s.strip() for s in parts[2].split(",") if s.strip()]
-    return SwarmWorkerSpec(profile=parts[0], title=parts[1], body=parts[1], skills=skills)
+    return SwarmWorkerSpec(
+        profile=parts[0], title=parts[1], body=parts[1], skills=skills)

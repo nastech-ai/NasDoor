@@ -19,6 +19,12 @@ import subprocess
 import sys
 from contextlib import contextmanager
 
+from cron.jobs import advance_next_run, get_due_jobs, mark_job_run, save_job_output
+from nastech_cli._subprocess_compat import windows_hide_flags
+from nastech_cli.config import _expand_env_vars, load_config
+from nastech_constants import get_nastech_home
+from nastech_time import now as _nastech_now
+
 # fcntl is Unix-only; on Windows use msvcrt for file locking
 try:
     import fcntl
@@ -36,10 +42,6 @@ from typing import List, Optional
 # the module) fail with ModuleNotFoundError for nastech_time et al.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from nastech_constants import get_nastech_home
-from nastech_cli._subprocess_compat import windows_hide_flags
-from nastech_cli.config import load_config, _expand_env_vars
-from nastech_time import now as _nastech_now
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +103,8 @@ def _resolve_cron_enabled_toolsets(job: dict, cfg: dict) -> list[str] | None:
     if per_job:
         return per_job
     try:
-        from nastech_cli.tools_config import _get_platform_tools  # lazy: avoid heavy import at cron module load
+        # lazy: avoid heavy import at cron module load
+        from nastech_cli.tools_config import _get_platform_tools
         return sorted(_get_platform_tools(cfg or {}, "cron"))
     except Exception as exc:
         logger.warning(
@@ -109,6 +112,7 @@ def _resolve_cron_enabled_toolsets(job: dict, cfg: dict) -> list[str] | None:
             exc,
         )
         return None
+
 
 # Valid delivery platforms — used to validate user-supplied platform names
 # in cron delivery targets, preventing env var enumeration via crafted names.
@@ -147,14 +151,14 @@ _LEGACY_HOME_TARGET_ENV_VARS = {
     "QQBOT_HOME_CHANNEL": "QQ_HOME_CHANNEL",
 }
 
-from cron.jobs import get_due_jobs, mark_job_run, save_job_output, advance_next_run
 
 # Sentinel: when a cron agent has nothing new to report, it can start its
 # response with this marker to suppress delivery.  Output is still saved
 # locally for audit.
 SILENT_MARKER = "[SILENT]"
 
-# Backward-compatible module override used by tests and emergency monkeypatches.
+# Backward-compatible module override used by tests and emergency
+# monkeypatches.
 _nastech_home: Path | None = None
 
 
@@ -271,7 +275,8 @@ def _cron_job_origin_log_suffix(job: dict) -> str:
         return ""
 
     fields = []
-    for key in ("platform", "chat_id", "thread_id", "source_ip", "remote", "forwarded_for"):
+    for key in ("platform", "chat_id", "thread_id",
+                "source_ip", "remote", "forwarded_for"):
         value = origin.get(key)
         if value is None:
             continue
@@ -383,7 +388,8 @@ def _iter_home_target_platforms():
         pass
 
 
-def _resolve_single_delivery_target(job: dict, deliver_value: str) -> Optional[dict]:
+def _resolve_single_delivery_target(
+        job: dict, deliver_value: str) -> Optional[dict]:
     """Resolve one concrete auto-delivery target for a cron job."""
 
     origin = _resolve_origin(job)
@@ -421,7 +427,8 @@ def _resolve_single_delivery_target(job: dict, deliver_value: str) -> Optional[d
 
         from tools.send_message_tool import _parse_target_ref
 
-        parsed_chat_id, parsed_thread_id, is_explicit = _parse_target_ref(platform_key, rest)
+        parsed_chat_id, parsed_thread_id, is_explicit = _parse_target_ref(
+            platform_key, rest)
         if is_explicit:
             chat_id, thread_id = parsed_chat_id, parsed_thread_id
         else:
@@ -432,7 +439,8 @@ def _resolve_single_delivery_target(job: dict, deliver_value: str) -> Optional[d
             from gateway.channel_directory import resolve_channel_name
             resolved = resolve_channel_name(platform_key, chat_id)
             if resolved:
-                parsed_chat_id, parsed_thread_id, resolved_is_explicit = _parse_target_ref(platform_key, resolved)
+                parsed_chat_id, parsed_thread_id, resolved_is_explicit = _parse_target_ref(
+                    platform_key, resolved)
                 if resolved_is_explicit:
                     chat_id = parsed_chat_id
                     if parsed_thread_id is not None:
@@ -540,7 +548,9 @@ def _resolve_delivery_targets(job: dict) -> List[dict]:
     for part in parts:
         target = _resolve_single_delivery_target(job, part)
         if target:
-            key = (target["platform"].lower(), str(target["chat_id"]), target.get("thread_id"))
+            key = (
+                target["platform"].lower(), str(
+                    target["chat_id"]), target.get("thread_id"))
             if key not in seen:
                 seen.add(key)
                 targets.append(target)
@@ -554,7 +564,8 @@ def _resolve_delivery_target(job: dict) -> Optional[dict]:
 
 
 # Media extension sets — audio routing is centralized in gateway.platforms.base
-# via should_send_media_as_audio() so Telegram-specific rules stay in one place.
+# via should_send_media_as_audio() so Telegram-specific rules stay in one
+# place.
 _VIDEO_EXTS = frozenset({'.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp'})
 _IMAGE_EXTS = frozenset({'.jpg', '.jpeg', '.png', '.webp', '.gif'})
 
@@ -583,15 +594,25 @@ def _send_media_via_adapter(
     for media_path, _is_voice in media_files:
         try:
             ext = Path(media_path).suffix.lower()
-            route_platform = platform if platform is not None else getattr(adapter, "platform", None)
-            if should_send_media_as_audio(route_platform, ext, is_voice=_is_voice):
-                coro = adapter.send_voice(chat_id=chat_id, audio_path=media_path, metadata=metadata)
+            route_platform = platform if platform is not None else getattr(
+                adapter, "platform", None)
+            if should_send_media_as_audio(
+                    route_platform, ext, is_voice=_is_voice):
+                coro = adapter.send_voice(
+                    chat_id=chat_id,
+                    audio_path=media_path,
+                    metadata=metadata)
             elif ext in _VIDEO_EXTS:
-                coro = adapter.send_video(chat_id=chat_id, video_path=media_path, metadata=metadata)
+                coro = adapter.send_video(
+                    chat_id=chat_id,
+                    video_path=media_path,
+                    metadata=metadata)
             elif ext in _IMAGE_EXTS:
-                coro = adapter.send_image_file(chat_id=chat_id, image_path=media_path, metadata=metadata)
+                coro = adapter.send_image_file(
+                    chat_id=chat_id, image_path=media_path, metadata=metadata)
             else:
-                coro = adapter.send_document(chat_id=chat_id, file_path=media_path, metadata=metadata)
+                coro = adapter.send_document(
+                    chat_id=chat_id, file_path=media_path, metadata=metadata)
 
             from agent.async_utils import safe_schedule_threadsafe
             future = safe_schedule_threadsafe(coro, loop)
@@ -609,13 +630,18 @@ def _send_media_via_adapter(
             if result and not getattr(result, "success", True):
                 logger.warning(
                     "Job '%s': media send failed for %s: %s",
-                    job.get("id", "?"), media_path, getattr(result, "error", "unknown"),
+                    job.get(
+                        "id", "?"), media_path, getattr(
+                        result, "error", "unknown"),
                 )
         except Exception as e:
-            logger.warning("Job '%s': failed to send media %s: %s", job.get("id", "?"), media_path, e)
+            logger.warning(
+                "Job '%s': failed to send media %s: %s", job.get(
+                    "id", "?"), media_path, e)
 
 
-def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Optional[str]:
+def _deliver_result(job: dict, content: str, adapters=None,
+                    loop=None) -> Optional[str]:
     """
     Deliver job output to the configured target(s) (origin chat, specific platform, etc.).
 
@@ -629,13 +655,16 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
     targets = _resolve_delivery_targets(job)
     if not targets:
         if job.get("deliver", "local") != "local":
-            msg = f"no delivery target resolved for deliver={job.get('deliver', 'local')}"
+            msg = f"no delivery target resolved for deliver={
+                job.get(
+                    'deliver',
+                    'local')}"
             logger.warning("Job '%s': %s", job["id"], msg)
             return msg
         return None  # local-only jobs don't deliver — not a failure
 
+    from gateway.config import Platform, load_gateway_config
     from tools.send_message_tool import _send_to_platform
-    from gateway.config import load_gateway_config, Platform
 
     # Optionally wrap the content with a header/footer so the user knows this
     # is a cron delivery.  Wrapping is on by default; set cron.wrap_response: false
@@ -662,7 +691,8 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
 
     # Extract MEDIA: tags so attachments are forwarded as files, not raw text
     from gateway.platforms.base import BasePlatformAdapter
-    media_files, cleaned_delivery_content = BasePlatformAdapter.extract_media(delivery_content)
+    media_files, cleaned_delivery_content = BasePlatformAdapter.extract_media(
+        delivery_content)
     media_files = BasePlatformAdapter.filter_media_delivery_paths(media_files)
 
     try:
@@ -715,7 +745,8 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
         # rooms (e.g. Matrix) where the standalone HTTP path cannot encrypt.
         runtime_adapter = (adapters or {}).get(platform)
         delivered = False
-        if runtime_adapter is not None and loop is not None and getattr(loop, "is_running", lambda: False)():
+        if runtime_adapter is not None and loop is not None and getattr(
+                loop, "is_running", lambda: False)():
             send_metadata = {"thread_id": thread_id} if thread_id else None
             try:
                 # Send cleaned text (MEDIA tags stripped) — not the raw content
@@ -724,7 +755,8 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
                 if text_to_send:
                     from agent.async_utils import safe_schedule_threadsafe
                     future = safe_schedule_threadsafe(
-                        runtime_adapter.send(chat_id, text_to_send, metadata=send_metadata),
+                        runtime_adapter.send(
+                            chat_id, text_to_send, metadata=send_metadata),
                         loop,
                     )
                     if future is None:
@@ -735,7 +767,8 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
                         except TimeoutError:
                             future.cancel()
                             raise
-                        if send_result and not getattr(send_result, "success", True):
+                        if send_result and not getattr(
+                                send_result, "success", True):
                             err = getattr(send_result, "error", "unknown")
                             logger.warning(
                                 "Job '%s': live adapter send to %s:%s failed (%s), falling back to standalone",
@@ -748,7 +781,8 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
                             and getattr(send_result, "raw_response", None)
                             and send_result.raw_response.get("thread_fallback")
                         ):
-                            requested_thread_id = send_result.raw_response.get("requested_thread_id") or thread_id
+                            requested_thread_id = send_result.raw_response.get(
+                                "requested_thread_id") or thread_id
                             msg = (
                                 f"configured thread_id {requested_thread_id} for "
                                 f"{platform_name}:{chat_id} was not found; delivered without thread_id"
@@ -756,7 +790,8 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
                             logger.warning("Job '%s': %s", job["id"], msg)
                             delivery_errors.append(msg)
 
-                # Send extracted media files as native attachments via the live adapter
+                # Send extracted media files as native attachments via the live
+                # adapter
                 if adapter_ok and media_files:
                     _send_media_via_adapter(
                         runtime_adapter,
@@ -769,7 +804,11 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
                     )
 
                 if adapter_ok:
-                    logger.info("Job '%s': delivered to %s:%s via live adapter", job["id"], platform_name, chat_id)
+                    logger.info(
+                        "Job '%s': delivered to %s:%s via live adapter",
+                        job["id"],
+                        platform_name,
+                        chat_id)
                     delivered = True
             except Exception as e:
                 logger.warning(
@@ -778,8 +817,15 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
                 )
 
         if not delivered:
-            # Standalone path: run the async send in a fresh event loop (safe from any thread)
-            coro = _send_to_platform(platform, pconfig, chat_id, cleaned_delivery_content, thread_id=thread_id, media_files=media_files)
+            # Standalone path: run the async send in a fresh event loop (safe
+            # from any thread)
+            coro = _send_to_platform(
+                platform,
+                pconfig,
+                chat_id,
+                cleaned_delivery_content,
+                thread_id=thread_id,
+                media_files=media_files)
             try:
                 result = asyncio.run(coro)
             except RuntimeError:
@@ -789,7 +835,15 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
                 # fresh thread that has no running loop.
                 coro.close()
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    future = pool.submit(asyncio.run, _send_to_platform(platform, pconfig, chat_id, cleaned_delivery_content, thread_id=thread_id, media_files=media_files))
+                    future = pool.submit(
+                        asyncio.run,
+                        _send_to_platform(
+                            platform,
+                            pconfig,
+                            chat_id,
+                            cleaned_delivery_content,
+                            thread_id=thread_id,
+                            media_files=media_files))
                     result = future.result(timeout=30)
             except Exception as e:
                 msg = f"delivery to {platform_name}:{chat_id} failed: {e}"
@@ -803,7 +857,11 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
                 delivery_errors.append(msg)
                 continue
 
-            logger.info("Job '%s': delivered to %s:%s", job["id"], platform_name, chat_id)
+            logger.info(
+                "Job '%s': delivered to %s:%s",
+                job["id"],
+                platform_name,
+                chat_id)
 
     if delivery_errors:
         return "; ".join(delivery_errors)
@@ -811,7 +869,8 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
 
 
 _DEFAULT_SCRIPT_TIMEOUT = 120  # seconds
-# Backward-compatible module override used by tests and emergency monkeypatches.
+# Backward-compatible module override used by tests and emergency
+# monkeypatches.
 _SCRIPT_TIMEOUT = _DEFAULT_SCRIPT_TIMEOUT
 
 
@@ -823,7 +882,9 @@ def _get_script_timeout() -> int:
             if timeout > 0:
                 return timeout
         except Exception:
-            logger.warning("Invalid patched _SCRIPT_TIMEOUT=%r; using env/config/default", _SCRIPT_TIMEOUT)
+            logger.warning(
+                "Invalid patched _SCRIPT_TIMEOUT=%r; using env/config/default",
+                _SCRIPT_TIMEOUT)
 
     env_value = os.getenv("NASTECH_CRON_SCRIPT_TIMEOUT", "").strip()
     if env_value:
@@ -832,7 +893,9 @@ def _get_script_timeout() -> int:
             if timeout > 0:
                 return timeout
         except Exception:
-            logger.warning("Invalid NASTECH_CRON_SCRIPT_TIMEOUT=%r; using config/default", env_value)
+            logger.warning(
+                "Invalid NASTECH_CRON_SCRIPT_TIMEOUT=%r; using config/default",
+                env_value)
 
     try:
         cfg = load_config() or {}
@@ -918,7 +981,8 @@ def _run_job_script(script_path: str) -> tuple[bool, str]:
         )
         if _bash is None:
             return False, (
-                f"Cannot run .sh/.bash script {path.name!r}: bash not found on PATH. "
+                f"Cannot run .sh/.bash script {
+                    path.name!r}: bash not found on PATH. "
                 "On Windows, install Git for Windows (which ships Git Bash) "
                 "or rewrite the script as Python (.py)."
             )
@@ -938,7 +1002,8 @@ def _run_job_script(script_path: str) -> tuple[bool, str]:
         pass
 
     try:
-        popen_kwargs = {"creationflags": windows_hide_flags()} if sys.platform == "win32" else {}
+        popen_kwargs = {
+            "creationflags": windows_hide_flags()} if sys.platform == "win32" else {}
         result = subprocess.run(
             argv,
             capture_output=True,
@@ -988,7 +1053,8 @@ def _parse_wake_gate(script_output: str) -> bool:
     """
     if not script_output:
         return True
-    stripped_lines = [line for line in script_output.splitlines() if line.strip()]
+    stripped_lines = [
+        line for line in script_output.splitlines() if line.strip()]
     if not stripped_lines:
         return True
     last_line = stripped_lines[-1].strip()
@@ -1049,8 +1115,10 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
         if isinstance(context_from, str):
             context_from = [context_from]
         for source_job_id in context_from:
-            # Guard against path traversal — valid job IDs are 12-char hex strings
-            if not source_job_id or not all(c in "0123456789abcdef" for c in source_job_id):
+            # Guard against path traversal — valid job IDs are 12-char hex
+            # strings
+            if not source_job_id or not all(
+                    c in "0123456789abcdef" for c in source_job_id):
                 logger.warning(
                     "context_from: skipping invalid job_id %r for job_id=%r name=%r%s",
                     source_job_id,
@@ -1070,11 +1138,13 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
                 )
                 if not output_files:
                     continue  # silent skip — no output yet
-                latest_output = output_files[0].read_text(encoding="utf-8").strip()
+                latest_output = output_files[0].read_text(
+                    encoding="utf-8").strip()
                 # Truncate to 8K characters to avoid prompt bloat
                 _MAX_CONTEXT_CHARS = 8000
                 if len(latest_output) > _MAX_CONTEXT_CHARS:
-                    latest_output = latest_output[:_MAX_CONTEXT_CHARS] + "\n\n[... output truncated ...]"
+                    latest_output = latest_output[:_MAX_CONTEXT_CHARS] + \
+                        "\n\n[... output truncated ...]"
                 if latest_output:
                     prompt = (
                         f"## Output from job '{source_job_id}'\n"
@@ -1086,7 +1156,10 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
                 else:
                     continue  # silent skip — empty output
             except (OSError, PermissionError) as e:
-                logger.warning("context_from: failed to read output for job %r: %s", source_job_id, e)
+                logger.warning(
+                    "context_from: failed to read output for job %r: %s",
+                    source_job_id,
+                    e)
                 # silent skip — do not pollute the prompt with error messages
 
     # Always prepend cron execution guidance so the agent knows how
@@ -1113,8 +1186,8 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
     if not skill_names:
         return _scan_assembled_cron_prompt(prompt, job, has_skills=False)
 
-    from tools.skills_tool import skill_view
     from tools.skill_usage import bump_use
+    from tools.skills_tool import skill_view
 
     parts = []
     skipped: list[str] = []
@@ -1122,12 +1195,20 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
         try:
             loaded = json.loads(skill_view(skill_name))
         except (json.JSONDecodeError, TypeError):
-            logger.warning("Cron job '%s': skill '%s' returned invalid JSON, skipping", job.get("name", job.get("id")), skill_name)
+            logger.warning(
+                "Cron job '%s': skill '%s' returned invalid JSON, skipping",
+                job.get(
+                    "name",
+                    job.get("id")),
+                skill_name)
             skipped.append(skill_name)
             continue
         if not loaded.get("success"):
-            error = loaded.get("error") or f"Failed to load skill '{skill_name}'"
-            logger.warning("Cron job '%s': skill not found, skipping — %s", job.get("name", job.get("id")), error)
+            error = loaded.get(
+                "error") or f"Failed to load skill '{skill_name}'"
+            logger.warning(
+                "Cron job '%s': skill not found, skipping — %s", job.get(
+                    "name", job.get("id")), error)
             skipped.append(skill_name)
             continue
 
@@ -1135,7 +1216,10 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
         try:
             bump_use(skill_name)
         except Exception:
-            logger.debug("Cron job: failed to bump skill usage for '%s'", skill_name, exc_info=True)
+            logger.debug(
+                "Cron job: failed to bump skill usage for '%s'",
+                skill_name,
+                exc_info=True)
 
         content = str(loaded.get("content") or "").strip()
         if parts:
@@ -1158,11 +1242,13 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
         parts.insert(0, notice)
 
     if prompt:
-        parts.extend(["", f"The user has provided the following instruction alongside the skill invocation: {prompt}"])
+        parts.extend(
+            ["", f"The user has provided the following instruction alongside the skill invocation: {prompt}"])
     return _scan_assembled_cron_prompt("\n".join(parts), job, has_skills=True)
 
 
-def _scan_assembled_cron_prompt(assembled: str, job: dict, *, has_skills: bool = False) -> str:
+def _scan_assembled_cron_prompt(
+        assembled: str, job: dict, *, has_skills: bool = False) -> str:
     """Scan the fully-assembled cron prompt for injection patterns. Raises
     ``CronPromptInjectionBlocked`` when a match fires so ``run_job`` can
     surface a clear refusal to the operator.
@@ -1211,12 +1297,13 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
 def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
     """
     Execute a single cron job.
-    
+
     Returns:
         Tuple of (success, full_output_doc, final_response, error_message)
     """
     job_id = job["id"]
-    job_name = str(job.get("name") or job.get("prompt") or job_id or "cron job")
+    job_name = str(job.get("name") or job.get(
+        "prompt") or job_id or "cron job")
 
     # ---------------------------------------------------------------
     # no_agent short-circuit — the script IS the job, no LLM involvement.
@@ -1301,7 +1388,9 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
             return True, silent_doc, SILENT_MARKER, None
 
         if not output.strip():
-            logger.info("Job '%s' (no_agent): empty stdout — silent run", job_id)
+            logger.info(
+                "Job '%s' (no_agent): empty stdout — silent run",
+                job_id)
             silent_doc = (
                 f"# Cron Job: {job_name}\n\n"
                 f"**Job ID:** {job_id}\n"
@@ -1336,7 +1425,12 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
         from nastech_state import SessionDB
         _session_db = SessionDB()
     except Exception as e:
-        logger.debug("Job '%s': SQLite session store not available: %s", job.get("id", "?"), e)
+        logger.debug(
+            "Job '%s': SQLite session store not available: %s",
+            job.get(
+                "id",
+                "?"),
+            e)
 
     # Wake-gate: if this job has a pre-check script, run it BEFORE building
     # the prompt so a ``{"wakeAgent": false}`` response can short-circuit
@@ -1386,10 +1480,13 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
         )
         return False, blocked_doc, "", str(block_exc)
     if prompt is None:
-        logger.info("Job '%s': script produced no output, skipping AI call.", job_name)
+        logger.info(
+            "Job '%s': script produced no output, skipping AI call.",
+            job_name)
         return True, "", SILENT_MARKER, None
     origin = _resolve_origin(job)
-    _cron_session_id = f"cron_{job_id}_{_nastech_now().strftime('%Y%m%d_%H%M%S')}"
+    _cron_session_id = f"cron_{job_id}_{
+        _nastech_now().strftime('%Y%m%d_%H%M%S')}"
 
     logger.info("Running job '%s' (ID: %s)", job_name, job_id)
     logger.info("Prompt: %s", prompt[:100])
@@ -1403,7 +1500,7 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
 
     # Use ContextVars for per-job session/delivery state so parallel jobs
     # don't clobber each other's targets (os.environ is process-global).
-    from gateway.session_context import set_session_vars, clear_session_vars, _VAR_MAP
+    from gateway.session_context import _VAR_MAP, clear_session_vars, set_session_vars
 
     # Cron execution is an internal scheduler context, not a live inbound
     # gateway message. Do not seed NASTECH_SESSION_* contextvars from the
@@ -1469,14 +1566,18 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
         # changes take effect without a gateway restart.
         from dotenv import load_dotenv
         try:
-            load_dotenv(str(_get_nastech_home() / ".env"), override=True, encoding="utf-8")
+            load_dotenv(str(_get_nastech_home() / ".env"),
+                        override=True, encoding="utf-8")
         except UnicodeDecodeError:
-            load_dotenv(str(_get_nastech_home() / ".env"), override=True, encoding="latin-1")
+            load_dotenv(str(_get_nastech_home() / ".env"),
+                        override=True, encoding="latin-1")
 
         delivery_target = _resolve_delivery_target(job)
         if delivery_target:
-            _VAR_MAP["NASTECH_CRON_AUTO_DELIVER_PLATFORM"].set(delivery_target["platform"])
-            _VAR_MAP["NASTECH_CRON_AUTO_DELIVER_CHAT_ID"].set(str(delivery_target["chat_id"]))
+            _VAR_MAP["NASTECH_CRON_AUTO_DELIVER_PLATFORM"].set(
+                delivery_target["platform"])
+            _VAR_MAP["NASTECH_CRON_AUTO_DELIVER_CHAT_ID"].set(
+                str(delivery_target["chat_id"]))
             _VAR_MAP["NASTECH_CRON_AUTO_DELIVER_THREAD_ID"].set(
                 ""
                 if delivery_target.get("thread_id") is None
@@ -1485,7 +1586,8 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
 
         model = job.get("model") or os.getenv("NASTECH_MODEL") or ""
 
-        # Load config.yaml for model, reasoning, prefill, toolsets, provider routing
+        # Load config.yaml for model, reasoning, prefill, toolsets, provider
+        # routing
         _cfg = {}
         try:
             import yaml
@@ -1501,7 +1603,10 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
                     elif isinstance(_model_cfg, dict):
                         model = _model_cfg.get("default", model)
         except Exception as e:
-            logger.warning("Job '%s': failed to load config.yaml, using defaults: %s", job_id, e)
+            logger.warning(
+                "Job '%s': failed to load config.yaml, using defaults: %s",
+                job_id,
+                e)
 
         # Apply IPv4 preference if configured.
         try:
@@ -1519,7 +1624,9 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
 
         # Prefill messages from env or config.yaml
         prefill_messages = None
-        prefill_file = os.getenv("NASTECH_PREFILL_MESSAGES_FILE", "") or _cfg.get("prefill_messages_file", "")
+        prefill_file = os.getenv(
+            "NASTECH_PREFILL_MESSAGES_FILE", "") or _cfg.get(
+            "prefill_messages_file", "")
         if prefill_file:
             pfpath = Path(prefill_file).expanduser()
             if not pfpath.is_absolute():
@@ -1531,20 +1638,25 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
                     if not isinstance(prefill_messages, list):
                         prefill_messages = None
                 except Exception as e:
-                    logger.warning("Job '%s': failed to parse prefill messages file '%s': %s", job_id, pfpath, e)
+                    logger.warning(
+                        "Job '%s': failed to parse prefill messages file '%s': %s",
+                        job_id,
+                        pfpath,
+                        e)
                     prefill_messages = None
 
         # Max iterations
-        max_iterations = _cfg.get("agent", {}).get("max_turns") or _cfg.get("max_turns") or 90
+        max_iterations = _cfg.get("agent", {}).get(
+            "max_turns") or _cfg.get("max_turns") or 90
 
         # Provider routing
         pr = _cfg.get("provider_routing", {})
 
-        from nastech_cli.runtime_provider import (
-            resolve_runtime_provider,
-            format_runtime_provider_error,
-        )
         from nastech_cli.auth import AuthError
+        from nastech_cli.runtime_provider import (
+            format_runtime_provider_error,
+            resolve_runtime_provider,
+        )
         try:
             # Do not inject NASTECH_INFERENCE_PROVIDER here. resolve_runtime_provider()
             # already prefers persisted config over stale shell/env overrides when
@@ -1558,8 +1670,12 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
                 runtime_kwargs["explicit_base_url"] = job.get("base_url")
             runtime = resolve_runtime_provider(**runtime_kwargs)
         except AuthError as auth_exc:
-            # Primary provider auth failed — try fallback chain before giving up.
-            logger.warning("Job '%s': primary auth failed (%s), trying fallback", job_id, auth_exc)
+            # Primary provider auth failed — try fallback chain before giving
+            # up.
+            logger.warning(
+                "Job '%s': primary auth failed (%s), trying fallback",
+                job_id,
+                auth_exc)
             fb = _cfg.get("fallback_providers") or _cfg.get("fallback_model")
             fb_list = (fb if isinstance(fb, list) else [fb]) if fb else []
             runtime = None
@@ -1573,17 +1689,26 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
                     if entry.get("api_key"):
                         fb_kwargs["explicit_api_key"] = entry["api_key"]
                     runtime = resolve_runtime_provider(**fb_kwargs)
-                    logger.info("Job '%s': fallback resolved to %s", job_id, runtime.get("provider"))
+                    logger.info(
+                        "Job '%s': fallback resolved to %s",
+                        job_id,
+                        runtime.get("provider"))
                     break
                 except Exception as fb_exc:
-                    logger.debug("Job '%s': fallback %s failed: %s", job_id, entry.get("provider"), fb_exc)
+                    logger.debug(
+                        "Job '%s': fallback %s failed: %s",
+                        job_id,
+                        entry.get("provider"),
+                        fb_exc)
             if runtime is None:
-                raise RuntimeError(format_runtime_provider_error(auth_exc)) from auth_exc
+                raise RuntimeError(
+                    format_runtime_provider_error(auth_exc)) from auth_exc
         except Exception as exc:
             message = format_runtime_provider_error(exc)
             raise RuntimeError(message) from exc
 
-        fallback_model = _cfg.get("fallback_providers") or _cfg.get("fallback_model") or None
+        fallback_model = _cfg.get("fallback_providers") or _cfg.get(
+            "fallback_model") or None
         credential_pool = None
         runtime_provider = str(runtime.get("provider") or "").strip().lower()
         if runtime_provider:
@@ -1599,7 +1724,11 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
                         len(pool.entries()),
                     )
             except Exception as e:
-                logger.debug("Job '%s': failed to load credential pool for %s: %s", job_id, runtime_provider, e)
+                logger.debug(
+                    "Job '%s': failed to load credential pool for %s: %s",
+                    job_id,
+                    runtime_provider,
+                    e)
 
         # Initialize MCP servers so configured mcp_servers are available to
         # the agent's tool registry before AIAgent is constructed. Without
@@ -1639,7 +1768,8 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
             providers_ignored=pr.get("ignore"),
             providers_order=pr.get("order"),
             provider_sort=pr.get("sort"),
-            openrouter_min_coding_score=(_cfg.get("openrouter") or {}).get("min_coding_score"),
+            openrouter_min_coding_score=(
+                _cfg.get("openrouter") or {}).get("min_coding_score"),
             enabled_toolsets=_resolve_cron_enabled_toolsets(job, _cfg),
             disabled_toolsets=_resolve_cron_disabled_toolsets(_cfg),
             quiet_mode=True,
@@ -1654,7 +1784,7 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
             session_id=_cron_session_id,
             session_db=_session_db,
         )
-        
+
         # Run the agent with an *inactivity*-based timeout: the job can run
         # for hours if it's actively calling tools / receiving stream tokens,
         # but a hung API call or stuck tool with no activity for the configured
@@ -1682,7 +1812,8 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
         # env passthrough registrations) when the cron run hops into the worker
         # thread used for inactivity timeout monitoring.
         _cron_context = contextvars.copy_context()
-        _cron_future = _cron_pool.submit(_cron_context.run, agent.run_conversation, prompt)
+        _cron_future = _cron_pool.submit(
+            _cron_context.run, agent.run_conversation, prompt)
         _inactivity_timeout = False
         try:
             if _cron_inactivity_limit is None:
@@ -1702,7 +1833,8 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
                     if hasattr(agent, "get_activity_summary"):
                         try:
                             _act = agent.get_activity_summary()
-                            _idle_secs = _act.get("seconds_since_activity", 0.0)
+                            _idle_secs = _act.get(
+                                "seconds_since_activity", 0.0)
                         except Exception:
                             pass
                     if _idle_secs >= _cron_inactivity_limit:
@@ -1743,10 +1875,13 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
                 f"— last activity: {_last_desc}"
             )
 
-        # Guard against non-dict returns from run_conversation under error conditions
+        # Guard against non-dict returns from run_conversation under error
+        # conditions
         if not isinstance(result, dict):
             raise RuntimeError(
-                f"agent.run_conversation returned {type(result).__name__} instead of dict: {result!r}"
+                f"agent.run_conversation returned {
+                    type(result).__name__} instead of dict: {
+                    result!r}"
             )
 
         # If the agent itself reported failure (e.g. all retries exhausted on
@@ -1765,13 +1900,14 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
             raise RuntimeError(_err_text)
 
         final_response = result.get("final_response", "") or ""
-        # Strip leaked placeholder text that upstream may inject on empty completions.
+        # Strip leaked placeholder text that upstream may inject on empty
+        # completions.
         if final_response.strip() == "(No response generated)":
             final_response = ""
         # Use a separate variable for log display; keep final_response clean
         # for delivery logic (empty response = no delivery).
         logged_response = final_response if final_response else "(No response generated)"
-        
+
         output = f"""# Cron Job: {job_name}
 
 **Job ID:** {job_id}
@@ -1786,14 +1922,14 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
 
 {logged_response}
 """
-        
+
         logger.info("Job '%s' completed successfully", job_name)
         return True, output, final_response, None
-        
+
     except Exception as e:
         error_msg = f"{type(e).__name__}: {str(e)}"
         logger.exception("Job '%s' failed: %s", job_name, error_msg)
-        
+
         output = f"""# Cron Job: {job_name} (FAILED)
 
 **Job ID:** {job_id}
@@ -1833,7 +1969,8 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
             try:
                 _session_db.close()
             except (Exception, KeyboardInterrupt) as e:
-                logger.debug("Job '%s': failed to close SQLite session store: %s", job_id, e)
+                logger.debug(
+                    "Job '%s': failed to close SQLite session store: %s", job_id, e)
         # Release subprocesses, terminal sandboxes, browser daemons, and the
         # main OpenAI/httpx client held by this ephemeral cron agent. Without
         # this, a gateway that ticks cron every N minutes leaks fds per job
@@ -1842,7 +1979,10 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
             if agent is not None:
                 agent.close()
         except (Exception, KeyboardInterrupt) as e:
-            logger.debug("Job '%s': failed to close agent resources: %s", job_id, e)
+            logger.debug(
+                "Job '%s': failed to close agent resources: %s",
+                job_id,
+                e)
         # Each cron run spins up a short-lived worker thread whose event loop
         # dies as soon as the ``ThreadPoolExecutor`` shuts down. Any async
         # httpx clients cached under that loop are now unusable — reap them
@@ -1851,21 +1991,24 @@ def _run_job_impl(job: dict) -> tuple[bool, str, str, Optional[str]]:
             from agent.auxiliary_client import cleanup_stale_async_clients
             cleanup_stale_async_clients()
         except Exception as e:
-            logger.debug("Job '%s': failed to reap stale auxiliary clients: %s", job_id, e)
+            logger.debug(
+                "Job '%s': failed to reap stale auxiliary clients: %s",
+                job_id,
+                e)
 
 
 def tick(verbose: bool = True, adapters=None, loop=None) -> int:
     """
     Check and run all due jobs.
-    
+
     Uses a file lock so only one tick runs at a time, even if the gateway's
     in-process ticker and a standalone daemon or manual tick overlap.
-    
+
     Args:
         verbose: Whether to print status messages
         adapters: Optional dict mapping Platform → live adapter (from gateway)
         loop: Optional asyncio event loop (from gateway) for live adapter sends
-    
+
     Returns:
         Number of jobs executed (0 if another tick is already running)
     """
@@ -1890,11 +2033,16 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
         due_jobs = get_due_jobs()
 
         if verbose and not due_jobs:
-            logger.info("%s - No jobs due", _nastech_now().strftime('%H:%M:%S'))
+            logger.info(
+                "%s - No jobs due",
+                _nastech_now().strftime('%H:%M:%S'))
             return 0
 
         if verbose:
-            logger.info("%s - %s job(s) due", _nastech_now().strftime('%H:%M:%S'), len(due_jobs))
+            logger.info(
+                "%s - %s job(s) due",
+                _nastech_now().strftime('%H:%M:%S'),
+                len(due_jobs))
 
         # Advance next_run_at for all recurring jobs FIRST, under the file lock,
         # before any execution begins.  This preserves at-most-once semantics.
@@ -1909,7 +2057,8 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
             if _env_par:
                 _max_workers = int(_env_par) or None
         except (ValueError, TypeError):
-            logger.warning("Invalid NASTECH_CRON_MAX_PARALLEL value; defaulting to unbounded")
+            logger.warning(
+                "Invalid NASTECH_CRON_MAX_PARALLEL value; defaulting to unbounded")
         if _max_workers is None:
             try:
                 _ucfg = load_config() or {}
@@ -1940,22 +2089,30 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
                 # Deliver the final response to the origin/target chat.
                 # If the agent responded with [SILENT], skip delivery (but
                 # output is already saved above).  Failed jobs always deliver.
-                deliver_content = final_response if success else f"⚠️ Cron job '{job.get('name', job['id'])}' failed:\n{error}"
+                deliver_content = final_response if success else f"⚠️ Cron job '{
+                    job.get(
+                        'name',
+                        job['id'])}' failed:\n{error}"
                 # Treat whitespace-only final responses the same as empty
                 # responses: do not deliver a blank message, and let the
                 # empty-response guard below mark the run as a soft failure.
                 should_deliver = bool(deliver_content.strip())
                 if should_deliver and success and SILENT_MARKER in deliver_content.strip().upper():
-                    logger.info("Job '%s': agent returned %s — skipping delivery", job["id"], SILENT_MARKER)
+                    logger.info(
+                        "Job '%s': agent returned %s — skipping delivery",
+                        job["id"],
+                        SILENT_MARKER)
                     should_deliver = False
 
                 delivery_error = None
                 if should_deliver:
                     try:
-                        delivery_error = _deliver_result(job, deliver_content, adapters=adapters, loop=loop)
+                        delivery_error = _deliver_result(
+                            job, deliver_content, adapters=adapters, loop=loop)
                     except Exception as de:
                         delivery_error = str(de)
-                        logger.error("Delivery failed for job %s: %s", job["id"], de)
+                        logger.error(
+                            "Delivery failed for job %s: %s", job["id"], de)
 
                 # Treat empty final_response as a soft failure so last_status
                 # is not "ok" — the agent ran but produced nothing useful.
@@ -1964,7 +2121,11 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
                     success = False
                     error = "Agent completed but produced empty response (model error, timeout, or misconfiguration)"
 
-                mark_job_run(job["id"], success, error, delivery_error=delivery_error)
+                mark_job_run(
+                    job["id"],
+                    success,
+                    error,
+                    delivery_error=delivery_error)
                 return True
 
             except Exception as e:
@@ -2001,12 +2162,16 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
                 _futures = []
                 for job in parallel_jobs:
                     _ctx = contextvars.copy_context()
-                    _futures.append(_tick_pool.submit(_ctx.run, _process_job, job))
-                for f in concurrent.futures.as_completed(_futures, timeout=600):
+                    _futures.append(
+                        _tick_pool.submit(
+                            _ctx.run, _process_job, job))
+                for f in concurrent.futures.as_completed(
+                        _futures, timeout=600):
                     try:
                         _results.append(f.result())
                     except Exception as exc:
-                        logger.error("Parallel cron job future failed: %s", exc)
+                        logger.error(
+                            "Parallel cron job future failed: %s", exc)
                         _results.append(False)
 
         # Best-effort sweep of MCP stdio subprocesses that survived their

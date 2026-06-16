@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import List, Optional
-
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,8 @@ DEFAULT_CODEX_MODELS: List[str] = [
     # these slugs, which is why they survived previously — but those entries
     # describe the public OpenAI API, not the OAuth-backed Codex backend
     # NasTech uses. Removed here. If OpenAI re-enables them on Codex backend,
-    # live discovery will pick them up automatically via _fetch_models_from_api.
+    # live discovery will pick them up automatically via
+    # _fetch_models_from_api.
 ]
 
 _FORWARD_COMPAT_TEMPLATE_MODELS: List[tuple[str, tuple[str, ...]]] = [
@@ -109,7 +109,8 @@ def _fetch_models_from_api(access_token: str) -> List[str]:
         # Some valid Codex CLI models (for example gpt-5.3-codex-spark) are
         # marked false here but are still accepted by the Codex route.
         visibility = item.get("visibility", "")
-        if isinstance(visibility, str) and visibility.strip().lower() in {"hide", "hidden"}:
+        if isinstance(visibility, str) and visibility.strip().lower() in {
+                "hide", "hidden"}:
             continue
         priority = item.get("priority")
         rank = int(priority) if isinstance(priority, (int, float)) else 10_000
@@ -160,10 +161,12 @@ def _read_cache_models(codex_home: Path) -> List[str]:
             # public OpenAI API, while NasTech openai-codex talks to the same
             # OAuth-backed Codex backend as Codex CLI.
             visibility = item.get("visibility")
-            if isinstance(visibility, str) and visibility.strip().lower() in {"hide", "hidden"}:
+            if isinstance(visibility, str) and visibility.strip().lower() in {
+                    "hide", "hidden"}:
                 continue
             priority = item.get("priority")
-            rank = int(priority) if isinstance(priority, (int, float)) else 10_000
+            rank = int(priority) if isinstance(
+                priority, (int, float)) else 10_000
             sortable.append((rank, slug))
 
     sortable.sort(key=lambda item: (item[0], item[1]))
@@ -176,11 +179,15 @@ def _read_cache_models(codex_home: Path) -> List[str]:
 
 def get_codex_model_ids(access_token: Optional[str] = None) -> List[str]:
     """Return available Codex model IDs, trying API first, then local sources.
-    
+
     Resolution order: API (live, if token provided) > config.toml default >
     local cache > hardcoded defaults.
     """
-    codex_home_str = os.getenv("CODEX_HOME", "").strip() or str(Path.home() / ".codex")
+    codex_home_str = os.getenv(
+        "CODEX_HOME",
+        "").strip() or str(
+        Path.home() /
+        ".codex")
     codex_home = Path(codex_home_str).expanduser()
     ordered: List[str] = []
 

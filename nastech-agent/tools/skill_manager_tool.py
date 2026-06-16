@@ -39,18 +39,20 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from nastech_constants import get_nastech_home, display_nastech_home
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from utils import atomic_replace, is_truthy_value
+import yaml
 from nastech_cli.config import cfg_get
+from nastech_constants import display_nastech_home, get_nastech_home
+from tools.registry import registry, tool_error
+from utils import atomic_replace, is_truthy_value
 
 logger = logging.getLogger(__name__)
 
 # Import security scanner — external hub installs always get scanned;
 # agent-created skills only get scanned when skills.guard_agent_created is on.
 try:
-    from tools.skills_guard import scan_skill, should_allow_install, format_scan_report
+    from tools.skills_guard import format_scan_report, scan_skill, should_allow_install
     _GUARD_AVAILABLE = True
 except ImportError:
     _GUARD_AVAILABLE = False
@@ -95,13 +97,16 @@ def _security_scan_skill(skill_dir: Path) -> Optional[str]:
             # findings were detected.  Surface as an error so the agent can
             # retry with the flagged content removed.
             report = format_scan_report(result)
-            logger.warning("Agent-created skill blocked (dangerous findings): %s", reason)
+            logger.warning(
+                "Agent-created skill blocked (dangerous findings): %s", reason)
             return f"Security scan blocked this skill ({reason}):\n{report}"
     except Exception as e:
-        logger.warning("Security scan failed for %s: %s", skill_dir, e, exc_info=True)
+        logger.warning(
+            "Security scan failed for %s: %s",
+            skill_dir,
+            e,
+            exc_info=True)
     return None
-
-import yaml
 
 
 # All skills live in ~/.nastech/skills/ (single source of truth)
@@ -253,7 +258,8 @@ def _validate_frontmatter(content: str) -> Optional[str]:
     return None
 
 
-def _validate_content_size(content: str, label: str = "SKILL.md") -> Optional[str]:
+def _validate_content_size(
+        content: str, label: str = "SKILL.md") -> Optional[str]:
     """Check that content doesn't exceed the character limit for agent writes.
 
     Returns an error message or None if within bounds.
@@ -306,8 +312,8 @@ def _find_skill_in_other_profiles(name: str) -> List[Tuple[str, Path]]:
     """
     matches: List[Tuple[str, Path]] = []
     try:
-        from nastech_constants import get_default_nastech_root
         from agent.skill_utils import is_excluded_skill_path
+        from nastech_constants import get_default_nastech_root
     except Exception:
         return matches
 
@@ -321,7 +327,8 @@ def _find_skill_in_other_profiles(name: str) -> List[Tuple[str, Path]]:
     active_dir = SKILLS_DIR.resolve() if SKILLS_DIR.exists() else SKILLS_DIR
     candidates: List[Tuple[str, Path]] = []
 
-    # Default profile (~/.nastech/skills) — only consider when active is non-default.
+    # Default profile (~/.nastech/skills) — only consider when active is
+    # non-default.
     default_skills = root / "skills"
     try:
         if default_skills.resolve() != active_dir:
@@ -435,7 +442,8 @@ def _validate_file_path(file_path: str) -> Optional[str]:
     return None
 
 
-def _resolve_skill_target(skill_dir: Path, file_path: str) -> Tuple[Optional[Path], Optional[str]]:
+def _resolve_skill_target(
+        skill_dir: Path, file_path: str) -> Tuple[Optional[Path], Optional[str]]:
     """Resolve a supporting-file path and ensure it stays within the skill directory."""
     from tools.path_security import validate_within_dir
 
@@ -446,14 +454,15 @@ def _resolve_skill_target(skill_dir: Path, file_path: str) -> Tuple[Optional[Pat
     return target, None
 
 
-def _atomic_write_text(file_path: Path, content: str, encoding: str = "utf-8") -> None:
+def _atomic_write_text(file_path: Path, content: str,
+                       encoding: str = "utf-8") -> None:
     """
     Atomically write text content to a file.
-    
+
     Uses a temporary file in the same directory and os.replace() to ensure
     the target file is never left in a partially-written state if the process
     crashes or is interrupted.
-    
+
     Args:
         file_path: Target file path
         content: Content to write
@@ -474,7 +483,10 @@ def _atomic_write_text(file_path: Path, content: str, encoding: str = "utf-8") -
         try:
             os.unlink(temp_path)
         except OSError:
-            logger.error("Failed to remove temporary file %s during atomic write", temp_path, exc_info=True)
+            logger.error(
+                "Failed to remove temporary file %s during atomic write",
+                temp_path,
+                exc_info=True)
         raise
 
 
@@ -482,7 +494,8 @@ def _atomic_write_text(file_path: Path, content: str, encoding: str = "utf-8") -
 # Core actions
 # =============================================================================
 
-def _create_skill(name: str, content: str, category: str = None) -> Dict[str, Any]:
+def _create_skill(name: str, content: str,
+                  category: str = None) -> Dict[str, Any]:
     """Create a new user skill with SKILL.md content."""
     # Validate name
     err = _validate_name(name)
@@ -555,7 +568,8 @@ def _edit_skill(name: str, content: str) -> Dict[str, Any]:
 
     skill_md = existing["path"] / "SKILL.md"
     # Back up original content for rollback
-    original_content = skill_md.read_text(encoding="utf-8") if skill_md.exists() else None
+    original_content = skill_md.read_text(
+        encoding="utf-8") if skill_md.exists() else None
     _atomic_write_text(skill_md, content)
 
     # Security scan — roll back on block
@@ -587,7 +601,8 @@ def _patch_skill(
     if not old_string:
         return {"success": False, "error": "old_string is required for 'patch'."}
     if new_string is None:
-        return {"success": False, "error": "new_string is required for 'patch'. Use an empty string to delete matched text."}
+        return {"success": False,
+                "error": "new_string is required for 'patch'. Use an empty string to delete matched text."}
 
     existing = _find_skill(name)
     if not existing:
@@ -608,7 +623,8 @@ def _patch_skill(
         target = skill_dir / "SKILL.md"
 
     if not target.exists():
-        return {"success": False, "error": f"File not found: {target.relative_to(skill_dir)}"}
+        return {"success": False,
+                "error": f"File not found: {target.relative_to(skill_dir)}"}
 
     content = target.read_text(encoding="utf-8")
 
@@ -627,7 +643,8 @@ def _patch_skill(
         err_msg = match_error
         try:
             from tools.fuzzy_match import format_no_match_hint
-            err_msg += format_no_match_hint(match_error, match_count, old_string, content)
+            err_msg += format_no_match_hint(match_error,
+                                            match_count, old_string, content)
         except Exception:
             pass
         return {
@@ -666,7 +683,8 @@ def _patch_skill(
     }
 
 
-def _delete_skill(name: str, absorbed_into: Optional[str] = None) -> Dict[str, Any]:
+def _delete_skill(
+        name: str, absorbed_into: Optional[str] = None) -> Dict[str, Any]:
     """Delete a skill.
 
     ``absorbed_into`` declares intent:
@@ -687,7 +705,8 @@ def _delete_skill(name: str, absorbed_into: Optional[str] = None) -> Dict[str, A
         return {"success": False, "error": pinned_err}
 
     # Validate absorbed_into target when declared non-empty
-    if absorbed_into is not None and isinstance(absorbed_into, str) and absorbed_into.strip():
+    if absorbed_into is not None and isinstance(
+            absorbed_into, str) and absorbed_into.strip():
         target_name = absorbed_into.strip()
         if target_name == name:
             return {
@@ -714,7 +733,8 @@ def _delete_skill(name: str, absorbed_into: Optional[str] = None) -> Dict[str, A
         parent.rmdir()
 
     message = f"Skill '{name}' deleted."
-    if absorbed_into is not None and isinstance(absorbed_into, str) and absorbed_into.strip():
+    if absorbed_into is not None and isinstance(
+            absorbed_into, str) and absorbed_into.strip():
         message += f" Content absorbed into '{absorbed_into.strip()}'."
 
     return {
@@ -723,7 +743,8 @@ def _delete_skill(name: str, absorbed_into: Optional[str] = None) -> Dict[str, A
     }
 
 
-def _write_file(name: str, file_path: str, file_content: str) -> Dict[str, Any]:
+def _write_file(name: str, file_path: str,
+                file_content: str) -> Dict[str, Any]:
     """Add or overwrite a supporting file within any skill directory."""
     err = _validate_file_path(file_path)
     if err:
@@ -749,14 +770,16 @@ def _write_file(name: str, file_path: str, file_content: str) -> Dict[str, Any]:
 
     existing = _find_skill(name)
     if not existing:
-        return {"success": False, "error": _skill_not_found_error(name, " Create it first with action='create'.")}
+        return {"success": False, "error": _skill_not_found_error(
+            name, " Create it first with action='create'.")}
 
     target, err = _resolve_skill_target(existing["path"], file_path)
     if err:
         return {"success": False, "error": err}
     target.parent.mkdir(parents=True, exist_ok=True)
     # Back up for rollback
-    original_content = target.read_text(encoding="utf-8") if target.exists() else None
+    original_content = target.read_text(
+        encoding="utf-8") if target.exists() else None
     _atomic_write_text(target, file_content)
 
     # Security scan — roll back on block
@@ -841,38 +864,52 @@ def skill_manage(
     """
     if action == "create":
         if not content:
-            return tool_error("content is required for 'create'. Provide the full SKILL.md text (frontmatter + body).", success=False)
+            return tool_error(
+                "content is required for 'create'. Provide the full SKILL.md text (frontmatter + body).", success=False)
         result = _create_skill(name, content, category)
 
     elif action == "edit":
         if not content:
-            return tool_error("content is required for 'edit'. Provide the full updated SKILL.md text.", success=False)
+            return tool_error(
+                "content is required for 'edit'. Provide the full updated SKILL.md text.", success=False)
         result = _edit_skill(name, content)
 
     elif action == "patch":
         if not old_string:
-            return tool_error("old_string is required for 'patch'. Provide the text to find.", success=False)
+            return tool_error(
+                "old_string is required for 'patch'. Provide the text to find.", success=False)
         if new_string is None:
-            return tool_error("new_string is required for 'patch'. Use empty string to delete matched text.", success=False)
-        result = _patch_skill(name, old_string, new_string, file_path, replace_all)
+            return tool_error(
+                "new_string is required for 'patch'. Use empty string to delete matched text.", success=False)
+        result = _patch_skill(
+            name,
+            old_string,
+            new_string,
+            file_path,
+            replace_all)
 
     elif action == "delete":
         result = _delete_skill(name, absorbed_into=absorbed_into)
 
     elif action == "write_file":
         if not file_path:
-            return tool_error("file_path is required for 'write_file'. Example: 'references/api-guide.md'", success=False)
+            return tool_error(
+                "file_path is required for 'write_file'. Example: 'references/api-guide.md'", success=False)
         if file_content is None:
-            return tool_error("file_content is required for 'write_file'.", success=False)
+            return tool_error(
+                "file_content is required for 'write_file'.", success=False)
         result = _write_file(name, file_path, file_content)
 
     elif action == "remove_file":
         if not file_path:
-            return tool_error("file_path is required for 'remove_file'.", success=False)
+            return tool_error(
+                "file_path is required for 'remove_file'.", success=False)
         result = _remove_file(name, file_path)
 
     else:
-        result = {"success": False, "error": f"Unknown action '{action}'. Use: create, edit, patch, delete, write_file, remove_file"}
+        result = {
+            "success": False,
+            "error": f"Unknown action '{action}'. Use: create, edit, patch, delete, write_file, remove_file"}
 
     if result.get("success"):
         try:
@@ -885,10 +922,11 @@ def skill_manage(
         # Only mark a skill as agent-created when the background self-improvement
         # review fork creates it — foreground `skill_manage(create)` calls are
         # user-directed, and those skills belong to the user (the curator must
-        # not touch them). Best-effort; telemetry failures never break the tool.
+        # not touch them). Best-effort; telemetry failures never break the
+        # tool.
         try:
-            from tools.skill_usage import bump_patch, forget, mark_agent_created
             from tools.skill_provenance import is_background_review
+            from tools.skill_usage import bump_patch, forget, mark_agent_created
             if action == "create":
                 if is_background_review():
                     mark_agent_created(name)
@@ -911,7 +949,8 @@ SKILL_MANAGE_SCHEMA = {
     "description": (
         "Manage skills (create, update, delete). Skills are your procedural "
         "memory — reusable approaches for recurring task types. "
-        f"New skills go to {display_nastech_home()}/skills/; existing skills can be modified wherever they live.\n\n"
+        f"New skills go to {
+            display_nastech_home()}/skills/; existing skills can be modified wherever they live.\n\n"
         "Actions: create (full SKILL.md + optional category), "
         "patch (old_string/new_string — preferred for fixes), "
         "edit (full SKILL.md rewrite — major overhauls only), "
@@ -1022,7 +1061,6 @@ SKILL_MANAGE_SCHEMA = {
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
 
 registry.register(
     name="skill_manage",

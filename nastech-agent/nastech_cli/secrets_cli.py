@@ -18,10 +18,6 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-
 from agent.secret_sources import bitwarden as bw
 from nastech_cli.config import (
     get_env_path,
@@ -30,7 +26,9 @@ from nastech_cli.config import (
     save_env_value,
 )
 from nastech_cli.secret_prompt import masked_secret_prompt
-
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 # ---------------------------------------------------------------------------
 # Argparse wiring — called from nastech_cli.main
@@ -71,7 +69,8 @@ def register_cli(parent_parser: argparse.ArgumentParser) -> None:
     status = sub.add_parser("status", help="Show config + binary + last fetch")
     status.set_defaults(func=cmd_status)
 
-    sync = sub.add_parser("sync", help="Fetch secrets now and report what changed")
+    sync = sub.add_parser(
+        "sync", help="Fetch secrets now and report what changed")
     sync.add_argument(
         "--apply",
         action="store_true",
@@ -79,7 +78,9 @@ def register_cli(parent_parser: argparse.ArgumentParser) -> None:
     )
     sync.set_defaults(func=cmd_sync)
 
-    disable = sub.add_parser("disable", help="Turn off the Bitwarden integration")
+    disable = sub.add_parser(
+        "disable",
+        help="Turn off the Bitwarden integration")
     disable.set_defaults(func=cmd_disable)
 
     install = sub.add_parser(
@@ -158,12 +159,13 @@ def cmd_setup(args: argparse.Namespace) -> int:
     console.print("[bold]Step 2[/bold]  Provide your access token")
     cfg = load_config()
     secrets_cfg = (cfg.setdefault("secrets", {})
-                     .setdefault("bitwarden", {}))
+                   .setdefault("bitwarden", {}))
     token_env = secrets_cfg.get("access_token_env", "BWS_ACCESS_TOKEN")
 
     token = (args.access_token or "").strip()
     if not token:
-        token = masked_secret_prompt(f"  Paste access token ({token_env}): ").strip()
+        token = masked_secret_prompt(
+            f"  Paste access token ({token_env}): ").strip()
     if not token:
         console.print("  [red]Empty token, aborting.[/red]")
         return 1
@@ -175,7 +177,8 @@ def cmd_setup(args: argparse.Namespace) -> int:
 
     save_env_value(token_env, token)
     os.environ[token_env] = token  # so the test fetch below sees it
-    console.print(f"  [green]✓[/green] stored in {get_env_path()} as {token_env}")
+    console.print(
+        f"  [green]✓[/green] stored in {get_env_path()} as {token_env}")
 
     # ------------------------------------------------------------------ region
     console.print()
@@ -198,11 +201,13 @@ def cmd_setup(args: argparse.Namespace) -> int:
         console.print()
         console.print("[bold]Step 4[/bold]  Pick a project")
         project_id = ""
-        projects = _list_projects(binary, token, console, server_url=server_url)
+        projects = _list_projects(
+            binary, token, console, server_url=server_url)
         if projects is None:
             return 1
         if not projects:
-            console.print("  [yellow]No projects visible to this machine account.[/yellow]")
+            console.print(
+                "  [yellow]No projects visible to this machine account.[/yellow]")
             console.print(
                 "  In the Bitwarden web app, open the machine account → Projects tab "
                 "and grant it access to at least one project."
@@ -218,7 +223,8 @@ def cmd_setup(args: argparse.Namespace) -> int:
         console.print(table)
 
         while True:
-            choice = console.input(f"  Select project [1-{len(projects)}]: ").strip()
+            choice = console.input(
+                f"  Select project [1-{len(projects)}]: ").strip()
             if not choice:
                 continue
             try:
@@ -229,7 +235,8 @@ def cmd_setup(args: argparse.Namespace) -> int:
             if 1 <= idx <= len(projects):
                 project_id = projects[idx - 1]["id"]
                 break
-            console.print(f"  [red]Out of range — pick 1-{len(projects)}.[/red]")
+            console.print(
+                f"  [red]Out of range — pick 1-{len(projects)}.[/red]")
 
     # ------------------------------------------------------------------- test
     console.print()
@@ -248,7 +255,8 @@ def cmd_setup(args: argparse.Namespace) -> int:
         return 1
 
     if not secrets:
-        console.print("  [yellow]Fetch succeeded but the project has no secrets.[/yellow]")
+        console.print(
+            "  [yellow]Fetch succeeded but the project has no secrets.[/yellow]")
     else:
         table = Table(show_header=True, header_style="bold")
         table.add_column("Name", style="cyan")
@@ -302,28 +310,37 @@ def cmd_status(args: argparse.Namespace) -> int:
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column("", style="bold")
     table.add_column("")
-    table.add_row("Enabled",         _yn(enabled))
-    table.add_row("Token env var",   token_env)
-    table.add_row("Token in env",    _yn(token_set))
-    table.add_row("Project ID",      project_id or "[dim](unset)[/dim]")
+    table.add_row("Enabled", _yn(enabled))
+    table.add_row("Token env var", token_env)
+    table.add_row("Token in env", _yn(token_set))
+    table.add_row("Project ID", project_id or "[dim](unset)[/dim]")
     table.add_row(
         "Server URL",
         server_url or "[dim]default (US Cloud, https://vault.bitwarden.com)[/dim]",
     )
-    table.add_row("Override existing", _yn(bool(bw_cfg.get("override_existing", False))))
-    table.add_row("Cache TTL (s)",   str(bw_cfg.get("cache_ttl_seconds", 300)))
-    table.add_row("Auto-install",    _yn(bool(bw_cfg.get("auto_install", True))))
+    table.add_row(
+        "Override existing", _yn(
+            bool(
+                bw_cfg.get(
+                    "override_existing", False))))
+    table.add_row("Cache TTL (s)", str(bw_cfg.get("cache_ttl_seconds", 300)))
+    table.add_row("Auto-install", _yn(bool(bw_cfg.get("auto_install", True))))
 
     binary = bw.find_bws(install_if_missing=False)
     if binary:
-        table.add_row("bws binary",  f"{binary} ({_bws_version(binary)})")
+        table.add_row("bws binary", f"{binary} ({_bws_version(binary)})")
     else:
-        table.add_row("bws binary",  "[yellow]not installed[/yellow]")
+        table.add_row("bws binary", "[yellow]not installed[/yellow]")
 
-    console.print(Panel(table, title="Bitwarden Secrets Manager", border_style="cyan"))
+    console.print(
+        Panel(
+            table,
+            title="Bitwarden Secrets Manager",
+            border_style="cyan"))
 
     if not enabled:
-        console.print("\n  Run [cyan]nastech secrets bitwarden setup[/cyan] to enable.")
+        console.print(
+            "\n  Run [cyan]nastech secrets bitwarden setup[/cyan] to enable.")
         return 0
     if not token_set:
         console.print(
@@ -392,9 +409,11 @@ def cmd_sync(args: argparse.Namespace) -> int:
         if args.apply:
             os.environ[key] = secrets[key]
             applied += 1
-            table.add_row(key, "[green]exported[/green]" + (" (overrode)" if already else ""))
+            table.add_row(key, "[green]exported[/green]" +
+                          (" (overrode)" if already else ""))
         else:
-            table.add_row(key, "[green]would export[/green]" + (" (overrides)" if already else ""))
+            table.add_row(key, "[green]would export[/green]" +
+                          (" (overrides)" if already else ""))
 
     console.print(table)
     for w in warnings:
@@ -407,7 +426,8 @@ def cmd_sync(args: argparse.Namespace) -> int:
             "to export into the current shell instead."
         )
     else:
-        console.print(f"\n  [green]Exported {applied} secret(s) into current process.[/green]")
+        console.print(
+            f"\n  [green]Exported {applied} secret(s) into current process.[/green]")
     return 0
 
 
@@ -415,7 +435,7 @@ def cmd_disable(args: argparse.Namespace) -> int:
     console = Console()
     cfg = load_config()
     bw_cfg = (cfg.setdefault("secrets", {})
-                .setdefault("bitwarden", {}))
+              .setdefault("bitwarden", {}))
     bw_cfg["enabled"] = False
     save_config(cfg)
     console.print(
@@ -556,7 +576,13 @@ def _resolve_server_url(
             "Press Enter to keep, or pick a different option below."
         )
 
-    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+    table = Table(
+        show_header=True,
+        header_style="bold",
+        box=None,
+        padding=(
+            0,
+            2))
     table.add_column("#", style="cyan", width=4)
     table.add_column("Region / endpoint")
     for i, (label, _url) in enumerate(_REGION_PRESETS, 1):

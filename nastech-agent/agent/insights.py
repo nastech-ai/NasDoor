@@ -32,8 +32,6 @@ from agent.usage_pricing import (
 _format_duration = format_duration_compact
 
 
-
-
 def _estimate_cost(
     session_or_model: Dict[str, Any] | str,
     input_tokens: int = 0,
@@ -73,14 +71,13 @@ def _estimate_cost(
     return float(result.amount_usd or 0.0), result.status
 
 
-
-
 def _bar_chart(values: List[int], max_width: int = 20) -> List[str]:
     """Create simple horizontal bar chart strings from values."""
     peak = max(values) if values else 1
     if peak == 0:
         return ["" for _ in values]
-    return ["█" * max(1, int(v / peak * max_width)) if v > 0 else "" for v in values]
+    return ["█" * max(1, int(v / peak * max_width))
+            if v > 0 else "" for v in values]
 
 
 class InsightsEngine:
@@ -177,7 +174,8 @@ class InsightsEngine:
                      "actual_cost_usd, cost_status, cost_source")
 
     # Pre-computed query strings — f-string evaluated once at class definition,
-    # not at runtime, so no user-controlled value can alter the query structure.
+    # not at runtime, so no user-controlled value can alter the query
+    # structure.
     _GET_SESSIONS_WITH_SOURCE = (
         f"SELECT {_SESSION_COLS} FROM sessions"
         " WHERE started_at >= ? AND source = ?"
@@ -192,7 +190,8 @@ class InsightsEngine:
     def _get_sessions(self, cutoff: float, source: str = None) -> List[Dict]:
         """Fetch sessions within the time window."""
         if source:
-            cursor = self._conn.execute(self._GET_SESSIONS_WITH_SOURCE, (cutoff, source))
+            cursor = self._conn.execute(
+                self._GET_SESSIONS_WITH_SOURCE, (cutoff, source))
         else:
             cursor = self._conn.execute(self._GET_SESSIONS_ALL, (cutoff,))
         return [dict(row) for row in cursor.fetchall()]
@@ -262,7 +261,9 @@ class InsightsEngine:
                     calls = json.loads(calls)
                 if isinstance(calls, list):
                     for call in calls:
-                        func = call.get("function", {}) if isinstance(call, dict) else {}
+                        func = call.get(
+                            "function", {}) if isinstance(
+                            call, dict) else {}
                         name = func.get("name")
                         if name:
                             tool_calls_counts[name] += 1
@@ -280,7 +281,10 @@ class InsightsEngine:
             all_tools = set(tool_counts) | set(tool_calls_counts)
             merged = Counter()
             for tool in all_tools:
-                merged[tool] = max(tool_counts.get(tool, 0), tool_calls_counts.get(tool, 0))
+                merged[tool] = max(
+                    tool_counts.get(
+                        tool, 0), tool_calls_counts.get(
+                        tool, 0))
             tool_counts = merged
 
         # Convert to the expected format
@@ -289,7 +293,8 @@ class InsightsEngine:
             for name, count in tool_counts.most_common()
         ]
 
-    def _get_skill_usage(self, cutoff: float, source: str = None) -> List[Dict]:
+    def _get_skill_usage(self, cutoff: float,
+                         source: str = None) -> List[Dict]:
         """Extract per-skill usage from assistant tool calls."""
         skill_counts: Dict[str, Dict[str, Any]] = {}
 
@@ -401,12 +406,15 @@ class InsightsEngine:
     # Computation
     # =========================================================================
 
-    def _compute_overview(self, sessions: List[Dict], message_stats: Dict) -> Dict:
+    def _compute_overview(
+            self, sessions: List[Dict], message_stats: Dict) -> Dict:
         """Compute high-level overview statistics."""
         total_input = sum(s.get("input_tokens") or 0 for s in sessions)
         total_output = sum(s.get("output_tokens") or 0 for s in sessions)
-        total_cache_read = sum(s.get("cache_read_tokens") or 0 for s in sessions)
-        total_cache_write = sum(s.get("cache_write_tokens") or 0 for s in sessions)
+        total_cache_read = sum(
+            s.get("cache_read_tokens") or 0 for s in sessions)
+        total_cache_write = sum(
+            s.get("cache_write_tokens") or 0 for s in sessions)
         total_tokens = total_input + total_output + total_cache_read + total_cache_write
         total_tool_calls = sum(s.get("tool_call_count") or 0 for s in sessions)
         total_messages = sum(s.get("message_count") or 0 for s in sessions)
@@ -423,17 +431,20 @@ class InsightsEngine:
             estimated, status = _estimate_cost(s)
             total_cost += estimated
             actual_cost += s.get("actual_cost_usd") or 0.0
-            display = model.split("/")[-1] if "/" in model else (model or "unknown")
+            display = model.split(
+                "/")[-1] if "/" in model else (model or "unknown")
             if status == "included":
                 included_cost_sessions += 1
             elif status == "unknown":
                 unknown_cost_sessions += 1
-            if has_known_pricing(model, s.get("billing_provider"), s.get("billing_base_url")):
+            if has_known_pricing(model, s.get(
+                    "billing_provider"), s.get("billing_base_url")):
                 models_with_pricing.add(display)
             else:
                 models_without_pricing.add(display)
 
-        # Session duration stats (guard against negative durations from clock drift)
+        # Session duration stats (guard against negative durations from clock
+        # drift)
         durations = []
         for s in sessions:
             start = s.get("started_at")
@@ -445,9 +456,12 @@ class InsightsEngine:
         avg_duration = sum(durations) / len(durations) if durations else 0
 
         # Earliest and latest session
-        started_timestamps = [s["started_at"] for s in sessions if s.get("started_at")]
-        date_range_start = min(started_timestamps) if started_timestamps else None
-        date_range_end = max(started_timestamps) if started_timestamps else None
+        started_timestamps = [s["started_at"]
+                              for s in sessions if s.get("started_at")]
+        date_range_start = min(
+            started_timestamps) if started_timestamps else None
+        date_range_end = max(
+            started_timestamps) if started_timestamps else None
 
         return {
             "total_sessions": len(sessions),
@@ -501,7 +515,8 @@ class InsightsEngine:
             d["tool_calls"] += s.get("tool_call_count") or 0
             estimate, status = _estimate_cost(s)
             d["cost"] += estimate
-            d["has_pricing"] = has_known_pricing(model, s.get("billing_provider"), s.get("billing_base_url"))
+            d["has_pricing"] = has_known_pricing(
+                model, s.get("billing_provider"), s.get("billing_base_url"))
             d["cost_status"] = status
 
         result = [
@@ -509,7 +524,11 @@ class InsightsEngine:
             for model, data in model_data.items()
         ]
         # Sort by tokens first, fall back to session count when tokens are 0
-        result.sort(key=lambda x: (x["total_tokens"], x["sessions"]), reverse=True)
+        result.sort(
+            key=lambda x: (
+                x["total_tokens"],
+                x["sessions"]),
+            reverse=True)
         return result
 
     def _compute_platform_breakdown(self, sessions: List[Dict]) -> List[Dict]:
@@ -556,16 +575,22 @@ class InsightsEngine:
             })
         return result
 
-    def _compute_skill_breakdown(self, skill_usage: List[Dict]) -> Dict[str, Any]:
+    def _compute_skill_breakdown(
+            self, skill_usage: List[Dict]) -> Dict[str, Any]:
         """Process per-skill usage into summary + ranked list."""
-        total_skill_loads = sum(s["view_count"] for s in skill_usage) if skill_usage else 0
-        total_skill_edits = sum(s["manage_count"] for s in skill_usage) if skill_usage else 0
+        total_skill_loads = sum(s["view_count"]
+                                for s in skill_usage) if skill_usage else 0
+        total_skill_edits = sum(s["manage_count"]
+                                for s in skill_usage) if skill_usage else 0
         total_skill_actions = total_skill_loads + total_skill_edits
 
         top_skills = []
         for skill in skill_usage:
             total_count = skill["view_count"] + skill["manage_count"]
-            percentage = (total_count / total_skill_actions * 100) if total_skill_actions else 0
+            percentage = (
+                total_count /
+                total_skill_actions *
+                100) if total_skill_actions else 0
             top_skills.append({
                 "skill": skill["skill"],
                 "view_count": skill["view_count"],
@@ -623,8 +648,12 @@ class InsightsEngine:
         ]
 
         # Busiest day and hour
-        busiest_day = max(day_breakdown, key=lambda x: x["count"]) if day_breakdown else None
-        busiest_hour = max(hour_breakdown, key=lambda x: x["count"]) if hour_breakdown else None
+        busiest_day = max(
+            day_breakdown,
+            key=lambda x: x["count"]) if day_breakdown else None
+        busiest_hour = max(
+            hour_breakdown,
+            key=lambda x: x["count"]) if hour_breakdown else None
 
         # Active days (days with at least one session)
         active_days = len(daily_counts)
@@ -689,9 +718,11 @@ class InsightsEngine:
         # Most tokens
         most_tokens = max(
             sessions,
-            key=lambda s: (s.get("input_tokens") or 0) + (s.get("output_tokens") or 0),
+            key=lambda s: (s.get("input_tokens") or 0) +
+            (s.get("output_tokens") or 0),
         )
-        token_total = (most_tokens.get("input_tokens") or 0) + (most_tokens.get("output_tokens") or 0)
+        token_total = (most_tokens.get("input_tokens") or 0) + \
+            (most_tokens.get("output_tokens") or 0)
         if token_total > 0:
             top.append({
                 "label": "Most tokens",
@@ -720,7 +751,8 @@ class InsightsEngine:
         """Format the insights report for terminal display (CLI)."""
         if report.get("empty"):
             days = report.get("days", 30)
-            src = f" (source: {report['source_filter']})" if report.get("source_filter") else ""
+            src = f" (source: {report['source_filter']})" if report.get(
+                "source_filter") else ""
             return f"  No sessions found in the last {days} days{src}."
 
         lines = []
@@ -730,8 +762,10 @@ class InsightsEngine:
 
         # Header
         lines.append("")
-        lines.append("  ╔══════════════════════════════════════════════════════════╗")
-        lines.append("  ║                    📊 NasTech Insights                    ║")
+        lines.append(
+            "  ╔══════════════════════════════════════════════════════════╗")
+        lines.append(
+            "  ║                    📊 NasTech Insights                    ║")
         period_label = f"Last {days} days"
         if src_filter:
             period_label += f" ({src_filter})"
@@ -739,26 +773,45 @@ class InsightsEngine:
         left_pad = padding // 2
         right_pad = padding - left_pad
         lines.append(f"  ║{' ' * left_pad} {period_label} {' ' * right_pad}║")
-        lines.append("  ╚══════════════════════════════════════════════════════════╝")
+        lines.append(
+            "  ╚══════════════════════════════════════════════════════════╝")
         lines.append("")
 
         # Date range
         if o.get("date_range_start") and o.get("date_range_end"):
-            start_str = datetime.fromtimestamp(o["date_range_start"]).strftime("%b %d, %Y")
-            end_str = datetime.fromtimestamp(o["date_range_end"]).strftime("%b %d, %Y")
+            start_str = datetime.fromtimestamp(
+                o["date_range_start"]).strftime("%b %d, %Y")
+            end_str = datetime.fromtimestamp(
+                o["date_range_end"]).strftime("%b %d, %Y")
             lines.append(f"  Period: {start_str} — {end_str}")
             lines.append("")
 
         # Overview
         lines.append("  📋 Overview")
         lines.append("  " + "─" * 56)
-        lines.append(f"  Sessions:          {o['total_sessions']:<12}  Messages:        {o['total_messages']:,}")
-        lines.append(f"  Tool calls:        {o['total_tool_calls']:<12,}  User messages:   {o['user_messages']:,}")
-        lines.append(f"  Input tokens:      {o['total_input_tokens']:<12,}  Output tokens:   {o['total_output_tokens']:,}")
+        lines.append(
+            f"  Sessions:          {
+                o['total_sessions']:<12}  Messages:        {
+                o['total_messages']:,}")
+        lines.append(
+            f"  Tool calls:        {
+                o['total_tool_calls']:<12,}  User messages:   {
+                o['user_messages']:,}")
+        lines.append(
+            f"  Input tokens:      {
+                o['total_input_tokens']:<12,}  Output tokens:   {
+                o['total_output_tokens']:,}")
         lines.append(f"  Total tokens:      {o['total_tokens']:,}")
         if o["total_hours"] > 0:
-            lines.append(f"  Active time:       ~{format_duration_compact(o['total_hours'] * 3600):<11}  Avg session:     ~{format_duration_compact(o['avg_session_duration'])}")
-        lines.append(f"  Avg msgs/session:  {o['avg_messages_per_session']:.1f}")
+            lines.append(
+                f"  Active time:       ~{
+                    format_duration_compact(
+                        o['total_hours'] *
+                        3600):<11}  Avg session:     ~{
+                    format_duration_compact(
+                        o['avg_session_duration'])}")
+        lines.append(
+            f"  Avg msgs/session:  {o['avg_messages_per_session']:.1f}")
         lines.append("")
 
         # Model breakdown
@@ -768,16 +821,31 @@ class InsightsEngine:
             lines.append(f"  {'Model':<30} {'Sessions':>8} {'Tokens':>12}")
             for m in report["models"]:
                 model_name = m["model"][:28]
-                lines.append(f"  {model_name:<30} {m['sessions']:>8} {m['total_tokens']:>12,}")
+                lines.append(
+                    f"  {
+                        model_name:<30} {
+                        m['sessions']:>8} {
+                        m['total_tokens']:>12,}")
             lines.append("")
 
         # Platform breakdown
-        if len(report["platforms"]) > 1 or (report["platforms"] and report["platforms"][0]["platform"] != "cli"):
+        if len(report["platforms"]) > 1 or (report["platforms"]
+                                            and report["platforms"][0]["platform"] != "cli"):
             lines.append("  📱 Platforms")
             lines.append("  " + "─" * 56)
-            lines.append(f"  {'Platform':<14} {'Sessions':>8} {'Messages':>10} {'Tokens':>14}")
+            lines.append(
+                f"  {
+                    'Platform':<14} {
+                    'Sessions':>8} {
+                    'Messages':>10} {
+                    'Tokens':>14}")
             for p in report["platforms"]:
-                lines.append(f"  {p['platform']:<14} {p['sessions']:>8} {p['messages']:>10,} {p['total_tokens']:>14,}")
+                lines.append(
+                    f"  {
+                        p['platform']:<14} {
+                        p['sessions']:>8} {
+                        p['messages']:>10,} {
+                        p['total_tokens']:>14,}")
             lines.append("")
 
         # Tool usage
@@ -786,9 +854,14 @@ class InsightsEngine:
             lines.append("  " + "─" * 56)
             lines.append(f"  {'Tool':<28} {'Calls':>8} {'%':>8}")
             for t in report["tools"][:15]:  # Top 15
-                lines.append(f"  {t['tool']:<28} {t['count']:>8,} {t['percentage']:>7.1f}%")
+                lines.append(
+                    f"  {
+                        t['tool']:<28} {
+                        t['count']:>8,} {
+                        t['percentage']:>7.1f}%")
             if len(report["tools"]) > 15:
-                lines.append(f"  ... and {len(report['tools']) - 15} more tools")
+                lines.append(
+                    f"  ... and {len(report['tools']) - 15} more tools")
             lines.append("")
 
         # Skill usage
@@ -797,17 +870,26 @@ class InsightsEngine:
         if top_skills:
             lines.append("  🧠 Top Skills")
             lines.append("  " + "─" * 56)
-            lines.append(f"  {'Skill':<28} {'Loads':>7} {'Edits':>7} {'Last used':>11}")
+            lines.append(
+                f"  {
+                    'Skill':<28} {
+                    'Loads':>7} {
+                    'Edits':>7} {
+                    'Last used':>11}")
             for skill in top_skills[:10]:
                 last_used = "—"
                 if skill.get("last_used_at"):
-                    last_used = datetime.fromtimestamp(skill["last_used_at"]).strftime("%b %d")
+                    last_used = datetime.fromtimestamp(
+                        skill["last_used_at"]).strftime("%b %d")
                 lines.append(
                     f"  {skill['skill'][:28]:<28} {skill['view_count']:>7,} {skill['manage_count']:>7,} {last_used:>11}"
                 )
             summary = skills.get("summary", {})
             lines.append(
-                f"  Distinct skills: {summary.get('distinct_skills_used', 0)}  "
+                f"  Distinct skills: {
+                    summary.get(
+                        'distinct_skills_used',
+                        0)}  "
                 f"Loads: {summary.get('total_skill_loads', 0):,}  "
                 f"Edits: {summary.get('total_skill_edits', 0):,}"
             )
@@ -829,7 +911,10 @@ class InsightsEngine:
             lines.append("")
 
             # Peak hours (show top 5 busiest hours)
-            busy_hours = sorted(act["by_hour"], key=lambda x: x["count"], reverse=True)
+            busy_hours = sorted(
+                act["by_hour"],
+                key=lambda x: x["count"],
+                reverse=True)
             busy_hours = [h for h in busy_hours if h["count"] > 0][:5]
             if busy_hours:
                 hour_strs = []
@@ -843,7 +928,9 @@ class InsightsEngine:
             if act.get("active_days"):
                 lines.append(f"  Active days: {act['active_days']}")
             if act.get("max_streak") and act["max_streak"] > 1:
-                lines.append(f"  Best streak: {act['max_streak']} consecutive days")
+                lines.append(
+                    f"  Best streak: {
+                        act['max_streak']} consecutive days")
             lines.append("")
 
         # Notable sessions
@@ -851,7 +938,12 @@ class InsightsEngine:
             lines.append("  🏆 Notable Sessions")
             lines.append("  " + "─" * 56)
             for ts in report["top_sessions"]:
-                lines.append(f"  {ts['label']:<20} {ts['value']:<18} ({ts['date']}, {ts['session_id']})")
+                lines.append(
+                    f"  {
+                        ts['label']:<20} {
+                        ts['value']:<18} ({
+                        ts['date']}, {
+                        ts['session_id']})")
             lines.append("")
 
         return "\n".join(lines)
@@ -869,31 +961,54 @@ class InsightsEngine:
         lines.append(f"📊 **NasTech Insights** — Last {days} days\n")
 
         # Overview
-        lines.append(f"**Sessions:** {o['total_sessions']} | **Messages:** {o['total_messages']:,} | **Tool calls:** {o['total_tool_calls']:,}")
-        lines.append(f"**Tokens:** {o['total_tokens']:,} (in: {o['total_input_tokens']:,} / out: {o['total_output_tokens']:,})")
+        lines.append(
+            f"**Sessions:** {
+                o['total_sessions']} | **Messages:** {
+                o['total_messages']:,        } | **Tool calls:** {
+                o['total_tool_calls']:,            }")
+        lines.append(
+            f"**Tokens:** {
+                o['total_tokens']:,                                    } (in: {
+                o['total_input_tokens']:,                                                                                                   } / out: {
+                o['total_output_tokens']:,                                                                                                                                                                                                                                         })")
         if o["total_hours"] > 0:
-            lines.append(f"**Active time:** ~{format_duration_compact(o['total_hours'] * 3600)} | **Avg session:** ~{format_duration_compact(o['avg_session_duration'])}")
+            lines.append(
+                f"**Active time:** ~{
+                    format_duration_compact(
+                        o['total_hours'] *
+                        3600)} | **Avg session:** ~{
+                    format_duration_compact(
+                        o['avg_session_duration'])}")
         lines.append("")
 
         # Models (top 5)
         if report["models"]:
             lines.append("**🤖 Models:**")
             for m in report["models"][:5]:
-                lines.append(f"  {m['model'][:25]} — {m['sessions']} sessions, {m['total_tokens']:,} tokens")
+                lines.append(
+                    f"  {m['model'][:25]} — {m['sessions']} sessions, {m['total_tokens']:,} tokens")
             lines.append("")
 
         # Platforms (if multi-platform)
         if len(report["platforms"]) > 1:
             lines.append("**📱 Platforms:**")
             for p in report["platforms"]:
-                lines.append(f"  {p['platform']} — {p['sessions']} sessions, {p['messages']:,} msgs")
+                lines.append(
+                    f"  {
+                        p['platform']} — {
+                        p['sessions']} sessions, {
+                        p['messages']:,            } msgs")
             lines.append("")
 
         # Tools (top 8)
         if report["tools"]:
             lines.append("**🔧 Top Tools:**")
             for t in report["tools"][:8]:
-                lines.append(f"  {t['tool']} — {t['count']:,} calls ({t['percentage']:.1f}%)")
+                lines.append(
+                    f"  {
+                        t['tool']} — {
+                        t['count']:,        } calls ({
+                        t['percentage']:.1f}%)")
             lines.append("")
 
         skills = report.get("skills", {})
@@ -902,9 +1017,14 @@ class InsightsEngine:
             for skill in skills["top_skills"][:5]:
                 suffix = ""
                 if skill.get("last_used_at"):
-                    suffix = f", last used {datetime.fromtimestamp(skill['last_used_at']).strftime('%b %d')}"
+                    suffix = f", last used {
+                        datetime.fromtimestamp(
+                            skill['last_used_at']).strftime('%b %d')}"
                 lines.append(
-                    f"  {skill['skill']} — {skill['view_count']:,} loads, {skill['manage_count']:,} edits{suffix}"
+                    f"  {
+                        skill['skill']} — {
+                        skill['view_count']:,    } loads, {
+                        skill['manage_count']:,        } edits{suffix}"
                 )
             lines.append("")
 
@@ -914,10 +1034,15 @@ class InsightsEngine:
             hr = act["busiest_hour"]["hour"]
             ampm = "AM" if hr < 12 else "PM"
             display_hr = hr % 12 or 12
-            lines.append(f"**📅 Busiest:** {act['busiest_day']['day']}s ({act['busiest_day']['count']} sessions), {display_hr}{ampm} ({act['busiest_hour']['count']} sessions)")
+            lines.append(
+                f"**📅 Busiest:** {
+                    act['busiest_day']['day']}s ({
+                    act['busiest_day']['count']} sessions), {display_hr}{ampm} ({
+                    act['busiest_hour']['count']} sessions)")
             if act.get("active_days"):
                 lines.append(f"**Active days:** {act['active_days']}", )
             if act.get("max_streak", 0) > 1:
-                lines.append(f"**Best streak:** {act['max_streak']} consecutive days")
+                lines.append(
+                    f"**Best streak:** {act['max_streak']} consecutive days")
 
         return "\n".join(lines)

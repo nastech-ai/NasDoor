@@ -87,11 +87,17 @@ _BLOCKED_KEY_COMBOS = {
     frozenset({"cmd", "option", "shift", "q"}),  # force log out
 }
 
-_KEY_ALIASES = {"command": "cmd", "control": "ctrl", "alt": "option", "⌘": "cmd", "⌥": "option"}
+_KEY_ALIASES = {
+    "command": "cmd",
+    "control": "ctrl",
+    "alt": "option",
+    "⌘": "cmd",
+    "⌥": "option"}
 
 
 def _canon_key_combo(keys: str) -> frozenset:
-    parts = [p.strip().lower() for p in re.split(r"\s*\+\s*", keys) if p.strip()]
+    parts = [p.strip().lower()
+             for p in re.split(r"\s*\+\s*", keys) if p.strip()]
     parts = [_KEY_ALIASES.get(p, p) for p in parts]
     return frozenset(parts)
 
@@ -130,14 +136,17 @@ def _get_backend() -> ComputerUseBackend:
     global _backend
     with _backend_lock:
         if _backend is None:
-            backend_name = os.environ.get("NASTECH_COMPUTER_USE_BACKEND", "cua").lower()
+            backend_name = os.environ.get(
+                "NASTECH_COMPUTER_USE_BACKEND", "cua").lower()
             if backend_name in {"cua", "cua-driver", ""}:
                 from tools.computer_use.cua_backend import CuaDriverBackend
                 _backend = CuaDriverBackend()
             elif backend_name == "noop":  # pragma: no cover
                 _backend = _NoopBackend()
             else:
-                raise RuntimeError(f"Unknown NASTECH_COMPUTER_USE_BACKEND={backend_name!r}")
+                raise RuntimeError(
+                    f"Unknown NASTECH_COMPUTER_USE_BACKEND={
+                        backend_name!r}")
             _backend.start()
         return _backend
 
@@ -167,7 +176,8 @@ class _NoopBackend(ComputerUseBackend):  # pragma: no cover
     def stop(self) -> None: self._started = False
     def is_available(self) -> bool: return True
 
-    def capture(self, mode: str = "som", app: Optional[str] = None) -> CaptureResult:
+    def capture(self, mode: str = "som",
+                app: Optional[str] = None) -> CaptureResult:
         self.calls.append(("capture", {"mode": mode, "app": app}))
         return CaptureResult(mode=mode, width=1024, height=768, png_b64=None,
                              elements=[], app=app or "", window_title="")
@@ -200,7 +210,8 @@ class _NoopBackend(ComputerUseBackend):  # pragma: no cover
         self.calls.append(("focus_app", {"app": app, "raise": raise_window}))
         return ActionResult(ok=True, action="focus_app")
 
-    def set_value(self, value: str, element: Optional[int] = None) -> ActionResult:
+    def set_value(self, value: str,
+                  element: Optional[int] = None) -> ActionResult:
         self.calls.append(("set_value", {"value": value, "element": element}))
         return ActionResult(ok=True, action="set_value")
 
@@ -309,19 +320,23 @@ def _summarize_action(action: str, args: Dict[str, Any]) -> str:
     if action == "key":
         return f"key {args.get('keys', '')!r}"
     if action == "focus_app":
-        return f"focus {args.get('app', '')!r}" + (" (raise)" if args.get("raise_window") else "")
+        return f"focus {args.get('app', '')!r}" + \
+            (" (raise)" if args.get("raise_window") else "")
     return action
 
 
-def _dispatch(backend: ComputerUseBackend, action: str, args: Dict[str, Any]) -> Any:
+def _dispatch(backend: ComputerUseBackend, action: str,
+              args: Dict[str, Any]) -> Any:
     capture_after = bool(args.get("capture_after"))
 
     if action == "capture":
         mode = str(args.get("mode", "som"))
         if mode not in {"som", "vision", "ax"}:
-            return json.dumps({"error": f"bad mode {mode!r}; use som|vision|ax"})
+            return json.dumps(
+                {"error": f"bad mode {mode!r}; use som|vision|ax"})
         cap = backend.capture(mode=mode, app=args.get("app"))
-        return _capture_response(cap, max_elements=_coerce_max_elements(args.get("max_elements")))
+        return _capture_response(
+            cap, max_elements=_coerce_max_elements(args.get("max_elements")))
 
     if action == "wait":
         seconds = float(args.get("seconds", 1.0))
@@ -336,7 +351,9 @@ def _dispatch(backend: ComputerUseBackend, action: str, args: Dict[str, Any]) ->
         app = args.get("app")
         if not app:
             return json.dumps({"error": "focus_app requires `app`"})
-        res = backend.focus_app(app, raise_window=bool(args.get("raise_window")))
+        res = backend.focus_app(
+            app, raise_window=bool(
+                args.get("raise_window")))
         return _maybe_follow_capture(backend, res, capture_after)
 
     if action in {"click", "double_click", "right_click", "middle_click"}:
@@ -352,7 +369,9 @@ def _dispatch(backend: ComputerUseBackend, action: str, args: Dict[str, Any]) ->
             button = button or "left"
         element = args.get("element")
         coord = args.get("coordinate") or (None, None)
-        x, y = (coord[0], coord[1]) if coord and coord[0] is not None else (None, None)
+        x, y = (
+            coord[0], coord[1]) if coord and coord[0] is not None else (
+            None, None)
         res = backend.click(
             element=element if element is not None else None,
             x=x, y=y, button=button or "left", click_count=click_count,
@@ -361,7 +380,8 @@ def _dispatch(backend: ComputerUseBackend, action: str, args: Dict[str, Any]) ->
         return _maybe_follow_capture(backend, res, capture_after)
 
     if action == "drag":
-        has_elements = args.get("from_element") is not None and args.get("to_element") is not None
+        has_elements = args.get("from_element") is not None and args.get(
+            "to_element") is not None
         has_coords = args.get("from_coordinate") and args.get("to_coordinate")
         if not has_elements and not has_coords:
             return json.dumps({
@@ -370,8 +390,10 @@ def _dispatch(backend: ComputerUseBackend, action: str, args: Dict[str, Any]) ->
         res = backend.drag(
             from_element=args.get("from_element"),
             to_element=args.get("to_element"),
-            from_xy=tuple(args["from_coordinate"]) if args.get("from_coordinate") else None,
-            to_xy=tuple(args["to_coordinate"]) if args.get("to_coordinate") else None,
+            from_xy=tuple(args["from_coordinate"]) if args.get(
+                "from_coordinate") else None,
+            to_xy=tuple(args["to_coordinate"]) if args.get(
+                "to_coordinate") else None,
             button=args.get("button", "left"),
             modifiers=args.get("modifiers"),
         )
@@ -453,7 +475,8 @@ def _coerce_max_elements(value: Any) -> int:
     return n
 
 
-def _capture_response(cap: CaptureResult, max_elements: int = _DEFAULT_MAX_ELEMENTS) -> Any:
+def _capture_response(cap: CaptureResult,
+                      max_elements: int = _DEFAULT_MAX_ELEMENTS) -> Any:
     total_elements = len(cap.elements)
     visible_elements = cap.elements[:max_elements]
     truncated_elements = max(0, total_elements - len(visible_elements))
@@ -517,7 +540,8 @@ def _capture_response(cap: CaptureResult, max_elements: int = _DEFAULT_MAX_ELEME
     # `elements` array, so the truncation note applies here.
     if truncated_elements:
         summary_lines.append(
-            f"  (response truncated to {len(visible_elements)} of {total_elements} elements; "
+            f"  (response truncated to {
+                len(visible_elements)} of {total_elements} elements; "
             f"raise max_elements or pass app= to narrow)"
         )
     summary = "\n".join(summary_lines)
@@ -563,12 +587,14 @@ def _should_route_through_aux_vision() -> bool:
         model = _read_main_model()
         cfg = load_config()
     except Exception as exc:  # pragma: no cover - defensive
-        logger.debug("computer_use: aux-vision routing config read failed: %s", exc)
+        logger.debug(
+            "computer_use: aux-vision routing config read failed: %s", exc)
         return False
     try:
         return bool(should_route_capture_to_aux_vision(provider, model, cfg))
     except Exception as exc:  # pragma: no cover - defensive
-        logger.debug("computer_use: aux-vision routing decision failed: %s", exc)
+        logger.debug(
+            "computer_use: aux-vision routing decision failed: %s", exc)
         return False
 
 
@@ -596,8 +622,8 @@ def _route_capture_through_aux_vision(
         import os as _os
         import uuid as _uuid
 
-        from nastech_constants import get_nastech_dir
         from model_tools import _run_async
+        from nastech_constants import get_nastech_dir
         from tools.vision_tools import vision_analyze_tool
     except Exception as exc:  # pragma: no cover - defensive
         logger.debug("computer_use: aux-vision import failed: %s", exc)
@@ -608,7 +634,8 @@ def _route_capture_through_aux_vision(
         try:
             raw = _base64.b64decode(cap.png_b64, validate=False)
         except Exception as exc:
-            logger.debug("computer_use: failed to decode capture base64: %s", exc)
+            logger.debug(
+                "computer_use: failed to decode capture base64: %s", exc)
             return None
 
         # Pick an extension that matches the on-disk bytes so vision_analyze's
@@ -692,8 +719,10 @@ def _maybe_follow_capture(
     # Combine action summary with the capture.
     resp = _capture_response(cap)
     if isinstance(resp, dict) and resp.get("_multimodal"):
-        prefix = f"[{res.action}] ok={res.ok}" + (f" — {res.message}" if res.message else "")
-        resp["content"][0]["text"] = prefix + "\n\n" + resp["content"][0]["text"]
+        prefix = f"[{res.action}] ok={res.ok}" + \
+            (f" — {res.message}" if res.message else "")
+        resp["content"][0]["text"] = prefix + \
+            "\n\n" + resp["content"][0]["text"]
         resp["text_summary"] = prefix + "\n\n" + resp["text_summary"]
         return resp
     # Fallback: action + text capture merged.
@@ -708,14 +737,16 @@ def _maybe_follow_capture(
     return json.dumps(data)
 
 
-def _format_elements(elements: List[UIElement], max_lines: int = 40) -> List[str]:
+def _format_elements(elements: List[UIElement],
+                     max_lines: int = 40) -> List[str]:
     out: List[str] = []
     for e in elements[:max_lines]:
         label = e.label.replace("\n", " ")[:60]
         out.append(f"  #{e.index} {e.role} {label!r} @ {e.bounds}"
                    + (f" [{e.app}]" if e.app else ""))
     if len(elements) > max_lines:
-        out.append(f"  ... +{len(elements) - max_lines} more (call capture with app= to narrow)")
+        out.append(f"  ... +{len(elements) -
+                             max_lines} more (call capture with app= to narrow)")
     return out
 
 

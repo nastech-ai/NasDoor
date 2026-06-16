@@ -59,8 +59,8 @@ class DaytonaEnvironment(BaseEnvironment):
         except Exception as e:
             raise ImportError(str(e))
         from daytona import (
-            Daytona,
             CreateSandboxFromImageParams,
+            Daytona,
             DaytonaError,
             Resources,
             SandboxState,
@@ -139,10 +139,14 @@ class DaytonaEnvironment(BaseEnvironment):
                     self.cwd = home
         except Exception:
             pass
-        logger.info("Daytona: resolved home to %s, cwd to %s", self._remote_home, self.cwd)
+        logger.info(
+            "Daytona: resolved home to %s, cwd to %s",
+            self._remote_home,
+            self.cwd)
 
         self._sync_manager = FileSyncManager(
-            get_files_fn=lambda: iter_sync_files(f"{self._remote_home}/.nastech"),
+            get_files_fn=lambda: iter_sync_files(
+                f"{self._remote_home}/.nastech"),
             upload_fn=self._daytona_upload,
             delete_fn=self._daytona_delete,
             bulk_upload_fn=self._daytona_bulk_upload,
@@ -206,7 +210,8 @@ class DaytonaEnvironment(BaseEnvironment):
     def _ensure_sandbox_ready(self) -> None:
         """Restart sandbox if it was stopped (e.g., by a previous interrupt)."""
         self._sandbox.refresh_data()
-        if self._sandbox.state in {self._SandboxState.STOPPED, self._SandboxState.ARCHIVED}:
+        if self._sandbox.state in {
+                self._SandboxState.STOPPED, self._SandboxState.ARCHIVED}:
             self._sandbox.start()
             logger.info("Daytona: restarted sandbox %s", self._sandbox.id)
 
@@ -264,7 +269,9 @@ class DaytonaEnvironment(BaseEnvironment):
                                 self._sandbox.id)
                 else:
                     self._daytona.delete(self._sandbox)
-                    logger.info("Daytona: deleted sandbox %s", self._sandbox.id)
+                    logger.info(
+                        "Daytona: deleted sandbox %s",
+                        self._sandbox.id)
             except Exception as e:
                 logger.warning("Daytona: cleanup failed: %s", e)
             self._sandbox = None

@@ -35,7 +35,6 @@ from gateway.whatsapp_identity import (
 from nastech_constants import get_nastech_dir
 from utils import atomic_replace
 
-
 # Unambiguous alphabet -- excludes 0/O, 1/I to prevent confusion
 ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 CODE_LENGTH = 8
@@ -137,7 +136,8 @@ class PairingStore:
         """Return True when two user IDs represent the same principal."""
         left_aliases = self._user_id_aliases(platform, left)
         right_aliases = self._user_id_aliases(platform, right)
-        return bool(left_aliases and right_aliases and (left_aliases & right_aliases))
+        return bool(left_aliases and right_aliases and (
+            left_aliases & right_aliases))
 
     # ----- Approved users -----
 
@@ -159,7 +159,8 @@ class PairingStore:
                 results.append({"platform": p, "user_id": uid, **info})
         return results
 
-    def _approve_user(self, platform: str, user_id: str, user_name: str = "") -> None:
+    def _approve_user(self, platform: str, user_id: str,
+                      user_name: str = "") -> None:
         """Add a user to the approved list. Must be called under self._lock."""
         approved = self._load_json(self._approved_path(platform))
         normalized_user_id = self._normalize_user_id(platform, user_id)
@@ -233,7 +234,8 @@ class PairingStore:
                 return None
 
             # Generate cryptographically random code
-            code = "".join(secrets.choice(ALPHABET) for _ in range(CODE_LENGTH))
+            code = "".join(secrets.choice(ALPHABET)
+                           for _ in range(CODE_LENGTH))
 
             # Hash the code with a random salt before storing
             salt = os.urandom(16)
@@ -336,7 +338,8 @@ class PairingStore:
         """
         results = []
         with self._lock:
-            platforms = [platform] if platform else self._all_platforms("pending")
+            platforms = [platform] if platform else self._all_platforms(
+                "pending")
             for p in platforms:
                 self._cleanup_expired(p)
                 pending = self._load_json(self._pending_path(p))
@@ -348,7 +351,8 @@ class PairingStore:
                         continue
                     age_min = int((time.time() - created_at) / 60)
                     hash_val = info.get("hash")
-                    code_display = hash_val[:8] if isinstance(hash_val, str) else "legacy"
+                    code_display = hash_val[:8] if isinstance(
+                        hash_val, str) else "legacy"
                     results.append({
                         "platform": p,
                         "code": code_display,
@@ -362,7 +366,8 @@ class PairingStore:
         """Clear all pending requests. Returns count removed."""
         with self._lock:
             count = 0
-            platforms = [platform] if platform else self._all_platforms("pending")
+            platforms = [platform] if platform else self._all_platforms(
+                "pending")
             for p in platforms:
                 pending = self._load_json(self._pending_path(p))
                 count += len(pending)

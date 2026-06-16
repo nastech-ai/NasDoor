@@ -29,13 +29,15 @@ from typing import Any, Dict, List
 # Keys whose values are maps of name → schema (not schemas themselves).
 # When we recurse, we walk the values of these maps as schemas, but we do
 # NOT apply the missing-type repair to the map itself.
-_SCHEMA_MAP_KEYS = frozenset({"properties", "patternProperties", "$defs", "definitions"})
+_SCHEMA_MAP_KEYS = frozenset(
+    {"properties", "patternProperties", "$defs", "definitions"})
 
 # Keys whose values are lists of schemas.
 _SCHEMA_LIST_KEYS = frozenset({"anyOf", "oneOf", "allOf", "prefixItems"})
 
 # Keys whose values are a single nested schema.
-_SCHEMA_NODE_KEYS = frozenset({"items", "contains", "not", "additionalProperties", "propertyNames"})
+_SCHEMA_NODE_KEYS = frozenset(
+    {"items", "contains", "not", "additionalProperties", "propertyNames"})
 
 
 def _repair_schema(node: Any, is_schema: bool = True) -> Any:
@@ -74,7 +76,8 @@ def _repair_schema(node: Any, is_schema: bool = True) -> Any:
             else:
                 repaired[key] = value
         else:
-            # Scalars (description, title, format, enum values, etc.) pass through.
+            # Scalars (description, title, format, enum values, etc.) pass
+            # through.
             repaired[key] = value
 
     if not is_schema:
@@ -182,7 +185,8 @@ def sanitize_moonshot_tool_parameters(parameters: Any) -> Dict[str, Any]:
     return repaired
 
 
-def sanitize_moonshot_tools(tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def sanitize_moonshot_tools(
+        tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Apply ``sanitize_moonshot_tool_parameters`` to every tool's parameters."""
     if not tools:
         return tools

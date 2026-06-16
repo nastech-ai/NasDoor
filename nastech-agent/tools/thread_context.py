@@ -84,7 +84,9 @@ def propagate_context_to_thread(target: Callable) -> Callable:
         parent_sudo_cb = get_sudo()
         setters = (set_approval, set_sudo)
     except Exception:
-        logger.debug("Could not capture parent approval/sudo callbacks", exc_info=True)
+        logger.debug(
+            "Could not capture parent approval/sudo callbacks",
+            exc_info=True)
 
     def _runner(*args, **kwargs):
         def _inner():

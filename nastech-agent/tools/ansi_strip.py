@@ -16,15 +16,17 @@ import re
 _ANSI_ESCAPE_RE = re.compile(
     r"\x1b"
     r"(?:"
-        r"\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]"     # CSI sequence
-        r"|\][\s\S]*?(?:\x07|\x1b\\)"                  # OSC (BEL or ST terminator)
-        r"|[PX^_][\s\S]*?(?:\x1b\\)"                   # DCS/SOS/PM/APC strings
-        r"|[\x20-\x2f]+[\x30-\x7e]"                    # nF escape sequences
-        r"|[\x30-\x7e]"                                 # Fp/Fe/Fs single-byte
+    r"\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]"     # CSI sequence
+    # OSC (BEL or ST terminator)
+    r"|\][\s\S]*?(?:\x07|\x1b\\)"
+    r"|[PX^_][\s\S]*?(?:\x1b\\)"                   # DCS/SOS/PM/APC strings
+    r"|[\x20-\x2f]+[\x30-\x7e]"                    # nF escape sequences
+    r"|[\x30-\x7e]"                                 # Fp/Fe/Fs single-byte
     r")"
     r"|\x9b[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]"       # 8-bit CSI
     r"|\x9d[\s\S]*?(?:\x07|\x9c)"                       # 8-bit OSC
-    r"|[\x80-\x9f]",                                    # Other 8-bit C1 controls
+    # Other 8-bit C1 controls
+    r"|[\x80-\x9f]",
     re.DOTALL,
 )
 

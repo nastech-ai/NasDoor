@@ -7,31 +7,36 @@ import os
 import re
 from typing import Any, Dict, Optional
 
-logger = logging.getLogger(__name__)
-
+from agent.credential_pool import (
+    CredentialPool,
+    PooledCredential,
+    get_custom_provider_pool_key,
+    load_pool,
+)
 from nastech_cli import auth as auth_mod
-from agent.credential_pool import CredentialPool, PooledCredential, get_custom_provider_pool_key, load_pool
 from nastech_cli.auth import (
-    AuthError,
     DEFAULT_CODEX_BASE_URL,
     DEFAULT_QWEN_BASE_URL,
     DEFAULT_XAI_OAUTH_BASE_URL,
     PROVIDER_REGISTRY,
+    AuthError,
     _agent_key_is_usable,
     format_auth_error,
-    resolve_provider,
-    resolve_nastech_runtime_credentials,
-    resolve_codex_runtime_credentials,
-    resolve_xai_oauth_runtime_credentials,
-    resolve_qwen_runtime_credentials,
-    resolve_gemini_oauth_runtime_credentials,
-    resolve_api_key_provider_credentials,
-    resolve_external_process_provider_credentials,
     has_usable_secret,
+    resolve_api_key_provider_credentials,
+    resolve_codex_runtime_credentials,
+    resolve_external_process_provider_credentials,
+    resolve_gemini_oauth_runtime_credentials,
+    resolve_nastech_runtime_credentials,
+    resolve_provider,
+    resolve_qwen_runtime_credentials,
+    resolve_xai_oauth_runtime_credentials,
 )
 from nastech_cli.config import get_compatible_custom_providers, load_config
 from nastech_constants import OPENROUTER_BASE_URL
 from utils import base_url_host_matches, base_url_hostname, env_int
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_custom_provider_name(value: str) -> str:
@@ -43,7 +48,8 @@ def _loopback_hostname(host: str) -> bool:
     return h in {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
 
 
-def _config_base_url_trustworthy_for_bare_custom(cfg_base_url: str, cfg_provider: str) -> bool:
+def _config_base_url_trustworthy_for_bare_custom(
+        cfg_base_url: str, cfg_provider: str) -> bool:
     """Decide whether ``model.base_url`` may back bare ``custom`` runtime resolution.
 
     GitHub #14676: the model picker can select Custom while ``model.provider`` still reflects a
@@ -185,7 +191,8 @@ def _get_model_config() -> Dict[str, Any]:
     model_cfg = config.get("model")
     if isinstance(model_cfg, dict):
         cfg = dict(model_cfg)
-        # Accept "model" as alias for "default" (users intuitively write model.model)
+        # Accept "model" as alias for "default" (users intuitively write
+        # model.model)
         if not cfg.get("default") and cfg.get("model"):
             cfg["default"] = cfg["model"]
         default = (cfg.get("default") or "").strip()
@@ -202,7 +209,8 @@ def _get_model_config() -> Dict[str, Any]:
     return {}
 
 
-def _provider_supports_explicit_api_mode(provider: Optional[str], configured_provider: Optional[str] = None) -> bool:
+def _provider_supports_explicit_api_mode(
+        provider: Optional[str], configured_provider: Optional[str] = None) -> bool:
     """Check whether a persisted api_mode should be honored for a given provider.
 
     Prevents stale api_mode from a previous provider leaking into a
@@ -215,14 +223,16 @@ def _provider_supports_explicit_api_mode(provider: Optional[str], configured_pro
     if not normalized_configured:
         return True
     if normalized_provider == "custom":
-        return normalized_configured == "custom" or normalized_configured.startswith("custom:")
+        return normalized_configured == "custom" or normalized_configured.startswith(
+            "custom:")
     return normalized_configured == normalized_provider
 
 
 def _copilot_runtime_api_mode(model_cfg: Dict[str, Any], api_key: str) -> str:
     configured_provider = str(model_cfg.get("provider") or "").strip().lower()
     configured_mode = _parse_api_mode(model_cfg.get("api_mode"))
-    if configured_mode and _provider_supports_explicit_api_mode("copilot", configured_provider):
+    if configured_mode and _provider_supports_explicit_api_mode(
+            "copilot", configured_provider):
         return configured_mode
 
     model_name = str(model_cfg.get("default") or "").strip()
@@ -303,8 +313,21 @@ def _resolve_runtime_from_pool_entry(
     # opencode-zen /v1 to be stripped for chat_completions requests when
     # config.default was still a Claude model.
     effective_model = (target_model or model_cfg.get("default") or "")
-    base_url = (getattr(entry, "runtime_base_url", None) or getattr(entry, "base_url", None) or "").rstrip("/")
-    api_key = getattr(entry, "runtime_api_key", None) or getattr(entry, "access_token", "")
+    base_url = (
+        getattr(
+            entry,
+            "runtime_base_url",
+            None) or getattr(
+            entry,
+            "base_url",
+            None) or "").rstrip("/")
+    api_key = getattr(
+        entry,
+        "runtime_api_key",
+        None) or getattr(
+        entry,
+        "access_token",
+        "")
     api_mode = "chat_completions"
     if provider == "openai-codex":
         api_mode = "codex_responses"
@@ -331,7 +354,8 @@ def _resolve_runtime_from_pool_entry(
         cfg_provider = str(model_cfg.get("provider") or "").strip().lower()
         cfg_base_url = ""
         if cfg_provider == "anthropic":
-            cfg_base_url = str(model_cfg.get("base_url") or "").strip().rstrip("/")
+            cfg_base_url = str(model_cfg.get("base_url")
+                               or "").strip().rstrip("/")
         base_url = cfg_base_url or base_url or "https://api.anthropic.com"
     elif provider == "openrouter":
         base_url = base_url or OPENROUTER_BASE_URL
@@ -340,13 +364,15 @@ def _resolve_runtime_from_pool_entry(
     elif provider == "nous":
         api_mode = "chat_completions"
     elif provider == "copilot":
-        api_mode = _copilot_runtime_api_mode(model_cfg, getattr(entry, "runtime_api_key", ""))
+        api_mode = _copilot_runtime_api_mode(
+            model_cfg, getattr(entry, "runtime_api_key", ""))
         base_url = base_url or PROVIDER_REGISTRY["copilot"].inference_base_url
     elif provider == "azure-foundry":
         # Azure Foundry: read api_mode and base_url from config
         cfg_provider = str(model_cfg.get("provider") or "").strip().lower()
         if cfg_provider == "azure-foundry":
-            cfg_base_url = str(model_cfg.get("base_url") or "").strip().rstrip("/")
+            cfg_base_url = str(model_cfg.get("base_url")
+                               or "").strip().rstrip("/")
             if cfg_base_url:
                 base_url = cfg_base_url
             configured_mode = _parse_api_mode(model_cfg.get("api_mode"))
@@ -369,15 +395,18 @@ def _resolve_runtime_from_pool_entry(
         if api_mode == "anthropic_messages":
             base_url = re.sub(r"/v1/?$", "", base_url)
     else:
-        configured_provider = str(model_cfg.get("provider") or "").strip().lower()
+        configured_provider = str(
+            model_cfg.get("provider") or "").strip().lower()
         # Honour model.base_url from config.yaml when the configured provider
         # matches this provider — same pattern as the Anthropic branch above.
         # Only override when the pool entry has no explicit base_url (i.e. it
         # fell back to the hardcoded default).  Env var overrides win (#6039).
         pconfig = PROVIDER_REGISTRY.get(provider)
-        pool_url_is_default = pconfig and base_url.rstrip("/") == pconfig.inference_base_url.rstrip("/")
+        pool_url_is_default = pconfig and base_url.rstrip(
+            "/") == pconfig.inference_base_url.rstrip("/")
         if configured_provider == provider and pool_url_is_default:
-            cfg_base_url = str(model_cfg.get("base_url") or "").strip().rstrip("/")
+            cfg_base_url = str(model_cfg.get("base_url")
+                               or "").strip().rstrip("/")
             if cfg_base_url:
                 base_url = cfg_base_url
         configured_mode = _parse_api_mode(model_cfg.get("api_mode"))
@@ -403,7 +432,8 @@ def _resolve_runtime_from_pool_entry(
     # Anthropic SDK prepends its own /v1/messages to the base_url.  Strip the
     # trailing /v1 so the SDK constructs the correct path (e.g.
     # https://opencode.ai/zen/go/v1/messages instead of .../v1/v1/messages).
-    if api_mode == "anthropic_messages" and provider in {"opencode-zen", "opencode-go"}:
+    if api_mode == "anthropic_messages" and provider in {
+            "opencode-zen", "opencode-go"}:
         base_url = re.sub(r"/v1/?$", "", base_url)
 
     # Optional opt-in: route OpenAI/Codex turns through `codex app-server`.
@@ -449,7 +479,8 @@ def _try_resolve_from_custom_pool(
     provider_name: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Check if a credential pool exists for a custom endpoint and return a runtime dict if so."""
-    pool_key = get_custom_provider_pool_key(base_url, provider_name=provider_name)
+    pool_key = get_custom_provider_pool_key(
+        base_url, provider_name=provider_name)
     if not pool_key:
         return None
     try:
@@ -459,7 +490,9 @@ def _try_resolve_from_custom_pool(
         entry = pool.select()
         if entry is None:
             return None
-        pool_api_key = getattr(entry, "runtime_api_key", None) or getattr(entry, "access_token", "")
+        pool_api_key = getattr(
+            entry, "runtime_api_key", None) or getattr(
+            entry, "access_token", "")
         if not pool_api_key:
             return None
         return {
@@ -474,7 +507,8 @@ def _try_resolve_from_custom_pool(
         return None
 
 
-def _lift_max_output_tokens(entry: Dict[str, Any], result: Dict[str, Any]) -> None:
+def _lift_max_output_tokens(
+        entry: Dict[str, Any], result: Dict[str, Any]) -> None:
     """Propagate a per-provider output cap onto the resolved runtime dict.
 
     Accepts ``max_output_tokens`` or ``max_tokens`` on a ``custom_providers``
@@ -489,7 +523,8 @@ def _lift_max_output_tokens(entry: Dict[str, Any], result: Dict[str, Any]) -> No
             return
 
 
-def _get_named_custom_provider(requested_provider: str) -> Optional[Dict[str, Any]]:
+def _get_named_custom_provider(
+        requested_provider: str) -> Optional[Dict[str, Any]]:
     requested_norm = _normalize_custom_provider_name(requested_provider or "")
     if not requested_norm or requested_norm == "custom":
         return None
@@ -517,7 +552,7 @@ def _get_named_custom_provider(requested_provider: str) -> Optional[Dict[str, An
                 return None
 
     config = load_config()
-    
+
     # First check providers: dict (new-style user-defined providers)
     providers = config.get("providers")
     if isinstance(providers, dict):
@@ -528,14 +563,17 @@ def _get_named_custom_provider(requested_provider: str) -> Optional[Dict[str, An
             name_norm = _normalize_custom_provider_name(ep_name)
             # Resolve the API key from the env var name stored in key_env
             key_env = str(entry.get("key_env", "") or "").strip()
-            resolved_api_key = os.getenv(key_env, "").strip() if key_env else ""
-            # Fall back to inline api_key when key_env is absent or unresolvable
+            resolved_api_key = os.getenv(
+                key_env, "").strip() if key_env else ""
+            # Fall back to inline api_key when key_env is absent or
+            # unresolvable
             if not resolved_api_key:
                 resolved_api_key = str(entry.get("api_key", "") or "").strip()
 
             if requested_norm in {ep_name, name_norm, f"custom:{name_norm}"}:
                 # Found match by provider key
-                base_url = entry.get("api") or entry.get("url") or entry.get("base_url") or ""
+                base_url = entry.get("api") or entry.get(
+                    "url") or entry.get("base_url") or ""
                 if base_url:
                     result = {
                         "name": entry.get("name", ep_name),
@@ -553,7 +591,8 @@ def _get_named_custom_provider(requested_provider: str) -> Optional[Dict[str, An
                     # already does, so without this lift every migrated config
                     # silently downgrades codex_responses / anthropic_messages
                     # providers to chat_completions in the resolved runtime.
-                    api_mode = _parse_api_mode(entry.get("api_mode") or entry.get("transport"))
+                    api_mode = _parse_api_mode(
+                        entry.get("api_mode") or entry.get("transport"))
                     if api_mode:
                         result["api_mode"] = api_mode
                     _lift_max_output_tokens(entry, result)
@@ -562,9 +601,11 @@ def _get_named_custom_provider(requested_provider: str) -> Optional[Dict[str, An
             display_name = entry.get("name", "")
             if display_name:
                 display_norm = _normalize_custom_provider_name(display_name)
-                if requested_norm in {display_name, display_norm, f"custom:{display_norm}"}:
+                if requested_norm in {display_name,
+                                      display_norm, f"custom:{display_norm}"}:
                     # Found match by display name
-                    base_url = entry.get("api") or entry.get("url") or entry.get("base_url") or ""
+                    base_url = entry.get("api") or entry.get(
+                        "url") or entry.get("base_url") or ""
                     if base_url:
                         result = {
                             "name": display_name,
@@ -575,7 +616,8 @@ def _get_named_custom_provider(requested_provider: str) -> Optional[Dict[str, An
                         extra_body = entry.get("extra_body")
                         if isinstance(extra_body, dict):
                             result["extra_body"] = dict(extra_body)
-                        api_mode = _parse_api_mode(entry.get("api_mode") or entry.get("transport"))
+                        api_mode = _parse_api_mode(
+                            entry.get("api_mode") or entry.get("transport"))
                         if api_mode:
                             result["api_mode"] = api_mode
                         _lift_max_output_tokens(entry, result)
@@ -605,9 +647,11 @@ def _get_named_custom_provider(requested_provider: str) -> Optional[Dict[str, An
         name_norm = _normalize_custom_provider_name(name)
         menu_key = f"custom:{name_norm}"
         provider_key = str(entry.get("provider_key", "") or "").strip()
-        provider_key_norm = _normalize_custom_provider_name(provider_key) if provider_key else ""
+        provider_key_norm = _normalize_custom_provider_name(
+            provider_key) if provider_key else ""
         provider_menu_key = f"custom:{provider_key_norm}" if provider_key_norm else ""
-        if requested_norm not in {name_norm, menu_key, provider_key_norm, provider_menu_key}:
+        if requested_norm not in {name_norm, menu_key,
+                                  provider_key_norm, provider_menu_key}:
             continue
         result = {
             "name": name.strip(),
@@ -634,7 +678,8 @@ def _get_named_custom_provider(requested_provider: str) -> Optional[Dict[str, An
     return None
 
 
-def _custom_provider_request_overrides(custom_provider: Dict[str, Any]) -> Dict[str, Any]:
+def _custom_provider_request_overrides(
+        custom_provider: Dict[str, Any]) -> Dict[str, Any]:
     extra_body = custom_provider.get("extra_body")
     if not isinstance(extra_body, dict) or not extra_body:
         return {}
@@ -673,13 +718,16 @@ def _resolve_named_custom_runtime(
         if pool_result:
             pool_result["source"] = "direct-alias"
             return pool_result
-        _da_is_openai_url   = base_url_host_matches(base_url, "openai.com") or base_url_host_matches(base_url, "openai.azure.com")
-        _da_is_openrouter   = base_url_host_matches(base_url, "openrouter.ai")
+        _da_is_openai_url = base_url_host_matches(
+            base_url, "openai.com") or base_url_host_matches(
+            base_url, "openai.azure.com")
+        _da_is_openrouter = base_url_host_matches(base_url, "openrouter.ai")
         api_key_candidates = [
             (explicit_api_key or "").strip(),
             # Gate env key fallbacks on authoritative hosts (#28660)
-            (os.getenv("OPENAI_API_KEY", "").strip()     if _da_is_openai_url else ""),
-            (os.getenv("OPENROUTER_API_KEY", "").strip() if _da_is_openrouter  else ""),
+            (os.getenv("OPENAI_API_KEY", "").strip() if _da_is_openai_url else ""),
+            (os.getenv("OPENROUTER_API_KEY", "").strip()
+             if _da_is_openrouter else ""),
             # Bonus (#28660): derive `<VENDOR>_API_KEY` from the host so users
             # who set DEEPSEEK_API_KEY / GROQ_API_KEY / MISTRAL_API_KEY get the
             # intuitive match without configuring `custom_providers` first.
@@ -710,7 +758,11 @@ def _resolve_named_custom_runtime(
         return None
 
     # Check if a credential pool exists for this custom endpoint
-    pool_result = _try_resolve_from_custom_pool(base_url, "custom", custom_provider.get("api_mode"), provider_name=custom_provider.get("name"))
+    pool_result = _try_resolve_from_custom_pool(
+        base_url,
+        "custom",
+        custom_provider.get("api_mode"),
+        provider_name=custom_provider.get("name"))
     if pool_result:
         # Propagate the model name even when using pooled credentials —
         # the pool doesn't know about the custom_providers model field.
@@ -727,21 +779,26 @@ def _resolve_named_custom_runtime(
             }
         return pool_result
 
-    _cp_is_openai_url   = base_url_host_matches(base_url, "openai.com") or base_url_host_matches(base_url, "openai.azure.com")
-    _cp_is_openrouter   = base_url_host_matches(base_url, "openrouter.ai")
+    _cp_is_openai_url = base_url_host_matches(
+        base_url, "openai.com") or base_url_host_matches(
+        base_url, "openai.azure.com")
+    _cp_is_openrouter = base_url_host_matches(base_url, "openrouter.ai")
     api_key_candidates = [
         (explicit_api_key or "").strip(),
         str(custom_provider.get("api_key", "") or "").strip(),
-        os.getenv(str(custom_provider.get("key_env", "") or "").strip(), "").strip(),
+        os.getenv(str(custom_provider.get("key_env", "")
+                  or "").strip(), "").strip(),
         # Gate provider env keys on their authoritative hosts — sending
         # OPENAI_API_KEY to a local-llm endpoint leaks credentials (#28660).
-        (os.getenv("OPENAI_API_KEY", "").strip()     if _cp_is_openai_url  else ""),
-        (os.getenv("OPENROUTER_API_KEY", "").strip() if _cp_is_openrouter  else ""),
+        (os.getenv("OPENAI_API_KEY", "").strip() if _cp_is_openai_url else ""),
+        (os.getenv("OPENROUTER_API_KEY", "").strip() if _cp_is_openrouter else ""),
         # Bonus (#28660): derive `<VENDOR>_API_KEY` from the host as a final
         # fallback when key_env wasn't set explicitly.
         _host_derived_api_key(base_url),
     ]
-    api_key = next((candidate for candidate in api_key_candidates if has_usable_secret(candidate)), "")
+    api_key = next(
+        (candidate for candidate in api_key_candidates if has_usable_secret(candidate)),
+        "")
 
     result = {
         "provider": "custom",
@@ -771,8 +828,10 @@ def _resolve_openrouter_runtime(
     explicit_base_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     model_cfg = _get_model_config()
-    cfg_base_url = model_cfg.get("base_url") if isinstance(model_cfg.get("base_url"), str) else ""
-    cfg_provider = model_cfg.get("provider") if isinstance(model_cfg.get("provider"), str) else ""
+    cfg_base_url = model_cfg.get("base_url") if isinstance(
+        model_cfg.get("base_url"), str) else ""
+    cfg_provider = model_cfg.get("provider") if isinstance(
+        model_cfg.get("provider"), str) else ""
     cfg_api_key = ""
     for k in ("api_key", "api"):
         v = model_cfg.get(k)
@@ -847,9 +906,9 @@ def _resolve_openrouter_runtime(
         # "ollama.com" (e.g. http://127.0.0.1/ollama.com/v1) or whose
         # hostname is a look-alike (ollama.com.attacker.test) must not
         # receive the Ollama credential. See GHSA-76xc-57q6-vm5m.
-        _is_ollama_url    = base_url_host_matches(base_url, "ollama.com")
-        _is_openai_url    = base_url_host_matches(base_url, "openai.com")
-        _is_openai_azure  = base_url_host_matches(base_url, "openai.azure.com")
+        _is_ollama_url = base_url_host_matches(base_url, "ollama.com")
+        _is_openai_url = base_url_host_matches(base_url, "openai.com")
+        _is_openai_azure = base_url_host_matches(base_url, "openai.azure.com")
         # Gate each provider key on its own host — sending OPENAI_API_KEY or
         # OPENROUTER_API_KEY to an unrelated custom endpoint (DeepSeek, Groq,
         # Mistral, …) leaks credentials and causes 401s (issue #28660).
@@ -857,9 +916,10 @@ def _resolve_openrouter_runtime(
         api_key_candidates = [
             explicit_api_key,
             (cfg_api_key if use_config_base_url else ""),
-            (os.getenv("OLLAMA_API_KEY")     if _is_ollama_url                       else ""),
-            (os.getenv("OPENAI_API_KEY")     if (_is_openai_url or _is_openai_azure) else ""),
-            (os.getenv("OPENROUTER_API_KEY") if _is_openrouter_url                   else ""),
+            (os.getenv("OLLAMA_API_KEY") if _is_ollama_url else ""),
+            (os.getenv("OPENAI_API_KEY") if (
+                _is_openai_url or _is_openai_azure) else ""),
+            (os.getenv("OPENROUTER_API_KEY") if _is_openrouter_url else ""),
             # Bonus (#28660): derive `<VENDOR>_API_KEY` from the host so users
             # who set DEEPSEEK_API_KEY / GROQ_API_KEY / MISTRAL_API_KEY get the
             # intuitive match. Helper returns "" for IPs/loopback and for env
@@ -867,11 +927,13 @@ def _resolve_openrouter_runtime(
             _host_derived_api_key(base_url),
         ]
     api_key = next(
-        (str(candidate or "").strip() for candidate in api_key_candidates if has_usable_secret(candidate)),
+        (str(candidate or "").strip()
+         for candidate in api_key_candidates if has_usable_secret(candidate)),
         "",
     )
 
-    source = "explicit" if (explicit_api_key or explicit_base_url) else "env/config"
+    source = "explicit" if (
+        explicit_api_key or explicit_base_url) else "env/config"
 
     # When "custom" was explicitly requested, preserve that as the provider
     # name instead of silently relabeling to "openrouter" (#2562).
@@ -882,9 +944,11 @@ def _resolve_openrouter_runtime(
     # For custom endpoints, check if a credential pool exists
     if effective_provider == "custom" and base_url:
         # Pass requested_provider so pool lookup prefers name match over base_url,
-        # fixing credential mix-ups when multiple custom providers share a base_url.
+        # fixing credential mix-ups when multiple custom providers share a
+        # base_url.
         pool_result = _try_resolve_from_custom_pool(
-            base_url, effective_provider, _parse_api_mode(model_cfg.get("api_mode")),
+            base_url, effective_provider, _parse_api_mode(
+                model_cfg.get("api_mode")),
             provider_name=requested_provider if requested_norm != "custom" else None,
         )
         if pool_result:
@@ -940,8 +1004,10 @@ def _resolve_azure_foundry_runtime(
     cfg_entra: Dict[str, Any] = {}
     if cfg_provider == "azure-foundry":
         cfg_base_url = str(model_cfg.get("base_url") or "").strip().rstrip("/")
-        cfg_api_mode = _parse_api_mode(model_cfg.get("api_mode")) or "chat_completions"
-        cfg_auth_mode = str(model_cfg.get("auth_mode") or "api_key").strip().lower() or "api_key"
+        cfg_api_mode = _parse_api_mode(
+            model_cfg.get("api_mode")) or "chat_completions"
+        cfg_auth_mode = str(model_cfg.get("auth_mode")
+                            or "api_key").strip().lower() or "api_key"
         _entra = model_cfg.get("entra")
         if isinstance(_entra, dict):
             cfg_entra = _entra
@@ -951,7 +1017,8 @@ def _resolve_azure_foundry_runtime(
     # against them returns 400 "The requested operation is unsupported."
     # Upgrade api_mode when the model name matches, unless the user has
     # explicitly chosen anthropic_messages (Anthropic-style endpoint).
-    effective_model = str(target_model or model_cfg.get("default") or "").strip()
+    effective_model = str(
+        target_model or model_cfg.get("default") or "").strip()
     if effective_model and cfg_api_mode != "anthropic_messages":
         try:
             from nastech_cli.models import azure_foundry_model_api_mode
@@ -999,8 +1066,8 @@ def _resolve_azure_foundry_runtime(
         else:
             try:
                 from agent.azure_identity_adapter import (
-                    EntraIdentityConfig,
                     SCOPE_AI_AZURE_DEFAULT,
+                    EntraIdentityConfig,
                     build_token_provider,
                 )
             except Exception as exc:
@@ -1061,7 +1128,8 @@ def _resolve_azure_foundry_runtime(
             "'Microsoft Entra ID' in 'nastech model')."
         )
 
-    source = "explicit" if (explicit_api_key or explicit_base_url) else "config"
+    source = "explicit" if (
+        explicit_api_key or explicit_base_url) else "config"
     return {
         "provider": "azure-foundry",
         "api_mode": cfg_api_mode,
@@ -1090,7 +1158,8 @@ def _resolve_explicit_runtime(
         cfg_provider = str(model_cfg.get("provider") or "").strip().lower()
         cfg_base_url = ""
         if cfg_provider == "anthropic":
-            cfg_base_url = str(model_cfg.get("base_url") or "").strip().rstrip("/")
+            cfg_base_url = str(model_cfg.get("base_url")
+                               or "").strip().rstrip("/")
         base_url = explicit_base_url or cfg_base_url or "https://api.anthropic.com"
         api_key = explicit_api_key
         if not api_key:
@@ -1148,10 +1217,14 @@ def _resolve_explicit_runtime(
             )
             else ""
         )
-        expires_at = state.get("agent_key_expires_at") or state.get("expires_at")
+        expires_at = state.get(
+            "agent_key_expires_at") or state.get("expires_at")
         if not api_key:
             creds = resolve_nastech_runtime_credentials(
-                timeout_seconds=float(os.getenv("NASTECH_NASTECH_TIMEOUT_SECONDS", "15")),
+                timeout_seconds=float(
+                    os.getenv(
+                        "NASTECH_NASTECH_TIMEOUT_SECONDS",
+                        "15")),
             )
             api_key = creds.get("api_key", "")
             expires_at = creds.get("expires_at")
@@ -1180,7 +1253,9 @@ def _resolve_explicit_runtime(
     if pconfig and pconfig.auth_type == "api_key":
         env_url = ""
         if pconfig.base_url_env_var:
-            env_url = os.getenv(pconfig.base_url_env_var, "").strip().rstrip("/")
+            env_url = os.getenv(
+                pconfig.base_url_env_var,
+                "").strip().rstrip("/")
 
         base_url = explicit_base_url
         if not base_url:
@@ -1343,14 +1418,19 @@ def resolve_runtime_provider(
         # expired, clear pool_api_key so we fall through to
         # resolve_nastech_runtime_credentials() which handles refresh.
         if provider == "nous" and entry is not None and pool_api_key:
-            min_ttl = max(60, env_int("NASTECH_NASTECH_MIN_KEY_TTL_SECONDS", 1800))
+            min_ttl = max(
+                60,
+                env_int(
+                    "NASTECH_NASTECH_MIN_KEY_TTL_SECONDS",
+                    1800))
             nastech_state = {
                 "agent_key": getattr(entry, "agent_key", None),
                 "agent_key_expires_at": getattr(entry, "agent_key_expires_at", None),
                 "scope": getattr(entry, "scope", None),
             }
             if not _agent_key_is_usable(nastech_state, min_ttl):
-                logger.debug("Nous pool entry agent_key expired/missing, falling through to runtime resolution")
+                logger.debug(
+                    "Nous pool entry agent_key expired/missing, falling through to runtime resolution")
                 pool_api_key = ""
         if entry is not None and pool_api_key:
             return _resolve_runtime_from_pool_entry(
@@ -1365,7 +1445,10 @@ def resolve_runtime_provider(
     if provider == "nous":
         try:
             creds = resolve_nastech_runtime_credentials(
-                timeout_seconds=float(os.getenv("NASTECH_NASTECH_TIMEOUT_SECONDS", "15")),
+                timeout_seconds=float(
+                    os.getenv(
+                        "NASTECH_NASTECH_TIMEOUT_SECONDS",
+                        "15")),
             )
             return {
                 "provider": "nous",
@@ -1495,7 +1578,8 @@ def resolve_runtime_provider(
         cfg_provider = str(model_cfg.get("provider") or "").strip().lower()
         cfg_base_url = ""
         if cfg_provider == "anthropic":
-            cfg_base_url = (model_cfg.get("base_url") or "").strip().rstrip("/")
+            cfg_base_url = (model_cfg.get("base_url")
+                            or "").strip().rstrip("/")
         base_url = cfg_base_url or "https://api.anthropic.com"
 
         # For Microsoft Foundry endpoints, use ANTHROPIC_API_KEY directly —
@@ -1513,7 +1597,8 @@ def resolve_runtime_provider(
             # chain.  Accept both `key_env` (NasTech canonical — matches the
             # custom_providers field name) and `api_key_env` (documented in the
             # Azure Foundry guide and read by most NasTech-compatible importers).
-            # Matches the config.yaml examples in website/docs/guides/azure-foundry.md.
+            # Matches the config.yaml examples in
+            # website/docs/guides/azure-foundry.md.
             token = ""
             for hint_key in ("key_env", "api_key_env"):
                 env_var = str(model_cfg.get(hint_key) or "").strip()
@@ -1558,15 +1643,17 @@ def resolve_runtime_provider(
     if provider == "bedrock":
         from agent.bedrock_adapter import (
             has_aws_credentials,
+            is_anthropic_bedrock_model,
             resolve_aws_auth_env_var,
             resolve_bedrock_region,
-            is_anthropic_bedrock_model,
         )
+
         # When the user explicitly selected bedrock (not auto-detected),
         # trust boto3's credential chain — it handles IMDS, ECS task roles,
         # Lambda execution roles, SSO, and other implicit sources that our
         # env-var check can't detect.
-        is_explicit = requested_provider in {"bedrock", "aws", "aws-bedrock", "amazon-bedrock", "amazon"}
+        is_explicit = requested_provider in {
+            "bedrock", "aws", "aws-bedrock", "amazon-bedrock", "amazon"}
         if not is_explicit and not has_aws_credentials():
             raise AuthError(
                 "No AWS credentials found for Bedrock. Configure one of:\n"
@@ -1579,7 +1666,8 @@ def resolve_runtime_provider(
         # Read bedrock-specific config from config.yaml
         _bedrock_cfg = load_config().get("bedrock", {})
         # Region priority: config.yaml bedrock.region → env var → us-east-1
-        region = (_bedrock_cfg.get("region") or "").strip() or resolve_bedrock_region()
+        region = (_bedrock_cfg.get("region")
+                  or "").strip() or resolve_bedrock_region()
         auth_source = resolve_aws_auth_env_var() or "aws-sdk-default-chain"
         # Build guardrail config if configured
         _gr = _bedrock_cfg.get("guardrail", {})
@@ -1598,7 +1686,8 @@ def resolve_runtime_provider(
         # Non-Claude models use the Converse API for multi-model support.
         _current_model = str(model_cfg.get("default") or "").strip()
         if is_anthropic_bedrock_model(_current_model):
-            # Claude on Bedrock → AnthropicBedrock SDK → anthropic_messages path
+            # Claude on Bedrock → AnthropicBedrock SDK → anthropic_messages
+            # path
             runtime = {
                 "provider": "bedrock",
                 "api_mode": "anthropic_messages",
@@ -1635,16 +1724,20 @@ def resolve_runtime_provider(
         cfg_provider = str(model_cfg.get("provider") or "").strip().lower()
         cfg_base_url = ""
         if cfg_provider == provider:
-            cfg_base_url = (model_cfg.get("base_url") or "").strip().rstrip("/")
+            cfg_base_url = (model_cfg.get("base_url")
+                            or "").strip().rstrip("/")
         base_url = cfg_base_url or creds.get("base_url", "").rstrip("/")
         api_mode = "chat_completions"
         if provider == "copilot":
-            api_mode = _copilot_runtime_api_mode(model_cfg, creds.get("api_key", ""))
+            api_mode = _copilot_runtime_api_mode(
+                model_cfg, creds.get("api_key", ""))
         elif provider == "xai":
             api_mode = "codex_responses"
         else:
-            configured_provider = str(model_cfg.get("provider") or "").strip().lower()
-            # Only honor persisted api_mode when it belongs to the same provider family.
+            configured_provider = str(
+                model_cfg.get("provider") or "").strip().lower()
+            # Only honor persisted api_mode when it belongs to the same
+            # provider family.
             configured_mode = _parse_api_mode(model_cfg.get("api_mode"))
             if provider in {"opencode-zen", "opencode-go"}:
                 # opencode-zen/go must always re-derive api_mode from the
@@ -1663,12 +1756,14 @@ def resolve_runtime_provider(
             else:
                 # Auto-detect Anthropic-compatible endpoints by URL convention
                 # (e.g. https://api.minimax.io/anthropic, https://dashscope.../anthropic)
-                # plus api.openai.com → codex_responses and api.x.ai → codex_responses.
+                # plus api.openai.com → codex_responses and api.x.ai →
+                # codex_responses.
                 detected = _detect_api_mode_for_url(base_url)
                 if detected:
                     api_mode = detected
         # Strip trailing /v1 for OpenCode Anthropic models (see comment above).
-        if api_mode == "anthropic_messages" and provider in {"opencode-zen", "opencode-go"}:
+        if api_mode == "anthropic_messages" and provider in {
+                "opencode-zen", "opencode-go"}:
             base_url = re.sub(r"/v1/?$", "", base_url)
         return {
             "provider": provider,

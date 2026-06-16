@@ -20,13 +20,23 @@ Pricing shown in UI strings is as-of the initial commit; we accept drift and
 update when it's noticed.
 """
 
+import datetime
 import json
 import logging
 import os
-import datetime
 import threading
 import uuid
 from typing import Any, Dict, Optional
+
+from tools.debug_helpers import DebugSession
+from tools.managed_tool_gateway import resolve_managed_tool_gateway
+from tools.registry import registry, tool_error
+from tools.tool_backend_helpers import (
+    fal_key_is_configured,
+    managed_nastech_tools_enabled,
+    nastech_tool_gateway_unavailable_message,
+    prefers_gateway,
+)
 
 # fal_client is imported lazily — see _load_fal_client(). Pulling it
 # eagerly added ~64 ms to every CLI cold start because
@@ -56,18 +66,12 @@ def _load_fal_client() -> Any:
     return fal_client
 
 
-from tools.debug_helpers import DebugSession
-from tools.fal_common import (
-    _ManagedFalSyncClient,
-    _extract_http_status,
-    _normalize_fal_queue_url_format,  # noqa: F401 — re-exported for tests
+from tools.fal_common import (  # noqa: F401 — re-exported for tests
+    _normalize_fal_queue_url_format,
 )
-from tools.managed_tool_gateway import resolve_managed_tool_gateway
-from tools.tool_backend_helpers import (
-    fal_key_is_configured,
-    managed_nastech_tools_enabled,
-    nastech_tool_gateway_unavailable_message,
-    prefers_gateway,
+from tools.fal_common import (
+    _extract_http_status,
+    _ManagedFalSyncClient,
 )
 
 logger = logging.getLogger(__name__)
@@ -185,7 +189,8 @@ FAL_MODELS: Dict[str, Dict[str, Any]] = {
             "output_format": "png",
             "safety_tolerance": "5",
             # "1K" is the cheapest tier; 4K doubles the per-image cost.
-            # Users on Nous Subscription should stay at 1K for predictable billing.
+            # Users on Nous Subscription should stay at 1K for predictable
+            # billing.
             "resolution": "1K",
         },
         "supports": {
@@ -285,7 +290,8 @@ FAL_MODELS: Dict[str, Dict[str, Any]] = {
             "portrait": "portrait_16_9",
         },
         "defaults": {
-            # V4 Pro dropped V3's required `style` enum — defaults handle taste now.
+            # V4 Pro dropped V3's required `style` enum — defaults handle taste
+            # now.
             "enable_safety_checker": False,
         },
         "supports": {
@@ -437,7 +443,8 @@ def _submit_fal_request(model: str, arguments: Dict[str, Any]):
     request_headers = {"x-idempotency-key": str(uuid.uuid4())}
     managed_gateway = _resolve_managed_fal_gateway()
     if managed_gateway is None:
-        return fal_client.submit(model, arguments=arguments, headers=request_headers)
+        return fal_client.submit(
+            model, arguments=arguments, headers=request_headers)
 
     managed_client = _get_managed_fal_client(managed_gateway)
     try:
@@ -557,7 +564,8 @@ def _build_fal_payload(
 # ---------------------------------------------------------------------------
 # Upscaler
 # ---------------------------------------------------------------------------
-def _upscale_image(image_url: str, original_prompt: str) -> Optional[Dict[str, Any]]:
+def _upscale_image(
+        image_url: str, original_prompt: str) -> Optional[Dict[str, Any]]:
     """Upscale an image using FAL.ai's Clarity Upscaler.
 
     Returns upscaled image dict, or None on failure (caller falls back to
@@ -578,7 +586,8 @@ def _upscale_image(image_url: str, original_prompt: str) -> Optional[Dict[str, A
             "enable_safety_checker": UPSCALER_SAFETY_CHECKER,
         }
 
-        handler = _submit_fal_request(UPSCALER_MODEL, arguments=upscaler_arguments)
+        handler = _submit_fal_request(
+            UPSCALER_MODEL, arguments=upscaler_arguments)
         result = handler.get()
 
         if result and "image" in result:
@@ -640,14 +649,16 @@ def _agent_cache_base_for_env(env: Any) -> str | None:
                 if value:
                     return str(value).rstrip("/")
             except Exception as exc:  # noqa: BLE001
-                logger.debug("active env agent_visible_cache_base failed: %s", exc)
+                logger.debug(
+                    "active env agent_visible_cache_base failed: %s", exc)
 
         remote_home = getattr(env, "_remote_home", None)
         if remote_home:
             return f"{str(remote_home).rstrip('/')}/.nastech"
 
         env_name = env.__class__.__name__
-        if env_name in {"DockerEnvironment", "SingularityEnvironment", "ModalEnvironment"}:
+        if env_name in {"DockerEnvironment",
+                        "SingularityEnvironment", "ModalEnvironment"}:
             return "/root/.nastech"
 
     # If no environment has been created yet, only backends with deterministic
@@ -673,9 +684,11 @@ def _agent_visible_cache_path(host_path: str, env: Any) -> str | None:
     try:
         from tools.credential_files import map_cache_path_to_container
 
-        return map_cache_path_to_container(host_path, container_base=cache_base)
+        return map_cache_path_to_container(
+            host_path, container_base=cache_base)
     except Exception as exc:  # noqa: BLE001
-        logger.debug("Could not translate image cache path for backend: %s", exc)
+        logger.debug(
+            "Could not translate image cache path for backend: %s", exc)
     return None
 
 
@@ -686,10 +699,12 @@ def _force_artifact_sync(env: Any) -> None:
     try:
         sync_manager.sync(force=True)
     except Exception as exc:  # noqa: BLE001 - keep generation success; log for operators
-        logger.warning("Could not force-sync generated image artifact: %s", exc)
+        logger.warning(
+            "Could not force-sync generated image artifact: %s", exc)
 
 
-def _postprocess_image_generate_result(raw: str, task_id: str | None = None) -> str:
+def _postprocess_image_generate_result(
+        raw: str, task_id: str | None = None) -> str:
     """Annotate successful local image results with backend-visible paths.
 
     ``image`` remains the host/gateway-deliverable path.  When the active
@@ -762,8 +777,10 @@ def image_generate_tool(
     start_time = datetime.datetime.now()
 
     try:
-        if not prompt or not isinstance(prompt, str) or len(prompt.strip()) == 0:
-            raise ValueError("Prompt is required and must be a non-empty string")
+        if not prompt or not isinstance(
+                prompt, str) or len(prompt.strip()) == 0:
+            raise ValueError(
+                "Prompt is required and must be a non-empty string")
 
         if not (fal_key_is_configured() or _resolve_managed_fal_gateway()):
             raise ValueError(_build_no_backend_setup_message())
@@ -798,10 +815,13 @@ def image_generate_tool(
         handler = _submit_fal_request(model_id, arguments=arguments)
         result = handler.get()
 
-        generation_time = (datetime.datetime.now() - start_time).total_seconds()
+        generation_time = (
+            datetime.datetime.now() -
+            start_time).total_seconds()
 
         if not result or "images" not in result:
-            raise ValueError("Invalid response from FAL.ai API — no images returned")
+            raise ValueError(
+                "Invalid response from FAL.ai API — no images returned")
 
         images = result.get("images", [])
         if not images:
@@ -824,7 +844,8 @@ def image_generate_tool(
                 if upscaled_image:
                     formatted_images.append(upscaled_image)
                     continue
-                logger.warning("Using original image as fallback (upscale failed)")
+                logger.warning(
+                    "Using original image as fallback (upscale failed)")
 
             original_image["upscaled"] = False
             formatted_images.append(original_image)
@@ -832,7 +853,8 @@ def image_generate_tool(
         if not formatted_images:
             raise ValueError("No valid image URLs returned from API")
 
-        upscaled_count = sum(1 for img in formatted_images if img.get("upscaled"))
+        upscaled_count = sum(
+            1 for img in formatted_images if img.get("upscaled"))
         logger.info(
             "Generated %s image(s) in %.1fs (%s upscaled) via %s",
             len(formatted_images), generation_time, upscaled_count, model_id,
@@ -852,7 +874,9 @@ def image_generate_tool(
         return json.dumps(response_data, indent=2, ensure_ascii=False)
 
     except Exception as e:
-        generation_time = (datetime.datetime.now() - start_time).total_seconds()
+        generation_time = (
+            datetime.datetime.now() -
+            start_time).total_seconds()
         error_msg = f"Error generating image: {str(e)}"
         logger.error("%s", error_msg, exc_info=True)
 
@@ -982,13 +1006,28 @@ if __name__ == "__main__":
 
     model_id, meta = _resolve_fal_model()
     print(f"🤖 Active model: {meta.get('display', model_id)} ({model_id})")
-    print(f"   Speed: {meta.get('speed', '?')}  ·  Price: {meta.get('price', '?')}")
+    print(
+        f"   Speed: {
+            meta.get(
+                'speed',
+                '?')}  ·  Price: {
+            meta.get(
+                'price',
+                '?')}")
     print(f"   Upscaler: {'on' if meta.get('upscale') else 'off'}")
 
     print("\nAvailable models:")
     for mid, m in FAL_MODELS.items():
         marker = " ← active" if mid == model_id else ""
-        print(f"  {mid:<32}  {m.get('speed', '?'):<6}  {m.get('price', '?')}{marker}")
+        print(
+            f"  {
+                mid:<32}  {
+                m.get(
+                    'speed',
+                    '?'):<6}  {
+                    m.get(
+                        'price',
+                        '?')}{marker}")
 
     if _debug.active:
         print(f"\n🐛 Debug mode enabled — session {_debug.session_id}")
@@ -997,7 +1036,6 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
-from tools.registry import registry, tool_error
 
 IMAGE_GENERATE_SCHEMA = {
     "name": "image_generate",

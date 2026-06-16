@@ -82,7 +82,8 @@ def cmd_status(args: argparse.Namespace) -> int:
     if projects:
         print()
         print(f"  {'WORKDIR':<60}  {'COMMITS':>7}  {'LAST TOUCH':>12}  STATE")
-        for p in projects[: args.limit if hasattr(args, "limit") and args.limit else 20]:
+        for p in projects[: args.limit if hasattr(
+                args, "limit") and args.limit else 20]:
             wd = p.get("workdir") or "(unknown)"
             if len(wd) > 60:
                 wd = "…" + wd[-59:]
@@ -96,8 +97,13 @@ def cmd_status(args: argparse.Namespace) -> int:
     if legacy:
         print()
         print(f"Legacy archives ({len(legacy)}):")
-        for arch in sorted(legacy, key=lambda a: a.get("mtime", 0), reverse=True):
-            print(f"  {arch['name']:<40}  {_fmt_bytes(arch['size_bytes']):>10}")
+        for arch in sorted(legacy, key=lambda a: a.get(
+                "mtime", 0), reverse=True):
+            print(
+                f"  {
+                    arch['name']:<40}  {
+                    _fmt_bytes(
+                        arch['size_bytes']):>10}")
         print()
         print("Clear with: nastech checkpoints clear-legacy")
     return 0
@@ -190,7 +196,11 @@ def cmd_clear_legacy(args: argparse.Namespace) -> int:
         return 1
 
     result = clear_legacy()
-    print(f"Deleted {result['deleted']} archive(s), reclaimed {_fmt_bytes(result['bytes_freed'])}.")
+    print(
+        f"Deleted {
+            result['deleted']} archive(s), reclaimed {
+            _fmt_bytes(
+                result['bytes_freed'])}.")
     return 0
 
 

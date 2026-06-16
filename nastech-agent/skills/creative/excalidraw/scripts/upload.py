@@ -17,13 +17,13 @@ Example:
     # prints: https://excalidraw.com/#json=abc123,encryptionKeyHere
 """
 
+import base64
 import json
 import os
 import struct
 import sys
-import zlib
-import base64
 import urllib.request
+import zlib
 
 try:
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM

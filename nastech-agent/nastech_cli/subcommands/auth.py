@@ -16,7 +16,8 @@ def build_auth_parser(subparsers, *, cmd_auth: Callable) -> None:
         help="Manage pooled provider credentials",
     )
     auth_subparsers = auth_parser.add_subparsers(dest="auth_action")
-    auth_add = auth_subparsers.add_parser("add", help="Add a pooled credential")
+    auth_add = auth_subparsers.add_parser(
+        "add", help="Add a pooled credential")
     auth_add.add_argument(
         "provider",
         help="Provider id (for example: anthropic, openai-codex, openrouter)",
@@ -59,9 +60,15 @@ def build_auth_parser(subparsers, *, cmd_auth: Callable) -> None:
         action="store_true",
         help="Disable TLS verification for OAuth login",
     )
-    auth_add.add_argument("--ca-bundle", help="Custom CA bundle for OAuth login")
-    auth_list = auth_subparsers.add_parser("list", help="List pooled credentials")
-    auth_list.add_argument("provider", nargs="?", help="Optional provider filter")
+    auth_add.add_argument(
+        "--ca-bundle",
+        help="Custom CA bundle for OAuth login")
+    auth_list = auth_subparsers.add_parser(
+        "list", help="List pooled credentials")
+    auth_list.add_argument(
+        "provider",
+        nargs="?",
+        help="Optional provider filter")
     auth_remove = auth_subparsers.add_parser(
         "remove", help="Remove a pooled credential by index, id, or label"
     )
@@ -97,7 +104,8 @@ def build_auth_parser(subparsers, *, cmd_auth: Callable) -> None:
         "--redirect-uri",
         help="Allow-listed localhost redirect URI for your Spotify app",
     )
-    auth_spotify.add_argument("--scope", help="Override requested Spotify scopes")
+    auth_spotify.add_argument(
+        "--scope", help="Override requested Spotify scopes")
     auth_spotify.add_argument(
         "--no-browser",
         action="store_true",

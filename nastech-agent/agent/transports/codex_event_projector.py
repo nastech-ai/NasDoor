@@ -175,7 +175,8 @@ class CodexEventProjector:
             messages=[assistant_msg, tool_msg], is_tool_iteration=True
         )
 
-    def _project_file_change(self, item: dict, item_id: str) -> ProjectionResult:
+    def _project_file_change(self, item: dict,
+                             item_id: str) -> ProjectionResult:
         call_id = _deterministic_call_id("apply_patch", item_id)
         # Reduce the codex changes array to a digest the agent loop will
         # find readable. We record per-file change kinds (Add/Update/Delete)
@@ -214,7 +215,8 @@ class CodexEventProjector:
             messages=[assistant_msg, tool_msg], is_tool_iteration=True
         )
 
-    def _project_mcp_tool_call(self, item: dict, item_id: str) -> ProjectionResult:
+    def _project_mcp_tool_call(self, item: dict,
+                               item_id: str) -> ProjectionResult:
         server = item.get("server") or "mcp"
         tool = item.get("tool") or "unknown"
         call_id = _deterministic_call_id(f"mcp_{server}_{tool}", item_id)

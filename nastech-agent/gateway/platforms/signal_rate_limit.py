@@ -28,12 +28,17 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-SIGNAL_MAX_ATTACHMENTS_PER_MSG = 32  # per-message attachment cap (source: Signal-{Android,Desktop} source code)
-SIGNAL_RATE_LIMIT_BUCKET_CAPACITY = 50  # server-side token-bucket capacity for attachments rate limiting
-SIGNAL_RATE_LIMIT_DEFAULT_RETRY_AFTER = 4  # fallback token refill interval for signal-cli < v0.14.3
+# per-message attachment cap (source: Signal-{Android,Desktop} source code)
+SIGNAL_MAX_ATTACHMENTS_PER_MSG = 32
+# server-side token-bucket capacity for attachments rate limiting
+SIGNAL_RATE_LIMIT_BUCKET_CAPACITY = 50
+# fallback token refill interval for signal-cli < v0.14.3
+SIGNAL_RATE_LIMIT_DEFAULT_RETRY_AFTER = 4
 SIGNAL_RATE_LIMIT_MAX_ATTEMPTS = 2  # initial attempt + 1 retry
-SIGNAL_BATCH_PACING_NOTICE_THRESHOLD = 10.0  # if estimated waiting time > 10s, notify the user about the delay
-SIGNAL_RPC_ERROR_RATELIMIT = -5  # signal-cli (v0.14.3+) JSON-RPC error code for RateLimitException
+# if estimated waiting time > 10s, notify the user about the delay
+SIGNAL_BATCH_PACING_NOTICE_THRESHOLD = 10.0
+# signal-cli (v0.14.3+) JSON-RPC error code for RateLimitException
+SIGNAL_RPC_ERROR_RATELIMIT = -5
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +55,8 @@ class SignalRateLimitError(Exception):
     ``retry_after`` is None when the version doesn't expose it.
     """
 
-    def __init__(self, message: str, retry_after: Optional[float] = None) -> None:
+    def __init__(self, message: str,
+                 retry_after: Optional[float] = None) -> None:
         super().__init__(message)
         self.retry_after = retry_after
 
@@ -64,11 +70,14 @@ class SignalSchedulerError(Exception):
 # leaked through AttachmentInvalidException).
 # ---------------------------------------------------------------------------
 
+
 # "Retry after 4 seconds" / "retry after 4 second" — libsignal-net's
 # RetryLaterException string form, surfaced when 429s hit during
 # attachment upload (signal-cli wraps these as AttachmentInvalidException
 # rather than RateLimitException, so the typed path doesn't fire).
-_RETRY_AFTER_RE = re.compile(r"Retry after (\d+(?:\.\d+)?)\s*second", re.IGNORECASE)
+_RETRY_AFTER_RE = re.compile(
+    r"Retry after (\d+(?:\.\d+)?)\s*second",
+    re.IGNORECASE)
 
 
 def _extract_retry_after_seconds(err: Any) -> Optional[float]:
@@ -180,7 +189,8 @@ class SignalAttachmentScheduler:
     def __init__(
         self,
         capacity: float = float(SIGNAL_RATE_LIMIT_BUCKET_CAPACITY),
-        default_retry_after: float = float(SIGNAL_RATE_LIMIT_DEFAULT_RETRY_AFTER),
+        default_retry_after: float = float(
+            SIGNAL_RATE_LIMIT_DEFAULT_RETRY_AFTER),
     ) -> None:
         self.capacity = float(capacity)
         self.tokens = float(capacity)
@@ -196,7 +206,11 @@ class SignalAttachmentScheduler:
         now = time.monotonic()
         elapsed = now - self.last_refill
         if elapsed > 0 and self.tokens < self.capacity:
-            self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
+            self.tokens = min(
+                self.capacity,
+                self.tokens +
+                elapsed *
+                self.refill_rate)
         self.last_refill = now
 
     # ------------------------------------------------------------------
@@ -214,7 +228,11 @@ class SignalAttachmentScheduler:
         elapsed = now - self.last_refill
         projected = self.tokens
         if elapsed > 0 and projected < self.capacity:
-            projected = min(self.capacity, projected + elapsed * self.refill_rate)
+            projected = min(
+                self.capacity,
+                projected +
+                elapsed *
+                self.refill_rate)
         deficit = n - projected
         if deficit <= 0:
             return 0.0
@@ -271,7 +289,8 @@ class SignalAttachmentScheduler:
             await asyncio.sleep(wait)
             total_slept += wait
 
-    async def report_rpc_duration(self, rpc_duration: float, n_attachments: int) -> None:
+    async def report_rpc_duration(
+            self, rpc_duration: float, n_attachments: int) -> None:
         """Record an attachment-send RPC that just completed.
 
         Deducts ``n_attachments`` tokens without crediting refill during
@@ -332,7 +351,11 @@ class SignalAttachmentScheduler:
         elapsed = now - self.last_refill
         projected = self.tokens
         if elapsed > 0 and projected < self.capacity:
-            projected = min(self.capacity, projected + elapsed * self.refill_rate)
+            projected = min(
+                self.capacity,
+                projected +
+                elapsed *
+                self.refill_rate)
         return {
             "tokens": round(projected, 1),
             "capacity": int(self.capacity),

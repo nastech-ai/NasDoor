@@ -140,13 +140,16 @@ class MemoryProvider(ABC):
         Return empty list if this provider has no tools (context-only).
         """
 
-    def handle_tool_call(self, tool_name: str, args: Dict[str, Any], **kwargs) -> str:
+    def handle_tool_call(self, tool_name: str,
+                         args: Dict[str, Any], **kwargs) -> str:
         """Handle a tool call for one of this provider's tools.
 
         Must return a JSON string (the tool result).
         Only called for tool names returned by get_tool_schemas().
         """
-        raise NotImplementedError(f"Provider {self.name} does not handle tool {tool_name}")
+        raise NotImplementedError(
+            f"Provider {
+                self.name} does not handle tool {tool_name}")
 
     def shutdown(self) -> None:
         """Clean shutdown — flush queues, close connections."""

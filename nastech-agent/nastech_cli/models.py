@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import json
 import os
-import urllib.request
-import urllib.error
 import time
+import urllib.error
+import urllib.request
 from difflib import get_close_matches
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
@@ -33,56 +33,55 @@ COPILOT_REASONING_EFFORTS_O_SERIES = ["low", "medium", "high"]
 # (model_id, display description shown in menus)
 OPENROUTER_MODELS: list[tuple[str, str]] = [
     # Anthropic
-    ("anthropic/claude-opus-4.8",              ""),
-    ("anthropic/claude-opus-4.8-fast",         "2x price, higher output speed"),
-    ("anthropic/claude-sonnet-4.6",            ""),
-    ("anthropic/claude-haiku-4.5",             ""),
+    ("anthropic/claude-opus-4.8", ""),
+    ("anthropic/claude-opus-4.8-fast", "2x price, higher output speed"),
+    ("anthropic/claude-sonnet-4.6", ""),
+    ("anthropic/claude-haiku-4.5", ""),
     # OpenAI
-    ("openai/gpt-5.5",                         ""),
-    ("openai/gpt-5.5-pro",                     ""),
-    ("openai/gpt-5.4-mini",                    ""),
+    ("openai/gpt-5.5", ""),
+    ("openai/gpt-5.5-pro", ""),
+    ("openai/gpt-5.4-mini", ""),
     # Google
-    ("google/gemini-3-pro-preview",            ""),
-    ("google/gemini-3.1-pro-preview",          ""),
-    ("google/gemini-3.5-flash",                ""),
+    ("google/gemini-3-pro-preview", ""),
+    ("google/gemini-3.1-pro-preview", ""),
+    ("google/gemini-3.5-flash", ""),
     # xAI
-    ("x-ai/grok-4.3",                          ""),
+    ("x-ai/grok-4.3", ""),
     # DeepSeek
-    ("deepseek/deepseek-v4-pro",               ""),
-    ("deepseek/deepseek-v4-flash",             ""),
+    ("deepseek/deepseek-v4-pro", ""),
+    ("deepseek/deepseek-v4-flash", ""),
     # Qwen
-    ("qwen/qwen3.7-max",                       ""),
-    ("qwen/qwen3.7-plus",                      ""),
-    ("qwen/qwen3.6-35b-a3b",                   ""),
+    ("qwen/qwen3.7-max", ""),
+    ("qwen/qwen3.7-plus", ""),
+    ("qwen/qwen3.6-35b-a3b", ""),
     # MoonshotAI
-    ("moonshotai/kimi-k2.6",                   "recommended"),
+    ("moonshotai/kimi-k2.6", "recommended"),
     # MiniMax
-    ("minimax/minimax-m3",                     ""),
+    ("minimax/minimax-m3", ""),
     # Z-AI
-    ("z-ai/glm-5.1",                           ""),
+    ("z-ai/glm-5.1", ""),
     # Xiaomi
-    ("xiaomi/mimo-v2.5-pro",                   ""),
+    ("xiaomi/mimo-v2.5-pro", ""),
     # Tencent
-    ("tencent/hy3-preview",                    ""),
+    ("tencent/hy3-preview", ""),
     # StepFun
-    ("stepfun/step-3.7-flash",                 ""),
+    ("stepfun/step-3.7-flash", ""),
     # NVIDIA
-    ("nvidia/nemotron-3-super-120b-a12b",      ""),
+    ("nvidia/nemotron-3-super-120b-a12b", ""),
     # OpenRouter routers
-    ("openrouter/pareto-code",                 "auto-routes to cheapest coder meeting openrouter.min_coding_score"),
+    ("openrouter/pareto-code",
+     "auto-routes to cheapest coder meeting openrouter.min_coding_score"),
     # Free tier
-    ("openrouter/elephant-alpha",              "free"),
-    ("openrouter/owl-alpha",                   "free"),
-    ("poolside/laguna-m.1:free",               "free"),
-    ("tencent/hy3-preview:free",               "free"),
+    ("openrouter/elephant-alpha", "free"),
+    ("openrouter/owl-alpha", "free"),
+    ("poolside/laguna-m.1:free", "free"),
+    ("tencent/hy3-preview:free", "free"),
     ("nvidia/nemotron-3-super-120b-a12b:free", "free"),
     ("nvidia/nemotron-3-ultra-550b-a55b:free", "free"),
-    ("inclusionai/ring-2.6-1t:free",           "free"),
+    ("inclusionai/ring-2.6-1t:free", "free"),
 ]
 
 _openrouter_catalog_cache: list[tuple[str, str]] | None = None
-
-
 
 
 def _codex_curated_models() -> list[str]:
@@ -92,7 +91,10 @@ def _codex_curated_models() -> list[str]:
     This keeps the gateway /model picker in sync with the CLI `nastech model`
     flow without maintaining a separate static list.
     """
-    from nastech_cli.codex_models import DEFAULT_CODEX_MODELS, _add_forward_compat_models
+    from nastech_cli.codex_models import (
+        DEFAULT_CODEX_MODELS,
+        _add_forward_compat_models,
+    )
     return _add_forward_compat_models(list(DEFAULT_CODEX_MODELS))
 
 
@@ -452,7 +454,8 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
         "glm-4.7",
         "MiniMax-M2.5",
     ],
-    # Curated HF model list — only agentic models that map to OpenRouter defaults.
+    # Curated HF model list — only agentic models that map to OpenRouter
+    # defaults.
     "huggingface": [
         "moonshotai/Kimi-K2.5",
         "Qwen/Qwen3.5-397B-A17B",
@@ -507,7 +510,8 @@ def _is_model_free(model_id: str, pricing: dict[str, dict[str, str]]) -> bool:
     if not p:
         return False
     try:
-        return float(p.get("prompt", "1")) == 0 and float(p.get("completion", "1")) == 0
+        return float(p.get("prompt", "1")) == 0 and float(
+            p.get("completion", "1")) == 0
     except (TypeError, ValueError):
         return False
 
@@ -608,7 +612,8 @@ def union_with_portal_free_recommendations(
     except Exception:
         return (list(curated_ids), dict(pricing))
 
-    free_block = payload.get("freeRecommendedModels") if isinstance(payload, dict) else None
+    free_block = payload.get("freeRecommendedModels") if isinstance(
+        payload, dict) else None
     if not isinstance(free_block, list) or not free_block:
         return (list(curated_ids), dict(pricing))
 
@@ -680,7 +685,8 @@ def union_with_portal_paid_recommendations(
     except Exception:
         return (list(curated_ids), dict(pricing))
 
-    paid_block = payload.get("paidRecommendedModels") if isinstance(payload, dict) else None
+    paid_block = payload.get("paidRecommendedModels") if isinstance(
+        payload, dict) else None
     if not isinstance(paid_block, list) or not paid_block:
         return (list(curated_ids), dict(pricing))
 
@@ -941,7 +947,8 @@ def get_nastech_recommended_aux_model(
     ``google/gemini-3-flash-preview``).
     """
     base = portal_base_url or _resolve_nastech_portal_url()
-    payload = fetch_nastech_recommended_models(base, force_refresh=force_refresh)
+    payload = fetch_nastech_recommended_models(
+        base, force_refresh=force_refresh)
     if not payload:
         return None
 
@@ -985,42 +992,129 @@ class ProviderEntry(NamedTuple):
     label: str
     tui_desc: str   # detailed description for `nastech model` TUI
 
+
 CANONICAL_PROVIDERS: list[ProviderEntry] = [
-    ProviderEntry("nous",           "Nous Portal",              "Nous Portal (Everything your agent needs, 300+ models with bundled tool use)"),
-    ProviderEntry("openrouter",     "OpenRouter",               "OpenRouter (Pay-per-use API aggregator)"),
-    ProviderEntry("novita",         "NovitaAI",                 "NovitaAI (Cloud: Model API, Agent Sandbox, GPU Cloud)"),
-    ProviderEntry("lmstudio",       "LM Studio",                "LM Studio (Local desktop app with built-in model server)"),
-    ProviderEntry("anthropic",      "Anthropic",                "Anthropic (Claude models via API key or Claude Code)"),
-    ProviderEntry("openai-codex",   "OpenAI Codex",             "OpenAI Codex (Codex CLI via ChatGPT subscription or API key)"),
-    ProviderEntry("openai-api",     "OpenAI API",               "OpenAI API (api.openai.com, API key)"),
-    ProviderEntry("alibaba",        "Qwen Cloud",               "Qwen Cloud / DashScope (Qwen + multi-provider)"),
-    ProviderEntry("xai-oauth",      "xAI Grok OAuth (SuperGrok / Premium+)", "xAI Grok OAuth (SuperGrok / Premium+ subscription)"),
-    ProviderEntry("xiaomi",         "Xiaomi MiMo",              "Xiaomi MiMo (MiMo-V2.5 and V2 models: pro, omni, flash)"),
-    ProviderEntry("tencent-tokenhub", "Tencent TokenHub",       "Tencent TokenHub (Hy3 Preview via tokenhub.tencentmaas.com)"),
-    ProviderEntry("nvidia",         "NVIDIA NIM",               "NVIDIA NIM (Nemotron models via build.nvidia.com or local NIM)"),
-    ProviderEntry("copilot",        "GitHub Copilot",           "GitHub Copilot (Uses GITHUB_TOKEN or gh auth token)"),
-    ProviderEntry("copilot-acp",    "GitHub Copilot ACP",       "GitHub Copilot ACP (Spawns copilot --acp --stdio)"),
-    ProviderEntry("huggingface",    "Hugging Face",             "Hugging Face Inference Providers"),
-    ProviderEntry("gemini",         "Google AI Studio",         "Google AI Studio (Native Gemini API)"),
-    ProviderEntry("google-gemini-cli", "Google Gemini (OAuth)",   "Google Gemini via OAuth + Code Assist (Code Assist OAuth flow)"),
-    ProviderEntry("deepseek",       "DeepSeek",                 "DeepSeek (V3, R1, coder, direct API)"),
-    ProviderEntry("xai",            "xAI",                      "xAI Grok (Direct API)"),
-    ProviderEntry("zai",            "Z.AI / GLM",               "Z.AI / GLM (Zhipu direct API)"),
-    ProviderEntry("kimi-coding",    "Kimi / Kimi Coding Plan",  "Kimi Coding Plan (api.kimi.com & Moonshot API)"),
-    ProviderEntry("kimi-coding-cn", "Kimi / Moonshot (China)",  "Kimi / Moonshot China (Domestic direct API)"),
-    ProviderEntry("stepfun",        "StepFun Step Plan",       "StepFun Step Plan (Agent / coding models via Step Plan API)"),
-    ProviderEntry("minimax",        "MiniMax",                  "MiniMax (Global direct API)"),
-    ProviderEntry("minimax-oauth",  "MiniMax (OAuth)",          "MiniMax via OAuth browser login (Coding Plan, minimax.io)"),
-    ProviderEntry("minimax-cn",     "MiniMax (China)",          "MiniMax China (Domestic direct API)"),
-    ProviderEntry("ollama-cloud",   "Ollama Cloud",             "Ollama Cloud (Cloud-hosted open models, ollama.com)"),
-    ProviderEntry("arcee",          "Arcee AI",                 "Arcee AI (Trinity models, direct API)"),
-    ProviderEntry("gmi",            "GMI Cloud",                "GMI Cloud (Multi-model direct API)"),
-    ProviderEntry("kilocode",       "Kilo Code",                "Kilo Code (Kilo Gateway API)"),
-    ProviderEntry("opencode-zen",   "OpenCode Zen",             "OpenCode Zen (Curated models, pay-as-you-go)"),
-    ProviderEntry("opencode-go",    "OpenCode Go",              "OpenCode Go (Open models subscription)"),
-    ProviderEntry("bedrock",        "AWS Bedrock",              "AWS Bedrock (Claude, Nova, Llama, DeepSeek; IAM or API key)"),
-    ProviderEntry("azure-foundry",  "Azure Foundry",            "Azure Foundry (OpenAI-style or Anthropic-style endpoint, your Azure AI deployment)"),
-    ProviderEntry("qwen-oauth",     "Qwen OAuth (Portal)",      "Qwen OAuth (Reuses local Qwen CLI login)"),
+    ProviderEntry(
+        "nous",
+        "Nous Portal",
+        "Nous Portal (Everything your agent needs, 300+ models with bundled tool use)"),
+    ProviderEntry(
+        "openrouter",
+        "OpenRouter",
+        "OpenRouter (Pay-per-use API aggregator)"),
+    ProviderEntry(
+        "novita",
+        "NovitaAI",
+        "NovitaAI (Cloud: Model API, Agent Sandbox, GPU Cloud)"),
+    ProviderEntry(
+        "lmstudio",
+        "LM Studio",
+        "LM Studio (Local desktop app with built-in model server)"),
+    ProviderEntry(
+        "anthropic",
+        "Anthropic",
+        "Anthropic (Claude models via API key or Claude Code)"),
+    ProviderEntry(
+        "openai-codex",
+        "OpenAI Codex",
+        "OpenAI Codex (Codex CLI via ChatGPT subscription or API key)"),
+    ProviderEntry(
+        "openai-api",
+        "OpenAI API",
+        "OpenAI API (api.openai.com, API key)"),
+    ProviderEntry(
+        "alibaba",
+        "Qwen Cloud",
+        "Qwen Cloud / DashScope (Qwen + multi-provider)"),
+    ProviderEntry(
+        "xai-oauth",
+        "xAI Grok OAuth (SuperGrok / Premium+)",
+        "xAI Grok OAuth (SuperGrok / Premium+ subscription)"),
+    ProviderEntry(
+        "xiaomi",
+        "Xiaomi MiMo",
+        "Xiaomi MiMo (MiMo-V2.5 and V2 models: pro, omni, flash)"),
+    ProviderEntry(
+        "tencent-tokenhub",
+        "Tencent TokenHub",
+        "Tencent TokenHub (Hy3 Preview via tokenhub.tencentmaas.com)"),
+    ProviderEntry(
+        "nvidia",
+        "NVIDIA NIM",
+        "NVIDIA NIM (Nemotron models via build.nvidia.com or local NIM)"),
+    ProviderEntry(
+        "copilot",
+        "GitHub Copilot",
+        "GitHub Copilot (Uses GITHUB_TOKEN or gh auth token)"),
+    ProviderEntry(
+        "copilot-acp",
+        "GitHub Copilot ACP",
+        "GitHub Copilot ACP (Spawns copilot --acp --stdio)"),
+    ProviderEntry(
+        "huggingface",
+        "Hugging Face",
+        "Hugging Face Inference Providers"),
+    ProviderEntry(
+        "gemini",
+        "Google AI Studio",
+        "Google AI Studio (Native Gemini API)"),
+    ProviderEntry(
+        "google-gemini-cli",
+        "Google Gemini (OAuth)",
+        "Google Gemini via OAuth + Code Assist (Code Assist OAuth flow)"),
+    ProviderEntry(
+        "deepseek",
+        "DeepSeek",
+        "DeepSeek (V3, R1, coder, direct API)"),
+    ProviderEntry("xai", "xAI", "xAI Grok (Direct API)"),
+    ProviderEntry("zai", "Z.AI / GLM", "Z.AI / GLM (Zhipu direct API)"),
+    ProviderEntry("kimi-coding", "Kimi / Kimi Coding Plan",
+                  "Kimi Coding Plan (api.kimi.com & Moonshot API)"),
+    ProviderEntry("kimi-coding-cn", "Kimi / Moonshot (China)",
+                  "Kimi / Moonshot China (Domestic direct API)"),
+    ProviderEntry(
+        "stepfun",
+        "StepFun Step Plan",
+        "StepFun Step Plan (Agent / coding models via Step Plan API)"),
+    ProviderEntry("minimax", "MiniMax", "MiniMax (Global direct API)"),
+    ProviderEntry(
+        "minimax-oauth",
+        "MiniMax (OAuth)",
+        "MiniMax via OAuth browser login (Coding Plan, minimax.io)"),
+    ProviderEntry(
+        "minimax-cn",
+        "MiniMax (China)",
+        "MiniMax China (Domestic direct API)"),
+    ProviderEntry(
+        "ollama-cloud",
+        "Ollama Cloud",
+        "Ollama Cloud (Cloud-hosted open models, ollama.com)"),
+    ProviderEntry(
+        "arcee",
+        "Arcee AI",
+        "Arcee AI (Trinity models, direct API)"),
+    ProviderEntry("gmi", "GMI Cloud", "GMI Cloud (Multi-model direct API)"),
+    ProviderEntry("kilocode", "Kilo Code", "Kilo Code (Kilo Gateway API)"),
+    ProviderEntry(
+        "opencode-zen",
+        "OpenCode Zen",
+        "OpenCode Zen (Curated models, pay-as-you-go)"),
+    ProviderEntry(
+        "opencode-go",
+        "OpenCode Go",
+        "OpenCode Go (Open models subscription)"),
+    ProviderEntry(
+        "bedrock",
+        "AWS Bedrock",
+        "AWS Bedrock (Claude, Nova, Llama, DeepSeek; IAM or API key)"),
+    ProviderEntry(
+        "azure-foundry",
+        "Azure Foundry",
+        "Azure Foundry (OpenAI-style or Anthropic-style endpoint, your Azure AI deployment)"),
+    ProviderEntry(
+        "qwen-oauth",
+        "Qwen OAuth (Portal)",
+        "Qwen OAuth (Reuses local Qwen CLI login)"),
 ]
 
 # Auto-extend CANONICAL_PROVIDERS with any provider registered in providers/
@@ -1033,7 +1127,8 @@ try:
     for _pp in _list_providers_for_canonical():
         if _pp.name in _canonical_slugs:
             continue
-        if _pp.auth_type in {"oauth_device_code", "oauth_external", "external_process", "aws_sdk", "copilot"}:
+        if _pp.auth_type in {"oauth_device_code", "oauth_external",
+                             "external_process", "aws_sdk", "copilot"}:
             continue  # non-api-key flows need bespoke picker UX; skip auto-inject
         _label = _pp.display_name or _pp.name
         _desc = _pp.description or f"{_label} (direct API)"
@@ -1044,7 +1139,8 @@ except Exception:
 
 # Derived dicts — used throughout the codebase
 _PROVIDER_LABELS = {p.slug: p.label for p in CANONICAL_PROVIDERS}
-_PROVIDER_LABELS["custom"] = "Custom endpoint"  # special case: not a named provider
+# special case: not a named provider
+_PROVIDER_LABELS["custom"] = "Custom endpoint"
 
 
 # ---------------------------------------------------------------------------
@@ -1070,13 +1166,13 @@ _PROVIDER_LABELS["custom"] = "Custom endpoint"  # special case: not a named prov
 # Member order is the order shown inside the group submenu.
 # ---------------------------------------------------------------------------
 PROVIDER_GROUPS: dict[str, tuple[str, str, list[str]]] = {
-    "kimi":     ("Kimi / Moonshot", "Coding Plan, Moonshot global & China endpoints", ["kimi-coding", "kimi-coding-cn"]),
-    "minimax":  ("MiniMax",         "Global, OAuth Coding Plan & China endpoints",     ["minimax", "minimax-oauth", "minimax-cn"]),
-    "xai":      ("xAI Grok",        "Direct API or SuperGrok / Premium+ OAuth",        ["xai", "xai-oauth"]),
-    "google":   ("Google Gemini",   "AI Studio API or OAuth + Code Assist",            ["gemini", "google-gemini-cli"]),
-    "openai":   ("OpenAI",          "Codex CLI or direct OpenAI API",                  ["openai-codex", "openai-api"]),
-    "opencode": ("OpenCode",        "Zen pay-as-you-go or Go subscription",            ["opencode-zen", "opencode-go"]),
-    "copilot":  ("GitHub Copilot",  "GitHub token API or copilot --acp process",       ["copilot", "copilot-acp"]),
+    "kimi": ("Kimi / Moonshot", "Coding Plan, Moonshot global & China endpoints", ["kimi-coding", "kimi-coding-cn"]),
+    "minimax": ("MiniMax", "Global, OAuth Coding Plan & China endpoints", ["minimax", "minimax-oauth", "minimax-cn"]),
+    "xai": ("xAI Grok", "Direct API or SuperGrok / Premium+ OAuth", ["xai", "xai-oauth"]),
+    "google": ("Google Gemini", "AI Studio API or OAuth + Code Assist", ["gemini", "google-gemini-cli"]),
+    "openai": ("OpenAI", "Codex CLI or direct OpenAI API", ["openai-codex", "openai-api"]),
+    "opencode": ("OpenCode", "Zen pay-as-you-go or Go subscription", ["opencode-zen", "opencode-go"]),
+    "copilot": ("GitHub Copilot", "GitHub token API or copilot --acp process", ["copilot", "copilot-acp"]),
 }
 
 # Reverse index: member slug -> group_id. Built once at import.
@@ -1278,7 +1374,8 @@ def _openrouter_model_is_free(pricing: Any) -> bool:
     if not isinstance(pricing, dict):
         return False
     try:
-        return float(pricing.get("prompt", "0")) == 0 and float(pricing.get("completion", "0")) == 0
+        return float(pricing.get("prompt", "0")) == 0 and float(
+            pricing.get("completion", "0")) == 0
     except (TypeError, ValueError):
         return False
 
@@ -1364,7 +1461,8 @@ def fetch_openrouter_models(
         # when the user selects them. Ported from Kilo-Org/kilocode#9068.
         if not _openrouter_model_supports_tools(live_item):
             continue
-        desc = "free" if _openrouter_model_is_free(live_item.get("pricing")) else ""
+        desc = "free" if _openrouter_model_is_free(
+            live_item.get("pricing")) else ""
         curated.append((preferred_id, desc))
 
     if not curated:
@@ -1378,7 +1476,8 @@ def fetch_openrouter_models(
 
 def model_ids(*, force_refresh: bool = False) -> list[str]:
     """Return just the OpenRouter model-id strings."""
-    return [mid for mid, _ in fetch_openrouter_models(force_refresh=force_refresh)]
+    return [mid for mid, _ in fetch_openrouter_models(
+        force_refresh=force_refresh)]
 
 
 def get_curated_nastech_model_ids() -> list[str]:
@@ -1512,7 +1611,8 @@ def _resolve_nastech_pricing_credentials() -> tuple[str, str]:
     return ("", _DEFAULT_NASTECH_INFERENCE_BASE)
 
 
-def get_pricing_for_provider(provider: str, *, force_refresh: bool = False) -> dict[str, dict[str, str]]:
+def get_pricing_for_provider(
+        provider: str, *, force_refresh: bool = False) -> dict[str, dict[str, str]]:
     """Return live pricing for providers that support it (openrouter, nous, novita)."""
     normalized = normalize_provider(provider)
     if normalized == "openrouter":
@@ -1557,7 +1657,9 @@ def _fetch_novita_pricing(
     if not api_key:
         return {}
 
-    base_url = os.getenv("NOVITA_BASE_URL", "").strip() or "https://api.novita.ai/openai/v1"
+    base_url = os.getenv(
+        "NOVITA_BASE_URL",
+        "").strip() or "https://api.novita.ai/openai/v1"
     cache_key = base_url.rstrip("/")
     if not force_refresh and cache_key in _pricing_cache:
         return _pricing_cache[cache_key]
@@ -1634,10 +1736,12 @@ def list_available_providers() -> list[dict[str, str]]:
                 custom_base_url = _get_custom_base_url() or ""
                 has_creds = bool(custom_base_url.strip())
             elif pid == "openrouter":
-                has_creds = has_usable_secret(os.getenv("OPENROUTER_API_KEY", ""))
+                has_creds = has_usable_secret(
+                    os.getenv("OPENROUTER_API_KEY", ""))
             else:
                 status = get_auth_status(pid)
-                has_creds = bool(status.get("logged_in") or status.get("configured"))
+                has_creds = bool(
+                    status.get("logged_in") or status.get("configured"))
         except Exception:
             pass
         result.append({
@@ -1827,7 +1931,8 @@ def detect_static_provider_for_model(
             return (resolved_provider, default_models[0])
 
     # Aggregators list other providers' models — never auto-switch TO them
-    # If the model belongs to the current provider's catalog, don't suggest switching
+    # If the model belongs to the current provider's catalog, don't suggest
+    # switching
     if _model_in_provider_catalog(name_lower, current_keys):
         return None
 
@@ -1863,7 +1968,8 @@ def detect_provider_for_model(
     static_match = detect_static_provider_for_model(name, current_provider)
     if static_match:
         return static_match
-    if _model_in_provider_catalog(name.lower(), _provider_keys(current_provider)):
+    if _model_in_provider_catalog(
+            name.lower(), _provider_keys(current_provider)):
         return None
 
     # --- Step 2: check OpenRouter catalog ---
@@ -1955,7 +2061,8 @@ def _is_openai_fast_model(model_id: Optional[str]) -> bool:
     # which doesn't accept service_tier.
     if "codex" in base:
         return False
-    return any(base.startswith(prefix) for prefix in _OPENAI_FAST_MODE_PREFIXES)
+    return any(base.startswith(prefix)
+               for prefix in _OPENAI_FAST_MODE_PREFIXES)
 
 
 # Models that support Anthropic Fast Mode (speed="fast").
@@ -1977,7 +2084,8 @@ def _strip_vendor_prefix(model_id: str) -> str:
 
 def model_supports_fast_mode(model_id: Optional[str]) -> bool:
     """Return whether NasTech should expose the /fast toggle for this model."""
-    return _is_anthropic_fast_model(model_id) or _is_openai_fast_model(model_id)
+    return _is_anthropic_fast_model(
+        model_id) or _is_openai_fast_model(model_id)
 
 
 def _is_anthropic_fast_model(model_id: Optional[str]) -> bool:
@@ -1999,7 +2107,8 @@ def _is_anthropic_fast_model(model_id: Optional[str]) -> bool:
     return "opus-4-6" in base or "opus-4.6" in base
 
 
-def resolve_fast_mode_overrides(model_id: Optional[str]) -> dict[str, Any] | None:
+def resolve_fast_mode_overrides(
+        model_id: Optional[str]) -> dict[str, Any] | None:
     """Return request_overrides for fast/priority mode, or None if unsupported.
 
     Returns provider-appropriate overrides:
@@ -2145,7 +2254,8 @@ def _merge_with_models_dev(provider: str, curated: list[str]) -> list[str]:
     return merged
 
 
-def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) -> list[str]:
+def provider_model_ids(
+        provider: Optional[str], *, force_refresh: bool = False) -> list[str]:
     """Return the best known model catalog for a provider.
 
     Tries live API endpoints for providers that support them (Codex, Nous),
@@ -2174,7 +2284,8 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
             access_token = None
         return get_codex_model_ids(access_token=access_token)
     if normalized == "xai-oauth":
-        return list(_PROVIDER_MODELS.get("xai-oauth", _PROVIDER_MODELS.get("xai", [])))
+        return list(_PROVIDER_MODELS.get(
+            "xai-oauth", _PROVIDER_MODELS.get("xai", [])))
     if normalized in {"copilot", "copilot-acp"}:
         try:
             live = _fetch_github_models(_resolve_copilot_catalog_api_key())
@@ -2187,10 +2298,16 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
     if normalized == "nous":
         # Try live Nous Portal /models endpoint
         try:
-            from nastech_cli.auth import fetch_nastech_models, resolve_nastech_runtime_credentials
+            from nastech_cli.auth import (
+                fetch_nastech_models,
+                resolve_nastech_runtime_credentials,
+            )
             creds = resolve_nastech_runtime_credentials()
             if creds:
-                live = fetch_nastech_models(api_key=creds.get("api_key", ""), inference_base_url=creds.get("base_url", ""))
+                live = fetch_nastech_models(
+                    api_key=creds.get(
+                        "api_key", ""), inference_base_url=creds.get(
+                        "base_url", ""))
                 if live:
                     return live
         except Exception:
@@ -2233,7 +2350,8 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
             # is 120+ entries of embeddings, whisper, tts, dall-e, moderation and
             # legacy chat models — none of which belong in the agent model picker.
             # For the default endpoint, intersect the live list with our curated
-            # agentic catalog so ``/model`` matches what ``nastech model`` shows.
+            # agentic catalog so ``/model`` matches what ``nastech model``
+            # shows.
             is_default_openai = base.rstrip("/") in (
                 "https://api.openai.com/v1",
                 "https://api.openai.com",
@@ -2246,7 +2364,8 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
                         curated = list(_PROVIDER_MODELS.get(normalized, []))
                         # Keep curated order; only surface curated models the
                         # account actually has access to.
-                        filtered = [m for m in curated if m.lower() in live_lower]
+                        filtered = [
+                            m for m in curated if m.lower() in live_lower]
                         if filtered:
                             return filtered
                         # Account serves none of the curated models (rare —
@@ -2298,8 +2417,8 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
     # Handles any provider registered in providers/ with auth_type="api_key".
     # Replaces per-provider copy-paste blocks (stepfun, gmi, zai, etc.).
     try:
-        from providers import get_provider_profile
         from nastech_cli.auth import resolve_api_key_provider_credentials
+        from providers import get_provider_profile
 
         _p = get_provider_profile(normalized)
         if _p and _p.auth_type == "api_key" and _p.base_url:
@@ -2534,7 +2653,7 @@ def _fetch_anthropic_models(timeout: float = 5.0) -> Optional[list[str]]:
     Claude Code auto-discovery).  Returns sorted model IDs or None.
     """
     try:
-        from agent.anthropic_adapter import resolve_anthropic_token, _is_oauth_token
+        from agent.anthropic_adapter import _is_oauth_token, resolve_anthropic_token
     except ImportError:
         return None
 
@@ -2546,7 +2665,11 @@ def _fetch_anthropic_models(timeout: float = 5.0) -> Optional[list[str]]:
     is_oauth = _is_oauth_token(token)
     if is_oauth:
         headers["Authorization"] = f"Bearer {token}"
-        from agent.anthropic_adapter import _COMMON_BETAS, _OAUTH_ONLY_BETAS, _CONTEXT_1M_BETA
+        from agent.anthropic_adapter import (
+            _COMMON_BETAS,
+            _CONTEXT_1M_BETA,
+            _OAUTH_ONLY_BETAS,
+        )
         headers["anthropic-beta"] = ",".join(_COMMON_BETAS + _OAUTH_ONLY_BETAS)
     else:
         headers["x-api-key"] = token
@@ -2586,7 +2709,8 @@ def _fetch_anthropic_models(timeout: float = 5.0) -> Optional[list[str]]:
             else:
                 raise
         models = [m["id"] for m in data.get("data", []) if m.get("id")]
-        # Sort: latest/largest first (opus > sonnet > haiku, higher version first)
+        # Sort: latest/largest first (opus > sonnet > haiku, higher version
+        # first)
         return sorted(models, key=lambda m: (
             "opus" not in m,      # opus first
             "sonnet" not in m,    # then sonnet
@@ -2595,7 +2719,8 @@ def _fetch_anthropic_models(timeout: float = 5.0) -> Optional[list[str]]:
         ))
     except Exception as e:
         import logging
-        logging.getLogger(__name__).debug("Failed to fetch Anthropic models: %s", e)
+        logging.getLogger(__name__).debug(
+            "Failed to fetch Anthropic models: %s", e)
         return None
 
 
@@ -2699,7 +2824,8 @@ _copilot_context_cache_time: float = 0.0
 _COPILOT_CONTEXT_CACHE_TTL = 3600  # 1 hour
 
 
-def get_copilot_model_context(model_id: str, api_key: Optional[str] = None) -> Optional[int]:
+def get_copilot_model_context(
+        model_id: str, api_key: Optional[str] = None) -> Optional[int]:
     """Look up max_prompt_tokens for a Copilot model from the live /models API.
 
     Results are cached in-process for 1 hour to avoid repeated API calls.
@@ -2708,7 +2834,8 @@ def get_copilot_model_context(model_id: str, api_key: Optional[str] = None) -> O
     global _copilot_context_cache, _copilot_context_cache_time
 
     # Serve from cache if fresh
-    if _copilot_context_cache and (time.time() - _copilot_context_cache_time < _COPILOT_CONTEXT_CACHE_TTL):
+    if _copilot_context_cache and (
+            time.time() - _copilot_context_cache_time < _COPILOT_CONTEXT_CACHE_TTL):
         if model_id in _copilot_context_cache:
             return _copilot_context_cache[model_id]
         # Cache is fresh but model not in it — don't re-fetch
@@ -2780,7 +2907,8 @@ def _lmstudio_fetch_raw_models(
         return None
 
     headers = _lmstudio_request_headers(api_key)
-    request = urllib.request.Request(server_root + "/api/v1/models", headers=headers)
+    request = urllib.request.Request(
+        server_root + "/api/v1/models", headers=headers)
     try:
         with urllib.request.urlopen(request, timeout=timeout) as resp:
             payload = json.loads(resp.read().decode())
@@ -2830,7 +2958,8 @@ def probe_lmstudio_models(
     Raises ``AuthError`` on HTTP 401/403 so callers can surface token issues
     separately from reachability problems.
     """
-    raw_models = _lmstudio_fetch_raw_models(api_key=api_key, base_url=base_url, timeout=timeout)
+    raw_models = _lmstudio_fetch_raw_models(
+        api_key=api_key, base_url=base_url, timeout=timeout)
     if raw_models is None:
         return None
 
@@ -2861,7 +2990,10 @@ def fetch_lmstudio_models(
     or wrong ``LM_API_KEY`` from an unreachable server — the most common
     LM Studio support case once auth-enabled mode is turned on.
     """
-    models = probe_lmstudio_models(api_key=api_key, base_url=base_url, timeout=timeout)
+    models = probe_lmstudio_models(
+        api_key=api_key,
+        base_url=base_url,
+        timeout=timeout)
     return models or []
 
 
@@ -2886,7 +3018,8 @@ def ensure_lmstudio_model_loaded(
     headers = _lmstudio_request_headers(api_key)
 
     try:
-        raw_models = _lmstudio_fetch_raw_models(api_key=api_key, base_url=base_url, timeout=10)
+        raw_models = _lmstudio_fetch_raw_models(
+            api_key=api_key, base_url=base_url, timeout=10)
     except Exception:
         raw_models = None
     if raw_models is None:
@@ -2908,7 +3041,8 @@ def ensure_lmstudio_model_loaded(
 
     for inst in target_entry.get("loaded_instances") or []:
         cfg = inst.get("config") if isinstance(inst, dict) else None
-        loaded_ctx = cfg.get("context_length") if isinstance(cfg, dict) else None
+        loaded_ctx = cfg.get("context_length") if isinstance(
+            cfg, dict) else None
         if isinstance(loaded_ctx, int) and loaded_ctx >= target_context_length:
             return loaded_ctx
 
@@ -2947,7 +3081,8 @@ def lmstudio_model_reasoning_options(
     or the model does not declare a reasoning capability.
     """
     try:
-        raw_models = _lmstudio_fetch_raw_models(api_key=api_key, base_url=base_url, timeout=timeout)
+        raw_models = _lmstudio_fetch_raw_models(
+            api_key=api_key, base_url=base_url, timeout=timeout)
     except Exception:
         raw_models = None
     if not raw_models:
@@ -2960,14 +3095,16 @@ def lmstudio_model_reasoning_options(
             continue
         caps = raw.get("capabilities")
         reasoning = caps.get("reasoning") if isinstance(caps, dict) else None
-        opts = reasoning.get("allowed_options") if isinstance(reasoning, dict) else None
+        opts = reasoning.get("allowed_options") if isinstance(
+            reasoning, dict) else None
         if isinstance(opts, list):
             return [str(o).strip().lower() for o in opts if isinstance(o, str)]
         return []
     return []
 
 
-def _fetch_github_models(api_key: Optional[str] = None, timeout: float = 5.0) -> Optional[list[str]]:
+def _fetch_github_models(
+        api_key: Optional[str] = None, timeout: float = 5.0) -> Optional[list[str]]:
     catalog = fetch_github_model_catalog(api_key=api_key, timeout=timeout)
     if not catalog:
         return None
@@ -3071,7 +3208,8 @@ def normalize_copilot_model_id(
 
 def _github_reasoning_efforts_for_model_id(model_id: str) -> list[str]:
     raw = (model_id or "").strip().lower()
-    if raw.startswith(("openai/o1", "openai/o3", "openai/o4", "o1", "o3", "o4")):
+    if raw.startswith(
+            ("openai/o1", "openai/o3", "openai/o4", "o1", "o3", "o4")):
         return list(COPILOT_REASONING_EFFORTS_O_SERIES)
     normalized = normalize_copilot_model_id(model_id).lower()
     if normalized.startswith("gpt-5"):
@@ -3113,17 +3251,21 @@ def copilot_model_api_mode(
     if catalog is None and api_key:
         catalog = fetch_github_model_catalog(api_key=api_key)
 
-    normalized = normalize_copilot_model_id(model_id, catalog=catalog, api_key=api_key)
+    normalized = normalize_copilot_model_id(
+        model_id, catalog=catalog, api_key=api_key)
     if not normalized:
         return "chat_completions"
 
-    # Primary: model ID pattern (matches opencode's shouldUseCopilotResponsesApi)
+    # Primary: model ID pattern (matches opencode's
+    # shouldUseCopilotResponsesApi)
     if _should_use_copilot_responses_api(normalized):
         return "codex_responses"
 
-    # Secondary: check catalog for non-GPT-5 models (Claude via /v1/messages, etc.)
+    # Secondary: check catalog for non-GPT-5 models (Claude via /v1/messages,
+    # etc.)
     if catalog:
-        catalog_entry = next((item for item in catalog if item.get("id") == normalized), None)
+        catalog_entry = next(
+            (item for item in catalog if item.get("id") == normalized), None)
         if isinstance(catalog_entry, dict):
             supported_endpoints = {
                 str(endpoint).strip()
@@ -3171,7 +3313,8 @@ def azure_foundry_model_api_mode(model_name: Optional[str]) -> Optional[str]:
     raw = str(model_name or "").strip().lower()
     if not raw:
         return None
-    # Strip any vendor/ prefix a user may have copied from OpenRouter / Copilot.
+    # Strip any vendor/ prefix a user may have copied from OpenRouter /
+    # Copilot.
     if "/" in raw:
         raw = raw.rsplit("/", 1)[-1]
     # gpt-5-mini speaks chat completions on Copilot but Azure Foundry deploys
@@ -3183,7 +3326,8 @@ def azure_foundry_model_api_mode(model_name: Optional[str]) -> Optional[str]:
     return None
 
 
-def normalize_opencode_model_id(provider_id: Optional[str], model_id: Optional[str]) -> str:
+def normalize_opencode_model_id(
+        provider_id: Optional[str], model_id: Optional[str]) -> str:
     """Normalize OpenCode config IDs to the bare model slug used in API requests."""
     provider = normalize_provider(provider_id)
     current = str(model_id or "").strip()
@@ -3196,7 +3340,8 @@ def normalize_opencode_model_id(provider_id: Optional[str], model_id: Optional[s
     return current
 
 
-def opencode_model_api_mode(provider_id: Optional[str], model_id: Optional[str]) -> str:
+def opencode_model_api_mode(
+        provider_id: Optional[str], model_id: Optional[str]) -> str:
     """Determine the API mode for an OpenCode Zen / Go model.
 
     OpenCode routes different models behind different API surfaces:
@@ -3239,17 +3384,20 @@ def github_model_reasoning_efforts(
     api_key: Optional[str] = None,
 ) -> list[str]:
     """Return supported reasoning-effort levels for a Copilot-visible model."""
-    normalized = normalize_copilot_model_id(model_id, catalog=catalog, api_key=api_key)
+    normalized = normalize_copilot_model_id(
+        model_id, catalog=catalog, api_key=api_key)
     if not normalized:
         return []
 
     catalog_entry = None
     if catalog is not None:
-        catalog_entry = next((item for item in catalog if item.get("id") == normalized), None)
+        catalog_entry = next(
+            (item for item in catalog if item.get("id") == normalized), None)
     elif api_key:
         fetched_catalog = fetch_github_model_catalog(api_key=api_key)
         if fetched_catalog:
-            catalog_entry = next((item for item in fetched_catalog if item.get("id") == normalized), None)
+            catalog_entry = next(
+                (item for item in fetched_catalog if item.get("id") == normalized), None)
 
     if catalog_entry is not None:
         capabilities = catalog_entry.get("capabilities")
@@ -3365,13 +3513,13 @@ def fetch_api_models(
     Returns a list of model ID strings, or ``None`` if the endpoint could not
     be reached (network error, timeout, auth failure, etc.).
     """
-    return probe_api_models(api_key, base_url, timeout=timeout, api_mode=api_mode).get("models")
+    return probe_api_models(
+        api_key, base_url, timeout=timeout, api_mode=api_mode).get("models")
 
 
 # ---------------------------------------------------------------------------
 # Ollama Cloud — merged model discovery with disk cache
 # ---------------------------------------------------------------------------
-
 
 
 _OLLAMA_CLOUD_CACHE_TTL = 3600  # 1 hour
@@ -3429,7 +3577,9 @@ def _save_ollama_cloud_cache(models: list[str]) -> None:
         from utils import atomic_json_write
         cache_path = _ollama_cloud_cache_path()
         cache_path.parent.mkdir(parents=True, exist_ok=True)
-        atomic_json_write(cache_path, {"models": models, "cached_at": time.time()}, indent=None)
+        atomic_json_write(
+            cache_path, {
+                "models": models, "cached_at": time.time()}, indent=None)
     except Exception:
         pass
 
@@ -3476,7 +3626,8 @@ def fetch_ollama_cloud_models(
     except Exception:
         pass
 
-    # 4. Merge: live first, then models.dev additions (deduped, order-preserving)
+    # 4. Merge: live first, then models.dev additions (deduped,
+    # order-preserving)
     if live_models or mdev_models:
         seen: set[str] = set()
         merged: list[str] = []
@@ -3550,6 +3701,7 @@ def validate_requested_model(
 
     if normalized == "lmstudio":
         from nastech_cli.auth import AuthError
+
         # Use probe_lmstudio_models so we can distinguish None (unreachable
         # / malformed response) from [] (reachable, but no chat-capable models
         # are loaded). fetch_lmstudio_models collapses both to [].
@@ -3576,7 +3728,8 @@ def validate_requested_model(
                 ),
             }
         if requested_for_lookup in set(models):
-            return {"accepted": True, "persist": True, "recognized": True, "message": None}
+            return {"accepted": True, "persist": True,
+                    "recognized": True, "message": None}
         return {
             "accepted": False, "persist": False, "recognized": False,
             "message": f"Model `{requested}` was not found in LM Studio's model listing.",
@@ -3599,7 +3752,8 @@ def validate_requested_model(
                 }
 
             # Auto-correct if the top match is very similar (e.g. typo)
-            auto = get_close_matches(requested_for_lookup, api_models, n=1, cutoff=0.9)
+            auto = get_close_matches(
+                requested_for_lookup, api_models, n=1, cutoff=0.9)
             if auto:
                 return {
                     "accepted": True,
@@ -3609,10 +3763,12 @@ def validate_requested_model(
                     "message": f"Auto-corrected `{requested}` → `{auto[0]}`",
                 }
 
-            suggestions = get_close_matches(requested, api_models, n=3, cutoff=0.5)
+            suggestions = get_close_matches(
+                requested, api_models, n=3, cutoff=0.5)
             suggestion_text = ""
             if suggestions:
-                suggestion_text = "\n  Similar models: " + ", ".join(f"`{s}`" for s in suggestions)
+                suggestion_text = "\n  Similar models: " + \
+                    ", ".join(f"`{s}`" for s in suggestions)
 
             message = (
                 f"Note: `{requested}` was not found in this custom endpoint's model listing "
@@ -3621,7 +3777,8 @@ def validate_requested_model(
             )
             if probe.get("used_fallback"):
                 message += (
-                    f"\n  Endpoint verification succeeded after trying `{probe.get('resolved_base_url')}`. "
+                    f"\n  Endpoint verification succeeded after trying `{
+                        probe.get('resolved_base_url')}`. "
                     f"Consider saving that as your base URL."
                 )
 
@@ -3633,7 +3790,8 @@ def validate_requested_model(
             }
 
         message = (
-            f"Note: could not reach this custom endpoint's model listing at `{probe.get('probed_url')}`. "
+            f"Note: could not reach this custom endpoint's model listing at `{
+                probe.get('probed_url')}`. "
             f"NasTech will still save `{requested}`, but the endpoint should expose `/models` for verification."
         )
         if api_mode == "anthropic_messages":
@@ -3642,7 +3800,8 @@ def validate_requested_model(
                 "(GET /v1/models).  The model name has been accepted without verification."
             )
         if probe.get("suggested_base_url"):
-            message += f"\n  If this server expects `/v1`, try base URL: `{probe.get('suggested_base_url')}`"
+            message += f"\n  If this server expects `/v1`, try base URL: `{
+                probe.get('suggested_base_url')}`"
 
         return {
             "accepted": api_mode == "anthropic_messages",
@@ -3651,7 +3810,8 @@ def validate_requested_model(
             "message": message,
         }
 
-    # Providers with non-standard catalog validation — /v1/models probing is not the right path.
+    # Providers with non-standard catalog validation — /v1/models probing is
+    # not the right path.
     if normalized in {"openai-codex", "xai-oauth"}:
         try:
             catalog_models = provider_model_ids(normalized)
@@ -3666,7 +3826,8 @@ def validate_requested_model(
                     "message": None,
                 }
             # Auto-correct if the top match is very similar (e.g. typo)
-            auto = get_close_matches(requested_for_lookup, catalog_models, n=1, cutoff=0.9)
+            auto = get_close_matches(
+                requested_for_lookup, catalog_models, n=1, cutoff=0.9)
             if auto:
                 return {
                     "accepted": True,
@@ -3675,10 +3836,12 @@ def validate_requested_model(
                     "corrected_model": auto[0],
                     "message": f"Auto-corrected `{requested}` → `{auto[0]}`",
                 }
-            suggestions = get_close_matches(requested_for_lookup, catalog_models, n=3, cutoff=0.5)
+            suggestions = get_close_matches(
+                requested_for_lookup, catalog_models, n=3, cutoff=0.5)
             suggestion_text = ""
             if suggestions:
-                suggestion_text = "\n  Similar models: " + ", ".join(f"`{s}`" for s in suggestions)
+                suggestion_text = "\n  Similar models: " + \
+                    ", ".join(f"`{s}`" for s in suggestions)
             provider_label = "OpenAI Codex" if normalized == "openai-codex" else "xAI Grok OAuth (SuperGrok / Premium+)"
             return {
                 "accepted": True,
@@ -3699,7 +3862,8 @@ def validate_requested_model(
         except Exception:
             catalog_models = []
         if catalog_models:
-            # Case-insensitive lookup (catalog uses mixed case like MiniMax-M2.7)
+            # Case-insensitive lookup (catalog uses mixed case like
+            # MiniMax-M2.7)
             catalog_lower = {m.lower(): m for m in catalog_models}
             if requested_for_lookup.lower() in catalog_lower:
                 return {
@@ -3710,7 +3874,11 @@ def validate_requested_model(
                 }
             # Auto-correct close matches (case-insensitive)
             catalog_lower_list = list(catalog_lower.keys())
-            auto = get_close_matches(requested_for_lookup.lower(), catalog_lower_list, n=1, cutoff=0.9)
+            auto = get_close_matches(
+                requested_for_lookup.lower(),
+                catalog_lower_list,
+                n=1,
+                cutoff=0.9)
             if auto:
                 corrected = catalog_lower[auto[0]]
                 return {
@@ -3720,10 +3888,12 @@ def validate_requested_model(
                     "corrected_model": corrected,
                     "message": f"Auto-corrected `{requested}` → `{corrected}`",
                 }
-            suggestions = get_close_matches(requested_for_lookup.lower(), catalog_lower_list, n=3, cutoff=0.5)
+            suggestions = get_close_matches(
+                requested_for_lookup.lower(), catalog_lower_list, n=3, cutoff=0.5)
             suggestion_text = ""
             if suggestions:
-                suggestion_text = "\n  Similar models: " + ", ".join(f"`{catalog_lower[s]}`" for s in suggestions)
+                suggestion_text = "\n  Similar models: " + \
+                    ", ".join(f"`{catalog_lower[s]}`" for s in suggestions)
             return {
                 "accepted": True,
                 "persist": True,
@@ -3752,7 +3922,11 @@ def validate_requested_model(
                     "recognized": True,
                     "message": None,
                 }
-            auto = get_close_matches(requested_for_lookup, anthropic_models, n=1, cutoff=0.9)
+            auto = get_close_matches(
+                requested_for_lookup,
+                anthropic_models,
+                n=1,
+                cutoff=0.9)
             if auto:
                 return {
                     "accepted": True,
@@ -3761,10 +3935,12 @@ def validate_requested_model(
                     "corrected_model": auto[0],
                     "message": f"Auto-corrected `{requested}` → `{auto[0]}`",
                 }
-            suggestions = get_close_matches(requested, anthropic_models, n=3, cutoff=0.5)
+            suggestions = get_close_matches(
+                requested, anthropic_models, n=3, cutoff=0.5)
             suggestion_text = ""
             if suggestions:
-                suggestion_text = "\n  Similar models: " + ", ".join(f"`{s}`" for s in suggestions)
+                suggestion_text = "\n  Similar models: " + \
+                    ", ".join(f"`{s}`" for s in suggestions)
             # Accept anyway — Anthropic sometimes gates newer/preview models
             # (e.g. snapshot IDs, early-access releases) behind accounts
             # even though they aren't listed on /v1/models.
@@ -3793,7 +3969,8 @@ def validate_requested_model(
                     "recognized": True,
                     "message": None,
                 }
-            auto = get_close_matches(requested_for_lookup, api_models, n=1, cutoff=0.9)
+            auto = get_close_matches(
+                requested_for_lookup, api_models, n=1, cutoff=0.9)
             if auto:
                 return {
                     "accepted": True,
@@ -3827,7 +4004,8 @@ def validate_requested_model(
         # Gemini model.  Strip the prefix before comparison.  See #12532.
         if normalized == "gemini":
             api_models = [
-                m[len("models/"):] if isinstance(m, str) and m.startswith("models/") else m
+                m[len("models/"):] if isinstance(m,
+                                                 str) and m.startswith("models/") else m
                 for m in api_models
             ]
         if requested_for_lookup in set(api_models):
@@ -3845,7 +4023,8 @@ def validate_requested_model(
             # endpoints even though it's not in /models).  Warn but allow.
 
             # Auto-correct if the top match is very similar (e.g. typo)
-            auto = get_close_matches(requested_for_lookup, api_models, n=1, cutoff=0.9)
+            auto = get_close_matches(
+                requested_for_lookup, api_models, n=1, cutoff=0.9)
             if auto:
                 return {
                     "accepted": True,
@@ -3855,10 +4034,12 @@ def validate_requested_model(
                     "message": f"Auto-corrected `{requested}` → `{auto[0]}`",
                 }
 
-            suggestions = get_close_matches(requested, api_models, n=3, cutoff=0.5)
+            suggestions = get_close_matches(
+                requested, api_models, n=3, cutoff=0.5)
             suggestion_text = ""
             if suggestions:
-                suggestion_text = "\n  Similar models: " + ", ".join(f"`{s}`" for s in suggestions)
+                suggestion_text = "\n  Similar models: " + \
+                    ", ".join(f"`{s}`" for s in suggestions)
 
         return {
             "accepted": False,
@@ -3878,7 +4059,10 @@ def validate_requested_model(
     # AWS SDK control plane (ListFoundationModels + ListInferenceProfiles).
     if normalized == "bedrock":
         try:
-            from agent.bedrock_adapter import discover_bedrock_models, resolve_bedrock_region
+            from agent.bedrock_adapter import (
+                discover_bedrock_models,
+                resolve_bedrock_region,
+            )
             region = resolve_bedrock_region()
             discovered = discover_bedrock_models(region)
             discovered_ids = {m["id"] for m in discovered}
@@ -3891,10 +4075,12 @@ def validate_requested_model(
                 }
             # Not in discovered list — still accept (user may have custom
             # inference profiles or cross-account access), but warn.
-            suggestions = get_close_matches(requested, list(discovered_ids), n=3, cutoff=0.4)
+            suggestions = get_close_matches(
+                requested, list(discovered_ids), n=3, cutoff=0.4)
             suggestion_text = ""
             if suggestions:
-                suggestion_text = "\n  Similar models: " + ", ".join(f"`{s}`" for s in suggestions)
+                suggestion_text = "\n  Similar models: " + \
+                    ", ".join(f"`{s}`" for s in suggestions)
             return {
                 "accepted": True,
                 "persist": True,

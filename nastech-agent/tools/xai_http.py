@@ -37,9 +37,12 @@ def has_xai_credentials() -> bool:
             return False
         store = json.loads(auth_path.read_text())
         providers = store.get("providers") if isinstance(store, dict) else None
-        xai_state = providers.get("xai-oauth") if isinstance(providers, dict) else None
-        tokens = xai_state.get("tokens") if isinstance(xai_state, dict) else None
-        access_token = tokens.get("access_token") if isinstance(tokens, dict) else None
+        xai_state = providers.get(
+            "xai-oauth") if isinstance(providers, dict) else None
+        tokens = xai_state.get("tokens") if isinstance(
+            xai_state, dict) else None
+        access_token = tokens.get("access_token") if isinstance(
+            tokens, dict) else None
         return bool(str(access_token or "").strip())
     except Exception:
         return False
@@ -72,7 +75,8 @@ def nastech_xai_user_agent() -> str:
     return f"NasTech-Agent/{__version__}"
 
 
-def resolve_xai_http_credentials(*, force_refresh: bool = False) -> Dict[str, str]:
+def resolve_xai_http_credentials(
+        *, force_refresh: bool = False) -> Dict[str, str]:
     """Resolve bearer credentials for direct xAI HTTP endpoints.
 
     Prefers NasTech-managed xAI OAuth credentials when available, then falls back
@@ -107,7 +111,8 @@ def resolve_xai_http_credentials(*, force_refresh: bool = False) -> Dict[str, st
     try:
         from nastech_cli.auth import resolve_xai_oauth_runtime_credentials
 
-        creds = resolve_xai_oauth_runtime_credentials(force_refresh=force_refresh)
+        creds = resolve_xai_oauth_runtime_credentials(
+            force_refresh=force_refresh)
         access_token = str(creds.get("api_key") or "").strip()
         base_url = str(creds.get("base_url") or "").strip().rstrip("/")
         if access_token:
@@ -120,7 +125,8 @@ def resolve_xai_http_credentials(*, force_refresh: bool = False) -> Dict[str, st
         pass
 
     api_key = str(get_env_value("XAI_API_KEY") or "").strip()
-    base_url = str(get_env_value("XAI_BASE_URL") or "https://api.x.ai/v1").strip().rstrip("/")
+    base_url = str(get_env_value("XAI_BASE_URL")
+                   or "https://api.x.ai/v1").strip().rstrip("/")
     return {
         "provider": "xai",
         "api_key": api_key,

@@ -34,7 +34,8 @@ DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8646
 DEFAULT_WEBHOOK_PATH = "/msgraph/webhook"
 DEFAULT_MAX_SEEN_RECEIPTS = 5000
-NotificationScheduler = Callable[[Dict[str, Any], MessageEvent], Awaitable[None] | None]
+NotificationScheduler = Callable[[
+    Dict[str, Any], MessageEvent], Awaitable[None] | None]
 
 
 def check_msgraph_webhook_requirements() -> bool:
@@ -53,13 +54,15 @@ class MSGraphWebhookAdapter(BasePlatformAdapter):
         self._webhook_path: str = self._normalize_path(
             extra.get("webhook_path", DEFAULT_WEBHOOK_PATH)
         )
-        self._health_path: str = self._normalize_path(extra.get("health_path", "/health"))
+        self._health_path: str = self._normalize_path(
+            extra.get("health_path", "/health"))
         self._accepted_resources: list[str] = [
             str(value).strip()
             for value in (extra.get("accepted_resources") or [])
             if str(value).strip()
         ]
-        self._client_state: Optional[str] = self._string_or_none(extra.get("client_state"))
+        self._client_state: Optional[str] = self._string_or_none(
+            extra.get("client_state"))
         self._max_seen_receipts = max(
             1, int(extra.get("max_seen_receipts", DEFAULT_MAX_SEEN_RECEIPTS))
         )
@@ -130,11 +133,13 @@ class MSGraphWebhookAdapter(BasePlatformAdapter):
                 )
         return networks
 
-    def set_notification_scheduler(self, scheduler: Optional[NotificationScheduler]) -> None:
+    def set_notification_scheduler(
+            self, scheduler: Optional[NotificationScheduler]) -> None:
         self._notification_scheduler = scheduler
 
     def _source_allowlist_required_but_missing(self) -> bool:
-        return is_network_accessible(self._host) and not self._allowed_source_networks
+        return is_network_accessible(
+            self._host) and not self._allowed_source_networks
 
     async def connect(self) -> bool:
         if self._client_state is None:
@@ -183,7 +188,8 @@ class MSGraphWebhookAdapter(BasePlatformAdapter):
         reply_to: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> SendResult:
-        logger.info("[msgraph_webhook] Response for %s: %s", chat_id, content[:200])
+        logger.info("[msgraph_webhook] Response for %s: %s",
+                    chat_id, content[:200])
         return SendResult(success=True)
 
     async def get_chat_info(self, chat_id: str) -> Dict[str, Any]:
@@ -202,7 +208,8 @@ class MSGraphWebhookAdapter(BasePlatformAdapter):
             }
         )
 
-    async def _handle_validation(self, request: "web.Request") -> "web.Response":
+    async def _handle_validation(
+            self, request: "web.Request") -> "web.Response":
         """Handle Microsoft Graph subscription validation handshake.
 
         Graph validates a subscription endpoint by sending a GET with
@@ -218,7 +225,8 @@ class MSGraphWebhookAdapter(BasePlatformAdapter):
             return web.Response(status=400)
         return web.Response(text=validation_token, content_type="text/plain")
 
-    async def _handle_notification(self, request: "web.Request") -> "web.Response":
+    async def _handle_notification(
+            self, request: "web.Request") -> "web.Response":
         if not self._source_ip_allowed(request):
             return web.Response(status=403)
 
@@ -226,7 +234,8 @@ class MSGraphWebhookAdapter(BasePlatformAdapter):
         # defensive clients that replay the handshake in-band.
         validation_token = request.query.get("validationToken", "")
         if validation_token:
-            return web.Response(text=validation_token, content_type="text/plain")
+            return web.Response(text=validation_token,
+                                content_type="text/plain")
 
         try:
             body = await request.json()
@@ -247,7 +256,8 @@ class MSGraphWebhookAdapter(BasePlatformAdapter):
                 other_rejected += 1
                 continue
             notification = dict(raw_notification)
-            if not self._resource_accepted(str(notification.get("resource") or "")):
+            if not self._resource_accepted(
+                    str(notification.get("resource") or "")):
                 other_rejected += 1
                 continue
             if not self._verify_client_state(notification):
@@ -301,7 +311,8 @@ class MSGraphWebhookAdapter(BasePlatformAdapter):
             peer_addr = ipaddress.ip_address(peer)
         except ValueError:
             return False
-        return any(peer_addr in network for network in self._allowed_source_networks)
+        return any(
+            peer_addr in network for network in self._allowed_source_networks)
 
     def _resource_accepted(self, resource: str) -> bool:
         if not self._accepted_resources:
@@ -313,7 +324,8 @@ class MSGraphWebhookAdapter(BasePlatformAdapter):
                 continue
             if normalized_pattern.endswith("*"):
                 prefix = normalized_pattern[:-1].rstrip("/")
-                if normalized_resource == prefix or normalized_resource.startswith(f"{prefix}/"):
+                if normalized_resource == prefix or normalized_resource.startswith(
+                        f"{prefix}/"):
                     return True
                 continue
             if (
@@ -355,7 +367,11 @@ class MSGraphWebhookAdapter(BasePlatformAdapter):
         notification: Dict[str, Any],
         receipt_key: Optional[str],
     ) -> MessageEvent:
-        message_id = receipt_key or f"sha1:{sha1(json.dumps(notification, sort_keys=True).encode('utf-8')).hexdigest()}"
+        message_id = receipt_key or f"sha1:{
+            sha1(
+                json.dumps(
+                    notification,
+                    sort_keys=True).encode('utf-8')).hexdigest()}"
         source = self.build_source(
             chat_id=f"msgraph:{notification.get('subscriptionId', 'unknown')}",
             chat_name="msgraph/webhook",

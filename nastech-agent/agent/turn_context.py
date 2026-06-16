@@ -40,13 +40,15 @@ class TurnContext:
 
     # Sanitized inbound message (surrogates stripped).
     user_message: str
-    # Clean message preserved for transcripts / memory queries (no nudge injection).
+    # Clean message preserved for transcripts / memory queries (no nudge
+    # injection).
     original_user_message: Any
     # Working message list for this turn (loop appends to it).
     messages: List[Dict[str, Any]]
     # May be reset to None by preflight compression (new session created).
     conversation_history: Optional[List[Dict[str, Any]]]
-    # Cached system prompt active for this turn (may be rebuilt by compression).
+    # Cached system prompt active for this turn (may be rebuilt by
+    # compression).
     active_system_prompt: Optional[str]
     # Task / turn identifiers.
     effective_task_id: str
@@ -55,7 +57,8 @@ class TurnContext:
     current_turn_user_idx: int
     # Whether the post-turn memory review should fire.
     should_review_memory: bool = False
-    # Context contributed by ``pre_llm_call`` plugins (appended to user message).
+    # Context contributed by ``pre_llm_call`` plugins (appended to user
+    # message).
     plugin_user_context: str = ""
     # External-memory prefetch result, reused across loop iterations.
     ext_prefetch_cache: str = ""
@@ -89,7 +92,8 @@ def build_turn_context(
 
     agent._ensure_db_session()
 
-    # Tell auxiliary_client what the live main provider/model are for this turn.
+    # Tell auxiliary_client what the live main provider/model are for this
+    # turn.
     try:
         from agent.auxiliary_client import set_runtime_main
         set_runtime_main(
@@ -106,7 +110,11 @@ def build_turn_context(
     set_session_context(agent.session_id)
 
     # Bind the skill write-origin ContextVar for this thread.
-    set_current_write_origin(getattr(agent, "_memory_write_origin", "assistant_tool"))
+    set_current_write_origin(
+        getattr(
+            agent,
+            "_memory_write_origin",
+            "assistant_tool"))
 
     # Restore the primary runtime if the previous turn activated fallback.
     agent._restore_primary_runtime()
@@ -124,7 +132,10 @@ def build_turn_context(
     # Generate unique task_id if not provided to isolate VMs between tasks.
     effective_task_id = task_id or str(uuid.uuid4())
     agent._current_task_id = effective_task_id
-    turn_id = f"{agent.session_id or 'session'}:{effective_task_id}:{uuid.uuid4().hex[:8]}"
+    turn_id = f"{
+        agent.session_id or 'session'}:{effective_task_id}:{
+        uuid.uuid4().hex[
+            :8]}"
     agent._current_turn_id = turn_id
     agent._current_api_request_id = ""
 
@@ -165,7 +176,8 @@ def build_turn_context(
 
     # Log conversation turn start for debugging/observability.
     _preview_text = summarize_user_message_for_log(user_message)
-    _msg_preview = (_preview_text[:80] + "...") if len(_preview_text) > 80 else _preview_text
+    _msg_preview = (
+        _preview_text[:80] + "...") if len(_preview_text) > 80 else _preview_text
     _msg_preview = _msg_preview.replace("\n", " ")
     logger.info(
         "conversation turn: session=%s model=%s provider=%s platform=%s history=%d msg=%r",
@@ -231,11 +243,13 @@ def build_turn_context(
 
     # ── System prompt (cached per session for prefix caching) ──
     if agent._cached_system_prompt is None:
-        restore_or_build_system_prompt(agent, system_message, conversation_history)
+        restore_or_build_system_prompt(
+            agent, system_message, conversation_history)
 
     active_system_prompt = agent._cached_system_prompt
 
-    # Crash-resilience: persist the inbound user turn as soon as the session row exists.
+    # Crash-resilience: persist the inbound user turn as soon as the session
+    # row exists.
     try:
         agent._persist_session(messages, conversation_history)
     except Exception:
@@ -249,7 +263,7 @@ def build_turn_context(
     if (
         agent.compression_enabled
         and len(messages) > agent.context_compressor.protect_first_n
-                            + agent.context_compressor.protect_last_n + 1
+        + agent.context_compressor.protect_last_n + 1
     ):
         _preflight_tokens = estimate_request_tokens_rough(
             messages,
@@ -313,7 +327,8 @@ def build_turn_context(
                 if not _compressor.should_compress(_preflight_tokens):
                     break
 
-    # Plugin hook: pre_llm_call (context injected into user message, not system prompt).
+    # Plugin hook: pre_llm_call (context injected into user message, not
+    # system prompt).
     plugin_user_context = ""
     try:
         from nastech_cli.plugins import invoke_hook as _invoke_hook
@@ -359,8 +374,10 @@ def build_turn_context(
     # Notify memory providers of the new turn (BEFORE prefetch_all).
     if agent._memory_manager:
         try:
-            _turn_msg = original_user_message if isinstance(original_user_message, str) else ""
-            agent._memory_manager.on_turn_start(agent._user_turn_count, _turn_msg)
+            _turn_msg = original_user_message if isinstance(
+                original_user_message, str) else ""
+            agent._memory_manager.on_turn_start(
+                agent._user_turn_count, _turn_msg)
         except Exception:
             pass
 
@@ -368,8 +385,10 @@ def build_turn_context(
     ext_prefetch_cache = ""
     if agent._memory_manager:
         try:
-            _query = original_user_message if isinstance(original_user_message, str) else ""
-            ext_prefetch_cache = agent._memory_manager.prefetch_all(_query) or ""
+            _query = original_user_message if isinstance(
+                original_user_message, str) else ""
+            ext_prefetch_cache = agent._memory_manager.prefetch_all(
+                _query) or ""
         except Exception:
             pass
 

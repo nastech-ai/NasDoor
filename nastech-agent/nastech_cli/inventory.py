@@ -36,7 +36,6 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Optional
 
-
 # ─── Public types ───────────────────────────────────────────────────────
 
 
@@ -87,7 +86,9 @@ def load_picker_context() -> ConfigContext:
     cfg = load_config()
     model_cfg = cfg.get("model", {})
     if isinstance(model_cfg, dict):
-        current_model = model_cfg.get("default", model_cfg.get("name", "")) or ""
+        current_model = model_cfg.get(
+            "default", model_cfg.get(
+                "name", "")) or ""
         current_provider = model_cfg.get("provider", "") or ""
         current_base_url = model_cfg.get("base_url", "") or ""
     else:
@@ -216,9 +217,10 @@ def _apply_capabilities(rows: list[dict]) -> None:
 # ─── Internal: row post-processing ──────────────────────────────────────
 
 
-def _append_unconfigured_rows(rows: list[dict], ctx: ConfigContext) -> list[dict]:
+def _append_unconfigured_rows(
+        rows: list[dict], ctx: ConfigContext) -> list[dict]:
     """Build skeleton rows for canonical providers missing from ``rows``."""
-    from nastech_cli.models import CANONICAL_PROVIDERS, _PROVIDER_LABELS
+    from nastech_cli.models import _PROVIDER_LABELS, CANONICAL_PROVIDERS
 
     seen = {r["slug"].lower() for r in rows}
     cur = (ctx.current_provider or "").lower()
@@ -258,7 +260,8 @@ def _apply_picker_hints(rows: list[dict]) -> None:
         # _append_unconfigured_rows). The skeleton rows have empty
         # `models` AND source="canonical"; authenticated rows have
         # populated `models` OR a non-canonical source.
-        is_skeleton = row.get("source") == "canonical" and not row.get("models")
+        is_skeleton = row.get(
+            "source") == "canonical" and not row.get("models")
         row["authenticated"] = not is_skeleton
         if not is_skeleton or row.get("is_user_defined"):
             continue

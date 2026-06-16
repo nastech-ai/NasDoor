@@ -23,7 +23,6 @@ from typing import Any, Dict, List, Optional
 
 from nastech_cli.fallback_config import get_fallback_chain
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -42,7 +41,8 @@ def _read_chain(config: Dict[str, Any]) -> List[Dict[str, Any]]:
 def _write_chain(config: Dict[str, Any], chain: List[Dict[str, Any]]) -> None:
     """Persist the chain to ``fallback_providers`` and clear legacy key."""
     config["fallback_providers"] = chain
-    # Drop the legacy single-dict key on write so there's only one source of truth.
+    # Drop the legacy single-dict key on write so there's only one source of
+    # truth.
     if "fallback_model" in config:
         config.pop("fallback_model", None)
 
@@ -56,7 +56,8 @@ def _format_entry(entry: Dict[str, Any]) -> str:
     return f"{model}  (via {provider}){suffix}"
 
 
-def _extract_fallback_from_model_cfg(model_cfg: Any) -> Optional[Dict[str, Any]]:
+def _extract_fallback_from_model_cfg(
+        model_cfg: Any) -> Optional[Dict[str, Any]]:
     """Pull the ``{provider, model, base_url?, api_mode?}`` dict from a ``config["model"]`` snapshot."""
     if not isinstance(model_cfg, dict):
         return None
@@ -88,7 +89,11 @@ def _snapshot_auth_active_provider() -> Any:
 def _restore_auth_active_provider(value: Any) -> None:
     """Write back a previously snapshotted ``active_provider`` value."""
     try:
-        from nastech_cli.auth import _auth_store_lock, _load_auth_store, _save_auth_store
+        from nastech_cli.auth import (
+            _auth_store_lock,
+            _load_auth_store,
+            _save_auth_store,
+        )
         with _auth_store_lock():
             store = _load_auth_store()
             store["active_provider"] = value
@@ -123,7 +128,10 @@ def cmd_fallback_list(args) -> None:  # noqa: ARG001
     if primary:
         print(f"  Primary:   {primary}")
         print()
-    print(f"  Fallback chain ({len(chain)} {'entry' if len(chain) == 1 else 'entries'}):")
+    print(
+        f"  Fallback chain ({
+            len(chain)} {
+            'entry' if len(chain) == 1 else 'entries'}):")
     for i, entry in enumerate(chain, 1):
         print(f"    {i}. {_format_entry(entry)}")
     print()
@@ -137,7 +145,8 @@ def _describe_primary(config: Dict[str, Any]) -> Optional[str]:
     model_cfg = config.get("model")
     if isinstance(model_cfg, dict):
         provider = (model_cfg.get("provider") or "?").strip() or "?"
-        model = (model_cfg.get("default") or model_cfg.get("model") or "?").strip() or "?"
+        model = (model_cfg.get("default") or model_cfg.get(
+            "model") or "?").strip() or "?"
         return f"{model}  (via {provider})"
     if isinstance(model_cfg, str) and model_cfg.strip():
         return model_cfg.strip()
@@ -146,8 +155,8 @@ def _describe_primary(config: Dict[str, Any]) -> Optional[str]:
 
 def cmd_fallback_add(args) -> None:
     """Launch the same picker as `nastech model`, then append the selection to the chain."""
-    from nastech_cli.main import _require_tty, select_provider_and_model
     from nastech_cli.config import load_config, save_config
+    from nastech_cli.main import _require_tty, select_provider_and_model
 
     _require_tty("fallback add")
 
@@ -165,7 +174,8 @@ def cmd_fallback_add(args) -> None:
     try:
         select_provider_and_model(args=args)
     except SystemExit:
-        # Some provider flows exit on auth failure — restore state and re-raise.
+        # Some provider flows exit on auth failure — restore state and
+        # re-raise.
         _restore_model_cfg(model_before)
         _restore_auth_active_provider(active_provider_before)
         raise
@@ -176,7 +186,8 @@ def cmd_fallback_add(args) -> None:
 
     new_entry = _extract_fallback_from_model_cfg(model_after)
     if not new_entry:
-        # Picker didn't complete (user cancelled or flow bailed).  Nothing to do.
+        # Picker didn't complete (user cancelled or flow bailed).  Nothing to
+        # do.
         _restore_model_cfg(model_before)
         _restore_auth_active_provider(active_provider_before)
         print()
@@ -191,7 +202,9 @@ def cmd_fallback_add(args) -> None:
         _restore_model_cfg(model_before)
         _restore_auth_active_provider(active_provider_before)
         print()
-        print(f"  Selected model matches the current primary ({_format_entry(new_entry)}).")
+        print(
+            f"  Selected model matches the current primary ({
+                _format_entry(new_entry)}).")
         print("  A provider cannot be a fallback for itself — no change.")
         return
 
@@ -210,7 +223,9 @@ def cmd_fallback_add(args) -> None:
         if existing.get("provider") == new_entry["provider"] \
                 and existing.get("model") == new_entry["model"]:
             print()
-            print(f"  {_format_entry(new_entry)} is already in the fallback chain — skipped.")
+            print(
+                f"  {
+                    _format_entry(new_entry)} is already in the fallback chain — skipped.")
             return
 
     chain.append(new_entry)
@@ -219,7 +234,10 @@ def cmd_fallback_add(args) -> None:
 
     print()
     print(f"  Added fallback: {_format_entry(new_entry)}")
-    print(f"  Chain is now {len(chain)} {'entry' if len(chain) == 1 else 'entries'} long.")
+    print(
+        f"  Chain is now {
+            len(chain)} {
+            'entry' if len(chain) == 1 else 'entries'} long.")
     print()
     print("  Run `nastech fallback list` to view, or `nastech fallback remove` to delete.")
 
@@ -270,7 +288,10 @@ def cmd_fallback_remove(args) -> None:  # noqa: ARG001
     print()
     print(f"  Removed fallback: {_format_entry(removed)}")
     if chain:
-        print(f"  Chain is now {len(chain)} {'entry' if len(chain) == 1 else 'entries'} long.")
+        print(
+            f"  Chain is now {
+                len(chain)} {
+                'entry' if len(chain) == 1 else 'entries'} long.")
     else:
         print("  Fallback chain is now empty.")
     print()
@@ -290,7 +311,10 @@ def cmd_fallback_clear(args) -> None:  # noqa: ARG001
         return
 
     print()
-    print(f"  Current fallback chain ({len(chain)} {'entry' if len(chain) == 1 else 'entries'}):")
+    print(
+        f"  Current fallback chain ({
+            len(chain)} {
+            'entry' if len(chain) == 1 else 'entries'}):")
     for i, entry in enumerate(chain, 1):
         print(f"    {i}. {_format_entry(entry)}")
     print()

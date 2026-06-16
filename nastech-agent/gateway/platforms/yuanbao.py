@@ -29,16 +29,17 @@ import logging
 import os
 import re
 import secrets
+import sys
 import time
 import urllib.parse
 import uuid
-from datetime import datetime, timezone, timedelta
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from dataclasses import field as dc_field
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from abc import ABC, abstractmethod
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Optional, Tuple
-
-import sys
 
 import httpx
 
@@ -62,37 +63,39 @@ from gateway.platforms.base import (
 )
 from gateway.platforms.helpers import MessageDeduplicator
 from gateway.platforms.yuanbao_media import (
-    download_url as media_download_url,
-    get_cos_credentials,
-    upload_to_cos,
-    build_image_msg_body,
     build_file_msg_body,
+    build_image_msg_body,
+)
+from gateway.platforms.yuanbao_media import download_url as media_download_url
+from gateway.platforms.yuanbao_media import (
+    get_cos_credentials,
     guess_mime_type,
     md5_hex,
+    upload_to_cos,
 )
 from gateway.platforms.yuanbao_proto import (
     CMD_TYPE,
+    NASTECH_INSTANCE_ID,
+    WS_HEARTBEAT_FINISH,
+    WS_HEARTBEAT_RUNNING,
     _fields_to_dict,
     _get_string,
     _get_varint,
     _parse_fields,
-    WS_HEARTBEAT_RUNNING,
-    WS_HEARTBEAT_FINISH,
-    NASTECH_INSTANCE_ID,
     decode_conn_msg,
-    decode_inbound_push,
     decode_forward_msg_data,
-    decode_query_group_info_rsp,
     decode_get_group_member_list_rsp,
+    decode_inbound_push,
+    decode_query_group_info_rsp,
     encode_auth_bind,
+    encode_get_group_member_list,
     encode_ping,
     encode_push_ack,
+    encode_query_group_info,
     encode_send_c2c_message,
+    encode_send_group_heartbeat,
     encode_send_group_message,
     encode_send_private_heartbeat,
-    encode_send_group_heartbeat,
-    encode_query_group_info,
-    encode_get_group_member_list,
     next_seq_no,
 )
 from gateway.session import build_session_key
@@ -109,7 +112,8 @@ except ImportError:
 
 _APP_VERSION = _NASTECH_VERSION
 _BOT_VERSION = _NASTECH_VERSION
-_YUANBAO_INSTANCE_ID = str(NASTECH_INSTANCE_ID)  # single source: yuanbao_proto.NASTECH_INSTANCE_ID
+# single source: yuanbao_proto.NASTECH_INSTANCE_ID
+_YUANBAO_INSTANCE_ID = str(NASTECH_INSTANCE_ID)
 _OPERATION_SYSTEM = sys.platform
 
 # ---------------------------------------------------------------------------
@@ -142,8 +146,10 @@ NO_RECONNECT_CLOSE_CODES = {4012, 4013, 4014, 4018, 4019, 4021}
 HEARTBEAT_TIMEOUT_THRESHOLD = 2
 
 # Auth error code classification
-AUTH_FAILED_CODES = {4001, 4002, 4003}      # permanent auth failure, re-sign token
-AUTH_RETRYABLE_CODES = {4010, 4011, 4099}   # transient, can retry with same token
+# permanent auth failure, re-sign token
+AUTH_FAILED_CODES = {4001, 4002, 4003}
+# transient, can retry with same token
+AUTH_RETRYABLE_CODES = {4010, 4011, 4099}
 
 # Reply Heartbeat configuration
 REPLY_HEARTBEAT_INTERVAL_S = 2.0   # Send RUNNING every 2 seconds
@@ -152,7 +158,8 @@ REPLY_HEARTBEAT_TIMEOUT_S = 30.0   # Auto-stop after 30 seconds of inactivity
 # Reply-to reference configuration
 REPLY_REF_TTL_S = 300.0            # Reference dedup TTL (5 minutes)
 
-# Slow-response hint: push a waiting message when agent produces no data for this duration (seconds)
+# Slow-response hint: push a waiting message when agent produces no data
+# for this duration (seconds)
 SLOW_RESPONSE_TIMEOUT_S = 120.0
 SLOW_RESPONSE_MESSAGE = "任务有点复杂，正在努力处理中，请耐心等待..."
 
@@ -162,7 +169,7 @@ _YB_RES_REF_RE = re.compile(
     r"\[(image|voice|video|file(?::[^|\]]*)?)\|ybres:([A-Za-z0-9_\-]+)\]"
 )
 
-# Patched local-media anchors once an inbound resource has been downloaded to the local cache. 
+# Patched local-media anchors once an inbound resource has been downloaded to the local cache.
 #   [image: /opt/data/image_cache/img_xxx.bmp]
 #   [file: report.pdf → /opt/data/.../report.pdf]
 #   (and any future kind, e.g. [video: /opt/.../clip.mp4])
@@ -178,6 +185,7 @@ _INDICATOR_RE = re.compile(r'\s*\(\d+/\d+\)$')
 OBSERVED_MEDIA_BACKFILL_LOOKBACK = 50
 # Max number of resource references to resolve per inbound turn
 OBSERVED_MEDIA_BACKFILL_MAX_RESOLVE_PER_TURN = 12
+
 
 class MarkdownProcessor:
     """Encapsulates all Markdown-related utilities for the Yuanbao platform.
@@ -441,7 +449,8 @@ class MarkdownProcessor:
 
         _flush_parts()
 
-        # Phase 3: Post-processing — split still-oversized chunks at paragraph boundaries
+        # Phase 3: Post-processing — split still-oversized chunks at paragraph
+        # boundaries
         result: list[str] = []
         for idx, chunk in enumerate(chunks):
             if _len(chunk) <= max_chars:
@@ -510,7 +519,8 @@ class MarkdownProcessor:
 
         # Table continuation
         if cls.ends_with_table_row(prev_chunk):
-            first_line = next_trimmed.split('\n')[0].strip() if next_trimmed else ''
+            first_line = next_trimmed.split(
+                '\n')[0].strip() if next_trimmed else ''
             if first_line.startswith('|') and first_line.endswith('|'):
                 return '\n'
 
@@ -544,7 +554,8 @@ class MarkdownProcessor:
         i = 0
         while i < len(chunks):
             current = chunks[i]
-            # If current chunk has unclosed fence, try merging subsequent chunks
+            # If current chunk has unclosed fence, try merging subsequent
+            # chunks
             while cls.has_unclosed_fence(current) and i + 1 < len(chunks):
                 sep = cls.infer_block_separator(current, chunks[i + 1])
                 current = current + sep + chunks[i + 1]
@@ -581,7 +592,8 @@ class MarkdownProcessor:
         last_line = lines[-1].strip()
 
         # First line must be ```markdown (optional language tag md/markdown)
-        if not re.match(r'^```(?:markdown|md)?\s*$', first_line, re.IGNORECASE):
+        if not re.match(r'^```(?:markdown|md)?\s*$',
+                        first_line, re.IGNORECASE):
             return text
 
         # Last line must be plain ```
@@ -659,6 +671,7 @@ class MarkdownProcessor:
             "Please use Markdown formatting when appropriate to improve readability."
         )
 
+
 class SignManager:
     """Encapsulates all sign-token related logic for the Yuanbao platform.
 
@@ -705,14 +718,16 @@ class SignManager:
         return cls._locks[app_key]
 
     @staticmethod
-    def compute_signature(nonce: str, timestamp: str, app_key: str, app_secret: str) -> str:
+    def compute_signature(nonce: str, timestamp: str,
+                          app_key: str, app_secret: str) -> str:
         """Compute HMAC-SHA256 signature (aligned with TypeScript original).
 
         plain     = nonce + timestamp + app_key + app_secret
         signature = HMAC-SHA256(key=app_secret, msg=plain).hexdigest()
         """
         plain = nonce + timestamp + app_key + app_secret
-        return hmac.new(app_secret.encode(), plain.encode(), hashlib.sha256).hexdigest()
+        return hmac.new(app_secret.encode(), plain.encode(),
+                        hashlib.sha256).hexdigest()
 
     @staticmethod
     def build_timestamp() -> str:
@@ -766,7 +781,8 @@ class SignManager:
             for attempt in range(cls.MAX_RETRIES + 1):
                 nonce = secrets.token_hex(16)
                 timestamp = cls.build_timestamp()
-                signature = cls.compute_signature(nonce, timestamp, app_key, app_secret)
+                signature = cls.compute_signature(
+                    nonce, timestamp, app_key, app_secret)
 
                 payload = {
                     "app_key": app_key,
@@ -795,19 +811,24 @@ class SignManager:
 
                 if response.status_code != 200:
                     body = response.text
-                    raise RuntimeError(f"Sign token API returned {response.status_code}: {body[:200]}")
+                    raise RuntimeError(
+                        f"Sign token API returned {response.status_code}: {body[:200]}")
 
                 try:
                     result_data: dict[str, Any] = response.json()
                 except Exception as exc:
-                    raise ValueError(f"Sign token response parse error: {exc}") from exc
+                    raise ValueError(
+                        f"Sign token response parse error: {exc}") from exc
 
                 code = result_data.get("code")
                 if code == 0:
                     data = result_data.get("data")
                     if not isinstance(data, dict):
-                        raise ValueError(f"Sign token response missing 'data' field: {result_data}")
-                    logger.info("Sign token success: bot_id=%s", data.get("bot_id"))
+                        raise ValueError(
+                            f"Sign token response missing 'data' field: {result_data}")
+                    logger.info(
+                        "Sign token success: bot_id=%s",
+                        data.get("bot_id"))
                     return data
 
                 if code == cls.RETRYABLE_CODE and attempt < cls.MAX_RETRIES:
@@ -882,7 +903,8 @@ class SignManager:
         route_env: str = "",
     ) -> dict[str, Any]:
         """Force refresh token (clear cache and re-sign)."""
-        logger.warning("[force-refresh] Clearing cache and re-signing token: app_key=****%s", app_key[-4:])
+        logger.warning(
+            "[force-refresh] Clearing cache and re-signing token: app_key=****%s", app_key[-4:])
         async with cls.get_refresh_lock(app_key):
             cls._cache.pop(app_key, None)
             data = await cls.fetch(app_key, app_secret, api_domain, route_env)
@@ -902,8 +924,6 @@ class SignManager:
         return dict(cls._cache[app_key])
 
 
-from dataclasses import dataclass, field as dc_field
-
 @dataclass
 class InboundContext:
     """Mutable context flowing through the inbound middleware pipeline.
@@ -913,7 +933,8 @@ class InboundContext:
     """
 
     adapter: Any  # YuanbaoAdapter (forward-ref avoids circular import)
-    raw_frames: list = dc_field(default_factory=list)  # Raw bytes frames (debounce-aggregated)
+    # Raw bytes frames (debounce-aggregated)
+    raw_frames: list = dc_field(default_factory=list)
 
     # Populated by DecodeMiddleware
     push: Optional[dict] = None
@@ -938,7 +959,8 @@ class InboundContext:
     media_refs: list = dc_field(default_factory=list)
 
     # Populated by ExtractContentMiddleware for elem_type 1009 (WeChat forward).
-    # Contains the parsed ForwardMsgData dict (sub_type / nick_name / msg list).
+    # Contains the parsed ForwardMsgData dict (sub_type / nick_name / msg
+    # list).
     forwarded_records: Optional[dict] = None
 
     # Owner command detection
@@ -953,13 +975,15 @@ class InboundContext:
     # Populated by QuoteContextMiddleware
     reply_to_message_id: Optional[str] = None
     reply_to_text: Optional[str] = None
-    quote_media_refs: list = dc_field(default_factory=list)  # List of (rid, kind, filename)
+    quote_media_refs: list = dc_field(
+        default_factory=list)  # List of (rid, kind, filename)
 
     # Populated by MediaResolveMiddleware. Combined list of resolved local
     # paths from up to three sources (deduped, in this order):
     #   1) media carried by the current message (always),
     #   2) media from the quoted message (when reply_to_message_id is set),
-    #   3) recent group-observed media (only when chat_type == "group" and no quote is present).
+    # 3) recent group-observed media (only when chat_type == "group" and no
+    # quote is present).
     media_urls: list = dc_field(default_factory=list)
     media_types: list = dc_field(default_factory=list)
 
@@ -1035,10 +1059,12 @@ class InboundPipeline:
         self._middlewares.append((name, h, when))
         return self
 
-    def use_before(self, target: str, name_or_mw, handler=None, when=None) -> "InboundPipeline":
+    def use_before(self, target: str, name_or_mw, handler=None,
+                   when=None) -> "InboundPipeline":
         """Insert a middleware before *target* (by name).  Appends if not found."""
         name, h = self._normalize(name_or_mw, handler)
-        idx = next((i for i, (n, _, _) in enumerate(self._middlewares) if n == target), None)
+        idx = next((i for i, (n, _, _) in enumerate(
+            self._middlewares) if n == target), None)
         entry = (name, h, when)
         if idx is None:
             self._middlewares.append(entry)
@@ -1046,10 +1072,12 @@ class InboundPipeline:
             self._middlewares.insert(idx, entry)
         return self
 
-    def use_after(self, target: str, name_or_mw, handler=None, when=None) -> "InboundPipeline":
+    def use_after(self, target: str, name_or_mw, handler=None,
+                  when=None) -> "InboundPipeline":
         """Insert a middleware after *target* (by name).  Appends if not found."""
         name, h = self._normalize(name_or_mw, handler)
-        idx = next((i for i, (n, _, _) in enumerate(self._middlewares) if n == target), None)
+        idx = next((i for i, (n, _, _) in enumerate(
+            self._middlewares) if n == target), None)
         entry = (name, h, when)
         if idx is None:
             self._middlewares.append(entry)
@@ -1059,7 +1087,8 @@ class InboundPipeline:
 
     def remove(self, name: str) -> "InboundPipeline":
         """Remove a middleware by name."""
-        self._middlewares = [(n, h, w) for n, h, w in self._middlewares if n != name]
+        self._middlewares = [(n, h, w)
+                             for n, h, w in self._middlewares if n != name]
         return self
 
     @property
@@ -1085,12 +1114,17 @@ class InboundPipeline:
                 try:
                     await handler(ctx, next_fn)
                 except Exception:
-                    logger.error("[InboundPipeline] middleware [%s] error", name, exc_info=True)
+                    logger.error(
+                        "[InboundPipeline] middleware [%s] error",
+                        name,
+                        exc_info=True)
                     raise
                 return
             # End of chain — nothing more to do
 
         await next_fn()
+
+
 class DecodeMiddleware(InboundMiddleware):
     """Decode raw inbound frames from JSON or Protobuf into ctx.push.
 
@@ -1120,7 +1154,8 @@ class DecodeMiddleware(InboundMiddleware):
                     msg_content = json.loads(msg_content)
                 except Exception:
                     msg_content = {"text": msg_content}
-            result.append({"msg_type": msg_type, "msg_content": msg_content or {}})
+            result.append(
+                {"msg_type": msg_type, "msg_content": msg_content or {}})
         return result
 
     @staticmethod
@@ -1154,7 +1189,8 @@ class DecodeMiddleware(InboundMiddleware):
         msg_body = DecodeMiddleware.convert_json_msg_body(msg_body_raw)
 
         # Recall callbacks may have neither from_account nor msg_body.
-        if not from_account and not msg_body and not raw_json.get("callback_command"):
+        if not from_account and not msg_body and not raw_json.get(
+                "callback_command"):
             return None
 
         return {
@@ -1208,7 +1244,7 @@ class DecodeMiddleware(InboundMiddleware):
             push, via = self._decode_single(ctx.adapter, data)
             if not push:
                 logger.info(
-                "[%s] Push decoded but no valid message. raw hex(first64)=%s",
+                    "[%s] Push decoded but no valid message. raw hex(first64)=%s",
                     ctx.adapter.name, data.hex()[:128] if data else "(empty)",
                 )
                 continue
@@ -1218,15 +1254,19 @@ class DecodeMiddleware(InboundMiddleware):
                 merged_push = push
                 decoded_via = via
                 logger.info(
-                "[%s] Frame decoded (via=%s): len=%d",
+                    "[%s] Frame decoded (via=%s): len=%d",
                     ctx.adapter.name, via, len(data),
                 )
             else:
                 # Subsequent pushes: merge msg_body into the base with a
                 extra_body = push.get("msg_body", [])
                 if extra_body:
-                    _sep = {"msg_type": "TIMTextElem", "msg_content": {"text": "\n"}}
-                    merged_push["msg_body"] = merged_push.get("msg_body", []) + [_sep] + extra_body
+                    _sep = {
+                        "msg_type": "TIMTextElem",
+                        "msg_content": {
+                            "text": "\n"}}
+                    merged_push["msg_body"] = merged_push.get(
+                        "msg_body", []) + [_sep] + extra_body
                     logger.info(
                         "[%s] Merged %d extra msg_body elements from aggregated push",
                         ctx.adapter.name, len(extra_body),
@@ -1275,7 +1315,10 @@ class DedupMiddleware(InboundMiddleware):
 
     async def handle(self, ctx: InboundContext, next_fn) -> None:
         if ctx.msg_id and ctx.adapter._dedup.is_duplicate(ctx.msg_id):
-            logger.debug("[%s] Duplicate message ignored: msg_id=%s", ctx.adapter.name, ctx.msg_id)
+            logger.debug(
+                "[%s] Duplicate message ignored: msg_id=%s",
+                ctx.adapter.name,
+                ctx.msg_id)
             return  # Stop pipeline
         await next_fn()
 
@@ -1306,7 +1349,8 @@ class RecallGuardMiddleware(InboundMiddleware):
     @staticmethod
     def _build_source(adapter, group_code: str, from_account: str):
         return adapter.build_source(
-            chat_id=(f"group:{group_code}" if group_code else f"direct:{from_account}"),
+            chat_id=(
+                f"group:{group_code}" if group_code else f"direct:{from_account}"),
             chat_type="group" if group_code else "dm",
             user_id=from_account or None,
             thread_id="main" if group_code else None,
@@ -1321,26 +1365,36 @@ class RecallGuardMiddleware(InboundMiddleware):
         else:
             mid = push.get("msg_id") or ""
             seq = push.get("msg_seq")
-            seq_list = [{"msg_id": mid, "msg_seq": seq}] if (mid or seq) else []
+            seq_list = [{"msg_id": mid, "msg_seq": seq}] if (
+                mid or seq) else []
 
         if not seq_list:
-            logger.debug("[%s] Recall callback with empty seq_list, skipping", adapter.name)
+            logger.debug(
+                "[%s] Recall callback with empty seq_list, skipping",
+                adapter.name)
             return
 
         group_code = (push.get("group_code") or "").strip()
         from_account = (push.get("from_account") or "").strip()
 
         for seq_entry in seq_list:
-            recalled_id = seq_entry.get("msg_id") or str(seq_entry.get("msg_seq") or "")
+            recalled_id = seq_entry.get("msg_id") or str(
+                seq_entry.get("msg_seq") or "")
             if not recalled_id:
                 continue
 
             matched_sk = self._find_processing_session(adapter, recalled_id)
             if matched_sk is not None:
-                self._interrupt_for_recall(adapter, matched_sk, recalled_id, group_code, from_account)
+                self._interrupt_for_recall(
+                    adapter, matched_sk, recalled_id, group_code, from_account)
             else:
                 recalled_content = adapter._msg_content_cache.get(recalled_id)
-                self._patch_transcript(adapter, recalled_id, group_code, from_account, recalled_content)
+                self._patch_transcript(
+                    adapter,
+                    recalled_id,
+                    group_code,
+                    from_account,
+                    recalled_content)
 
     # -- Branch C: interrupt currently-processing message ---------------
 
@@ -1375,19 +1429,26 @@ class RecallGuardMiddleware(InboundMiddleware):
             internal=True,
         )
         # Set pending + signal directly (bypass handle_message to avoid busy-ack).
-        # May overwrite a user message pending in the same ~200ms window — acceptable.
+        # May overwrite a user message pending in the same ~200ms window —
+        # acceptable.
         adapter._pending_messages[session_key] = synth_event
         active_event = adapter._active_sessions.get(session_key)
         if active_event is not None:
             active_event.set()
 
-        logger.info("[%s] Recall interrupt: msg_id=%s session=%s", adapter.name, recalled_id, session_key[:30])
+        logger.info("[%s] Recall interrupt: msg_id=%s session=%s",
+                    adapter.name, recalled_id, session_key[:30])
 
         # The interrupted turn will persist the recalled content *after* our
         # interrupt — schedule a delayed redaction to clean it up.
         recalled_text = adapter._processing_msg_texts.get(session_key, "")
         if recalled_text:
-            cls._schedule_content_redact(adapter, session_key, recalled_text, group_code, from_account)
+            cls._schedule_content_redact(
+                adapter,
+                session_key,
+                recalled_text,
+                group_code,
+                from_account)
 
     @classmethod
     def _schedule_content_redact(cls, adapter, session_key: str, recalled_text: str,
@@ -1411,15 +1472,19 @@ class RecallGuardMiddleware(InboundMiddleware):
                 except Exception:
                     continue
                 for entry in transcript:
-                    if entry.get("role") == "user" and entry.get("content") == recalled_text:
+                    if entry.get("role") == "user" and entry.get(
+                            "content") == recalled_text:
                         entry["content"] = cls._REDACTED
                         try:
                             store.rewrite_transcript(sid, transcript)
-                            logger.info("[%s] Recall redact: session %s", adapter.name, session_key[:30])
+                            logger.info("[%s] Recall redact: session %s",
+                                        adapter.name, session_key[:30])
                         except Exception as exc:
-                            logger.warning("[%s] Recall redact failed: %s", adapter.name, exc)
+                            logger.warning(
+                                "[%s] Recall redact failed: %s", adapter.name, exc)
                         return
-            logger.debug("[%s] Recall redact: content not found after polling, session %s", adapter.name, session_key[:30])
+            logger.debug("[%s] Recall redact: content not found after polling, session %s",
+                         adapter.name, session_key[:30])
 
         task = asyncio.create_task(_redact())
         adapter._background_tasks.add(task)
@@ -1434,9 +1499,13 @@ class RecallGuardMiddleware(InboundMiddleware):
         if not store:
             return
         try:
-            sid = store.get_or_create_session(cls._build_source(adapter, group_code, from_account)).session_id
+            sid = store.get_or_create_session(cls._build_source(
+                adapter, group_code, from_account)).session_id
         except Exception as exc:
-            logger.warning("[%s] Recall: failed to resolve session: %s", adapter.name, exc)
+            logger.warning(
+                "[%s] Recall: failed to resolve session: %s",
+                adapter.name,
+                exc)
             return
 
         # Load transcript from canonical store (state.db).  Since PR #29278
@@ -1448,7 +1517,10 @@ class RecallGuardMiddleware(InboundMiddleware):
         try:
             transcript = store.load_transcript(sid)
         except Exception as exc:
-            logger.warning("[%s] Recall: failed to load transcript: %s", adapter.name, exc)
+            logger.warning(
+                "[%s] Recall: failed to load transcript: %s",
+                adapter.name,
+                exc)
             return
 
         # Branch A1: exact platform message_id match. Authoritative when the
@@ -1467,7 +1539,8 @@ class RecallGuardMiddleware(InboundMiddleware):
         # before the platform_message_id column existed.
         if target is None and recalled_content:
             for entry in transcript:
-                if entry.get("role") == "user" and entry.get("content") == recalled_content:
+                if entry.get("role") == "user" and entry.get(
+                        "content") == recalled_content:
                     target = entry
                     branch_label = "branch A2: content match"
                     break
@@ -1475,9 +1548,16 @@ class RecallGuardMiddleware(InboundMiddleware):
             target["content"] = cls._REDACTED
             try:
                 store.rewrite_transcript(sid, transcript)
-                logger.info("[%s] Recall: redacted msg_id=%s (%s)", adapter.name, recalled_id, branch_label)
+                logger.info(
+                    "[%s] Recall: redacted msg_id=%s (%s)",
+                    adapter.name,
+                    recalled_id,
+                    branch_label)
             except Exception as exc:
-                logger.warning("[%s] Recall: rewrite_transcript failed: %s", adapter.name, exc)
+                logger.warning(
+                    "[%s] Recall: rewrite_transcript failed: %s",
+                    adapter.name,
+                    exc)
             return
 
         # Branch B: not found in transcript → append system note
@@ -1486,7 +1566,10 @@ class RecallGuardMiddleware(InboundMiddleware):
             "content": f'[recall] message_id="{recalled_id}" has been recalled; do not quote or reference it.',
             "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         })
-        logger.info("[%s] Recall: system note for msg_id=%s (branch B)", adapter.name, recalled_id)
+        logger.info(
+            "[%s] Recall: system note for msg_id=%s (branch B)",
+            adapter.name,
+            recalled_id)
 
 
 class SkipSelfMiddleware(InboundMiddleware):
@@ -1503,7 +1586,10 @@ class SkipSelfMiddleware(InboundMiddleware):
 
     async def handle(self, ctx: InboundContext, next_fn) -> None:
         if self._is_self_reference(ctx.from_account, ctx.adapter._bot_id):
-            logger.debug("[%s] Ignoring self-sent message from %s", ctx.adapter.name, ctx.from_account)
+            logger.debug(
+                "[%s] Ignoring self-sent message from %s",
+                ctx.adapter.name,
+                ctx.from_account)
             return  # Stop pipeline
         await next_fn()
 
@@ -1617,9 +1703,9 @@ class AutoSetHomeMiddleware(InboundMiddleware):
                 adapter._auto_sethome_done = True  # DM seen — no further upgrades needed
             if _should_set:
                 try:
+                    import yaml
                     from nastech_constants import get_nastech_home
                     from utils import atomic_yaml_write
-                    import yaml
 
                     _home = get_nastech_home()
                     config_path = _home / "config.yaml"
@@ -1636,7 +1722,8 @@ class AutoSetHomeMiddleware(InboundMiddleware):
                     )
                     # Silent auto-sethome: no user-facing message, only log
                 except Exception as e:
-                    logger.warning("[%s] Auto-sethome failed: %s", adapter.name, e)
+                    logger.warning(
+                        "[%s] Auto-sethome failed: %s", adapter.name, e)
         await next_fn()
 
 
@@ -1658,7 +1745,8 @@ class ExtractContentMiddleware(InboundMiddleware):
         for field in ("card_content", "wechat_des"):
             val = custom.get(field)
             if val and isinstance(val, str):
-                preview = val[:max_len] + "...(truncated)" if len(val) > max_len else val
+                preview = val[:max_len] + \
+                    "...(truncated)" if len(val) > max_len else val
                 lines.append(f"Preview: {preview}")
                 break
         if link:
@@ -1728,7 +1816,8 @@ class ExtractContentMiddleware(InboundMiddleware):
                     image_info_array = []
                 image_info = None
                 # Prefer medium image (index 1), fallback to index 0
-                if len(image_info_array) > 1 and isinstance(image_info_array[1], dict):
+                if len(image_info_array) > 1 and isinstance(
+                        image_info_array[1], dict):
                     image_info = image_info_array[1]
                 elif len(image_info_array) > 0 and isinstance(image_info_array[0], dict):
                     image_info = image_info_array[0]
@@ -1736,13 +1825,18 @@ class ExtractContentMiddleware(InboundMiddleware):
                 rid = cls._parse_resource_id(image_url)
                 parts.append(f"[image|ybres:{rid}]" if rid else "[image]")
             elif elem_type == "TIMFileElem":
-                filename = content.get("file_name", content.get("fileName", content.get("filename", "")))
+                filename = content.get(
+                    "file_name", content.get(
+                        "fileName", content.get(
+                            "filename", "")))
                 file_url = str(content.get("url") or "").strip()
                 rid = cls._parse_resource_id(file_url)
                 if rid:
-                    parts.append(f"[file:{filename}|ybres:{rid}]" if filename else f"[file|ybres:{rid}]")
+                    parts.append(
+                        f"[file:{filename}|ybres:{rid}]" if filename else f"[file|ybres:{rid}]")
                 else:
-                    parts.append(f"[file: {filename}]" if filename else "[file]")
+                    parts.append(
+                        f"[file: {filename}]" if filename else "[file]")
             elif elem_type == "TIMSoundElem":
                 sound_url = str(content.get("url") or "").strip()
                 rid = cls._parse_resource_id(sound_url)
@@ -1771,7 +1865,8 @@ class ExtractContentMiddleware(InboundMiddleware):
                             else:
                                 parts.append("[unsupported message type]")
                         elif ctype == 1009:
-                            # WeChat forwarded chat record: use the truncated summary text.
+                            # WeChat forwarded chat record: use the truncated
+                            # summary text.
                             parts.append(custom.get("text", "[chat record]"))
                         else:
                             parts.append("[unsupported message type]")
@@ -1789,7 +1884,8 @@ class ExtractContentMiddleware(InboundMiddleware):
                         face_name = (face_data.get("name") or "").strip()
                     except (json.JSONDecodeError, TypeError, AttributeError):
                         pass
-                parts.append(f"[emoji: {face_name}]" if face_name else "[emoji]")
+                parts.append(
+                    f"[emoji: {face_name}]" if face_name else "[emoji]")
             elif elem_type:
                 # Unknown element type — include type as placeholder
                 parts.append(f"[{elem_type}]")
@@ -1828,7 +1924,8 @@ class ExtractContentMiddleware(InboundMiddleware):
                 if not isinstance(image_info_array, list):
                     image_info_array = []
                 image_info = None
-                if len(image_info_array) > 1 and isinstance(image_info_array[1], dict):
+                if len(image_info_array) > 1 and isinstance(
+                        image_info_array[1], dict):
                     image_info = image_info_array[1]
                 elif len(image_info_array) > 0 and isinstance(image_info_array[0], dict):
                     image_info = image_info_array[0]
@@ -1856,7 +1953,8 @@ class ExtractContentMiddleware(InboundMiddleware):
         """Extract link URLs from share-card (1010) and link-understanding (1007) custom elems."""
         urls: list[str] = []
         for elem in msg_body or []:
-            if not isinstance(elem, dict) or elem.get("msg_type") != "TIMCustomElem":
+            if not isinstance(elem, dict) or elem.get(
+                    "msg_type") != "TIMCustomElem":
                 continue
             data_str = (elem.get("msg_content") or {}).get("data", "")
             if not data_str:
@@ -1877,7 +1975,8 @@ class ExtractContentMiddleware(InboundMiddleware):
                 if content:
                     try:
                         parsed = json.loads(content)
-                        link = parsed.get("link") if isinstance(parsed, dict) else None
+                        link = parsed.get("link") if isinstance(
+                            parsed, dict) else None
                         if link and isinstance(link, str):
                             urls.append(link)
                     except (json.JSONDecodeError, TypeError):
@@ -1885,7 +1984,8 @@ class ExtractContentMiddleware(InboundMiddleware):
         return urls
 
     @staticmethod
-    def _extract_forwarded_records(msg_body: list, user_id: str = "") -> Optional[dict]:
+    def _extract_forwarded_records(
+            msg_body: list, user_id: str = "") -> Optional[dict]:
         """Extract ForwardMsgData from ext_map for elem_type 1009 (WeChat forward).
 
         The detailed chat-record payload lives in ``msg_content.ext_map``
@@ -1901,7 +2001,8 @@ class ExtractContentMiddleware(InboundMiddleware):
         Returns the parsed ``ForwardMsgData`` dict or ``None``.
         """
         for elem in msg_body or []:
-            if not isinstance(elem, dict) or elem.get("msg_type") != "TIMCustomElem":
+            if not isinstance(elem, dict) or elem.get(
+                    "msg_type") != "TIMCustomElem":
                 continue
             content = elem.get("msg_content", {}) or {}
             if not isinstance(content, dict):
@@ -1913,7 +2014,8 @@ class ExtractContentMiddleware(InboundMiddleware):
                 custom = json.loads(data_str)
             except (json.JSONDecodeError, TypeError):
                 continue
-            if not (isinstance(custom, dict) and custom.get("elem_type") == 1009):
+            if not (isinstance(custom, dict)
+                    and custom.get("elem_type") == 1009):
                 continue
 
             ext_map = content.get("ext_map") or {}
@@ -1944,11 +2046,14 @@ class ExtractContentMiddleware(InboundMiddleware):
         return None
 
     async def handle(self, ctx: InboundContext, next_fn) -> None:
-        ctx.raw_text = self._rewrite_slash_command(self._extract_text(ctx.msg_body))
+        ctx.raw_text = self._rewrite_slash_command(
+            self._extract_text(ctx.msg_body))
         ctx.media_refs = self._extract_inbound_media_refs(ctx.msg_body)
         ctx.link_urls = self._extract_link_urls(ctx.msg_body)
-        ctx.forwarded_records = self._extract_forwarded_records(ctx.msg_body, ctx.from_account)
+        ctx.forwarded_records = self._extract_forwarded_records(
+            ctx.msg_body, ctx.from_account)
         await next_fn()
+
 
 class PlaceholderFilterMiddleware(InboundMiddleware):
     """Skip pure placeholder messages (e.g. '[image]' with no media)."""
@@ -1970,7 +2075,10 @@ class PlaceholderFilterMiddleware(InboundMiddleware):
 
     async def handle(self, ctx: InboundContext, next_fn) -> None:
         if self.is_skippable_placeholder(ctx.raw_text, len(ctx.media_refs)):
-            logger.debug("[%s] Skipping placeholder message: %r", ctx.adapter.name, ctx.raw_text)
+            logger.debug(
+                "[%s] Skipping placeholder message: %r",
+                ctx.adapter.name,
+                ctx.raw_text)
             return  # Stop pipeline
         await next_fn()
 
@@ -2018,7 +2126,8 @@ class OwnerCommandMiddleware(InboundMiddleware):
         if chat_type != "group" or not cls.ALLOWLIST:
             return None, None, False
 
-        # Extract TIMTextElem: only do command recognition with exactly one text segment
+        # Extract TIMTextElem: only do command recognition with exactly one
+        # text segment
         text_elems = [
             e for e in (msg_body or [])
             if e.get("msg_type") == "TIMTextElem"
@@ -2057,7 +2166,9 @@ class OwnerCommandMiddleware(InboundMiddleware):
                 adapter.name, ctx.chat_id, ctx.from_account, matched_cmd,
             )
             adapter._track_task(asyncio.create_task(
-                adapter.send(ctx.chat_id, f"⚠️ {matched_cmd} is only available to the creator in private chat mode"),
+                adapter.send(
+                    ctx.chat_id,
+                    f"⚠️ {matched_cmd} is only available to the creator in private chat mode"),
                 name=f"yuanbao-owner-cmd-denial-{matched_cmd}",
             ))
             return  # Stop pipeline
@@ -2118,12 +2229,14 @@ class GroupAtGuardMiddleware(InboundMiddleware):
                 custom = json.loads(data_str)
             except (json.JSONDecodeError, TypeError):
                 continue
-            if custom.get("elem_type") == 1002 and custom.get("user_id") == bot_id:
+            if custom.get("elem_type") == 1002 and custom.get(
+                    "user_id") == bot_id:
                 return True
         return False
 
     @staticmethod
-    def _extract_bot_mention_text(msg_body: list, bot_id: Optional[str]) -> str:
+    def _extract_bot_mention_text(
+            msg_body: list, bot_id: Optional[str]) -> str:
         """Extract the display text used to @-mention this bot (e.g. ``@yuanbao-bot``)."""
         if not bot_id:
             return ""
@@ -2137,17 +2250,20 @@ class GroupAtGuardMiddleware(InboundMiddleware):
                 custom = json.loads(data_str)
             except (json.JSONDecodeError, TypeError):
                 continue
-            if custom.get("elem_type") == 1002 and custom.get("user_id") == bot_id:
+            if custom.get("elem_type") == 1002 and custom.get(
+                    "user_id") == bot_id:
                 mention_text = str(custom.get("text") or "").strip()
                 if mention_text:
                     return mention_text
         return ""
 
     @staticmethod
-    def _build_group_channel_prompt(msg_body: list, bot_id: Optional[str]) -> str:
+    def _build_group_channel_prompt(
+            msg_body: list, bot_id: Optional[str]) -> str:
         """Build a per-turn group-chat prompt that highlights which message to respond to."""
         bid = str(bot_id or "unknown")
-        bot_mention = GroupAtGuardMiddleware._extract_bot_mention_text(msg_body, bot_id) or "unknown"
+        bot_mention = GroupAtGuardMiddleware._extract_bot_mention_text(
+            msg_body, bot_id) or "unknown"
         return (
             "You are handling a Yuanbao group chat message.\n"
             f"- Your identity: user_id={bid}, @-mention name in this group={bot_mention}\n"
@@ -2200,11 +2316,15 @@ class GroupAtGuardMiddleware(InboundMiddleware):
                 entry,
             )
         except Exception as exc:
-            logger.warning("[%s] Failed to observe group message: %s", adapter.name, exc)
+            logger.warning(
+                "[%s] Failed to observe group message: %s",
+                adapter.name,
+                exc)
 
     async def handle(self, ctx: InboundContext, next_fn) -> None:
         adapter = ctx.adapter
-        if ctx.chat_type == "group" and not ctx.owner_command and not self._is_at_bot(ctx.msg_body, adapter._bot_id):
+        if ctx.chat_type == "group" and not ctx.owner_command and not self._is_at_bot(
+                ctx.msg_body, adapter._bot_id):
             self._observe_group_message(
                 adapter, ctx.source, ctx.sender_nickname or ctx.from_account, ctx.raw_text,
                 msg_id=ctx.msg_id or None,
@@ -2288,7 +2408,8 @@ class ClassifyMessageTypeMiddleware(InboundMiddleware):
                     custom = json.loads(data_str)
                 except (json.JSONDecodeError, TypeError):
                     custom = None
-                if isinstance(custom, dict) and custom.get("elem_type") == 1009:
+                if isinstance(custom, dict) and custom.get(
+                        "elem_type") == 1009:
                     return YuanbaoMessageType.CHAT_RECORD
         return MessageType.TEXT
 
@@ -2302,7 +2423,8 @@ class QuoteContextMiddleware(InboundMiddleware):
 
     name = "quote-context"
 
-    def _extract_quote_context(self, cloud_custom_data: str) -> Tuple[Optional[str], Optional[str]]:
+    def _extract_quote_context(
+            self, cloud_custom_data: str) -> Tuple[Optional[str], Optional[str]]:
         """Extract quote text context, mapping to MessageEvent.reply_to_*.
         """
         if not cloud_custom_data:
@@ -2318,8 +2440,10 @@ class QuoteContextMiddleware(InboundMiddleware):
 
         quote_id = str(quote.get("id") or "").strip() or None
         desc = str(quote.get("desc") or "").strip()
-        sender = str(quote.get("sender_nickname") or quote.get("sender_id") or "").strip()
-        quote_text = (f"{sender}: {desc}" if sender else desc) if desc else None
+        sender = str(quote.get("sender_nickname")
+                     or quote.get("sender_id") or "").strip()
+        quote_text = (
+            f"{sender}: {desc}" if sender else desc) if desc else None
 
         return quote_id, quote_text
 
@@ -2366,7 +2490,8 @@ class QuoteContextMiddleware(InboundMiddleware):
         return media_refs
 
     async def handle(self, ctx: InboundContext, next_fn) -> None:
-        ctx.reply_to_message_id, ctx.reply_to_text = self._extract_quote_context(ctx.cloud_custom_data)
+        ctx.reply_to_message_id, ctx.reply_to_text = self._extract_quote_context(
+            ctx.cloud_custom_data)
         ctx.quote_media_refs = await self._extract_media_refs_from_transcript(ctx)
         await next_fn()
 
@@ -2395,7 +2520,8 @@ class ForwardedRecordsParseMiddleware(InboundMiddleware):
         try:
             if ctx.forwarded_records:
                 self._send_loading_heartbeat(ctx)
-                ctx.raw_text = self.build_forward_text(ctx.forwarded_records, ctx=ctx, is_dispatch=True)
+                ctx.raw_text = self.build_forward_text(
+                    ctx.forwarded_records, ctx=ctx, is_dispatch=True)
         except Exception as exc:
             # Degrade gracefully: leave ctx.raw_text as-is.
             logger.warning(
@@ -2430,7 +2556,12 @@ class ForwardedRecordsParseMiddleware(InboundMiddleware):
         usable RID/URL is present; otherwise a plain ``[kind] name`` marker
         and ``ref=None``.
         """
-        media_type = (media.get("type", "") or media.get("doc_type", "")).strip().lower()
+        media_type = (
+            media.get(
+                "type",
+                "") or media.get(
+                "doc_type",
+                "")).strip().lower()
         url = str(media.get("url") or "").strip()
         media_id = str(media.get("media_id") or "").strip()
         file_name = str(media.get("file_name") or "").strip()
@@ -2440,7 +2571,8 @@ class ForwardedRecordsParseMiddleware(InboundMiddleware):
 
         if media_type == "image":
             if url and rid:
-                return f"[image|ybres:{rid}] {file_name}".rstrip(), {"kind": "image", "url": url}
+                return f"[image|ybres:{rid}] {file_name}".rstrip(), {
+                    "kind": "image", "url": url}
             return f"[image] {file_name or plain_text}".rstrip(), None
 
         if media_type in ("file", "document", "code"):
@@ -2458,12 +2590,14 @@ class ForwardedRecordsParseMiddleware(InboundMiddleware):
 
         if media_type == "video":
             if url and rid:
-                return f"[video|ybres:{rid}] {file_name}".rstrip(), {"kind": "video", "url": url}
+                return f"[video|ybres:{rid}] {file_name}".rstrip(), {
+                    "kind": "video", "url": url}
             return f"[video] {file_name or url}".rstrip(), None
 
         return f"[{media_type or 'media'}] {url or file_name}".rstrip(), None
 
-    # Per-record combined-text cap; record count is NOT capped (design §2.10.3).
+    # Per-record combined-text cap; record count is NOT capped (design
+    # §2.10.3).
     FORWARD_MSG_TEXT_MAX_CHARS = 1000
 
     @classmethod
@@ -2481,7 +2615,8 @@ class ForwardedRecordsParseMiddleware(InboundMiddleware):
         entries in textual order — the order PatchAnchorsMiddleware relies on
         (design §2.10.6). Headers / footers are the caller's job.
         """
-        for msg in (forward_data.get("msg") if isinstance(forward_data, dict) else None) or []:
+        for msg in (forward_data.get("msg") if isinstance(
+                forward_data, dict) else None) or []:
             if not isinstance(msg, dict):
                 continue
             sender = msg.get("sender", "")
@@ -2516,7 +2651,8 @@ class ForwardedRecordsParseMiddleware(InboundMiddleware):
                 rendered = "  ".join(p for p in parts if p) or plain_text
 
             if len(rendered) > cls.FORWARD_MSG_TEXT_MAX_CHARS:
-                rendered = rendered[: cls.FORWARD_MSG_TEXT_MAX_CHARS] + "…(已截断)"
+                rendered = rendered[: cls.FORWARD_MSG_TEXT_MAX_CHARS] + \
+                    "…(已截断)"
             yield sender, rendered, refs
 
     # -- Prompt builders ---------------------------------------------------
@@ -2552,12 +2688,14 @@ class MediaResolveMiddleware(InboundMiddleware):
 
     # --- Resource download cache (keyed by resourceId) ---
     # Avoids redundant downloads of the same resource within the TTL window.
-    _resource_cache: ClassVar[Dict[str, Tuple[str, str, float]]] = {}  # rid -> (local_path, mime, ts)
+    # rid -> (local_path, mime, ts)
+    _resource_cache: ClassVar[Dict[str, Tuple[str, str, float]]] = {}
     _RESOURCE_CACHE_TTL_S: ClassVar[int] = 24 * 60 * 60  # 24 hours
     _RESOURCE_CACHE_MAX_SIZE: ClassVar[int] = 256
 
     @classmethod
-    def _get_cached_resource(cls, resource_id: str) -> Optional[Tuple[str, str]]:
+    def _get_cached_resource(
+            cls, resource_id: str) -> Optional[Tuple[str, str]]:
         """Return cached ``(local_path, mime)`` if still valid and file exists, else None."""
         if not resource_id:
             return None
@@ -2575,13 +2713,16 @@ class MediaResolveMiddleware(InboundMiddleware):
         return local_path, mime
 
     @classmethod
-    def _put_cached_resource(cls, resource_id: str, local_path: str, mime: str) -> None:
+    def _put_cached_resource(cls, resource_id: str,
+                             local_path: str, mime: str) -> None:
         """Store download result in cache. Evicts oldest entries when over capacity."""
         if not resource_id:
             return
         if len(cls._resource_cache) >= cls._RESOURCE_CACHE_MAX_SIZE:
             # Drop the oldest 25% of entries by timestamp.
-            sorted_keys = sorted(cls._resource_cache, key=lambda k: cls._resource_cache[k][2])
+            sorted_keys = sorted(
+                cls._resource_cache,
+                key=lambda k: cls._resource_cache[k][2])
             for k in sorted_keys[: cls._RESOURCE_CACHE_MAX_SIZE // 4]:
                 cls._resource_cache.pop(k, None)
         cls._resource_cache[resource_id] = (local_path, mime, time.time())
@@ -2591,7 +2732,8 @@ class MediaResolveMiddleware(InboundMiddleware):
         """Guess image extension from URL path."""
         path = urllib.parse.urlparse(url).path
         ext = os.path.splitext(path)[1].lower()
-        if ext in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".heic", ".tiff"}:
+        if ext in {".jpg", ".jpeg", ".png", ".gif",
+                   ".webp", ".bmp", ".heic", ".tiff"}:
             return ext
         return ".jpg"
 
@@ -2609,7 +2751,8 @@ class MediaResolveMiddleware(InboundMiddleware):
         token_data = await adapter._get_cached_token()
         token = str(token_data.get("token") or "").strip()
         source = str(token_data.get("source") or "web").strip() or "web"
-        bot_id = str(token_data.get("bot_id") or adapter._bot_id or adapter._app_key).strip()
+        bot_id = str(token_data.get("bot_id")
+                     or adapter._bot_id or adapter._app_key).strip()
         if not token or not bot_id:
             raise RuntimeError("missing token or bot_id for resource download")
 
@@ -2630,8 +2773,10 @@ class MediaResolveMiddleware(InboundMiddleware):
                         adapter._app_key, adapter._app_secret, adapter._api_domain,
                     )
                     token = str(token_data.get("token") or "").strip()
-                    source = str(token_data.get("source") or source or "web").strip() or "web"
-                    bot_id = str(token_data.get("bot_id") or adapter._bot_id or adapter._app_key).strip()
+                    source = str(
+                        token_data.get("source") or source or "web").strip() or "web"
+                    bot_id = str(
+                        token_data.get("bot_id") or adapter._bot_id or adapter._app_key).strip()
                     if not token or not bot_id:
                         break
                     headers["X-ID"] = bot_id
@@ -2644,10 +2789,16 @@ class MediaResolveMiddleware(InboundMiddleware):
                 code = payload.get("code")
                 if code not in {None, 0}:
                     raise RuntimeError(
-                        f"resource/v1/download failed: code={code}, msg={payload.get('msg', '')}"
+                        f"resource/v1/download failed: code={code}, msg={
+                            payload.get(
+                                'msg',
+                                '')}"
                     )
-                data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
-                real_url = str((data or {}).get("url") or (data or {}).get("realUrl") or "").strip()
+                data = payload.get("data") if isinstance(
+                    payload.get("data"), dict) else payload
+                real_url = str(
+                    (data or {}).get("url") or (
+                        data or {}).get("realUrl") or "").strip()
                 if real_url:
                     return real_url
                 raise RuntimeError("resource/v1/download missing url/realUrl")
@@ -2723,15 +2874,18 @@ class MediaResolveMiddleware(InboundMiddleware):
                 return None
             mime = guess_mime_type(f"image{ext}")
             if not mime.startswith("image/"):
-                mime = content_type if content_type.startswith("image/") else "image/jpeg"
+                mime = content_type if content_type.startswith(
+                    "image/") else "image/jpeg"
             cls._put_cached_resource(resource_id, local_path, mime)
             return local_path, mime
 
         if kind == "video":
-            # Yuanbao video resources carry no reliable extension; default to mp4.
+            # Yuanbao video resources carry no reliable extension; default to
+            # mp4.
             local_path = cache_video_from_bytes(file_bytes)
             mime = guess_mime_type(local_path) or (
-                content_type if content_type.startswith("video/") else "video/mp4"
+                content_type if content_type.startswith(
+                    "video/") else "video/mp4"
             )
             cls._put_cached_resource(resource_id, local_path, mime)
             return local_path, mime
@@ -2748,7 +2902,8 @@ class MediaResolveMiddleware(InboundMiddleware):
                 adapter.name, log_tag, exc,
             )
             return None
-        mime = guess_mime_type(file_name) or content_type or "application/octet-stream"
+        mime = guess_mime_type(
+            file_name) or content_type or "application/octet-stream"
         cls._put_cached_resource(resource_id, local_path, mime)
         return local_path, mime
 
@@ -2873,7 +3028,8 @@ class MediaResolveMiddleware(InboundMiddleware):
                 continue
             matches = list(_YB_RES_REF_RE.finditer(content))
             for m in reversed(matches):
-                head = m.group(1)  # "image" | "file:<name>" | "voice" | "video"
+                # "image" | "file:<name>" | "voice" | "video"
+                head = m.group(1)
                 rid = m.group(2)
                 kind, _, filename = head.partition(":")
                 kind = kind.strip()
@@ -2888,7 +3044,8 @@ class MediaResolveMiddleware(InboundMiddleware):
             if len(order) >= OBSERVED_MEDIA_BACKFILL_MAX_RESOLVE_PER_TURN:
                 break
 
-        # Restore chronological order (oldest→newest) for downstream resolution.
+        # Restore chronological order (oldest→newest) for downstream
+        # resolution.
         order.reverse()
 
         if not order:
@@ -2912,7 +3069,8 @@ class MediaResolveMiddleware(InboundMiddleware):
         )
 
     @staticmethod
-    def _collect_quote_local_media(ctx: InboundContext) -> Tuple[List[str], List[str]]:
+    def _collect_quote_local_media(
+            ctx: InboundContext) -> Tuple[List[str], List[str]]:
         """Private-chat fallback for recovering already-local quoted media.
 
         Only already-local media is handled here: by the time a turn is cached,
@@ -3010,8 +3168,12 @@ class MediaResolveMiddleware(InboundMiddleware):
         # Use ``own_count`` (not ``len(urls)``) to preserve the original
         # semantics: a placeholder text accompanied only by quote/observed
         # media (i.e. no fresh attachment of its own) is still skippable.
-        if PlaceholderFilterMiddleware.is_skippable_placeholder(ctx.raw_text, own_count):
-            logger.debug("[%s] Skip placeholder after media download: %r", adapter.name, ctx.raw_text)
+        if PlaceholderFilterMiddleware.is_skippable_placeholder(
+                ctx.raw_text, own_count):
+            logger.debug(
+                "[%s] Skip placeholder after media download: %r",
+                adapter.name,
+                ctx.raw_text)
             return  # Stop pipeline
         await next_fn()
 
@@ -3062,7 +3224,8 @@ class PatchAnchorsMiddleware(InboundMiddleware):
         return patched
 
     async def handle(self, ctx: InboundContext, next_fn) -> None:
-        ctx.raw_text = self._patch(ctx.raw_text, ctx.media_urls, ctx.media_types)
+        ctx.raw_text = self._patch(
+            ctx.raw_text, ctx.media_urls, ctx.media_types)
         await next_fn()
 
 
@@ -3076,8 +3239,10 @@ class DispatchMiddleware(InboundMiddleware):
 
         _sk = build_session_key(
             ctx.source,
-            group_sessions_per_user=adapter.config.extra.get("group_sessions_per_user", True),
-            thread_sessions_per_user=adapter.config.extra.get("thread_sessions_per_user", False),
+            group_sessions_per_user=adapter.config.extra.get(
+                "group_sessions_per_user", True),
+            thread_sessions_per_user=adapter.config.extra.get(
+                "thread_sessions_per_user", False),
         )
 
         async def _dispatch_inbound_event() -> None:
@@ -3138,7 +3303,8 @@ class DispatchMiddleware(InboundMiddleware):
         await next_fn()
 
     @staticmethod
-    async def _consume_group_queue(adapter: "YuanbaoAdapter", session_key: str) -> None:
+    async def _consume_group_queue(
+            adapter: "YuanbaoAdapter", session_key: str) -> None:
         """Drain the group queue one dispatch at a time, waiting for each to finish."""
         _IDLE_TIMEOUT = 2.0
         queue = adapter._group_queues.get(session_key)
@@ -3159,7 +3325,8 @@ class DispatchMiddleware(InboundMiddleware):
                     while session_key in adapter._active_sessions:
                         await asyncio.sleep(0.1)
                 except Exception:
-                    logger.exception("[%s] Group queue consumer error", adapter.name)
+                    logger.exception(
+                        "[%s] Group queue consumer error", adapter.name)
         finally:
             adapter._group_queues.pop(session_key, None)
 
@@ -3203,6 +3370,7 @@ class InboundPipelineBuilder:
             pipeline.use(mw_cls())
         return pipeline
 
+
 class ConnectionManager:
     """Manages the WebSocket connection lifecycle for YuanbaoAdapter.
 
@@ -3226,8 +3394,10 @@ class ConnectionManager:
         self._reconnect_attempts: int = 0
         self._reconnecting: bool = False
         # Debounce buffer for aggregating multi-part inbound messages
-        self._inbound_buffer: Dict[str, list] = {}  # key -> [raw_data_frames, ...]
-        self._inbound_timers: Dict[str, asyncio.TimerHandle] = {}  # key -> timer
+        # key -> [raw_data_frames, ...]
+        self._inbound_buffer: Dict[str, list] = {}
+        self._inbound_timers: Dict[str,
+                                   asyncio.TimerHandle] = {}  # key -> timer
 
     # -- Properties --------------------------------------------------------
 
@@ -3268,8 +3438,12 @@ class ConnectionManager:
 
         if not WEBSOCKETS_AVAILABLE:
             msg = "Yuanbao startup failed: 'websockets' package not installed"
-            adapter._set_fatal_error("yuanbao_missing_dependency", msg, retryable=True)
-            logger.warning("[%s] %s. Run: pip install websockets", adapter.name, msg)
+            adapter._set_fatal_error(
+                "yuanbao_missing_dependency", msg, retryable=True)
+            logger.warning(
+                "[%s] %s. Run: pip install websockets",
+                adapter.name,
+                msg)
             return False
 
         if not adapter._app_key or not adapter._app_secret:
@@ -3277,7 +3451,8 @@ class ConnectionManager:
                 "Yuanbao startup failed: "
                 "YUANBAO_APP_ID and YUANBAO_APP_SECRET are required"
             )
-            adapter._set_fatal_error("yuanbao_missing_credentials", msg, retryable=False)
+            adapter._set_fatal_error(
+                "yuanbao_missing_credentials", msg, retryable=False)
             logger.error("[%s] %s", adapter.name, msg)
             return False
 
@@ -3286,7 +3461,9 @@ class ConnectionManager:
             try:
                 open_attr = getattr(self._ws, "open", None)
                 if open_attr is True or (callable(open_attr) and open_attr()):
-                    logger.debug("[%s] Already connected, skipping connect()", adapter.name)
+                    logger.debug(
+                        "[%s] Already connected, skipping connect()",
+                        adapter.name)
                     return True
             except Exception:
                 pass
@@ -3299,7 +3476,10 @@ class ConnectionManager:
 
         try:
             # Step 1: Get sign token
-            logger.info("[%s] Fetching sign token from %s", adapter.name, adapter._api_domain)
+            logger.info(
+                "[%s] Fetching sign token from %s",
+                adapter.name,
+                adapter._api_domain)
             token_data = await SignManager.get_token(
                 adapter._app_key, adapter._app_secret, adapter._api_domain,
                 route_env=adapter._route_env,
@@ -3352,7 +3532,11 @@ class ConnectionManager:
             adapter._release_platform_lock()
             return False
         except Exception as exc:
-            logger.error("[%s] connect() failed: %s", adapter.name, exc, exc_info=True)
+            logger.error(
+                "[%s] connect() failed: %s",
+                adapter.name,
+                exc,
+                exc_info=True)
             await self._cleanup_ws()
             adapter._release_platform_lock()
             return False
@@ -3418,7 +3602,11 @@ class ConnectionManager:
             route_env=route_env,
         )
         await self._ws.send(auth_bytes)
-        logger.debug("[%s] AUTH_BIND sent (msg_id=%s uid=%s)", adapter.name, msg_id, uid)
+        logger.debug(
+            "[%s] AUTH_BIND sent (msg_id=%s uid=%s)",
+            adapter.name,
+            msg_id,
+            uid)
 
         try:
             _loop = asyncio.get_running_loop()
@@ -3426,7 +3614,9 @@ class ConnectionManager:
             while True:
                 remaining = deadline - _loop.time()
                 if remaining <= 0:
-                    logger.error("[%s] AUTH_BIND timeout waiting for BIND_ACK", adapter.name)
+                    logger.error(
+                        "[%s] AUTH_BIND timeout waiting for BIND_ACK",
+                        adapter.name)
                     return False
 
                 raw = await asyncio.wait_for(self._ws.recv(), timeout=remaining)
@@ -3446,17 +3636,25 @@ class ConnectionManager:
                     connect_id = self._extract_connect_id(msg)
                     if connect_id:
                         self._connect_id = connect_id
-                        logger.info("[%s] BIND_ACK received: connectId=%s", adapter.name, connect_id)
+                        logger.info(
+                            "[%s] BIND_ACK received: connectId=%s",
+                            adapter.name,
+                            connect_id)
                         return True
                     else:
-                        logger.error("[%s] BIND_ACK missing connectId", adapter.name)
+                        logger.error(
+                            "[%s] BIND_ACK missing connectId", adapter.name)
                         return False
 
         except asyncio.TimeoutError:
             logger.error("[%s] AUTH_BIND timeout", adapter.name)
             return False
         except Exception as exc:
-            logger.error("[%s] AUTH_BIND error: %s", adapter.name, exc, exc_info=True)
+            logger.error(
+                "[%s] AUTH_BIND error: %s",
+                adapter.name,
+                exc,
+                exc_info=True)
             return False
 
     def _extract_connect_id(self, decoded_msg: dict) -> Optional[str]:
@@ -3477,7 +3675,10 @@ class ConnectionManager:
             connect_id = _get_string(fdict, 3)
             return connect_id if connect_id else None
         except Exception as exc:
-            logger.warning("[%s] Failed to extract connectId: %s", self._adapter.name, exc)
+            logger.warning(
+                "[%s] Failed to extract connectId: %s",
+                self._adapter.name,
+                exc)
             return None
 
     # -- Heartbeat ---------------------------------------------------------
@@ -3498,7 +3699,10 @@ class ConnectionManager:
                     self._pending_pong = pong_future
                     self._pending_acks[msg_id] = pong_future
                     await self._ws.send(ping_bytes)
-                    logger.debug("[%s] PING sent (msg_id=%s)", adapter.name, msg_id)
+                    logger.debug(
+                        "[%s] PING sent (msg_id=%s)",
+                        adapter.name,
+                        msg_id)
                     try:
                         await asyncio.wait_for(pong_future, timeout=10.0)
                         self._consecutive_hb_timeouts = 0
@@ -3510,14 +3714,16 @@ class ConnectionManager:
                             adapter.name, self._consecutive_hb_timeouts, HEARTBEAT_TIMEOUT_THRESHOLD,
                         )
                         if self._consecutive_hb_timeouts >= HEARTBEAT_TIMEOUT_THRESHOLD:
-                            logger.warning("[%s] Heartbeat threshold exceeded, triggering reconnect", adapter.name)
+                            logger.warning(
+                                "[%s] Heartbeat threshold exceeded, triggering reconnect", adapter.name)
                             self.schedule_reconnect()
                             return
                     finally:
                         self._pending_acks.pop(msg_id, None)
                         self._pending_pong = None
                 except Exception as exc:
-                    logger.debug("[%s] Heartbeat send failed: %s", adapter.name, exc)
+                    logger.debug(
+                        "[%s] Heartbeat send failed: %s", adapter.name, exc)
         except asyncio.CancelledError:
             pass
 
@@ -3533,7 +3739,8 @@ class ConnectionManager:
                 await self._handle_frame(bytes(raw))
         except asyncio.CancelledError:
             pass
-        except websockets.exceptions.ConnectionClosed as close_exc:  # type: ignore[union-attr]
+        # type: ignore[union-attr]
+        except websockets.exceptions.ConnectionClosed as close_exc:
             close_code = getattr(close_exc, 'code', None)
             logger.warning(
                 "[%s] WebSocket connection closed: code=%s reason=%s",
@@ -3569,7 +3776,10 @@ class ConnectionManager:
 
         # HEARTBEAT_ACK
         if cmd_type == CMD_TYPE["Response"] and cmd == "ping":
-            logger.debug("[%s] HEARTBEAT_ACK received (msg_id=%s)", adapter.name, msg_id)
+            logger.debug(
+                "[%s] HEARTBEAT_ACK received (msg_id=%s)",
+                adapter.name,
+                msg_id)
             if self._pending_pong is not None and not self._pending_pong.done():
                 self._pending_pong.set_result(True)
             elif msg_id and msg_id in self._pending_acks:
@@ -3584,7 +3794,11 @@ class ConnectionManager:
             "send_group_heartbeat",
             "send_private_heartbeat",
         }:
-            logger.debug("[%s] Heartbeat ACK received: cmd=%s msg_id=%s", adapter.name, cmd, msg_id)
+            logger.debug(
+                "[%s] Heartbeat ACK received: cmd=%s msg_id=%s",
+                adapter.name,
+                cmd,
+                msg_id)
             return
 
         # Response to an outbound RPC call
@@ -3605,19 +3819,28 @@ class ConnectionManager:
 
         # Server-initiated Push
         if cmd_type == CMD_TYPE["Push"]:
-            logger.info("[%s] Push received: cmd=%s msg_id=%s data_len=%d", adapter.name, cmd, msg_id, len(data))
+            logger.info(
+                "[%s] Push received: cmd=%s msg_id=%s data_len=%d",
+                adapter.name,
+                cmd,
+                msg_id,
+                len(data))
             if need_ack and self._ws is not None:
                 try:
                     ack_bytes = encode_push_ack(head)
                     await self._ws.send(ack_bytes)
                 except Exception as ack_exc:
-                    logger.debug("[%s] Failed to send PushAck: %s", adapter.name, ack_exc)
+                    logger.debug(
+                        "[%s] Failed to send PushAck: %s",
+                        adapter.name,
+                        ack_exc)
 
             if msg_id and msg_id in self._pending_acks:
                 fut = self._pending_acks.pop(msg_id)
                 if not fut.done():
                     try:
-                        decoded = decode_inbound_push(data) if data else {"head": head}
+                        decoded = decode_inbound_push(
+                            data) if data else {"head": head}
                         fut.set_result(decoded)
                     except Exception as exc:
                         fut.set_exception(exc)
@@ -3768,7 +3991,9 @@ class ConnectionManager:
     async def _reconnect_with_backoff(self) -> bool:
         """Reconnect with exponential backoff (1s, 2s, 4s, … up to 60s)."""
         if self._reconnecting:
-            logger.debug("[%s] Reconnect already in progress, skipping", self._adapter.name)
+            logger.debug(
+                "[%s] Reconnect already in progress, skipping",
+                self._adapter.name)
             return False
         self._reconnecting = True
         try:
@@ -3810,7 +4035,10 @@ class ConnectionManager:
 
                 authed = await self._authenticate(token_data)
                 if not authed:
-                    logger.warning("[%s] Re-auth failed on attempt %d", adapter.name, attempt + 1)
+                    logger.warning(
+                        "[%s] Re-auth failed on attempt %d",
+                        adapter.name,
+                        attempt + 1)
                     await self._cleanup_ws()
                     continue
 
@@ -3839,7 +4067,10 @@ class ConnectionManager:
                 return True
 
             except asyncio.TimeoutError:
-                logger.warning("[%s] Reconnect attempt %d timed out", adapter.name, attempt + 1)
+                logger.warning(
+                    "[%s] Reconnect attempt %d timed out",
+                    adapter.name,
+                    attempt + 1)
             except Exception as exc:
                 logger.warning(
                     "[%s] Reconnect attempt %d failed: %s", adapter.name, attempt + 1, exc
@@ -3870,6 +4101,7 @@ class ConnectionManager:
                 )
             except Exception:
                 pass
+
 
 class MediaSendHandler(ABC):
     """Abstract base class for media send strategies.
@@ -3913,7 +4145,8 @@ class MediaSendHandler(ABC):
         sender = adapter._outbound.sender
 
         if conn.ws is None:
-            return SendResult(success=False, error="Not connected", retryable=True)
+            return SendResult(
+                success=False, error="Not connected", retryable=True)
 
         adapter._outbound.cancel_slow_notifier(chat_id)
 
@@ -3963,7 +4196,8 @@ class MediaSendHandler(ABC):
                 )
 
                 # 5. Build MsgBody
-                # Remove keys already passed explicitly to avoid "multiple values" TypeError
+                # Remove keys already passed explicitly to avoid "multiple
+                # values" TypeError
                 fwd_kwargs = {
                     k: v for k, v in kwargs.items()
                     if k not in {"file_uuid", "filename", "content_type"}
@@ -4005,7 +4239,10 @@ class ImageUrlHandler(MediaSendHandler):
 
     async def acquire_file(self, adapter, **kwargs):
         image_url: str = kwargs["image_url"]
-        logger.info("[%s] ImageUrlHandler: downloading %s", adapter.name, image_url)
+        logger.info(
+            "[%s] ImageUrlHandler: downloading %s",
+            adapter.name,
+            image_url)
         file_bytes, content_type = await media_download_url(
             image_url, max_size_mb=adapter.MEDIA_MAX_SIZE_MB,
         )
@@ -4034,7 +4271,10 @@ class ImageFileHandler(MediaSendHandler):
         image_path: str = kwargs["image_path"]
         if not os.path.isfile(image_path):
             raise ValueError(f"File not found: {image_path}")
-        logger.info("[%s] ImageFileHandler: reading %s", adapter.name, image_path)
+        logger.info(
+            "[%s] ImageFileHandler: reading %s",
+            adapter.name,
+            image_path)
         with open(image_path, "rb") as f:
             file_bytes = f.read()
         filename = os.path.basename(image_path) or "image.jpg"
@@ -4058,7 +4298,10 @@ class FileUrlHandler(MediaSendHandler):
 
     async def acquire_file(self, adapter, **kwargs):
         file_url: str = kwargs["file_url"]
-        logger.info("[%s] FileUrlHandler: downloading %s", adapter.name, file_url)
+        logger.info(
+            "[%s] FileUrlHandler: downloading %s",
+            adapter.name,
+            file_url)
         file_bytes, content_type = await media_download_url(
             file_url, max_size_mb=adapter.MEDIA_MAX_SIZE_MB,
         )
@@ -4067,7 +4310,8 @@ class FileUrlHandler(MediaSendHandler):
             path_part = file_url.split("?")[0]
             filename = os.path.basename(path_part) or "file"
         if not content_type or content_type == "application/octet-stream":
-            content_type = guess_mime_type(filename) or "application/octet-stream"
+            content_type = guess_mime_type(
+                filename) or "application/octet-stream"
         return file_bytes, filename, content_type
 
     def build_msg_body(self, upload_result, **kwargs):
@@ -4086,10 +4330,14 @@ class DocumentHandler(MediaSendHandler):
         file_path: str = kwargs["file_path"]
         if not os.path.isfile(file_path):
             raise ValueError(f"File not found: {file_path}")
-        logger.info("[%s] DocumentHandler: reading %s", adapter.name, file_path)
+        logger.info(
+            "[%s] DocumentHandler: reading %s",
+            adapter.name,
+            file_path)
         with open(file_path, "rb") as f:
             file_bytes = f.read()
-        filename = kwargs.get("filename") or os.path.basename(file_path) or "document"
+        filename = kwargs.get("filename") or os.path.basename(
+            file_path) or "document"
         content_type = guess_mime_type(filename) or "application/octet-stream"
         return file_bytes, filename, content_type
 
@@ -4114,10 +4362,10 @@ class StickerHandler(MediaSendHandler):
 
     def build_msg_body(self, upload_result, **kwargs):
         from gateway.platforms.yuanbao_sticker import (
-            get_sticker_by_name,
-            get_random_sticker,
             build_face_msg_body,
             build_sticker_msg_body,
+            get_random_sticker,
+            get_sticker_by_name,
         )
         sticker_name = kwargs.get("sticker_name")
         face_index = kwargs.get("face_index")
@@ -4132,6 +4380,7 @@ class StickerHandler(MediaSendHandler):
         else:
             sticker = get_random_sticker()
             return build_sticker_msg_body(sticker)
+
 
 class GroupQueryService:
     """Encapsulates all group query operations (both low-level WS calls and
@@ -4168,17 +4417,26 @@ class GroupQueryService:
             head = response.get("head", {})
             status = head.get("status", 0)
             if status != 0:
-                logger.warning("[%s] query_group_info failed: status=%d", adapter.name, status)
+                logger.warning(
+                    "[%s] query_group_info failed: status=%d",
+                    adapter.name,
+                    status)
                 return None
             biz_data = response.get("data", b"") or response.get("body", b"")
             if biz_data and isinstance(biz_data, bytes):
                 return decode_query_group_info_rsp(biz_data)
             return {"group_code": group_code}
         except asyncio.TimeoutError:
-            logger.warning("[%s] query_group_info timeout: group=%s", adapter.name, group_code)
+            logger.warning(
+                "[%s] query_group_info timeout: group=%s",
+                adapter.name,
+                group_code)
             return None
         except Exception as exc:
-            logger.warning("[%s] query_group_info failed: %s", adapter.name, exc)
+            logger.warning(
+                "[%s] query_group_info failed: %s",
+                adapter.name,
+                exc)
             return None
 
     async def get_group_member_list_raw(
@@ -4192,7 +4450,8 @@ class GroupQueryService:
         adapter = self._adapter
         if adapter._connection.ws is None:
             return None
-        encoded = encode_get_group_member_list(group_code, offset=offset, limit=limit)
+        encoded = encode_get_group_member_list(
+            group_code, offset=offset, limit=limit)
         from gateway.platforms.yuanbao_proto import decode_conn_msg as _decode
         decoded = _decode(encoded)
         req_id = decoded["head"]["msg_id"]
@@ -4201,7 +4460,10 @@ class GroupQueryService:
             head = response.get("head", {})
             status = head.get("status", 0)
             if status != 0:
-                logger.warning("[%s] get_group_member_list failed: status=%d", adapter.name, status)
+                logger.warning(
+                    "[%s] get_group_member_list failed: status=%d",
+                    adapter.name,
+                    status)
                 return None
             biz_data = response.get("data", b"") or response.get("body", b"")
             if biz_data and isinstance(biz_data, bytes):
@@ -4209,13 +4471,20 @@ class GroupQueryService:
             else:
                 result = {"members": [], "next_offset": 0, "is_complete": True}
             if result and result.get("members"):
-                adapter._member_cache[group_code] = (time.time(), result["members"])
+                adapter._member_cache[group_code] = (
+                    time.time(), result["members"])
             return result
         except asyncio.TimeoutError:
-            logger.warning("[%s] get_group_member_list timeout: group=%s", adapter.name, group_code)
+            logger.warning(
+                "[%s] get_group_member_list timeout: group=%s",
+                adapter.name,
+                group_code)
             return None
         except Exception as exc:
-            logger.warning("[%s] get_group_member_list failed: %s", adapter.name, exc)
+            logger.warning(
+                "[%s] get_group_member_list failed: %s",
+                adapter.name,
+                exc)
             return None
 
     # ------------------------------------------------------------------
@@ -4270,12 +4539,18 @@ class GroupQueryService:
                 or query in (m.get("user_id", "") or "").lower()
             ]
         elif action == "list_bots":
-            members = [m for m in members if "bot" in (m.get("nickname", "") or "").lower()]
+            members = [
+                m for m in members if "bot" in (
+                    m.get(
+                        "nickname",
+                        "") or "").lower()]
 
         # Construct mentionHint
         mention_hint = ""
         if members and len(members) <= 10:
-            names = [m.get("name_card") or m.get("nickname") or m.get("user_id", "") for m in members]
+            names = [
+                m.get("name_card") or m.get("nickname") or m.get(
+                    "user_id", "") for m in members]
             mention_hint = "Mention with @name: " + ", ".join(names)
 
         return {
@@ -4299,7 +4574,8 @@ class HeartbeatManager:
         self._reply_heartbeat_tasks: Dict[str, asyncio.Task] = {}
         self._reply_hb_last_active: Dict[str, float] = {}
 
-    async def send_heartbeat_once(self, chat_id: str, heartbeat_val: int) -> None:
+    async def send_heartbeat_once(
+            self, chat_id: str, heartbeat_val: int) -> None:
         """Send a single heartbeat (RUNNING or FINISH), best effort."""
         adapter = self._adapter
         conn = adapter._connection
@@ -4327,7 +4603,10 @@ class HeartbeatManager:
                 adapter.name, status_name, chat_id,
             )
         except Exception as exc:
-            logger.debug("[%s] send_heartbeat_once failed: %s", adapter.name, exc)
+            logger.debug(
+                "[%s] send_heartbeat_once failed: %s",
+                adapter.name,
+                exc)
 
     async def start(self, chat_id: str) -> None:
         """Start or renew the Reply Heartbeat periodic sender (RUNNING, every 2s)."""
@@ -4415,7 +4694,8 @@ class SlowResponseNotifier:
     SLOW_RESPONSE_TIMEOUT_S seconds, sends a courtesy message.
     """
 
-    def __init__(self, adapter: "YuanbaoAdapter", sender: "MessageSender") -> None:
+    def __init__(self, adapter: "YuanbaoAdapter",
+                 sender: "MessageSender") -> None:
         self._adapter = adapter
         self._sender = sender
         self._tasks: Dict[str, asyncio.Task] = {}
@@ -4441,7 +4721,10 @@ class SlowResponseNotifier:
         except asyncio.CancelledError:
             pass
         except Exception as exc:
-            logger.debug("[%s] Slow-response notifier failed: %s", self._adapter.name, exc)
+            logger.debug(
+                "[%s] Slow-response notifier failed: %s",
+                self._adapter.name,
+                exc)
 
     def cancel(self, chat_id: str) -> None:
         """Cancel the pending slow-response notifier for *chat_id*, if any."""
@@ -4468,16 +4751,21 @@ class MessageSender:
       - Direct send helper (text + media, used by send_message tool)
     """
 
-    IMAGE_EXTS: ClassVar[frozenset] = frozenset({".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"})
-    CHAT_DICT_MAX_SIZE: ClassVar[int] = 1000  # Max distinct chat IDs in _chat_locks
+    IMAGE_EXTS: ClassVar[frozenset] = frozenset(
+        {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"})
+    # Max distinct chat IDs in _chat_locks
+    CHAT_DICT_MAX_SIZE: ClassVar[int] = 1000
 
     def __init__(self, adapter: "YuanbaoAdapter") -> None:
         self._adapter = adapter
-        self._chat_locks: collections.OrderedDict[str, asyncio.Lock] = collections.OrderedDict()
+        self._chat_locks: collections.OrderedDict[str,
+                                                  asyncio.Lock] = collections.OrderedDict()
 
         # Optional hooks injected by OutboundManager for coordination
-        self._on_send_start: Optional[Callable[[str], Any]] = None   # cancel slow-notifier
-        self._on_send_finish: Optional[Callable[[str], Any]] = None  # send FINISH heartbeat
+        # cancel slow-notifier
+        self._on_send_start: Optional[Callable[[str], Any]] = None
+        # send FINISH heartbeat
+        self._on_send_finish: Optional[Callable[[str], Any]] = None
 
         # Media send handlers (strategy pattern)
         self._media_handlers: Dict[str, MediaSendHandler] = {
@@ -4526,7 +4814,8 @@ class MessageSender:
         adapter = self._adapter
         conn = adapter._connection
         if conn.ws is None:
-            return SendResult(success=False, error="Not connected", retryable=True)
+            return SendResult(
+                success=False, error="Not connected", retryable=True)
 
         if self._on_send_start:
             self._on_send_start(chat_id)
@@ -4534,7 +4823,8 @@ class MessageSender:
         lock = self.get_chat_lock(chat_id)
         async with lock:
             content_to_send = self.strip_cron_wrapper(content)
-            chunks = self.truncate_message(content_to_send, adapter.MAX_TEXT_CHUNK)
+            chunks = self.truncate_message(
+                content_to_send, adapter.MAX_TEXT_CHUNK)
             logger.info(
                 "[%s] truncate_message: input=%d chars, max=%d, output=%d chunk(s) sizes=%s",
                 adapter.name, len(content_to_send), adapter.MAX_TEXT_CHUNK,
@@ -4546,7 +4836,8 @@ class MessageSender:
                 if not result.success:
                     return result
 
-        # Notify outbound coordinator that send is complete (e.g. FINISH heartbeat)
+        # Notify outbound coordinator that send is complete (e.g. FINISH
+        # heartbeat)
         if self._on_send_finish:
             try:
                 await self._on_send_finish(chat_id)
@@ -4638,7 +4929,8 @@ class MessageSender:
 
         if result.get("success"):
             return SendResult(success=True, message_id=result.get("msg_key"))
-        return SendResult(success=False, error=result.get("error", "Unknown error"))
+        return SendResult(success=False, error=result.get(
+            "error", "Unknown error"))
 
     async def send_text_chunk(
         self,
@@ -4661,7 +4953,8 @@ class MessageSender:
                     raw = await self.send_c2c_message(to_account, text, group_code=group_code)
 
                 if raw.get("success"):
-                    return SendResult(success=True, message_id=raw.get("msg_key"))
+                    return SendResult(
+                        success=True, message_id=raw.get("msg_key"))
 
                 last_error = raw.get("error", "Unknown error")
                 logger.warning(
@@ -4682,11 +4975,13 @@ class MessageSender:
             "[%s] send_text_chunk max retries (%d) exceeded. Last error: %s",
             adapter.name, retry, last_error,
         )
-        return SendResult(success=False, error=f"Max retries exceeded: {last_error}")
+        return SendResult(
+            success=False, error=f"Max retries exceeded: {last_error}")
 
     # -- C2C / Group message -----------------------------------------------
 
-    async def send_c2c_message(self, to_account: str, text: str, group_code: str = "") -> dict:
+    async def send_c2c_message(
+            self, to_account: str, text: str, group_code: str = "") -> dict:
         """Send C2C text message, return {success: bool, msg_key: str}."""
         msg_body = [{"msg_type": "TIMTextElem", "msg_content": {"text": text}}]
         return await self.send_c2c_msg_body(to_account, msg_body, group_code=group_code)
@@ -4702,14 +4997,18 @@ class MessageSender:
         return await self.send_group_msg_body(group_code, msg_body, reply_to)
 
     # @mention pattern: (whitespace or start) + @ + nickname + (whitespace or end)
-    _AT_USER_RE = re.compile(r'(?:(?<=\s)|(?<=^))@(\S+?)(?=\s|$)', re.MULTILINE)
+    _AT_USER_RE = re.compile(
+        r'(?:(?<=\s)|(?<=^))@(\S+?)(?=\s|$)',
+        re.MULTILINE)
 
-    def _build_msg_body_with_mentions(self, text: str, group_code: str) -> list:
+    def _build_msg_body_with_mentions(
+            self, text: str, group_code: str) -> list:
         """Parse @nickname patterns and build mixed TIMTextElem + TIMCustomElem msg_body."""
         cached = self._adapter._member_cache.get(group_code)
         if cached:
             ts, member_list = cached
-            members = member_list if (time.time() - ts < self._adapter.MEMBER_CACHE_TTL_S) else []
+            members = member_list if (
+                time.time() - ts < self._adapter.MEMBER_CACHE_TTL_S) else []
         else:
             members = []
         if not members:
@@ -4729,7 +5028,8 @@ class MessageSender:
             if start > last_idx:
                 seg = text[last_idx:start].strip()
                 if seg:
-                    msg_body.append({"msg_type": "TIMTextElem", "msg_content": {"text": seg}})
+                    msg_body.append(
+                        {"msg_type": "TIMTextElem", "msg_content": {"text": seg}})
 
             nickname = match.group(1)
             entry = nickname_to_uid.get(nickname.lower())
@@ -4742,21 +5042,25 @@ class MessageSender:
                     },
                 })
             else:
-                msg_body.append({"msg_type": "TIMTextElem", "msg_content": {"text": f"@{nickname}"}})
+                msg_body.append({"msg_type": "TIMTextElem",
+                                 "msg_content": {"text": f"@{nickname}"}})
 
             last_idx = match.end()
 
         if last_idx < len(text):
             tail = text[last_idx:].strip()
             if tail:
-                msg_body.append({"msg_type": "TIMTextElem", "msg_content": {"text": tail}})
+                msg_body.append({"msg_type": "TIMTextElem",
+                                "msg_content": {"text": tail}})
 
         if not msg_body:
-            msg_body.append({"msg_type": "TIMTextElem", "msg_content": {"text": text}})
+            msg_body.append({"msg_type": "TIMTextElem",
+                            "msg_content": {"text": text}})
 
         return msg_body
 
-    async def send_c2c_msg_body(self, to_account: str, msg_body: list, group_code: str = "") -> dict:
+    async def send_c2c_msg_body(
+            self, to_account: str, msg_body: list, group_code: str = "") -> dict:
         """Send C2C message with arbitrary MsgBody."""
         adapter = self._adapter
         req_id = f"c2c_{next_seq_no()}"
@@ -4798,7 +5102,8 @@ class MessageSender:
             response = await adapter._connection.send_biz_request(encoded, req_id=req_id)
             return {"success": True, "msg_key": response.get("msg_id", "")}
         except asyncio.TimeoutError:
-            return {"success": False, "error": f"Request timeout after {DEFAULT_SEND_TIMEOUT}s"}
+            return {"success": False,
+                    "error": f"Request timeout after {DEFAULT_SEND_TIMEOUT}s"}
         except Exception as exc:
             return {"success": False, "error": str(exc)}
 
@@ -4894,14 +5199,16 @@ class OutboundManager:
     all outbound operations through it.
     """
 
-    # Expose class-level constants from MessageSender for backward compatibility
+    # Expose class-level constants from MessageSender for backward
+    # compatibility
     CHAT_DICT_MAX_SIZE: ClassVar[int] = MessageSender.CHAT_DICT_MAX_SIZE
 
     def __init__(self, adapter: "YuanbaoAdapter") -> None:
         self._adapter = adapter
         self.sender: MessageSender = MessageSender(adapter)
         self.heartbeat: HeartbeatManager = HeartbeatManager(adapter)
-        self.slow_notifier: SlowResponseNotifier = SlowResponseNotifier(adapter, self.sender)
+        self.slow_notifier: SlowResponseNotifier = SlowResponseNotifier(
+            adapter, self.sender)
 
         # Wire coordination hooks into MessageSender
         self.sender._on_send_start = self._handle_send_start
@@ -4943,7 +5250,8 @@ class OutboundManager:
         """Start reply heartbeat (RUNNING)."""
         await self.heartbeat.start(chat_id)
 
-    async def stop_typing(self, chat_id: str, send_finish: bool = False) -> None:
+    async def stop_typing(self, chat_id: str,
+                          send_finish: bool = False) -> None:
         """Stop reply heartbeat."""
         await self.heartbeat.stop(chat_id, send_finish=send_finish)
 
@@ -4984,7 +5292,8 @@ class YuanbaoAdapter(BasePlatformAdapter):
     PLATFORM = Platform.YUANBAO
     MAX_TEXT_CHUNK: int = 4000  # Yuanbao single message character limit
     MEDIA_MAX_SIZE_MB: int = 50  # Max media file size in MB for upload validation
-    REPLY_REF_MAX_ENTRIES: ClassVar[int] = 500  # Max capacity of reference dedup dict
+    # Max capacity of reference dedup dict
+    REPLY_REF_MAX_ENTRIES: ClassVar[int] = 500
 
     # -- Active instance registry (class-level singleton) -------------------
 
@@ -5003,13 +5312,16 @@ class YuanbaoAdapter(BasePlatformAdapter):
     def __init__(self, config: PlatformConfig, **kwargs: Any) -> None:
         super().__init__(config, Platform.YUANBAO)
 
-        # Credentials / endpoints from config.extra (populated by config.py from env/yaml)
+        # Credentials / endpoints from config.extra (populated by config.py
+        # from env/yaml)
         _extra = config.extra or {}
         self._app_key: str = (_extra.get("app_id") or "").strip()
         self._app_secret: str = (_extra.get("app_secret") or "").strip()
         self._bot_id: Optional[str] = _extra.get("bot_id") or None
-        self._ws_url: str = (_extra.get("ws_url") or DEFAULT_WS_GATEWAY_URL).strip()
-        self._api_domain: str = (_extra.get("api_domain") or DEFAULT_API_DOMAIN).rstrip("/")
+        self._ws_url: str = (
+            _extra.get("ws_url") or DEFAULT_WS_GATEWAY_URL).strip()
+        self._api_domain: str = (
+            _extra.get("api_domain") or DEFAULT_API_DOMAIN).rstrip("/")
         self._route_env: str = (_extra.get("route_env") or "").strip()
 
         # Core managers (UML composition)
@@ -5019,7 +5331,8 @@ class YuanbaoAdapter(BasePlatformAdapter):
         # Inbound dispatch tasks — tracked so disconnect() can cancel them
         self._inbound_tasks: set[asyncio.Task] = set()
 
-        # Set of background tasks — prevent GC from collecting fire-and-forget tasks
+        # Set of background tasks — prevent GC from collecting fire-and-forget
+        # tasks
         self._background_tasks: set[asyncio.Task] = set()
 
         # Member cache: group_code -> (updated_ts, [{"user_id":..., "nickname":..., ...}, ...])
@@ -5056,7 +5369,8 @@ class YuanbaoAdapter(BasePlatformAdapter):
             _extra.get("dm_allow_from")
             or os.getenv("YUANBAO_DM_ALLOW_FROM", "")
         )
-        dm_allow_from: list[str] = [x.strip() for x in _dm_allow_from_raw.split(",") if x.strip()]
+        dm_allow_from: list[str] = [x.strip()
+                                    for x in _dm_allow_from_raw.split(",") if x.strip()]
 
         group_policy: str = (
             _extra.get("group_policy")
@@ -5067,7 +5381,8 @@ class YuanbaoAdapter(BasePlatformAdapter):
             _extra.get("group_allow_from")
             or os.getenv("YUANBAO_GROUP_ALLOW_FROM", "")
         )
-        group_allow_from: list[str] = [x.strip() for x in _group_allow_from_raw.split(",") if x.strip()]
+        group_allow_from: list[str] = [
+            x.strip() for x in _group_allow_from_raw.split(",") if x.strip()]
 
         self._access_policy = AccessPolicy(
             dm_policy=dm_policy,
@@ -5092,7 +5407,8 @@ class YuanbaoAdapter(BasePlatformAdapter):
         _existing_home = os.getenv("YUANBAO_HOME_CHANNEL") or (
             config.home_channel.chat_id if config.home_channel else ""
         )
-        self._auto_sethome_done: bool = bool(_existing_home) and not _existing_home.startswith("group:")
+        self._auto_sethome_done: bool = bool(
+            _existing_home) and not _existing_home.startswith("group:")
 
     # ------------------------------------------------------------------
     # Task tracking helper
@@ -5167,7 +5483,8 @@ class YuanbaoAdapter(BasePlatformAdapter):
             return {"name": chat_id, "type": "group"}
         return {"name": chat_id, "type": "dm"}
 
-    async def send_typing(self, chat_id: str, metadata: Optional[dict] = None) -> None:
+    async def send_typing(self, chat_id: str,
+                          metadata: Optional[dict] = None) -> None:
         """Send "typing" status heartbeat (RUNNING). Delegates to OutboundManager."""
         try:
             await self._outbound.start_typing(chat_id)
@@ -5185,7 +5502,8 @@ class YuanbaoAdapter(BasePlatformAdapter):
         except Exception:
             pass
 
-    async def _process_message_background(self, event, session_key: str) -> None:
+    async def _process_message_background(
+            self, event, session_key: str) -> None:
         """Wrap base class processing with a slow-response notifier."""
         chat_id = event.source.chat_id
         await self._outbound.start_slow_notifier(chat_id)
@@ -5214,7 +5532,8 @@ class YuanbaoAdapter(BasePlatformAdapter):
 
     DM_MAX_CHARS = 10000  # DM text limit
 
-    async def send_dm(self, user_id: str, text: str, group_code: str = "") -> SendResult:
+    async def send_dm(self, user_id: str, text: str,
+                      group_code: str = "") -> SendResult:
         """
         Actively send C2C private chat message.
 
@@ -5227,7 +5546,8 @@ class YuanbaoAdapter(BasePlatformAdapter):
             SendResult
         """
         if not self._access_policy.is_dm_allowed(user_id):
-            return SendResult(success=False, error="DM access denied for this user")
+            return SendResult(
+                success=False, error="DM access denied for this user")
         if len(text) > self.DM_MAX_CHARS:
             text = text[:self.DM_MAX_CHARS] + "\n...(truncated)"
         chat_id = f"direct:{user_id}"

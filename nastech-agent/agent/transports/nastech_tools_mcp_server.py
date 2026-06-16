@@ -152,7 +152,8 @@ def _build_server() -> Any:
             continue
 
         description = spec.get("description") or f"NasTech {name} tool"
-        params_schema = spec.get("parameters") or {"type": "object", "properties": {}}
+        params_schema = spec.get("parameters") or {
+            "type": "object", "properties": {}}
 
         # FastMCP wants a Python callable. Build a closure that takes the
         # arguments dict, dispatches via handle_function_call, and returns

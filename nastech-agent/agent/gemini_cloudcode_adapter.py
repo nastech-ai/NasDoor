@@ -36,7 +36,6 @@ from types import SimpleNamespace
 from typing import Any, Dict, Iterator, List, Optional
 
 import httpx
-
 from agent import google_oauth
 from agent.gemini_schema import sanitize_gemini_tool_parameters
 from agent.google_code_assist import (
@@ -78,17 +77,21 @@ def _coerce_content_to_text(content: Any) -> str:
                     pieces.append(p["text"])
                 # Multimodal (image_url, etc.) — stub for now; log and skip
                 elif p.get("type") in {"image_url", "input_audio"}:
-                    logger.debug("Dropping multimodal part (not yet supported): %s", p.get("type"))
+                    logger.debug(
+                        "Dropping multimodal part (not yet supported): %s",
+                        p.get("type"))
         return "\n".join(pieces)
     return str(content)
 
 
-def _translate_tool_call_to_gemini(tool_call: Dict[str, Any]) -> Dict[str, Any]:
+def _translate_tool_call_to_gemini(
+        tool_call: Dict[str, Any]) -> Dict[str, Any]:
     """OpenAI tool_call -> Gemini functionCall part."""
     fn = tool_call.get("function") or {}
     args_raw = fn.get("arguments", "")
     try:
-        args = json.loads(args_raw) if isinstance(args_raw, str) and args_raw else {}
+        args = json.loads(args_raw) if isinstance(
+            args_raw, str) and args_raw else {}
     except json.JSONDecodeError:
         args = {"_raw": args_raw}
     if not isinstance(args, dict):
@@ -105,7 +108,8 @@ def _translate_tool_call_to_gemini(tool_call: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _translate_tool_result_to_gemini(message: Dict[str, Any]) -> Dict[str, Any]:
+def _translate_tool_result_to_gemini(
+        message: Dict[str, Any]) -> Dict[str, Any]:
     """OpenAI tool-role message -> Gemini functionResponse part.
 
     The function name isn't in the OpenAI tool message directly; it must be
@@ -118,7 +122,8 @@ def _translate_tool_result_to_gemini(message: Dict[str, Any]) -> Dict[str, Any]:
     # Gemini expects the response as a dict under `response`. We wrap plain
     # text in {"output": "..."}.
     try:
-        parsed = json.loads(content) if content.strip().startswith(("{", "[")) else None
+        parsed = json.loads(content) if content.strip(
+        ).startswith(("{", "[")) else None
     except json.JSONDecodeError:
         parsed = None
     response = parsed if isinstance(parsed, dict) else {"output": content}
@@ -143,7 +148,9 @@ def _build_gemini_contents(
         role = str(msg.get("role") or "user")
 
         if role == "system":
-            system_text_parts.append(_coerce_content_to_text(msg.get("content")))
+            system_text_parts.append(
+                _coerce_content_to_text(
+                    msg.get("content")))
             continue
 
         # Tool result message — emit a user-role turn with functionResponse
@@ -211,7 +218,8 @@ def _translate_tools_to_gemini(tools: Any) -> List[Dict[str, Any]]:
     return [{"functionDeclarations": declarations}]
 
 
-def _translate_tool_choice_to_gemini(tool_choice: Any) -> Optional[Dict[str, Any]]:
+def _translate_tool_choice_to_gemini(
+        tool_choice: Any) -> Optional[Dict[str, Any]]:
     """OpenAI tool_choice -> Gemini toolConfig.functionCallingConfig."""
     if tool_choice is None:
         return None
@@ -326,7 +334,8 @@ def _translate_gemini_response(
     Code Assist wraps the actual Gemini response inside ``response``, so we
     unwrap it first if present.
     """
-    inner = resp.get("response") if isinstance(resp.get("response"), dict) else resp
+    inner = resp.get("response") if isinstance(
+        resp.get("response"), dict) else resp
 
     candidates = inner.get("candidates") or []
     if not isinstance(candidates, list) or not candidates:
@@ -362,7 +371,8 @@ def _translate_gemini_response(
                 id=f"call_{uuid.uuid4().hex[:12]}",
                 type="function",
                 index=i,
-                function=SimpleNamespace(name=str(fc["name"]), arguments=args_str),
+                function=SimpleNamespace(
+                    name=str(fc["name"]), arguments=args_str),
             ))
 
     finish_reason = "tool_calls" if tool_calls else _map_gemini_finish_reason(
@@ -519,7 +529,8 @@ def _translate_stream_event(
     whenever the model issues parallel calls to the same tool (e.g. reading
     three files in one turn).
     """
-    inner = event.get("response") if isinstance(event.get("response"), dict) else event
+    inner = event.get("response") if isinstance(
+        event.get("response"), dict) else event
     candidates = inner.get("candidates") or []
     if not candidates:
         return []
@@ -540,7 +551,10 @@ def _translate_stream_event(
             ))
             continue
         if isinstance(part.get("text"), str) and part["text"]:
-            chunks.append(_make_stream_chunk(model=model, content=part["text"]))
+            chunks.append(
+                _make_stream_chunk(
+                    model=model,
+                    content=part["text"]))
         fc = part.get("functionCall")
         if isinstance(fc, dict) and fc.get("name"):
             name = str(fc["name"])
@@ -611,7 +625,12 @@ class GeminiCloudCodeClient:
         self._project_context_lock = False  # simple single-thread guard
         self.chat = _GeminiChatNamespace(self)
         self.is_closed = False
-        self._http = httpx.Client(timeout=httpx.Timeout(connect=15.0, read=600.0, write=30.0, pool=30.0))
+        self._http = httpx.Client(
+            timeout=httpx.Timeout(
+                connect=15.0,
+                read=600.0,
+                write=30.0,
+                pool=30.0))
 
     def close(self) -> None:
         self.is_closed = True
@@ -627,7 +646,8 @@ class GeminiCloudCodeClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def _ensure_project_context(self, access_token: str, model: str) -> ProjectContext:
+    def _ensure_project_context(
+            self, access_token: str, model: str) -> ProjectContext:
         """Lazily resolve and cache the project context for this client."""
         if self._project_context is not None:
             return self._project_context
@@ -683,7 +703,8 @@ class GeminiCloudCodeClient:
 
         thinking_config = None
         if isinstance(extra_body, dict):
-            thinking_config = extra_body.get("thinking_config") or extra_body.get("thinkingConfig")
+            thinking_config = extra_body.get(
+                "thinking_config") or extra_body.get("thinkingConfig")
 
         inner = build_gemini_request(
             messages=messages or [],
@@ -712,7 +733,8 @@ class GeminiCloudCodeClient:
         headers.update(self._default_headers)
 
         if stream:
-            return self._stream_completion(model=model, wrapped=wrapped, headers=headers)
+            return self._stream_completion(
+                model=model, wrapped=wrapped, headers=headers)
 
         url = f"{CODE_ASSIST_ENDPOINT}/v1internal:generateContent"
         response = self._http.post(url, json=wrapped, headers=headers)
@@ -748,7 +770,8 @@ class GeminiCloudCodeClient:
                         raise _gemini_http_error(response)
                     tool_call_counter: List[int] = [0]
                     for event in _iter_sse_events(response):
-                        for chunk in _translate_stream_event(event, model, tool_call_counter):
+                        for chunk in _translate_stream_event(
+                                event, model, tool_call_counter):
                             yield chunk
             except httpx.HTTPError as exc:
                 raise CodeAssistError(
@@ -823,7 +846,8 @@ def _gemini_http_error(response: httpx.Response) -> CodeAssistError:
             if isinstance(md, dict):
                 error_metadata = md
         elif retry_delay_seconds is None and type_url.endswith("/google.rpc.RetryInfo"):
-            # retryDelay is a google.protobuf.Duration string like "30s" or "1.5s".
+            # retryDelay is a google.protobuf.Duration string like "30s" or
+            # "1.5s".
             delay_raw = detail.get("retryDelay")
             if isinstance(delay_raw, str) and delay_raw.endswith("s"):
                 try:
@@ -836,7 +860,8 @@ def _gemini_http_error(response: httpx.Response) -> CodeAssistError:
     # Fall back to the Retry-After header if the body didn't include RetryInfo.
     if retry_delay_seconds is None:
         try:
-            header_val = response.headers.get("Retry-After") or response.headers.get("retry-after")
+            header_val = response.headers.get(
+                "Retry-After") or response.headers.get("retry-after")
         except Exception:
             header_val = None
         if header_val:
@@ -861,7 +886,8 @@ def _gemini_http_error(response: httpx.Response) -> CodeAssistError:
     # Google signal.
     model_hint = ""
     if isinstance(error_metadata, dict):
-        model_hint = str(error_metadata.get("model") or error_metadata.get("modelId") or "").strip()
+        model_hint = str(error_metadata.get("model")
+                         or error_metadata.get("modelId") or "").strip()
 
     if status == 429 and error_reason == "MODEL_CAPACITY_EXHAUSTED":
         target = model_hint or "this Gemini model"
@@ -871,7 +897,8 @@ def _gemini_http_error(response: httpx.Response) -> CodeAssistError:
             f"fallback_providers entry to a non-Gemini provider."
         )
         if retry_delay_seconds is not None:
-            message += f" Google suggests retrying in {retry_delay_seconds:g}s."
+            message += f" Google suggests retrying in {
+                retry_delay_seconds:g}s."
     elif status == 429 and err_status == "RESOURCE_EXHAUSTED":
         message = (
             f"Gemini quota exhausted ({err_message or 'RESOURCE_EXHAUSTED'}). "
@@ -889,7 +916,8 @@ def _gemini_http_error(response: httpx.Response) -> CodeAssistError:
         )
     elif err_message:
         # Generic fallback with the parsed message.
-        message = f"Code Assist HTTP {status} ({err_status or 'error'}): {err_message}"
+        message = f"Code Assist HTTP {status} ({
+            err_status or 'error'}): {err_message}"
     else:
         # Last-ditch fallback — raw body snippet.
         message = f"Code Assist returned HTTP {status}: {body_text[:500]}"

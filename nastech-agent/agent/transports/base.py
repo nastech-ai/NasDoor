@@ -23,7 +23,8 @@ class ProviderTransport(ABC):
         ...
 
     @abstractmethod
-    def convert_messages(self, messages: List[Dict[str, Any]], **kwargs) -> Any:
+    def convert_messages(
+            self, messages: List[Dict[str, Any]], **kwargs) -> Any:
         """Convert OpenAI-format messages to provider-native format.
 
         Returns provider-specific structure (e.g. (system, messages) for Anthropic,
@@ -57,7 +58,8 @@ class ProviderTransport(ABC):
         ...
 
     @abstractmethod
-    def normalize_response(self, response: Any, **kwargs) -> NormalizedResponse:
+    def normalize_response(self, response: Any, **
+                           kwargs) -> NormalizedResponse:
         """Normalize a raw provider response to the shared NormalizedResponse type.
 
         This is the only method that returns a transport-layer type.

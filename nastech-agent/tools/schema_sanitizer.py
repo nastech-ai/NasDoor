@@ -76,14 +76,16 @@ def _sanitize_single_tool(tool: dict) -> dict:
     else:
         if top.get("type") != "object":
             top["type"] = "object"
-        if "properties" not in top or not isinstance(top.get("properties"), dict):
+        if "properties" not in top or not isinstance(
+                top.get("properties"), dict):
             top["properties"] = {}
     # Final pass: collapse nullable anyOf/oneOf unions that the recursive
     # sanitizer above leaves intact (it only handles the array-form
     # ``type: [X, "null"]``). Keep the ``nullable: true`` hint so runtime
     # argument coercion (``model_tools._schema_allows_null``) can still
     # map a model-emitted ``"null"`` string to Python ``None``.
-    fn["parameters"] = strip_nullable_unions(fn["parameters"], keep_nullable_hint=True)
+    fn["parameters"] = strip_nullable_unions(
+        fn["parameters"], keep_nullable_hint=True)
     # Strip top-level combinators that strict backends (OpenAI's Codex
     # endpoint at chatgpt.com/backend-api/codex) reject outright. Nested
     # combinators inside properties are preserved.
@@ -96,7 +98,8 @@ def _sanitize_single_tool(tool: dict) -> dict:
 _TOP_LEVEL_FORBIDDEN_KEYS = ("allOf", "anyOf", "oneOf", "enum", "not")
 
 
-def _strip_top_level_combinators(params: dict, *, path: str = "<tool>") -> dict:
+def _strip_top_level_combinators(
+        params: dict, *, path: str = "<tool>") -> dict:
     """Drop combinator keywords from the top-level of a function parameters schema.
 
     OpenAI's Codex backend (``chatgpt.com/backend-api/codex``) is stricter
@@ -160,7 +163,8 @@ def strip_nullable_unions(
         returned unchanged.
     """
     if isinstance(schema, list):
-        return [strip_nullable_unions(item, keep_nullable_hint=keep_nullable_hint) for item in schema]
+        return [strip_nullable_unions(
+            item, keep_nullable_hint=keep_nullable_hint) for item in schema]
     if not isinstance(schema, dict):
         return schema
 
@@ -180,13 +184,17 @@ def strip_nullable_unions(
         # one non-null branch survives (otherwise the union is meaningful
         # and we leave it alone).
         if len(non_null) == 1 and len(non_null) != len(variants):
-            replacement = dict(non_null[0]) if isinstance(non_null[0], dict) else {}
+            replacement = dict(
+                non_null[0]) if isinstance(
+                non_null[0],
+                dict) else {}
             if keep_nullable_hint:
                 replacement.setdefault("nullable", True)
             for meta_key in ("title", "description", "default", "examples"):
                 if meta_key in stripped and meta_key not in replacement:
                     replacement[meta_key] = stripped[meta_key]
-            return strip_nullable_unions(replacement, keep_nullable_hint=keep_nullable_hint)
+            return strip_nullable_unions(
+                replacement, keep_nullable_hint=keep_nullable_hint)
     return stripped
 
 
@@ -203,7 +211,8 @@ def _sanitize_node(node: Any, path: str) -> Any:
     """
     # Malformed: the schema position holds a bare string like "object".
     if isinstance(node, str):
-        if node in {"object", "string", "number", "integer", "boolean", "array", "null"}:
+        if node in {"object", "string", "number",
+                    "integer", "boolean", "array", "null"}:
             logger.debug(
                 "schema_sanitizer[%s]: replacing bare-string schema %r "
                 "with {'type': %r}",
@@ -223,7 +232,8 @@ def _sanitize_node(node: Any, path: str) -> Any:
         return {"type": "object", "properties": {}}
 
     if isinstance(node, list):
-        return [_sanitize_node(item, f"{path}[{i}]") for i, item in enumerate(node)]
+        return [_sanitize_node(item, f"{path}[{i}]")
+                for i, item in enumerate(node)]
 
     if not isinstance(node, dict):
         return node
@@ -241,7 +251,9 @@ def _sanitize_node(node: Any, path: str) -> Any:
                     out.setdefault("nullable", True)
                 continue
             # Fallback: pick the first string type, drop the rest.
-            first_str = next((t for t in value if isinstance(t, str) and t != "null"), None)
+            first_str = next(
+                (t for t in value if isinstance(
+                    t, str) and t != "null"), None)
             if first_str:
                 out["type"] = first_str
                 continue
@@ -249,7 +261,8 @@ def _sanitize_node(node: Any, path: str) -> Any:
             out["type"] = "object"
             continue
 
-        if key in {"properties", "$defs", "definitions"} and isinstance(value, dict):
+        if key in {"properties", "$defs",
+                   "definitions"} and isinstance(value, dict):
             out[key] = {
                 sub_k: _sanitize_node(sub_v, f"{path}.{key}.{sub_k}")
                 for sub_k, sub_v in value.items()
@@ -275,13 +288,17 @@ def _sanitize_node(node: Any, path: str) -> Any:
             # Recursing into these with _sanitize_node() would mis-interpret
             # literal strings like "path" as bare-string schemas and replace
             # them with {"type": "object"} dicts. Pass through unchanged.
-            out[key] = copy.deepcopy(value) if isinstance(value, (list, dict)) else value
+            out[key] = copy.deepcopy(value) if isinstance(
+                value, (list, dict)) else value
         else:
-            out[key] = _sanitize_node(value, f"{path}.{key}") if isinstance(value, (dict, list)) else value
+            out[key] = _sanitize_node(
+                value, f"{path}.{key}") if isinstance(
+                value, (dict, list)) else value
 
     # Object nodes without properties: inject empty properties dict.
     # llama.cpp's grammar generator can't constrain a free-form object.
-    if out.get("type") == "object" and not isinstance(out.get("properties"), dict):
+    if out.get("type") == "object" and not isinstance(
+            out.get("properties"), dict):
         out["properties"] = {}
 
     # Prune ``required`` entries that don't exist in properties (defense
@@ -289,7 +306,9 @@ def _sanitize_node(node: Any, path: str) -> Any:
     # built-in tools or plugin tools may not have been through that path).
     if out.get("type") == "object" and isinstance(out.get("required"), list):
         props = out.get("properties") or {}
-        valid = [r for r in out["required"] if isinstance(r, str) and r in props]
+        valid = [
+            r for r in out["required"] if isinstance(
+                r, str) and r in props]
         if not valid:
             out.pop("required", None)
         elif len(valid) != len(out["required"]):
@@ -357,7 +376,7 @@ def strip_pattern_and_format(tools: list[dict]) -> tuple[list[dict], int]:
     for tool in tools:
         if not isinstance(tool, dict):
             continue
-        
+
         # OpenAI-format: {"function": {"parameters": {...}}}
         fn = tool.get("function")
         if isinstance(fn, dict):
@@ -365,7 +384,7 @@ def strip_pattern_and_format(tools: list[dict]) -> tuple[list[dict], int]:
             if isinstance(params, dict):
                 _walk(params)
                 continue
-        
+
         # Responses-format: {"name": "...", "parameters": {...}}
         # (used by codex_responses API mode — xAI, OpenAI Codex, etc.)
         params = tool.get("parameters")

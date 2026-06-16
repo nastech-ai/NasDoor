@@ -61,14 +61,19 @@ def build_skills_parser(subparsers, *, cmd_skills: Callable) -> None:
             "browse-sh",
         ],
     )
-    skills_search.add_argument("--limit", type=int, default=10, help="Max results")
+    skills_search.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Max results")
     skills_search.add_argument(
         "--json",
         action="store_true",
         help="Output JSON instead of a table (full identifiers, scripting-friendly)",
     )
 
-    skills_install = skills_subparsers.add_parser("install", help="Install a skill")
+    skills_install = skills_subparsers.add_parser(
+        "install", help="Install a skill")
     skills_install.add_argument(
         "identifier",
         help="Skill identifier (e.g. openai/skills/skill-creator) or a direct HTTP(S) URL to a SKILL.md file",
@@ -96,7 +101,8 @@ def build_skills_parser(subparsers, *, cmd_skills: Callable) -> None:
     )
     skills_inspect.add_argument("identifier", help="Skill identifier")
 
-    skills_list = skills_subparsers.add_parser("list", help="List installed skills")
+    skills_list = skills_subparsers.add_parser(
+        "list", help="List installed skills")
     skills_list.add_argument(
         "--source", default="all", choices=["all", "hub", "builtin", "local"]
     )
@@ -240,11 +246,13 @@ def build_skills_parser(subparsers, *, cmd_skills: Callable) -> None:
     skills_snapshot = skills_subparsers.add_parser(
         "snapshot", help="Export/import skill configurations"
     )
-    snapshot_subparsers = skills_snapshot.add_subparsers(dest="snapshot_action")
+    snapshot_subparsers = skills_snapshot.add_subparsers(
+        dest="snapshot_action")
     snap_export = snapshot_subparsers.add_parser(
         "export", help="Export installed skills to a file"
     )
-    snap_export.add_argument("output", help="Output JSON file path (use - for stdout)")
+    snap_export.add_argument(
+        "output", help="Output JSON file path (use - for stdout)")
     snap_import = snapshot_subparsers.add_parser(
         "import", help="Import and install skills from a file"
     )
@@ -253,10 +261,12 @@ def build_skills_parser(subparsers, *, cmd_skills: Callable) -> None:
         "--force", action="store_true", help="Force install despite caution verdict"
     )
 
-    skills_tap = skills_subparsers.add_parser("tap", help="Manage skill sources")
+    skills_tap = skills_subparsers.add_parser(
+        "tap", help="Manage skill sources")
     tap_subparsers = skills_tap.add_subparsers(dest="tap_action")
     tap_subparsers.add_parser("list", help="List configured taps")
-    tap_add = tap_subparsers.add_parser("add", help="Add a GitHub repo as skill source")
+    tap_add = tap_subparsers.add_parser(
+        "add", help="Add a GitHub repo as skill source")
     tap_add.add_argument("repo", help="GitHub repo (e.g. owner/repo)")
     tap_rm = tap_subparsers.add_parser("remove", help="Remove a tap")
     tap_rm.add_argument("name", help="Tap name to remove")

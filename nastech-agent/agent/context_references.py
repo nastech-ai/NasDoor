@@ -18,7 +18,14 @@ REFERENCE_PATTERN = re.compile(
     rf"(?<![\w/])@(?:(?P<simple>diff|staged)\b|(?P<kind>file|folder|git|url):(?P<value>{_QUOTED_REFERENCE_VALUE}(?::\d+(?:-\d+)?)?|\S+))"
 )
 TRAILING_PUNCTUATION = ",.;!?"
-_SENSITIVE_HOME_DIRS = (".ssh", ".aws", ".gnupg", ".kube", ".docker", ".azure", ".config/gh")
+_SENSITIVE_HOME_DIRS = (
+    ".ssh",
+    ".aws",
+    ".gnupg",
+    ".kube",
+    ".docker",
+    ".azure",
+    ".config/gh")
 _SENSITIVE_NASTECH_DIRS = (Path("skills") / ".hub",)
 _SENSITIVE_HOME_FILES = (
     Path(".ssh") / "authorized_keys",
@@ -139,13 +146,15 @@ async def preprocess_context_references_async(
 ) -> ContextReferenceResult:
     refs = parse_context_references(message)
     if not refs:
-        return ContextReferenceResult(message=message, original_message=message)
+        return ContextReferenceResult(
+            message=message, original_message=message)
 
     cwd_path = Path(cwd).expanduser().resolve()
     # Default to the current working directory so @ references cannot escape
     # the active workspace unless a caller explicitly widens the root.
     allowed_root_path = (
-        Path(allowed_root).expanduser().resolve() if allowed_root is not None else cwd_path
+        Path(allowed_root).expanduser().resolve(
+        ) if allowed_root is not None else cwd_path
     )
     warnings: list[str] = []
     blocks: list[str] = []
@@ -188,9 +197,11 @@ async def preprocess_context_references_async(
     stripped = _remove_reference_tokens(message, refs)
     final = stripped
     if warnings:
-        final = f"{final}\n\n--- Context Warnings ---\n" + "\n".join(f"- {warning}" for warning in warnings)
+        final = f"{final}\n\n--- Context Warnings ---\n" + \
+            "\n".join(f"- {warning}" for warning in warnings)
     if blocks:
-        final = f"{final}\n\n--- Attached Context ---\n\n" + "\n\n".join(blocks)
+        final = f"{final}\n\n--- Attached Context ---\n\n" + \
+            "\n\n".join(blocks)
 
     return ContextReferenceResult(
         message=final.strip(),
@@ -214,14 +225,17 @@ async def _expand_reference(
         if ref.kind == "file":
             return _expand_file_reference(ref, cwd, allowed_root=allowed_root)
         if ref.kind == "folder":
-            return _expand_folder_reference(ref, cwd, allowed_root=allowed_root)
+            return _expand_folder_reference(
+                ref, cwd, allowed_root=allowed_root)
         if ref.kind == "diff":
             return _expand_git_reference(ref, cwd, ["diff"], "git diff")
         if ref.kind == "staged":
-            return _expand_git_reference(ref, cwd, ["diff", "--staged"], "git diff --staged")
+            return _expand_git_reference(
+                ref, cwd, ["diff", "--staged"], "git diff --staged")
         if ref.kind == "git":
             count = max(1, min(int(ref.target or "1"), 10))
-            return _expand_git_reference(ref, cwd, ["log", f"-{count}", "-p"], f"git log -{count} -p")
+            return _expand_git_reference(
+                ref, cwd, ["log", f"-{count}", "-p"], f"git log -{count} -p")
         if ref.kind == "url":
             content = await _fetch_url_content(ref.target, url_fetcher=url_fetcher)
             if not content:
@@ -327,7 +341,8 @@ async def _default_url_fetcher(url: str) -> str:
     return str(doc.get("content") or doc.get("raw_content") or "").strip()
 
 
-def _resolve_path(cwd: Path, target: str, *, allowed_root: Path | None = None) -> Path:
+def _resolve_path(cwd: Path, target: str, *,
+                  allowed_root: Path | None = None) -> Path:
     path = Path(os.path.expanduser(target))
     if not path.is_absolute():
         path = cwd / path
@@ -351,14 +366,16 @@ def _ensure_reference_path_allowed(path: Path) -> None:
     blocked_dirs.extend(nastech_home / rel for rel in _SENSITIVE_NASTECH_DIRS)
 
     if path in blocked_exact:
-        raise ValueError("path is a sensitive credential file and cannot be attached")
+        raise ValueError(
+            "path is a sensitive credential file and cannot be attached")
 
     for blocked_dir in blocked_dirs:
         try:
             path.relative_to(blocked_dir)
         except ValueError:
             continue
-        raise ValueError("path is a sensitive credential or internal NasTech path and cannot be attached")
+        raise ValueError(
+            "path is a sensitive credential or internal NasTech path and cannot be attached")
 
 
 def _strip_trailing_punctuation(value: str) -> str:
@@ -379,7 +396,8 @@ def _strip_reference_wrappers(value: str) -> str:
     return value
 
 
-def _parse_file_reference_value(value: str) -> tuple[str, int | None, int | None]:
+def _parse_file_reference_value(
+        value: str) -> tuple[str, int | None, int | None]:
     quoted_match = re.match(
         r'^(?P<quote>`|"|\')(?P<path>.+?)(?P=quote)(?::(?P<start>\d+)(?:-(?P<end>\d+))?)?$',
         value,
@@ -393,7 +411,8 @@ def _parse_file_reference_value(value: str) -> tuple[str, int | None, int | None
             int(line_end or line_start) if line_start is not None else None,
         )
 
-    range_match = re.match(r"^(?P<path>.+?):(?P<start>\d+)(?:-(?P<end>\d+))?$", value)
+    range_match = re.match(
+        r"^(?P<path>.+?):(?P<start>\d+)(?:-(?P<end>\d+))?$", value)
     if range_match:
         line_start = int(range_match.group("start"))
         return (
@@ -405,7 +424,8 @@ def _parse_file_reference_value(value: str) -> tuple[str, int | None, int | None
     return _strip_reference_wrappers(value), None, None
 
 
-def _remove_reference_tokens(message: str, refs: list[ContextReference]) -> str:
+def _remove_reference_tokens(
+        message: str, refs: list[ContextReference]) -> str:
     pieces: list[str] = []
     cursor = 0
     for ref in refs:
@@ -433,7 +453,8 @@ def _build_folder_listing(path: Path, cwd: Path, limit: int = 200) -> str:
     entries = _iter_visible_entries(path, cwd, limit=limit)
     for entry in entries:
         rel = entry.relative_to(cwd)
-        indent = "  " * max(len(rel.parts) - len(path.relative_to(cwd).parts) - 1, 0)
+        indent = "  " * max(len(rel.parts) -
+                            len(path.relative_to(cwd).parts) - 1, 0)
         if entry.is_dir():
             lines.append(f"{indent}- {entry.name}/")
         else:
@@ -452,16 +473,19 @@ def _iter_visible_entries(path: Path, cwd: Path, limit: int) -> list[Path]:
         for rel in rg_entries:
             full = cwd / rel
             for parent in full.parents:
-                if parent == cwd or parent in seen_dirs or path not in {parent, *parent.parents}:
+                if parent == cwd or parent in seen_dirs or path not in {
+                        parent, *parent.parents}:
                     continue
                 seen_dirs.add(parent)
                 output.append(parent)
             output.append(full)
-        return sorted({p for p in output if p.exists()}, key=lambda p: (not p.is_dir(), str(p)))
+        return sorted({p for p in output if p.exists()},
+                      key=lambda p: (not p.is_dir(), str(p)))
 
     output = []
     for root, dirs, files in os.walk(path):
-        dirs[:] = sorted(d for d in dirs if not d.startswith(".") and d != "__pycache__")
+        dirs[:] = sorted(d for d in dirs if not d.startswith(
+            ".") and d != "__pycache__")
         files = sorted(f for f in files if not f.startswith("."))
         root_path = Path(root)
         for d in dirs:
@@ -489,7 +513,8 @@ def _rg_files(path: Path, cwd: Path, limit: int) -> list[Path] | None:
         return None
     if result.returncode != 0:
         return None
-    files = [Path(line.strip()) for line in result.stdout.splitlines() if line.strip()]
+    files = [Path(line.strip())
+             for line in result.stdout.splitlines() if line.strip()]
     return files[:limit]
 
 

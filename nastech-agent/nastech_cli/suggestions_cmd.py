@@ -32,7 +32,11 @@ def _fmt_pending(pending: list) -> str:
         spec = s.get("job_spec", {}) or {}
         sched = spec.get("schedule", "?")
         src = s.get("source", "?")
-        lines.append(f"  {i}. {s.get('title', '(untitled)')}  [{sched}]  ({src})")
+        lines.append(
+            f"  {i}. {
+                s.get(
+                    'title',
+                    '(untitled)')}  [{sched}]  ({src})")
         desc = s.get("description", "").strip()
         if desc:
             lines.append(f"     {desc}")
@@ -100,7 +104,12 @@ def handle_suggestions_command(
         job = store.accept_suggestion(rest, origin=origin)
         if job is None:
             return f"No pending suggestion matches '{rest}'. Run /suggestions to list them."
-        sched = job.get("schedule_display") or (job.get("job_spec", {}) or {}).get("schedule", "")
+        sched = job.get("schedule_display") or (
+            job.get(
+                "job_spec",
+                {}) or {}).get(
+            "schedule",
+            "")
         name = job.get("name", "automation")
         manage = (
             "Manage it with /cron."

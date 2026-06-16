@@ -76,7 +76,10 @@ class BlueprintSlot:
 
     def __post_init__(self) -> None:
         if self.type not in _SLOT_TYPES:
-            raise ValueError(f"unknown slot type {self.type!r} (slot {self.name})")
+            raise ValueError(
+                f"unknown slot type {
+                    self.type!r} (slot {
+                    self.name})")
 
 
 @dataclass(frozen=True)
@@ -89,9 +92,11 @@ class AutomationBlueprint:
     category: str
     # Cron expression with ``{slot}`` placeholders, e.g. "{minute} {hour} * * {dow}".
     # Placeholders are filled from resolved slot values (time -> minute/hour,
-    # weekdays -> dow). A literal cron string with no placeholders = fixed schedule.
+    # weekdays -> dow). A literal cron string with no placeholders = fixed
+    # schedule.
     schedule_template: str
-    # Seed instruction for the agent / the cron job prompt; may contain {slot}s.
+    # Seed instruction for the agent / the cron job prompt; may contain
+    # {slot}s.
     prompt_template: str
     slots: List[BlueprintSlot] = field(default_factory=list)
     deliver_default: str = "origin"
@@ -210,7 +215,7 @@ CATALOG: List[AutomationBlueprint] = [
         prompt_template="Remind the user: {what}",
         slots=[
             BlueprintSlot(name="what", type="text", label="Remind me to…",
-                       default="take a break and stretch"),
+                          default="take a break and stretch"),
             _TIME("14:00"),
             BlueprintSlot(
                 name="recurrence", type="weekdays", label="Repeat on",
@@ -513,7 +518,8 @@ def blueprint_form_schema(blueprint: AutomationBlueprint) -> Dict[str, Any]:
     }
 
 
-def blueprint_slash_command(blueprint: AutomationBlueprint, values: Optional[Dict[str, Any]] = None) -> str:
+def blueprint_slash_command(
+        blueprint: AutomationBlueprint, values: Optional[Dict[str, Any]] = None) -> str:
     """Build the flattened ``/blueprint <key> slot=val …`` command string.
 
     Uses each slot's default when ``values`` is omitted, so the docs/dashboard
@@ -534,7 +540,8 @@ def blueprint_slash_command(blueprint: AutomationBlueprint, values: Optional[Dic
     return " ".join(parts)
 
 
-def blueprint_deeplink(blueprint: AutomationBlueprint, values: Optional[Dict[str, Any]] = None) -> str:
+def blueprint_deeplink(blueprint: AutomationBlueprint,
+                       values: Optional[Dict[str, Any]] = None) -> str:
     """Build the ``nastech://blueprint/<key>?slot=val`` deep-link URL."""
     from urllib.parse import quote, urlencode
 
@@ -552,11 +559,15 @@ def _humanize_schedule(blueprint: AutomationBlueprint) -> str:
     """A short human-readable description of when a blueprint runs (defaults)."""
     sched = blueprint.schedule_template
     if sched.startswith("*/"):
-        iv = next((s for s in blueprint.slots if s.name == "interval_min"), None)
+        iv = next(
+            (s for s in blueprint.slots if s.name == "interval_min"),
+            None)
         every = (iv.default if iv else None) or sched.split("/")[1].split()[0]
         return f"every {every} minutes"
     if "{interval_hours}" in sched:
-        iv = next((s for s in blueprint.slots if s.name == "interval_hours"), None)
+        iv = next(
+            (s for s in blueprint.slots if s.name == "interval_hours"),
+            None)
         every = str((iv.default if iv else None) or "1")
         scope = "weekdays, " if "* * 1-5" in sched else ""
         return f"{scope}every hour" if every == "1" else f"{scope}every {every} hours"
@@ -565,7 +576,9 @@ def _humanize_schedule(blueprint: AutomationBlueprint) -> str:
     if "* * 1-5" in sched:
         return f"weekdays at {when}" if when else "every weekday"
     if "{dow}" in sched:
-        day_slot = next((s for s in blueprint.slots if s.name in ("day", "recurrence")), None)
+        day_slot = next(
+            (s for s in blueprint.slots if s.name in (
+                "day", "recurrence")), None)
         scope = (day_slot.default if day_slot else "") or ""
         if scope and when:
             return f"{scope} at {when}"
@@ -600,7 +613,8 @@ _DAY_TO_DOW = {
 }
 
 
-def _resolve_schedule(blueprint: AutomationBlueprint, values: Dict[str, Any]) -> str:
+def _resolve_schedule(blueprint: AutomationBlueprint,
+                      values: Dict[str, Any]) -> str:
     """Fill the schedule_template placeholders from resolved slot values."""
     sched = blueprint.schedule_template
 
@@ -617,7 +631,9 @@ def _resolve_schedule(blueprint: AutomationBlueprint, values: Dict[str, Any]) ->
             raise BlueprintFillError("a time is required")
         m = _TIME_RE.match(str(time_val).strip())
         if not m:
-            raise BlueprintFillError(f"invalid time {time_val!r} — use HH:MM (24h)")
+            raise BlueprintFillError(
+                f"invalid time {
+                    time_val!r} — use HH:MM (24h)")
         repl["hour"] = str(int(m.group(1)))
         repl["minute"] = str(int(m.group(2)))
 
@@ -627,7 +643,9 @@ def _resolve_schedule(blueprint: AutomationBlueprint, values: Dict[str, Any]) ->
             preset = str(values.get("recurrence", "everyday")).lower()
             if preset not in WEEKDAY_PRESETS:
                 raise BlueprintFillError(
-                    f"unknown recurrence {preset!r} — one of {', '.join(WEEKDAY_PRESETS)}"
+                    f"unknown recurrence {
+                        preset!r} — one of {
+                        ', '.join(WEEKDAY_PRESETS)}"
                 )
             repl["dow"] = WEEKDAY_PRESETS[preset]
         elif "day" in values:
@@ -642,7 +660,9 @@ def _resolve_schedule(blueprint: AutomationBlueprint, values: Dict[str, Any]) ->
     if "{interval_min}" in sched:
         iv = str(values.get("interval_min", "")).strip()
         if not iv.isdigit() or int(iv) <= 0:
-            raise BlueprintFillError(f"invalid interval {iv!r} — minutes as a positive integer")
+            raise BlueprintFillError(
+                f"invalid interval {
+                    iv!r} — minutes as a positive integer")
         repl["interval_min"] = iv
 
     # Any remaining {slot} placeholders are filled verbatim from validated
@@ -655,7 +675,8 @@ def _resolve_schedule(blueprint: AutomationBlueprint, values: Dict[str, Any]) ->
     try:
         return sched.format(**repl)
     except KeyError as e:  # pragma: no cover - template/slot mismatch is a dev error
-        raise BlueprintFillError(f"schedule template missing value for {e}") from e
+        raise BlueprintFillError(
+            f"schedule template missing value for {e}") from e
 
 
 def fill_blueprint(
@@ -685,10 +706,20 @@ def fill_blueprint(
         if raw in (None, ""):
             if s.optional:
                 continue
-            raise BlueprintFillError(f"missing required value: {s.name} ({s.label})")
-        if s.type == "enum" and s.strict and s.options and str(raw) not in {str(o) for o in s.options}:
             raise BlueprintFillError(
-                f"{s.name}={raw!r} not allowed — one of {', '.join(map(str, s.options))}"
+                f"missing required value: {
+                    s.name} ({
+                    s.label})")
+        if s.type == "enum" and s.strict and s.options and str(
+                raw) not in {str(o) for o in s.options}:
+            raise BlueprintFillError(
+                f"{
+                    s.name}={
+                    raw!r} not allowed — one of {
+                    ', '.join(
+                        map(
+                            str,
+                            s.options))}"
             )
         resolved[s.name] = raw
 
@@ -698,7 +729,8 @@ def fill_blueprint(
     try:
         prompt = blueprint.prompt_template.format(**resolved)
     except KeyError as e:
-        raise BlueprintFillError(f"blueprint prompt missing value for {e}") from e
+        raise BlueprintFillError(
+            f"blueprint prompt missing value for {e}") from e
 
     spec: Dict[str, Any] = {
         "prompt": prompt,

@@ -25,40 +25,59 @@ class FailoverReason(enum.Enum):
     """Why an API call failed — determines recovery strategy."""
 
     # Authentication / authorization
-    auth = "auth"                        # Transient auth (401/403) — refresh/rotate
+    # Transient auth (401/403) — refresh/rotate
+    auth = "auth"
     auth_permanent = "auth_permanent"    # Auth failed after refresh — abort
 
     # Billing / quota
-    billing = "billing"                  # 402 or confirmed credit exhaustion — rotate immediately
-    rate_limit = "rate_limit"            # 429 or quota-based throttling — backoff then rotate
+    # 402 or confirmed credit exhaustion — rotate immediately
+    billing = "billing"
+    # 429 or quota-based throttling — backoff then rotate
+    rate_limit = "rate_limit"
 
     # Server-side
     overloaded = "overloaded"            # 503/529 — provider overloaded, backoff
     server_error = "server_error"        # 500/502 — internal server error, retry
 
     # Transport
-    timeout = "timeout"                  # Connection/read timeout — rebuild client + retry
+    # Connection/read timeout — rebuild client + retry
+    timeout = "timeout"
 
     # Context / payload
-    context_overflow = "context_overflow"  # Context too large — compress, not failover
+    # Context too large — compress, not failover
+    context_overflow = "context_overflow"
     payload_too_large = "payload_too_large"  # 413 — compress payload
-    image_too_large = "image_too_large"   # Native image part exceeds provider's per-image limit — shrink and retry
+    # Native image part exceeds provider's per-image limit — shrink and retry
+    image_too_large = "image_too_large"
 
     # Model / provider policy
-    model_not_found = "model_not_found"  # 404 or invalid model — fallback to different model
-    provider_policy_blocked = "provider_policy_blocked"  # Aggregator (e.g. OpenRouter) blocked the only endpoint due to account data/privacy policy
-    content_policy_blocked = "content_policy_blocked"  # Provider safety filter rejected this prompt — deterministic per-request, don't retry unchanged
+    # 404 or invalid model — fallback to different model
+    model_not_found = "model_not_found"
+    # Aggregator (e.g. OpenRouter) blocked the only endpoint due to account
+    # data/privacy policy
+    provider_policy_blocked = "provider_policy_blocked"
+    # Provider safety filter rejected this prompt — deterministic per-request,
+    # don't retry unchanged
+    content_policy_blocked = "content_policy_blocked"
 
     # Request format
     format_error = "format_error"        # 400 bad request — abort or strip + retry
-    invalid_encrypted_content = "invalid_encrypted_content"  # Responses replay blob rejected — strip replay state and retry
-    multimodal_tool_content_unsupported = "multimodal_tool_content_unsupported"  # Provider rejected list-type content in tool messages (e.g. Xiaomi MiMo) — downgrade to text and retry
+    # Responses replay blob rejected — strip replay state and retry
+    invalid_encrypted_content = "invalid_encrypted_content"
+    # Provider rejected list-type content in tool messages (e.g. Xiaomi MiMo)
+    # — downgrade to text and retry
+    multimodal_tool_content_unsupported = "multimodal_tool_content_unsupported"
 
     # Provider-specific
-    thinking_signature = "thinking_signature"  # Anthropic thinking block sig invalid
+    # Anthropic thinking block sig invalid
+    thinking_signature = "thinking_signature"
     long_context_tier = "long_context_tier"    # Anthropic "extra usage" tier gate
-    oauth_long_context_beta_forbidden = "oauth_long_context_beta_forbidden"  # Anthropic OAuth subscription rejects 1M context beta — disable beta and retry
-    llama_cpp_grammar_pattern = "llama_cpp_grammar_pattern"  # llama.cpp json-schema-to-grammar rejects regex escapes in `pattern` / `format` — strip from tools and retry
+    # Anthropic OAuth subscription rejects 1M context beta — disable beta and
+    # retry
+    oauth_long_context_beta_forbidden = "oauth_long_context_beta_forbidden"
+    # llama.cpp json-schema-to-grammar rejects regex escapes in `pattern` /
+    # `format` — strip from tools and retry
+    llama_cpp_grammar_pattern = "llama_cpp_grammar_pattern"
 
     # Catch-all
     unknown = "unknown"                  # Unclassifiable — retry with backoff
@@ -86,12 +105,11 @@ class ClassifiedError:
 
     @property
     def is_auth(self) -> bool:
-        return self.reason in {FailoverReason.auth, FailoverReason.auth_permanent}
-
+        return self.reason in {FailoverReason.auth,
+                               FailoverReason.auth_permanent}
 
 
 # ── Provider-specific patterns ──────────────────────────────────────────
-
 # Patterns that indicate billing exhaustion (not transient rate limit)
 _BILLING_PATTERNS = [
     "insufficient credits",
@@ -133,7 +151,8 @@ _RATE_LIMIT_PATTERNS = [
     "servicequotaexceededexception",
 ]
 
-# Usage-limit patterns that need disambiguation (could be billing OR rate_limit)
+# Usage-limit patterns that need disambiguation (could be billing OR
+# rate_limit)
 _USAGE_LIMIT_PATTERNS = [
     "usage limit",
     "quota",
@@ -171,9 +190,12 @@ _IMAGE_TOO_LARGE_PATTERNS = [
     "image too large",      # generic
     "image_too_large",      # error_code variant
     "image size exceeds",   # variant
-    "image dimensions exceed",  # Anthropic: "image dimensions exceed max allowed size: 8000 pixels"
-    "dimensions exceed max allowed size",  # Anthropic dimension-cap (wording variant)
-    "max allowed size: 8000",  # Anthropic dimension-cap (explicit pixel ceiling)
+    # Anthropic: "image dimensions exceed max allowed size: 8000 pixels"
+    "image dimensions exceed",
+    # Anthropic dimension-cap (wording variant)
+    "dimensions exceed max allowed size",
+    # Anthropic dimension-cap (explicit pixel ceiling)
+    "max allowed size: 8000",
     # "request_too_large" on a request known to contain an image → image is
     # the likely culprit; we still try the shrink path before giving up.
 ]
@@ -190,7 +212,8 @@ _IMAGE_TOO_LARGE_PATTERNS = [
 #
 # See: https://github.com/NasTech/nastech-agent/issues/27344
 _MULTIMODAL_TOOL_CONTENT_PATTERNS = [
-    # Xiaomi MiMo: {"error":{"code":"400","message":"Param Incorrect","param":"text is not set"}}
+    # Xiaomi MiMo: {"error":{"code":"400","message":"Param
+    # Incorrect","param":"text is not set"}}
     "text is not set",
     # Generic "tool message must be string" shapes
     "tool message content must be a string",
@@ -507,7 +530,8 @@ def classify_api_error(
                         if isinstance(_inner, dict):
                             _inner_err = _inner.get("error", {})
                             if isinstance(_inner_err, dict):
-                                _metadata_msg = str(_inner_err.get("message") or "").lower()
+                                _metadata_msg = str(
+                                    _inner_err.get("message") or "").lower()
                     except (json.JSONDecodeError, TypeError):
                         pass
         if not _body_msg:
@@ -703,7 +727,8 @@ def classify_api_error(
         # context windows.  Large-context sessions can have hundreds of
         # messages while still being far below their actual token budget.
         is_large = approx_tokens > context_length * 0.6 or (
-            context_length <= 256000 and (approx_tokens > 120000 or num_messages > 200)
+            context_length <= 256000 and (
+                approx_tokens > 120000 or num_messages > 200)
         )
         if is_large:
             return _result(
@@ -715,7 +740,8 @@ def classify_api_error(
 
     # ── 7. Transport / timeout heuristics ───────────────────────────
 
-    if error_type in _TRANSPORT_ERROR_TYPES or isinstance(error, (TimeoutError, ConnectionError, OSError)):
+    if error_type in _TRANSPORT_ERROR_TYPES or isinstance(
+            error, (TimeoutError, ConnectionError, OSError)):
         return _result(FailoverReason.timeout, retryable=True)
 
     # ── 8. Fallback: unknown ────────────────────────────────────────
@@ -890,7 +916,8 @@ def _classify_402(error_msg: str, result_fn) -> ClassifiedError:
     """
     # Check for transient usage-limit signals first
     has_usage_limit = any(p in error_msg for p in _USAGE_LIMIT_PATTERNS)
-    has_transient_signal = any(p in error_msg for p in _USAGE_LIMIT_TRANSIENT_SIGNALS)
+    has_transient_signal = any(
+        p in error_msg for p in _USAGE_LIMIT_TRANSIENT_SIGNALS)
 
     if has_usage_limit and has_transient_signal:
         # Transient quota — treat as rate limit, not billing
@@ -974,7 +1001,8 @@ def _classify_400(
             should_compress=True,
         )
 
-    # Some providers return model-not-found as 400 instead of 404 (e.g. OpenRouter).
+    # Some providers return model-not-found as 400 instead of 404 (e.g.
+    # OpenRouter).
     if any(p in error_msg for p in _PROVIDER_POLICY_BLOCKED_PATTERNS):
         return result_fn(
             FailoverReason.provider_policy_blocked,
@@ -1006,7 +1034,8 @@ def _classify_400(
         )
 
     # Generic 400 + large session → probable context overflow
-    # Anthropic sometimes returns a bare "Error" message when context is too large
+    # Anthropic sometimes returns a bare "Error" message when context is too
+    # large
     err_body_msg = ""
     if isinstance(body, dict):
         err_obj = body.get("error", {})
@@ -1020,7 +1049,8 @@ def _classify_400(
     # context windows.  Large-context sessions can have many messages while
     # still being far below their actual token budget.
     is_large = approx_tokens > context_length * 0.4 or (
-        context_length <= 256000 and (approx_tokens > 80000 or num_messages > 80)
+        context_length <= 256000 and (
+            approx_tokens > 80000 or num_messages > 80)
     )
 
     if is_generic and is_large:
@@ -1046,7 +1076,8 @@ def _classify_by_error_code(
     """Classify by structured error codes from the response body."""
     code_lower = error_code.lower()
 
-    if code_lower in {"resource_exhausted", "throttled", "rate_limit_exceeded"}:
+    if code_lower in {"resource_exhausted",
+                      "throttled", "rate_limit_exceeded"}:
         return result_fn(
             FailoverReason.rate_limit,
             retryable=True,
@@ -1069,7 +1100,8 @@ def _classify_by_error_code(
             should_fallback=True,
         )
 
-    if code_lower in {"model_not_found", "model_not_available", "invalid_model"}:
+    if code_lower in {"model_not_found",
+                      "model_not_available", "invalid_model"}:
         return result_fn(
             FailoverReason.model_not_found,
             retryable=False,
@@ -1133,7 +1165,8 @@ def _classify_by_message(
     # billing exhaustion.
     has_usage_limit = any(p in error_msg for p in _USAGE_LIMIT_PATTERNS)
     if has_usage_limit:
-        has_transient_signal = any(p in error_msg for p in _USAGE_LIMIT_TRANSIENT_SIGNALS)
+        has_transient_signal = any(
+            p in error_msg for p in _USAGE_LIMIT_TRANSIENT_SIGNALS)
         if has_transient_signal:
             return result_fn(
                 FailoverReason.rate_limit,
@@ -1229,7 +1262,13 @@ def _extract_status_code(error: Exception) -> Optional[int]:
         if isinstance(code, int) and 100 <= code < 600:
             return code
         # Walk cause chain
-        cause = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+        cause = getattr(
+            current,
+            "__cause__",
+            None) or getattr(
+            current,
+            "__context__",
+            None)
         if cause is None or cause is current:
             break
         current = cause
@@ -1264,8 +1303,10 @@ def _extract_error_code(body: dict) -> str:
             return ""
         payload_error = payload.get("error", {})
         if isinstance(payload_error, dict):
-            nested = payload_error.get("code") or payload_error.get("type") or ""
-            if isinstance(nested, str) and nested.strip() and nested.strip() != "400":
+            nested = payload_error.get(
+                "code") or payload_error.get("type") or ""
+            if isinstance(nested, str) and nested.strip(
+            ) and nested.strip() != "400":
                 return nested.strip()
         code = payload.get("code") or payload.get("error_code") or ""
         if isinstance(code, (str, int)):

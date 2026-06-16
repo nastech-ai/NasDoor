@@ -24,6 +24,8 @@ from gateway.config import Platform
 from gateway.session import SessionSource
 from gateway.whatsapp_identity import (
     expand_whatsapp_aliases as _expand_whatsapp_auth_aliases,
+)
+from gateway.whatsapp_identity import (
     normalize_whatsapp_identifier as _normalize_whatsapp_identifier,
 )
 
@@ -31,7 +33,8 @@ from gateway.whatsapp_identity import (
 class GatewayAuthorizationMixin:
     """User/chat authorization methods for ``GatewayRunner``."""
 
-    def _adapter_enforces_own_access_policy(self, platform: Optional[Platform]) -> bool:
+    def _adapter_enforces_own_access_policy(
+            self, platform: Optional[Platform]) -> bool:
         """Whether the adapter for *platform* gates access at intake itself.
 
         Mirrors ``BasePlatformAdapter.enforces_own_access_policy``. Adapters
@@ -74,7 +77,10 @@ class GatewayAuthorizationMixin:
             return ""
         adapters = getattr(self, "adapters", None) or {}
         adapter = adapters.get(platform)
-        policy = getattr(adapter, "_dm_policy", None) if adapter is not None else None
+        policy = getattr(
+            adapter,
+            "_dm_policy",
+            None) if adapter is not None else None
         if policy is None:
             config = getattr(self, "config", None)
             platform_cfg = (
@@ -82,7 +88,10 @@ class GatewayAuthorizationMixin:
                 if config is not None and hasattr(config, "platforms")
                 else None
             )
-            extra = getattr(platform_cfg, "extra", None) if platform_cfg else None
+            extra = getattr(
+                platform_cfg,
+                "extra",
+                None) if platform_cfg else None
             if isinstance(extra, dict):
                 policy = extra.get("dm_policy")
         return str(policy or "").strip().lower()
@@ -90,7 +99,7 @@ class GatewayAuthorizationMixin:
     def _is_user_authorized(self, source: SessionSource) -> bool:
         """
         Check if a user is authorized to use the bot.
-        
+
         Checks in order:
         1. Per-platform allow-all flag (e.g., DISCORD_ALLOW_ALL_USERS=true)
         2. Environment variable allowlists (TELEGRAM_ALLOWED_USERS, etc.)
@@ -99,6 +108,7 @@ class GatewayAuthorizationMixin:
         5. Default: deny
         """
         from gateway.run import logger
+
         # Home Assistant events are system-generated (state changes), not
         # user-initiated messages.  The HASS_TOKEN already authenticates the
         # connection, so HA events are always authorized.
@@ -119,7 +129,8 @@ class GatewayAuthorizationMixin:
         # documented behavior matches reality
         # (website/docs/reference/environment-variables.md,
         # website/docs/user-guide/messaging/telegram.md).
-        if source.chat_type in {"group", "forum", "channel"} and source.chat_id:
+        if source.chat_type in {"group", "forum",
+                                "channel"} and source.chat_id:
             chat_allowlist_env = {
                 Platform.TELEGRAM: "TELEGRAM_GROUP_ALLOWED_CHATS",
                 Platform.QQBOT: "QQ_GROUP_ALLOWED_USERS",
@@ -183,7 +194,8 @@ class GatewayAuthorizationMixin:
             Platform.QQBOT: "QQ_ALLOW_ALL_USERS",
             Platform.YUANBAO: "YUANBAO_ALLOW_ALL_USERS",
         }
-        # Bots admitted by {PLATFORM}_ALLOW_BOTS bypass the human allowlist (#4466).
+        # Bots admitted by {PLATFORM}_ALLOW_BOTS bypass the human allowlist
+        # (#4466).
         platform_allow_bots_map = {
             Platform.DISCORD: "DISCORD_ALLOW_BOTS",
             Platform.FEISHU: "FEISHU_ALLOW_BOTS",
@@ -203,13 +215,16 @@ class GatewayAuthorizationMixin:
                 pass
 
         # Per-platform allow-all flag (e.g., DISCORD_ALLOW_ALL_USERS=true)
-        platform_allow_all_var = platform_allow_all_map.get(source.platform, "")
-        if platform_allow_all_var and os.getenv(platform_allow_all_var, "").lower() in {"true", "1", "yes"}:
+        platform_allow_all_var = platform_allow_all_map.get(
+            source.platform, "")
+        if platform_allow_all_var and os.getenv(
+                platform_allow_all_var, "").lower() in {"true", "1", "yes"}:
             return True
 
         if getattr(source, "is_bot", False):
             allow_bots_var = platform_allow_bots_map.get(source.platform)
-            if allow_bots_var and os.getenv(allow_bots_var, "none").lower().strip() in {"mentions", "all"}:
+            if allow_bots_var and os.getenv(allow_bots_var, "none").lower().strip() in {
+                    "mentions", "all"}:
                 return True
 
         # Check pairing store (always checked, regardless of allowlists)
@@ -218,12 +233,18 @@ class GatewayAuthorizationMixin:
             return True
 
         # Check platform-specific and global allowlists
-        platform_allowlist = os.getenv(platform_env_map.get(source.platform, ""), "").strip()
+        platform_allowlist = os.getenv(
+            platform_env_map.get(
+                source.platform, ""), "").strip()
         group_user_allowlist = ""
         group_chat_allowlist = ""
         if source.chat_type in {"group", "forum"}:
-            group_user_allowlist = os.getenv(platform_group_user_env_map.get(source.platform, ""), "").strip()
-            group_chat_allowlist = os.getenv(platform_group_chat_env_map.get(source.platform, ""), "").strip()
+            group_user_allowlist = os.getenv(
+                platform_group_user_env_map.get(
+                    source.platform, ""), "").strip()
+            group_chat_allowlist = os.getenv(
+                platform_group_chat_env_map.get(
+                    source.platform, ""), "").strip()
         global_allowlist = os.getenv("GATEWAY_ALLOWED_USERS", "").strip()
 
         if not platform_allowlist and not group_user_allowlist and not group_chat_allowlist and not global_allowlist:
@@ -250,12 +271,14 @@ class GatewayAuthorizationMixin:
                 ):
                     return True
             # No allowlists configured -- check global allow-all flag
-            return os.getenv("GATEWAY_ALLOW_ALL_USERS", "").lower() in {"true", "1", "yes"}
+            return os.getenv("GATEWAY_ALLOW_ALL_USERS", "").lower() in {
+                "true", "1", "yes"}
 
         # Telegram can optionally authorize group traffic by chat ID.
         # Keep this separate from TELEGRAM_GROUP_ALLOWED_USERS, which gates
         # the sender user ID for group/forum messages.
-        if group_chat_allowlist and source.chat_type in {"group", "forum"} and source.chat_id:
+        if group_chat_allowlist and source.chat_type in {
+                "group", "forum"} and source.chat_id:
             allowed_group_ids = {
                 chat_id.strip() for chat_id in group_chat_allowlist.split(",") if chat_id.strip()
             }
@@ -280,7 +303,8 @@ class GatewayAuthorizationMixin:
                 if v.strip().startswith("-")
             }
             if legacy_chat_ids:
-                if not getattr(self, "_warned_telegram_group_users_legacy", False):
+                if not getattr(
+                        self, "_warned_telegram_group_users_legacy", False):
                     logger.warning(
                         "TELEGRAM_GROUP_ALLOWED_USERS contains chat-ID-shaped values "
                         "(%s). Treating them as chat IDs for backward compatibility. "
@@ -298,11 +322,14 @@ class GatewayAuthorizationMixin:
         # allowlist and still works everywhere for backward compatibility.
         allowed_ids = set()
         if platform_allowlist:
-            allowed_ids.update(uid.strip() for uid in platform_allowlist.split(",") if uid.strip())
+            allowed_ids.update(
+                uid.strip() for uid in platform_allowlist.split(",") if uid.strip())
         if group_user_allowlist:
-            allowed_ids.update(uid.strip() for uid in group_user_allowlist.split(",") if uid.strip())
+            allowed_ids.update(
+                uid.strip() for uid in group_user_allowlist.split(",") if uid.strip())
         if global_allowlist:
-            allowed_ids.update(uid.strip() for uid in global_allowlist.split(",") if uid.strip())
+            allowed_ids.update(uid.strip()
+                               for uid in global_allowlist.split(",") if uid.strip())
 
         # "*" in any allowlist means allow everyone (consistent with
         # SIGNAL_GROUP_ALLOWED_USERS precedent)
@@ -317,7 +344,8 @@ class GatewayAuthorizationMixin:
         if source.platform == Platform.WHATSAPP:
             normalized_allowed_ids = set()
             for allowed_id in allowed_ids:
-                normalized_allowed_ids.update(_expand_whatsapp_auth_aliases(allowed_id))
+                normalized_allowed_ids.update(
+                    _expand_whatsapp_auth_aliases(allowed_id))
             if normalized_allowed_ids:
                 allowed_ids = normalized_allowed_ids
 
@@ -343,7 +371,8 @@ class GatewayAuthorizationMixin:
 
         return bool(check_ids & allowed_ids)
 
-    def _get_unauthorized_dm_behavior(self, platform: Optional[Platform]) -> str:
+    def _get_unauthorized_dm_behavior(
+            self, platform: Optional[Platform]) -> str:
         """Return how unauthorized DMs should be handled for a platform.
 
         Resolution order:
@@ -360,10 +389,14 @@ class GatewayAuthorizationMixin:
         config = getattr(self, "config", None)
 
         # Check for an explicit per-platform override first.
-        if config and hasattr(config, "get_unauthorized_dm_behavior") and platform:
-            platform_cfg = config.platforms.get(platform) if hasattr(config, "platforms") else None
-            if platform_cfg and "unauthorized_dm_behavior" in getattr(platform_cfg, "extra", {}):
-                # Operator explicitly configured behavior for this platform — respect it.
+        if config and hasattr(
+                config, "get_unauthorized_dm_behavior") and platform:
+            platform_cfg = config.platforms.get(
+                platform) if hasattr(config, "platforms") else None
+            if platform_cfg and "unauthorized_dm_behavior" in getattr(
+                    platform_cfg, "extra", {}):
+                # Operator explicitly configured behavior for this platform —
+                # respect it.
                 return config.get_unauthorized_dm_behavior(platform)
 
         # Check for an explicit global config override.
@@ -377,7 +410,10 @@ class GatewayAuthorizationMixin:
         # with a pairing code. An explicit pairing policy opts back into codes.
         if platform and config and hasattr(config, "platforms"):
             platform_cfg = config.platforms.get(platform)
-            extra = getattr(platform_cfg, "extra", None) if platform_cfg else None
+            extra = getattr(
+                platform_cfg,
+                "extra",
+                None) if platform_cfg else None
             if isinstance(extra, dict):
                 dm_policy = str(extra.get("dm_policy") or "").strip().lower()
                 if dm_policy == "pairing":
@@ -391,21 +427,21 @@ class GatewayAuthorizationMixin:
         if platform:
             platform_env_map = {
                 Platform.TELEGRAM: "TELEGRAM_ALLOWED_USERS",
-                Platform.DISCORD:  "DISCORD_ALLOWED_USERS",
+                Platform.DISCORD: "DISCORD_ALLOWED_USERS",
                 Platform.WHATSAPP: "WHATSAPP_ALLOWED_USERS",
-                Platform.SLACK:    "SLACK_ALLOWED_USERS",
-                Platform.SIGNAL:   "SIGNAL_ALLOWED_USERS",
-                Platform.EMAIL:    "EMAIL_ALLOWED_USERS",
-                Platform.SMS:      "SMS_ALLOWED_USERS",
+                Platform.SLACK: "SLACK_ALLOWED_USERS",
+                Platform.SIGNAL: "SIGNAL_ALLOWED_USERS",
+                Platform.EMAIL: "EMAIL_ALLOWED_USERS",
+                Platform.SMS: "SMS_ALLOWED_USERS",
                 Platform.MATTERMOST: "MATTERMOST_ALLOWED_USERS",
-                Platform.MATRIX:   "MATRIX_ALLOWED_USERS",
+                Platform.MATRIX: "MATRIX_ALLOWED_USERS",
                 Platform.DINGTALK: "DINGTALK_ALLOWED_USERS",
-                Platform.FEISHU:   "FEISHU_ALLOWED_USERS",
-                Platform.WECOM:    "WECOM_ALLOWED_USERS",
+                Platform.FEISHU: "FEISHU_ALLOWED_USERS",
+                Platform.WECOM: "WECOM_ALLOWED_USERS",
                 Platform.WECOM_CALLBACK: "WECOM_CALLBACK_ALLOWED_USERS",
-                Platform.WEIXIN:   "WEIXIN_ALLOWED_USERS",
+                Platform.WEIXIN: "WEIXIN_ALLOWED_USERS",
                 Platform.BLUEBUBBLES: "BLUEBUBBLES_ALLOWED_USERS",
-                Platform.QQBOT:    "QQ_ALLOWED_USERS",
+                Platform.QQBOT: "QQ_ALLOWED_USERS",
             }
             platform_group_env_map = {
                 Platform.TELEGRAM: (

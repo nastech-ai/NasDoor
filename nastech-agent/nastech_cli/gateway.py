@@ -15,14 +15,13 @@ import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).parent.parent.resolve()
-
-from gateway.status import terminate_pid
 from gateway.restart import (
     DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT,
     GATEWAY_SERVICE_RESTART_EXIT_CODE,
     parse_restart_drain_timeout,
 )
+from gateway.status import terminate_pid
+from nastech_cli.colors import Colors, color
 from nastech_cli.config import (
     get_env_value,
     get_nastech_home,
@@ -31,20 +30,24 @@ from nastech_cli.config import (
     read_raw_config,
     save_env_value,
 )
-
-# display_nastech_home is imported lazily at call sites to avoid ImportError
-# when nastech_constants is cached from a pre-update version during `nastech update`.
 from nastech_cli.setup import (
+    print_error,
     print_header,
     print_info,
     print_success,
     print_warning,
-    print_error,
     prompt,
     prompt_choice,
     prompt_yes_no,
 )
-from nastech_cli.colors import Colors, color
+from nastech_constants import is_container, is_termux, is_wsl
+
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+
+
+# display_nastech_home is imported lazily at call sites to avoid ImportError
+# when nastech_constants is cached from a pre-update version during
+# `nastech update`.
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +114,8 @@ def _get_service_pids() -> set:
                     svc = parts[0]
                     try:
                         show = subprocess.run(
-                            scope_args + ["show", svc, "--property=MainPID", "--value"],
+                            scope_args + ["show", svc,
+                                          "--property=MainPID", "--value"],
                             capture_output=True,
                             text=True,
                             timeout=5,
@@ -170,7 +174,8 @@ def _get_parent_pid(pid: int) -> int | None:
         pass
     except Exception:
         return None
-    # Fallback: shell out to ps (POSIX only — bare ``ps`` doesn't exist on Windows).
+    # Fallback: shell out to ps (POSIX only — bare ``ps`` doesn't exist on
+    # Windows).
     if not shutil.which("ps"):
         return None
     try:
@@ -216,7 +221,9 @@ def _request_gateway_self_restart(pid: int) -> bool:
     if not _is_pid_ancestor_of_current_process(pid):
         return False
     try:
-        os.kill(pid, signal.SIGUSR1)  # windows-footgun: ok — POSIX signal, guarded by hasattr(signal, 'SIGUSR1') above
+        # windows-footgun: ok — POSIX signal, guarded by hasattr(signal,
+        # 'SIGUSR1') above
+        os.kill(pid, signal.SIGUSR1)
     except (ProcessLookupError, PermissionError, OSError):
         return False
     return True
@@ -251,7 +258,9 @@ def _graceful_restart_via_sigusr1(pid: int, drain_timeout: float) -> bool:
     if pid <= 0:
         return False
     try:
-        os.kill(pid, signal.SIGUSR1)  # windows-footgun: ok — POSIX signal, guarded by hasattr(signal, 'SIGUSR1') above
+        # windows-footgun: ok — POSIX signal, guarded by hasattr(signal,
+        # 'SIGUSR1') above
+        os.kill(pid, signal.SIGUSR1)
     except ProcessLookupError:
         # Already gone — nothing to drain.
         return True
@@ -306,7 +315,8 @@ def _append_unique_pid(
     pids.append(pid)
 
 
-def _scan_gateway_pids(exclude_pids: set[int], all_profiles: bool = False) -> list[int]:
+def _scan_gateway_pids(
+        exclude_pids: set[int], all_profiles: bool = False) -> list[int]:
     """Best-effort process-table scan for gateway PIDs.
 
     This supplements the profile-scoped PID file so status views can still spot
@@ -394,7 +404,8 @@ def _scan_gateway_pids(exclude_pids: set[int], all_profiles: bool = False) -> li
                     )
                 except (OSError, subprocess.TimeoutExpired):
                     result = None
-            if result is None or result.returncode != 0 or not (result.stdout or ""):
+            if result is None or result.returncode != 0 or not (
+                    result.stdout or ""):
                 # Fallback: PowerShell Get-CimInstance, emit LIST-style output
                 # so the downstream parser below doesn't need to branch.
                 powershell = shutil.which("powershell") or shutil.which("pwsh")
@@ -426,15 +437,16 @@ def _scan_gateway_pids(exclude_pids: set[int], all_profiles: bool = False) -> li
             for line in result.stdout.split("\n"):
                 line = line.strip()
                 if line.startswith("CommandLine="):
-                    current_cmd = line[len("CommandLine=") :]
+                    current_cmd = line[len("CommandLine="):]
                 elif line.startswith("ProcessId="):
-                    pid_str = line[len("ProcessId=") :]
+                    pid_str = line[len("ProcessId="):]
                     current_cmd_lc = current_cmd.lower()
                     if any(p in current_cmd_lc for p in patterns) and (
                         all_profiles or _matches_current_profile(current_cmd)
                     ):
                         try:
-                            _append_unique_pid(pids, int(pid_str), exclude_pids)
+                            _append_unique_pid(
+                                pids, int(pid_str), exclude_pids)
                         except ValueError:
                             pass
                     current_cmd = ""
@@ -457,7 +469,8 @@ def _scan_gateway_pids(exclude_pids: set[int], all_profiles: bool = False) -> li
                             cmdline = cmdline.replace("\x00", " ")
                             cmdline_lc = cmdline.lower()
                             if any(p in cmdline_lc for p in patterns) and (
-                                all_profiles or _matches_current_profile(cmdline)
+                                all_profiles or _matches_current_profile(
+                                    cmdline)
                             ):
                                 _append_unique_pid(pids, pid, exclude_pids)
                         except (OSError, PermissionError):
@@ -599,14 +612,19 @@ def find_profile_gateway_processes(
     seen: set[int] = set()
     for profile in list_profiles():
         try:
-            pid = get_running_pid(profile.path / "gateway.pid", cleanup_stale=False)
+            pid = get_running_pid(
+                profile.path / "gateway.pid",
+                cleanup_stale=False)
         except Exception:
             continue
         if pid is None or pid <= 0 or pid in _exclude or pid in seen:
             continue
         seen.add(pid)
         processes.append(
-            ProfileGatewayProcess(profile=profile.name, path=profile.path, pid=pid)
+            ProfileGatewayProcess(
+                profile=profile.name,
+                path=profile.path,
+                pid=pid)
         )
     return processes
 
@@ -619,7 +637,8 @@ def _gateway_run_args_for_profile(profile: str) -> list[str]:
     return args
 
 
-def launch_detached_profile_gateway_restart(profile: str, old_pid: int) -> bool:
+def launch_detached_profile_gateway_restart(
+        profile: str, old_pid: int) -> bool:
     """Relaunch a manually-run profile gateway after its current PID exits."""
     if old_pid <= 0:
         return False
@@ -791,7 +810,7 @@ def _read_systemd_unit_environment(system: bool = False) -> dict[str, str]:
     for line in result.stdout.splitlines():
         if not line.startswith("Environment="):
             continue
-        body = line[len("Environment=") :].strip()
+        body = line[len("Environment="):].strip()
         for token in body.split():
             if "=" not in token:
                 continue
@@ -871,7 +890,8 @@ def _systemd_main_pid_from_props(props: dict[str, str]) -> int | None:
 
 
 def _systemd_main_pid(system: bool = False) -> int | None:
-    return _systemd_main_pid_from_props(_read_systemd_unit_properties(system=system))
+    return _systemd_main_pid_from_props(
+        _read_systemd_unit_properties(system=system))
 
 
 def _read_gateway_runtime_status() -> dict | None:
@@ -957,9 +977,11 @@ def _wait_for_systemd_service_restart(
         time.sleep(2)
 
     print(
-        f"⚠ {scope_label} service did not become active within {int(timeout)}s.\n"
+        f"⚠ {scope_label} service did not become active within {
+            int(timeout)}s.\n"
         f"  Check status: {'sudo ' if system else ''}nastech gateway status\n"
-        f"  Check logs:   journalctl {'--user ' if not system else ''}-u {svc} -l --since '2 min ago'"
+        f"  Check logs:   journalctl {
+            '--user ' if not system else ''}-u {svc} -l --since '2 min ago'"
     )
     return False
 
@@ -970,7 +992,8 @@ def _systemd_unit_is_start_limited(props: dict[str, str]) -> bool:
     return result == "start-limit-hit" or sub_state == "start-limit-hit"
 
 
-def _systemd_error_indicates_start_limit(exc: subprocess.CalledProcessError) -> bool:
+def _systemd_error_indicates_start_limit(
+        exc: subprocess.CalledProcessError) -> bool:
     parts: list[str] = []
     for attr in ("stderr", "stdout", "output"):
         value = getattr(exc, attr, None)
@@ -988,7 +1011,8 @@ def _systemd_error_indicates_start_limit(exc: subprocess.CalledProcessError) -> 
 
 
 def _systemd_service_is_start_limited(system: bool = False) -> bool:
-    return _systemd_unit_is_start_limited(_read_systemd_unit_properties(system=system))
+    return _systemd_unit_is_start_limited(
+        _read_systemd_unit_properties(system=system))
 
 
 def _print_systemd_start_limit_wait(system: bool = False) -> None:
@@ -1000,9 +1024,11 @@ def _print_systemd_start_limit_wait(system: bool = False) -> None:
     print(f"⏳ {scope_label} service is temporarily rate-limited by systemd.")
     print("  systemd is refusing another immediate start after repeated exits.")
     print(
-        f"  Wait for the start-limit window to expire, then run: {'sudo ' if system else ''}nastech gateway restart{scope_flag}"
+        f"  Wait for the start-limit window to expire, then run: {
+            'sudo ' if system else ''}nastech gateway restart{scope_flag}"
     )
-    print(f"  Or clear the failed state manually: {systemctl_prefix}reset-failed {svc}")
+    print(
+        f"  Or clear the failed state manually: {systemctl_prefix}reset-failed {svc}")
     print(f"  Check logs: {journal_prefix}-u {svc} -l --since '5 min ago'")
 
 
@@ -1042,7 +1068,8 @@ def _recover_pending_systemd_restart(
         svc = get_service_name()
         scope_label = _service_scope_label(system).capitalize()
         print(
-            f"↻ Clearing failed state for pending {scope_label.lower()} service restart..."
+            f"↻ Clearing failed state for pending {
+                scope_label.lower()} service restart..."
         )
         _run_systemctl(
             ["reset-failed", svc],
@@ -1079,7 +1106,8 @@ def _probe_launchd_service_running() -> bool:
     return result.returncode == 0
 
 
-def get_gateway_runtime_snapshot(system: bool = False) -> GatewayRuntimeSnapshot:
+def get_gateway_runtime_snapshot(
+        system: bool = False) -> GatewayRuntimeSnapshot:
     """Return a unified view of gateway liveness for the current profile."""
     gateway_pids = tuple(find_gateway_pids())
     if is_termux():
@@ -1109,11 +1137,13 @@ def get_gateway_runtime_snapshot(system: bool = False) -> GatewayRuntimeSnapshot
         )
 
     if supports_systemd_services():
-        selected_system, service_running = _probe_systemd_service_running(system=system)
+        selected_system, service_running = _probe_systemd_service_running(
+            system=system)
         scope_label = _service_scope_label(selected_system)
         return GatewayRuntimeSnapshot(
             manager=f"systemd ({scope_label})",
-            service_installed=get_systemd_unit_path(system=selected_system).exists(),
+            service_installed=get_systemd_unit_path(
+                system=selected_system).exists(),
             service_running=service_running,
             gateway_pids=gateway_pids,
             service_scope=scope_label,
@@ -1154,7 +1184,11 @@ def _print_gateway_process_mismatch(snapshot: GatewayRuntimeSnapshot) -> None:
     print(
         "⚠ Gateway process is running for this profile, but the service is not active"
     )
-    print(f"  PID(s): {_format_gateway_pids(snapshot.gateway_pids, limit=None)}")
+    print(
+        f"  PID(s): {
+            _format_gateway_pids(
+            snapshot.gateway_pids,
+            limit=None)}")
     print("  This is usually a manual foreground/tmux/nohup run, so `nastech gateway`")
     print("  can refuse to start another copy until this process stops.")
 
@@ -1192,7 +1226,7 @@ def _gateway_list() -> None:
     check each profile individually.
     """
     try:
-        from nastech_cli.profiles import list_profiles, get_active_profile_name
+        from nastech_cli.profiles import get_active_profile_name, list_profiles
     except Exception:
         print("Unable to list profiles.")
         return
@@ -1215,7 +1249,9 @@ def _gateway_list() -> None:
             try:
                 from gateway.status import get_running_pid
 
-                pid = get_running_pid(prof.path / "gateway.pid", cleanup_stale=False)
+                pid = get_running_pid(
+                    prof.path / "gateway.pid",
+                    cleanup_stale=False)
                 if pid:
                     parts.append(f"PID {pid}")
             except Exception:
@@ -1237,7 +1273,9 @@ def kill_gateway_processes(
         all_profiles: When ``True``, kill across all profiles.  Passed
             through to :func:`find_gateway_pids`.
     """
-    pids = find_gateway_pids(exclude_pids=exclude_pids, all_profiles=all_profiles)
+    pids = find_gateway_pids(
+        exclude_pids=exclude_pids,
+        all_profiles=all_profiles)
     killed = 0
 
     for pid in pids:
@@ -1289,6 +1327,7 @@ def stop_profile_gateway() -> bool:
     # Wait briefly for it to exit. On Windows, os.kill(pid, 0) is NOT
     # a no-op — route through the cross-platform existence check.
     import time as _time
+
     from gateway.status import _pid_exists
 
     for _ in range(20):
@@ -1303,9 +1342,6 @@ def stop_profile_gateway() -> bool:
 
 def is_linux() -> bool:
     return sys.platform.startswith("linux")
-
-
-from nastech_constants import is_container, is_termux, is_wsl
 
 
 def _wsl_systemd_operational() -> bool:
@@ -1411,6 +1447,7 @@ def _profile_suffix() -> str:
     """
     import hashlib
     import re
+
     from nastech_constants import get_default_nastech_root
 
     home = get_nastech_home().resolve()
@@ -1422,7 +1459,8 @@ def _profile_suffix() -> str:
     try:
         rel = home.relative_to(profiles_root)
         parts = rel.parts
-        if len(parts) == 1 and re.match(r"^[a-z0-9][a-z0-9_-]{0,63}$", parts[0]):
+        if len(parts) == 1 and re.match(
+                r"^[a-z0-9][a-z0-9_-]{0,63}$", parts[0]):
             return parts[0]
     except ValueError:
         pass
@@ -1442,6 +1480,7 @@ def _profile_arg(nastech_home: str | None = None) -> str:
             service definition for a different user (e.g. system service).
     """
     import re
+
     from nastech_constants import get_default_nastech_root
 
     home = Path(nastech_home or str(get_nastech_home())).resolve()
@@ -1452,7 +1491,8 @@ def _profile_arg(nastech_home: str | None = None) -> str:
     try:
         rel = home.relative_to(profiles_root)
         parts = rel.parts
-        if len(parts) == 1 and re.match(r"^[a-z0-9][a-z0-9_-]{0,63}$", parts[0]):
+        if len(parts) == 1 and re.match(
+                r"^[a-z0-9][a-z0-9_-]{0,63}$", parts[0]):
             return f"--profile {parts[0]}"
     except ValueError:
         pass
@@ -1511,13 +1551,15 @@ class SystemScopeRequiresRootError(RuntimeError):
 
 def _user_dbus_socket_path() -> Path:
     """Return the expected per-user D-Bus socket path (regardless of existence)."""
-    xdg = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"  # windows-footgun: ok — POSIX systemd helper, never invoked on Windows
+    xdg = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{
+        os.getuid()}"  # windows-footgun: ok — POSIX systemd helper, never invoked on Windows
     return Path(xdg) / "bus"
 
 
 def _user_systemd_private_socket_path() -> Path:
     """Return the per-user systemd private socket path (regardless of existence)."""
-    xdg = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"  # windows-footgun: ok — POSIX systemd helper, never invoked on Windows
+    xdg = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{
+        os.getuid()}"  # windows-footgun: ok — POSIX systemd helper, never invoked on Windows
     return Path(xdg) / "systemd" / "private"
 
 
@@ -1604,12 +1646,15 @@ def _preflight_user_systemd(*, auto_enable_linger: bool = True) -> None:
     if linger_enabled is True:
         if _wait_for_user_dbus_socket(timeout=3.0):
             return
-        # Linger is on but socket still missing — unusual; fall through to error.
+        # Linger is on but socket still missing — unusual; fall through to
+        # error.
         _raise_user_systemd_unavailable(
             username,
             reason="User systemd control sockets are missing even though linger is enabled.",
             fix_hint=(
-                f"  systemctl start user@{os.getuid()}.service\n"  # windows-footgun: ok — POSIX systemd helper, never invoked on Windows
+                # windows-footgun: ok — POSIX systemd helper, never invoked on
+                # Windows
+                f"  systemctl start user@{os.getuid()}.service\n"
                 "  (may require sudo; try again after the command succeeds)"
             ),
         )
@@ -1632,7 +1677,8 @@ def _preflight_user_systemd(*, auto_enable_linger: bool = True) -> None:
         else:
             if result.returncode == 0:
                 if _wait_for_user_dbus_socket(timeout=5.0):
-                    print(f"✓ Enabled linger for {username} — user D-Bus now available")
+                    print(
+                        f"✓ Enabled linger for {username} — user D-Bus now available")
                     return
                 # enable-linger succeeded but the socket never appeared.
                 _raise_user_systemd_unavailable(
@@ -1640,7 +1686,8 @@ def _preflight_user_systemd(*, auto_enable_linger: bool = True) -> None:
                     reason="Linger was enabled, but the user D-Bus socket did not appear.",
                     fix_hint=(
                         "  Log out and log back in, then re-run the command.\n"
-                        f"  Or reboot and run: systemctl --user start {get_service_name()}"
+                        f"  Or reboot and run: systemctl --user start {
+                            get_service_name()}"
                     ),
                 )
             detail = (
@@ -1702,7 +1749,8 @@ def _run_systemctl(
     try:
         return subprocess.run(_systemctl_cmd(system) + args, **kwargs)
     except FileNotFoundError:
-        raise RuntimeError("systemctl is not available on this system") from None
+        raise RuntimeError(
+            "systemctl is not available on this system") from None
 
 
 def _service_scope_label(system: bool = False) -> str:
@@ -1786,7 +1834,8 @@ def _find_legacy_nastech_units() -> list[tuple[str, Path, bool]]:
                 text = unit_path.read_text(encoding="utf-8", errors="ignore")
             except (OSError, PermissionError):
                 continue
-            if not any(marker in text for marker in _LEGACY_UNIT_EXECSTART_MARKERS):
+            if not any(
+                    marker in text for marker in _LEGACY_UNIT_EXECSTART_MARKERS):
                 # Not our gateway — leave alone
                 continue
             results.append((name, unit_path, is_system))
@@ -1807,7 +1856,8 @@ def print_legacy_unit_warning() -> None:
     legacy = _find_legacy_nastech_units()
     if not legacy:
         return
-    print_warning("Legacy NasTech gateway unit(s) detected from an older install:")
+    print_warning(
+        "Legacy NasTech gateway unit(s) detected from an older install:")
     for name, path, is_system in legacy:
         scope = "system" if is_system else "user"
         print_info(f"    {path}  ({scope} scope)")
@@ -1866,8 +1916,10 @@ def remove_legacy_nastech_units(
     # User-scope removal
     for name, path in user_units:
         try:
-            _run_systemctl(["stop", name], system=False, check=False, timeout=90)
-            _run_systemctl(["disable", name], system=False, check=False, timeout=30)
+            _run_systemctl(["stop", name], system=False,
+                           check=False, timeout=90)
+            _run_systemctl(["disable", name], system=False,
+                           check=False, timeout=30)
             path.unlink(missing_ok=True)
             print(f"  ✓ Removed {path}")
             removed += 1
@@ -1877,7 +1929,11 @@ def remove_legacy_nastech_units(
 
     if user_units:
         try:
-            _run_systemctl(["daemon-reload"], system=False, check=False, timeout=30)
+            _run_systemctl(
+                ["daemon-reload"],
+                system=False,
+                check=False,
+                timeout=30)
         except RuntimeError:
             pass
 
@@ -1892,7 +1948,8 @@ def remove_legacy_nastech_units(
         else:
             for name, path in system_units:
                 try:
-                    _run_systemctl(["stop", name], system=True, check=False, timeout=90)
+                    _run_systemctl(["stop", name], system=True,
+                                   check=False, timeout=90)
                     _run_systemctl(
                         ["disable", name], system=True, check=False, timeout=30
                     )
@@ -1904,7 +1961,11 @@ def remove_legacy_nastech_units(
                     remaining.append(path)
 
             try:
-                _run_systemctl(["daemon-reload"], system=True, check=False, timeout=30)
+                _run_systemctl(
+                    ["daemon-reload"],
+                    system=True,
+                    check=False,
+                    timeout=30)
             except RuntimeError:
                 pass
 
@@ -1928,7 +1989,8 @@ def print_systemd_scope_conflict_warning() -> None:
     print_warning(
         f"Both user and system gateway services are installed ({rendered_scopes})."
     )
-    print_info("  This is confusing and can make start/stop/status behavior ambiguous.")
+    print_info(
+        "  This is confusing and can make start/stop/status behavior ambiguous.")
     print_info(
         "  Default gateway commands target the user service unless you pass --system."
     )
@@ -1945,7 +2007,8 @@ def _require_root_for_system_service(action: str) -> None:
         )
 
 
-def _system_service_identity(run_as_user: str | None = None) -> tuple[str, str, str]:
+def _system_service_identity(
+        run_as_user: str | None = None) -> tuple[str, str, str]:
     import getpass
     import grp
     import pwd
@@ -1992,7 +2055,8 @@ def _read_systemd_user_from_unit(unit_path: Path) -> str | None:
 
 
 def _default_system_service_user() -> str | None:
-    for candidate in (os.getenv("SUDO_USER"), os.getenv("USER"), os.getenv("LOGNAME")):
+    for candidate in (os.getenv("SUDO_USER"), os.getenv(
+            "USER"), os.getenv("LOGNAME")):
         if candidate and candidate.strip() and candidate.strip() != "root":
             return candidate.strip()
     return None
@@ -2011,7 +2075,8 @@ def prompt_linux_gateway_install_scope() -> str | None:
     return {0: "user", 1: "system", 2: None}[choice]
 
 
-def install_linux_gateway_from_setup(force: bool = False, enable_on_startup: bool = True) -> tuple[str | None, bool]:
+def install_linux_gateway_from_setup(
+        force: bool = False, enable_on_startup: bool = True) -> tuple[str | None, bool]:
     scope = prompt_linux_gateway_install_scope()
     if scope is None:
         return None, False
@@ -2030,7 +2095,8 @@ def install_linux_gateway_from_setup(force: bool = False, enable_on_startup: boo
                 print_info(
                     "  After setup, run: sudo nastech gateway install --system --run-as-user <your-user>"
                 )
-            print_info("  Then start it with: sudo nastech gateway start --system")
+            print_info(
+                "  Then start it with: sudo nastech gateway start --system")
             return scope, False
 
         if not run_as_user:
@@ -2043,10 +2109,17 @@ def install_linux_gateway_from_setup(force: bool = False, enable_on_startup: boo
                     break
                 print_error("  Enter a username.")
 
-        systemd_install(force=force, system=True, run_as_user=run_as_user, enable_on_startup=enable_on_startup)
+        systemd_install(
+            force=force,
+            system=True,
+            run_as_user=run_as_user,
+            enable_on_startup=enable_on_startup)
         return scope, True
 
-    systemd_install(force=force, system=False, enable_on_startup=enable_on_startup)
+    systemd_install(
+        force=force,
+        system=False,
+        enable_on_startup=enable_on_startup)
     return scope, True
 
 
@@ -2071,7 +2144,9 @@ def get_systemd_linger_status() -> tuple[bool | None, str]:
         try:
             import pwd
 
-            username = pwd.getpwuid(os.getuid()).pw_name  # windows-footgun: ok — POSIX loginctl helper, never invoked on Windows
+            # windows-footgun: ok — POSIX loginctl helper, never invoked on
+            # Windows
+            username = pwd.getpwuid(os.getuid()).pw_name
         except Exception:
             return None, "could not determine current user"
 
@@ -2087,7 +2162,9 @@ def get_systemd_linger_status() -> tuple[bool | None, str]:
         return None, str(e)
 
     if result.returncode != 0:
-        detail = (result.stderr or result.stdout or f"exit {result.returncode}").strip()
+        detail = (
+            result.stderr or result.stdout or f"exit {
+                result.returncode}").strip()
         return None, detail or "loginctl query failed"
 
     value = (result.stdout or "").strip().lower()
@@ -2122,7 +2199,9 @@ def _launchd_user_home() -> Path:
     """
     import pwd
 
-    return Path(pwd.getpwuid(os.getuid()).pw_dir)  # windows-footgun: ok — POSIX launchd (macOS) helper, never invoked on Windows
+    # windows-footgun: ok — POSIX launchd (macOS) helper, never invoked on
+    # Windows
+    return Path(pwd.getpwuid(os.getuid()).pw_dir)
 
 
 def get_launchd_plist_path() -> Path:
@@ -2194,7 +2273,8 @@ def _build_user_local_paths(home: Path, path_entries: list[str]) -> list[str]:
         str(home / "go" / "bin"),  # Go tools
         str(home / ".npm-global" / "bin"),  # npm global packages
     ]
-    return [p for p in candidates if p not in path_entries and Path(p).exists()]
+    return [
+        p for p in candidates if p not in path_entries and Path(p).exists()]
 
 
 def _build_wsl_interop_paths(path_entries: list[str]) -> list[str]:
@@ -2351,11 +2431,13 @@ def _stable_service_working_dir() -> str:
     return str(PROJECT_ROOT)
 
 
-def generate_systemd_unit(system: bool = False, run_as_user: str | None = None) -> str:
+def generate_systemd_unit(system: bool = False,
+                          run_as_user: str | None = None) -> str:
     python_path = get_python_path()
     working_dir = _stable_service_working_dir()
     detected_venv = _detect_venv_dir()
-    venv_dir = str(detected_venv) if detected_venv else str(PROJECT_ROOT / "venv")
+    venv_dir = str(detected_venv) if detected_venv else str(
+        PROJECT_ROOT / "venv")
 
     path_entries = _build_service_path_dirs()
     resolved_node = shutil.which("node")
@@ -2392,10 +2474,16 @@ def generate_systemd_unit(system: bool = False, run_as_user: str | None = None) 
         # Anchor cwd to the target user's NASTECH_HOME (stable, always exists)
         # rather than a remapped source-checkout path that can rot. See
         # _stable_service_working_dir() for the full rationale.
-        working_dir = str(nastech_home) if nastech_home else _remap_path_for_user(working_dir, home_dir)
+        working_dir = str(nastech_home) if nastech_home else _remap_path_for_user(
+            working_dir, home_dir)
         venv_dir = _remap_path_for_user(venv_dir, home_dir)
-        path_entries = [_remap_path_for_user(p, home_dir) for p in path_entries]
-        path_entries.extend(_build_user_local_paths(Path(home_dir), path_entries))
+        path_entries = [
+            _remap_path_for_user(
+                p, home_dir) for p in path_entries]
+        path_entries.extend(
+            _build_user_local_paths(
+                Path(home_dir),
+                path_entries))
         path_entries.extend(_build_wsl_interop_paths(path_entries))
         path_entries.extend(common_bin_paths)
         sane_path = ":".join(path_entries)
@@ -2564,12 +2652,14 @@ def refresh_systemd_unit_if_needed(system: bool = False) -> bool:
     unit_path.write_text(new_unit, encoding="utf-8")
     _run_systemctl(["daemon-reload"], system=system, check=True, timeout=30)
     print(
-        f"↻ Updated gateway {_service_scope_label(system)} service definition to match the current NasTech install"
+        f"↻ Updated gateway {
+            _service_scope_label(system)} service definition to match the current NasTech install"
     )
     return True
 
 
-def _print_linger_enable_warning(username: str, detail: str | None = None) -> None:
+def _print_linger_enable_warning(
+        username: str, detail: str | None = None) -> None:
     print()
     print("⚠ Linger not enabled — gateway may stop when you close this terminal.")
     if detail:
@@ -2602,7 +2692,8 @@ def _ensure_linger_enabled() -> None:
         return
 
     if not shutil.which("loginctl"):
-        _print_linger_enable_warning(username, linger_detail or "loginctl not found")
+        _print_linger_enable_warning(
+            username, linger_detail or "loginctl not found")
         return
 
     print("Enabling linger so the gateway survives SSH logout...")
@@ -2622,7 +2713,9 @@ def _ensure_linger_enabled() -> None:
         print("✓ Linger enabled — gateway will persist after logout")
         return
 
-    detail = (result.stderr or result.stdout or f"exit {result.returncode}").strip()
+    detail = (
+        result.stderr or result.stdout or f"exit {
+            result.returncode}").strip()
     _print_linger_enable_warning(username, detail or linger_detail)
 
 
@@ -2669,7 +2762,8 @@ def _print_system_scope_remediation(action: str) -> None:
         print_info(f"         sudo systemctl restart {svc}")
     else:
         print_info(f"         sudo systemctl {action} {svc}")
-    print_info("    2. Switch to a per-user service (recommended for personal use):")
+    print_info(
+        "    2. Switch to a per-user service (recommended for personal use):")
     print_info("         sudo nastech gateway uninstall --system")
     print_info("         nastech gateway install")
     print_info("         nastech gateway start")
@@ -2717,26 +2811,33 @@ def systemd_install(
     if unit_path.exists() and not force:
         if not systemd_unit_is_current(system=system):
             print(
-                f"↻ Repairing outdated {_service_scope_label(system)} systemd service at: {unit_path}"
+                f"↻ Repairing outdated {
+                    _service_scope_label(system)} systemd service at: {unit_path}"
             )
             refresh_systemd_unit_if_needed(system=system)
             if enable_on_startup:
-                _run_systemctl(["enable", get_service_name()], system=system, check=True, timeout=30)
-            print(f"✓ {_service_scope_label(system).capitalize()} service definition updated")
+                _run_systemctl(["enable", get_service_name()],
+                               system=system, check=True, timeout=30)
+            print(
+                f"✓ {
+                    _service_scope_label(system).capitalize()} service definition updated")
             return
         print(f"Service already installed at: {unit_path}")
         print("Use --force to reinstall")
         return
 
     unit_path.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Installing {_service_scope_label(system)} systemd service to: {unit_path}")
+    print(
+        f"Installing {
+            _service_scope_label(system)} systemd service to: {unit_path}")
     unit_path.write_text(
         generate_systemd_unit(system=system, run_as_user=run_as_user), encoding="utf-8"
     )
 
     _run_systemctl(["daemon-reload"], system=system, check=True, timeout=30)
     if enable_on_startup:
-        _run_systemctl(["enable", get_service_name()], system=system, check=True, timeout=30)
+        _run_systemctl(["enable", get_service_name()],
+                       system=system, check=True, timeout=30)
 
     print()
     enable_label = "installed and enabled" if enable_on_startup else "installed"
@@ -2770,7 +2871,8 @@ def systemd_uninstall(system: bool = False):
     if system:
         _require_root_for_system_service("uninstall")
 
-    _run_systemctl(["stop", get_service_name()], system=system, check=False, timeout=90)
+    _run_systemctl(["stop", get_service_name()],
+                   system=system, check=False, timeout=90)
     _run_systemctl(
         ["disable", get_service_name()], system=system, check=False, timeout=30
     )
@@ -2789,7 +2891,9 @@ def _require_service_installed(action: str, system: bool = False) -> None:
     if not unit_path.exists():
         scope_flag = " --system" if system else ""
         print(f"✗ Gateway service is not installed")
-        print(f"  Run: {'sudo ' if system else ''}nastech gateway install{scope_flag}")
+        print(
+            f"  Run: {
+                'sudo ' if system else ''}nastech gateway install{scope_flag}")
         sys.exit(1)
 
 
@@ -2804,7 +2908,8 @@ def systemd_start(system: bool = False):
         _preflight_user_systemd()
     _require_service_installed("start", system=system)
     refresh_systemd_unit_if_needed(system=system)
-    _run_systemctl(["start", get_service_name()], system=system, check=True, timeout=30)
+    _run_systemctl(["start", get_service_name()],
+                   system=system, check=True, timeout=30)
     print(f"✓ {_service_scope_label(system).capitalize()} service started")
 
 
@@ -2871,13 +2976,17 @@ def systemd_restart(system: bool = False):
                 check=False,
                 timeout=90,
             )
-            if _wait_for_systemd_service_restart(system=system, previous_pid=pid):
+            if _wait_for_systemd_service_restart(
+                    system=system, previous_pid=pid):
                 return
             if _systemd_service_is_start_limited(system=system):
                 return
 
         print(
-            f"⚠ Graceful restart did not complete within {int(drain_timeout + 5)}s; "
+            f"⚠ Graceful restart did not complete within {
+                int(
+                    drain_timeout +
+                    5)}s; "
             "forcing a service restart..."
         )
         _run_systemctl(
@@ -2887,7 +2996,8 @@ def systemd_restart(system: bool = False):
             timeout=30,
         )
         try:
-            _run_systemctl(["restart", svc], system=system, check=True, timeout=90)
+            _run_systemctl(["restart", svc], system=system,
+                           check=True, timeout=90)
         except subprocess.CalledProcessError as exc:
             if _systemd_error_indicates_start_limit(
                 exc
@@ -2935,14 +3045,17 @@ def systemd_restart(system: bool = False):
     _wait_for_systemd_service_restart(system=system, previous_pid=pid)
 
 
-def systemd_status(deep: bool = False, system: bool = False, full: bool = False):
+def systemd_status(deep: bool = False, system: bool = False,
+                   full: bool = False):
     system = _select_systemd_scope(system)
     unit_path = get_systemd_unit_path(system=system)
     scope_flag = " --system" if system else ""
 
     if not unit_path.exists():
         print("✗ Gateway service is not installed")
-        print(f"  Run: {'sudo ' if system else ''}nastech gateway install{scope_flag}")
+        print(
+            f"  Run: {
+                'sudo ' if system else ''}nastech gateway install{scope_flag}")
         return
 
     _sync_nastech_home_from_systemd_unit(system=system)
@@ -2958,7 +3071,9 @@ def systemd_status(deep: bool = False, system: bool = False, full: bool = False)
     if not systemd_unit_is_current(system=system):
         print("⚠ Installed gateway service definition is outdated")
         print(
-            f"  Run: {'sudo ' if system else ''}nastech gateway restart{scope_flag}  # auto-refreshes the unit"
+            f"  Run: {
+                # auto-refreshes the unit"
+                'sudo ' if system else ''}nastech gateway restart{scope_flag}
         )
         print()
 
@@ -2985,15 +3100,20 @@ def systemd_status(deep: bool = False, system: bool = False, full: bool = False)
 
     if status == "active":
         print(
-            f"✓ {_service_scope_label(system).capitalize()} gateway service is running"
+            f"✓ {
+                _service_scope_label(system).capitalize()} gateway service is running"
         )
     else:
         print(
-            f"✗ {_service_scope_label(system).capitalize()} gateway service is stopped"
+            f"✗ {
+                _service_scope_label(system).capitalize()} gateway service is stopped"
         )
-        print(f"  Run: {'sudo ' if system else ''}nastech gateway start{scope_flag}")
+        print(
+            f"  Run: {
+                'sudo ' if system else ''}nastech gateway start{scope_flag}")
 
-    configured_user = _read_systemd_user_from_unit(unit_path) if system else None
+    configured_user = _read_systemd_user_from_unit(
+        unit_path) if system else None
     if configured_user:
         print(f"Configured to run as: {configured_user}")
 
@@ -3014,17 +3134,23 @@ def systemd_status(deep: bool = False, system: bool = False, full: bool = False)
     elif _systemd_unit_is_start_limited(unit_props):
         print("  ⏳ Restart pending: systemd is temporarily rate-limiting starts")
         print(
-            f"  Run after the start-limit window expires: {'sudo ' if system else ''}nastech gateway restart{scope_flag}"
+            f"  Run after the start-limit window expires: {
+                'sudo ' if system else ''}nastech gateway restart{scope_flag}"
         )
         print(
-            f"  Or clear it manually: systemctl {'--user ' if not system else ''}reset-failed {get_service_name()}"
+            f"  Or clear it manually: systemctl {
+                '--user ' if not system else ''}reset-failed {
+                get_service_name()}"
         )
     elif active_state == "failed" and exec_main_status == str(
         GATEWAY_SERVICE_RESTART_EXIT_CODE
     ):
         print("  ⚠ Planned restart is stuck in systemd failed state (exit 75)")
         print(
-            f"  Run: systemctl {'--user ' if not system else ''}reset-failed {get_service_name()} && {'sudo ' if system else ''}nastech gateway start{scope_flag}"
+            f"  Run: systemctl {
+                '--user ' if not system else ''}reset-failed {
+                get_service_name()} && {
+            'sudo ' if system else ''}nastech gateway start{scope_flag}"
         )
     elif active_state == "failed" and result_code:
         print(f"  ⚠ Systemd unit result: {result_code}")
@@ -3072,7 +3198,9 @@ def _launchd_domain() -> str:
     # non-Aqua/background sessions (SSH, headless, login items) and is the only
     # one that supports service management on macOS 26+. `gui/<uid>` returns
     # error 125 ("Domain does not support specified action") there. See #23387.
-    return f"user/{os.getuid()}"  # windows-footgun: ok — POSIX launchd (macOS) helper, never invoked on Windows
+    # windows-footgun: ok — POSIX launchd (macOS) helper, never invoked on
+    # Windows
+    return f"user/{os.getuid()}"
 
 
 # On macOS, exit code 125 ("Domain does not support specified action") and
@@ -3087,7 +3215,8 @@ _LAUNCHD_JOB_UNLOADED_EXIT_CODES = frozenset({3, 113, 125})
 _LAUNCHCTL_DOMAIN_UNSUPPORTED_CODES = frozenset({5, 125})
 
 
-def _launchd_error_indicates_unloaded(exc: subprocess.CalledProcessError) -> bool:
+def _launchd_error_indicates_unloaded(
+        exc: subprocess.CalledProcessError) -> bool:
     """True when launchctl failed because the job isn't loaded (retry bootstrap)."""
     return exc.returncode in _LAUNCHD_JOB_UNLOADED_EXIT_CODES
 
@@ -3150,7 +3279,8 @@ def _spawn_detached_gateway() -> bool:
     return True
 
 
-def _launchd_fallback_to_detached(reason: str, *, exit_on_failure: bool = True) -> bool:
+def _launchd_fallback_to_detached(
+        reason: str, *, exit_on_failure: bool = True) -> bool:
     """Start the gateway detached when launchd can't manage it, with guidance.
 
     Returns True if the detached gateway was launched. When it can't be
@@ -3159,7 +3289,8 @@ def _launchd_fallback_to_detached(reason: str, *, exit_on_failure: bool = True) 
     """
     from nastech_constants import display_nastech_home as _dhh
 
-    print(f"⚠ launchd cannot manage the gateway on this macOS version ({reason}).")
+    print(
+        f"⚠ launchd cannot manage the gateway on this macOS version ({reason}).")
     if _spawn_detached_gateway():
         print("✓ Started gateway as a background process instead")
         print("  It will NOT auto-start at login or auto-restart on crash.")
@@ -3193,7 +3324,8 @@ def generate_launchd_plist() -> str:
     # the systemd unit), then capture the user's full shell PATH so every
     # user-installed tool (node, ffmpeg, …) is reachable.
     detected_venv = _detect_venv_dir()
-    venv_dir = str(detected_venv) if detected_venv else str(PROJECT_ROOT / "venv")
+    venv_dir = str(detected_venv) if detected_venv else str(
+        PROJECT_ROOT / "venv")
     # Resolve the directory containing the node binary (e.g. Homebrew, nvm)
     # so it's explicitly in PATH even if the user's shell PATH changes later.
     priority_dirs = _build_service_path_dirs()
@@ -3204,11 +3336,13 @@ def generate_launchd_plist() -> str:
             priority_dirs.append(resolved_node_dir)
     sane_path = ":".join(
         dict.fromkeys(
-            priority_dirs + [p for p in os.environ.get("PATH", "").split(":") if p]
+            priority_dirs +
+                [p for p in os.environ.get("PATH", "").split(":") if p]
         )
     )
 
-    # Build ProgramArguments array, including --profile when using a named profile
+    # Build ProgramArguments array, including --profile when using a named
+    # profile
     prog_args = [
         f"<string>{python_path}</string>",
         "<string>-m</string>",
@@ -3237,10 +3371,10 @@ def generate_launchd_plist() -> str:
     <array>
         {prog_args_xml}
     </array>
-    
+
     <key>WorkingDirectory</key>
     <string>{working_dir}</string>
-    
+
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
@@ -3256,16 +3390,16 @@ def generate_launchd_plist() -> str:
         <string>Aqua</string>
         <string>Background</string>
     </array>
-    
+
     <key>RunAtLoad</key>
     <true/>
-    
+
     <key>KeepAlive</key>
     <true/>
-    
+
     <key>StandardOutPath</key>
     <string>{log_dir}/gateway.log</string>
-    
+
     <key>StandardErrorPath</key>
     <string>{log_dir}/gateway.error.log</string>
 </dict>
@@ -3342,7 +3476,9 @@ def launchd_install(force: bool = False):
     except subprocess.CalledProcessError as e:
         if not _launchctl_domain_unsupported(e.returncode):
             raise
-        _launchd_fallback_to_detached(f"launchctl bootstrap exit {e.returncode}")
+        _launchd_fallback_to_detached(
+            f"launchctl bootstrap exit {
+                e.returncode}")
         return
 
     print()
@@ -3375,7 +3511,8 @@ def launchd_start():
     plist_path = get_launchd_plist_path()
     label = get_launchd_label()
 
-    # Self-heal if the plist is missing entirely (e.g., manual cleanup, failed upgrade)
+    # Self-heal if the plist is missing entirely (e.g., manual cleanup, failed
+    # upgrade)
     if not plist_path.exists():
         print("↻ launchd plist missing; regenerating service definition")
         plist_path.parent.mkdir(parents=True, exist_ok=True)
@@ -3448,7 +3585,8 @@ def launchd_stop():
     # immediately restarts it because KeepAlive is unconditionally true.
     # `nastech gateway start` re-bootstraps when it detects the job is unloaded.
     try:
-        subprocess.run(["launchctl", "bootout", target], check=True, timeout=90)
+        subprocess.run(["launchctl", "bootout", target],
+                       check=True, timeout=90)
     except subprocess.CalledProcessError as e:
         # Job already unloaded (3/113/125), or the domain can't be managed at
         # all (5/125, macOS 26+ detached-fallback process, issue #23387) — in
@@ -3477,6 +3615,7 @@ def _wait_for_gateway_exit(
         force_after: Seconds of graceful waiting before escalating to force-kill.
     """
     import time
+
     from gateway.status import get_running_pid
 
     deadline = time.monotonic() + timeout
@@ -3498,7 +3637,8 @@ def _wait_for_gateway_exit(
             # Grace period expired — force-kill the specific PID.
             try:
                 terminate_pid(pid, force=True)
-                print(f"⚠ Gateway PID {pid} did not exit gracefully; sent SIGKILL")
+                print(
+                    f"⚠ Gateway PID {pid} did not exit gracefully; sent SIGKILL")
             except (ProcessLookupError, PermissionError, OSError):
                 return True  # Already gone or we can't touch it.
             force_sent = True
@@ -3532,12 +3672,15 @@ def launchd_restart():
             except (ProcessLookupError, PermissionError, OSError):
                 pid = None
             if pid is not None:
-                exited = _wait_for_gateway_exit(timeout=drain_timeout, force_after=None)
+                exited = _wait_for_gateway_exit(
+                    timeout=drain_timeout, force_after=None)
                 if not exited:
                     print(
-                        f"⚠ Gateway drain timed out after {drain_timeout:.0f}s — forcing launchd restart"
+                        f"⚠ Gateway drain timed out after {
+                            drain_timeout:.0f}s — forcing launchd restart"
                     )
-        subprocess.run(["launchctl", "kickstart", "-k", target], check=True, timeout=90)
+        subprocess.run(["launchctl", "kickstart", "-k",
+                       target], check=True, timeout=90)
         print("✓ Service restarted")
     except subprocess.CalledProcessError as e:
         if not _launchd_error_indicates_unloaded(e):
@@ -3545,7 +3688,8 @@ def launchd_restart():
             # unmanageable (error 5), degrade to detached; the old process was
             # already drained/terminated above. Otherwise re-raise.
             if _launchctl_domain_unsupported(e.returncode):
-                _launchd_fallback_to_detached(f"launchctl kickstart exit {e.returncode}")
+                _launchd_fallback_to_detached(
+                    f"launchctl kickstart exit {e.returncode}")
                 return
             raise
         # Job not loaded — bootstrap and start fresh
@@ -3557,7 +3701,8 @@ def launchd_restart():
                 check=True,
                 timeout=30,
             )
-            subprocess.run(["launchctl", "kickstart", target], check=True, timeout=30)
+            subprocess.run(["launchctl", "kickstart", target],
+                           check=True, timeout=30)
         except subprocess.CalledProcessError as e2:
             if not _launchctl_domain_unsupported(e2.returncode):
                 raise
@@ -3741,7 +3886,8 @@ def run_gateway(verbose: int = 0, quiet: bool = False, replace: bool = False):
     # chasing the Windows lifecycle bug).
     import atexit as _atexit
     import traceback as _traceback
-    from datetime import datetime as _dt, timezone as _tz
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
 
     def _exit_diag(tag: str, **extra: object) -> None:
         if os.environ.get("NASTECH_GATEWAY_EXIT_DIAG", "1") != "1":
@@ -3782,7 +3928,10 @@ def run_gateway(verbose: int = 0, quiet: bool = False, replace: bool = False):
 
     success = False
     try:
-        success = asyncio.run(start_gateway(replace=replace, verbosity=verbosity))
+        success = asyncio.run(
+            start_gateway(
+                replace=replace,
+                verbosity=verbosity))
         _exit_diag("asyncio.run.returned", success=success)
     except KeyboardInterrupt:
         # On Windows-detached runs this shouldn't fire (we absorb SIGINT above),
@@ -4430,7 +4579,8 @@ def _all_platforms() -> list[dict]:
 
         discover_plugins()
     except Exception as e:
-        logger.debug("plugin discovery failed during platform enumeration: %s", e)
+        logger.debug(
+            "plugin discovery failed during platform enumeration: %s", e)
 
     platforms = [dict(p) for p in _PLATFORMS]
 
@@ -4524,7 +4674,8 @@ def _platform_status(platform: dict) -> str:
         password = get_env_value("MATRIX_PASSWORD")
         if (val or password) and homeserver:
             e2ee = get_env_value("MATRIX_ENCRYPTION")
-            suffix = " + E2EE" if e2ee and e2ee.lower() in {"true", "1", "yes"} else ""
+            suffix = " + E2EE" if e2ee and e2ee.lower() in {
+                "true", "1", "yes"} else ""
             return f"configured{suffix}"
         if val or password or homeserver:
             return "partially configured"
@@ -4569,7 +4720,8 @@ def _runtime_health_lines() -> list[str]:
     elif gateway_state == "draining":
         action = "restart" if restart_requested else "shutdown"
         count = int(active_agents or 0)
-        lines.append(f"⏳ Gateway draining for {action} ({count} active agent(s))")
+        lines.append(
+            f"⏳ Gateway draining for {action} ({count} active agent(s))")
     elif gateway_state == "stopped" and exit_reason:
         lines.append(f"⚠ Last shutdown reason: {exit_reason}")
 
@@ -4603,7 +4755,8 @@ def _setup_standard_platform(platform: dict):
     auto_owner_user_id = None
     if platform.get("key") == "telegram":
         print()
-        print_info("  Telegram can be configured automatically with a managed bot:")
+        print_info(
+            "  Telegram can be configured automatically with a managed bot:")
         print_info("  [1] Automatic (scan QR → confirm in Telegram → done)")
         print_info("  [2] Manual BotFather token")
         choice = prompt("  Choice [1/2]", default="1")
@@ -4614,7 +4767,8 @@ def _setup_standard_platform(platform: dict):
                     is_valid_telegram_bot_token,
                 )
             except ImportError:
-                print_warning("  Automatic setup is unavailable in this install.")
+                print_warning(
+                    "  Automatic setup is unavailable in this install.")
             else:
                 result = auto_setup_telegram_bot_result()
                 if result and is_valid_telegram_bot_token(result.token):
@@ -4624,11 +4778,13 @@ def _setup_standard_platform(platform: dict):
                     auto_owner_user_id = result.owner_user_id
                 else:
                     if result:
-                        print_warning("  Automatic setup returned an invalid Telegram token.")
+                        print_warning(
+                            "  Automatic setup returned an invalid Telegram token.")
                     print()
                     print_info("  Falling back to manual setup...")
 
-    allowed_val_set = None  # Track if user set an allowlist (for home channel offer)
+    # Track if user set an allowlist (for home channel offer)
+    allowed_val_set = None
 
     for var in platform["vars"]:
         print()
@@ -4641,12 +4797,15 @@ def _setup_standard_platform(platform: dict):
             print_info("  Token saved by automatic setup.")
             continue
 
-        # Allowlist fields get special handling for the deny-by-default security model
+        # Allowlist fields get special handling for the deny-by-default
+        # security model
         if var.get("is_allowlist"):
             if "TELEGRAM" in var["name"] and auto_owner_user_id:
                 detected_id = str(auto_owner_user_id)
-                print_success(f"  Detected your Telegram user ID: {detected_id}")
-                if prompt_yes_no("  Allow this Telegram account to use the bot?", True):
+                print_success(
+                    f"  Detected your Telegram user ID: {detected_id}")
+                if prompt_yes_no(
+                        "  Allow this Telegram account to use the bot?", True):
                     extra = prompt(
                         "  Additional allowed user IDs (comma-separated, optional)",
                         password=False,
@@ -4657,17 +4816,21 @@ def _setup_standard_platform(platform: dict):
                             ids.append(uid)
                     cleaned = ",".join(ids)
                     save_env_value(var["name"], cleaned)
-                    print_success("  Saved — only these users can interact with the bot.")
+                    print_success(
+                        "  Saved — only these users can interact with the bot.")
                     allowed_val_set = cleaned
                     continue
 
-            print_info("  The gateway DENIES all users by default for security.")
-            print_info("  Enter user IDs to create an allowlist, or leave empty")
+            print_info(
+                "  The gateway DENIES all users by default for security.")
+            print_info(
+                "  Enter user IDs to create an allowlist, or leave empty")
             print_info("  and you'll be asked about open access next.")
             value = prompt(f"  {var['prompt']}", password=False)
             if value:
                 cleaned = value.replace(" ", "")
-                # For Discord, strip common prefixes (user:123, <@123>, <@!123>)
+                # For Discord, strip common prefixes (user:123, <@123>,
+                # <@!123>)
                 if "DISCORD" in var["name"]:
                     parts = []
                     for uid in cleaned.split(","):
@@ -4680,7 +4843,8 @@ def _setup_standard_platform(platform: dict):
                             parts.append(uid)
                     cleaned = ",".join(parts)
                 save_env_value(var["name"], cleaned)
-                print_success("  Saved — only these users can interact with the bot.")
+                print_success(
+                    "  Saved — only these users can interact with the bot.")
                 allowed_val_set = cleaned
             else:
                 # No allowlist — ask about open access vs DM pairing
@@ -4695,7 +4859,8 @@ def _setup_standard_platform(platform: dict):
                 )
                 if access_idx == 0:
                     save_env_value("GATEWAY_ALLOW_ALL_USERS", "true")
-                    print_warning("  Open access enabled — anyone can use your bot!")
+                    print_warning(
+                        "  Open access enabled — anyone can use your bot!")
                 elif access_idx == 1:
                     print_success(
                         "  DM pairing mode — users will receive a code to request access."
@@ -4709,7 +4874,12 @@ def _setup_standard_platform(platform: dict):
                     )
             continue
 
-        value = prompt(f"  {var['prompt']}", password=var.get("password", False))
+        value = prompt(
+            f"  {
+                var['prompt']}",
+            password=var.get(
+                "password",
+                False))
         if value:
             save_env_value(var["name"], value)
             print_success(f"  Saved {var['name']}")
@@ -4737,8 +4907,9 @@ def _setup_standard_platform(platform: dict):
 
 def _setup_whatsapp():
     """Delegate to the existing WhatsApp setup flow."""
-    from nastech_cli.main import cmd_whatsapp
     import argparse
+
+    from nastech_cli.main import cmd_whatsapp
 
     cmd_whatsapp(argparse.Namespace())
 
@@ -4746,10 +4917,10 @@ def _setup_whatsapp():
 def _setup_dingtalk():
     """Configure DingTalk — QR scan (recommended) or manual credential entry."""
     from nastech_cli.setup import (
-        prompt_choice,
-        prompt_yes_no,
         print_success,
         print_warning,
+        prompt_choice,
+        prompt_yes_no,
     )
 
     dingtalk_platform = next(p for p in _PLATFORMS if p["key"] == "dingtalk")
@@ -4762,7 +4933,8 @@ def _setup_dingtalk():
     existing = get_env_value("DINGTALK_CLIENT_ID")
     if existing:
         print()
-        print_success(f"{label} is already configured (Client ID: {existing}).")
+        print_success(
+            f"{label} is already configured (Client ID: {existing}).")
         if not prompt_yes_no(f"  Reconfigure {label}?", False):
             return
 
@@ -4789,7 +4961,8 @@ def _setup_dingtalk():
 
         result = dingtalk_qr_auth()
         if result is None:
-            print_warning("  QR auth incomplete, falling back to manual input.")
+            print_warning(
+                "  QR auth incomplete, falling back to manual input.")
             _setup_standard_platform(dingtalk_platform)
             return
 
@@ -4850,10 +5023,12 @@ def _setup_wecom():
             if credentials:
                 bot_id = credentials.get("bot_id", "")
                 secret = credentials.get("secret", "")
-                print_success("  ✔ QR scan successful! Bot ID and Secret obtained.")
+                print_success(
+                    "  ✔ QR scan successful! Bot ID and Secret obtained.")
 
         if not bot_id or not secret:
-            print_info("  QR scan did not complete. Continuing with manual input.")
+            print_info(
+                "  QR scan did not complete. Continuing with manual input.")
             bot_id = None
             secret = None
 
@@ -4864,8 +5039,10 @@ def _setup_wecom():
             "  1. Go to WeCom Application → Workspace → Smart Robot -> Create smart robots"
         )
         print_info("  2. Select API Mode")
-        print_info("  3. Copy the Bot ID and Secret from the bot's credentials info")
-        print_info("  4. The bot connects via WebSocket — no public endpoint needed")
+        print_info(
+            "  3. Copy the Bot ID and Secret from the bot's credentials info")
+        print_info(
+            "  4. The bot connects via WebSocket — no public endpoint needed")
         print()
         bot_id = prompt("  Bot ID", password=False)
         if not bot_id:
@@ -4884,7 +5061,9 @@ def _setup_wecom():
     print()
     print_info("  The gateway DENIES all users by default for security.")
     print_info("  Enter user IDs to create an allowlist, or leave empty.")
-    allowed = prompt("  Allowed user IDs (comma-separated, or empty)", password=False)
+    allowed = prompt(
+        "  Allowed user IDs (comma-separated, or empty)",
+        password=False)
     if allowed:
         cleaned = allowed.replace(" ", "")
         save_env_value("WECOM_ALLOWED_USERS", cleaned)
@@ -4909,17 +5088,21 @@ def _setup_wecom():
             print_success(
                 "  DM pairing mode — users will receive a code to request access."
             )
-            print_info("  Approve with: nastech pairing approve <platform> <code>")
+            print_info(
+                "  Approve with: nastech pairing approve <platform> <code>")
         elif access_idx == 2:
             save_env_value("WECOM_DM_POLICY", "disabled")
             print_warning("  Direct messages disabled.")
         else:
-            print_info("  Skipped — configure later with 'nastech gateway setup'")
+            print_info(
+                "  Skipped — configure later with 'nastech gateway setup'")
 
     # ── Home channel (optional) ──
     print()
     print_info("  Chat ID for scheduled results and notifications.")
-    home = prompt("  Home chat ID (optional, for cron/notifications)", password=False)
+    home = prompt(
+        "  Home chat ID (optional, for cron/notifications)",
+        password=False)
     if home:
         save_env_value("WECOM_HOME_CHANNEL", home)
         print_success(f"  Home channel set to {home}")
@@ -5031,7 +5214,8 @@ def _setup_weixin():
         return
 
     if not check_weixin_requirements():
-        print_error("  Missing dependencies: Weixin needs aiohttp and cryptography.")
+        print_error(
+            "  Missing dependencies: Weixin needs aiohttp and cryptography.")
         print_info("  Install them, then rerun `nastech gateway setup`.")
         return
 
@@ -5067,7 +5251,8 @@ def _setup_weixin():
         save_env_value("WEIXIN_BASE_URL", base_url)
     save_env_value(
         "WEIXIN_CDN_BASE_URL",
-        get_env_value("WEIXIN_CDN_BASE_URL") or "https://novac2c.cdn.weixin.qq.com/c2c",
+        get_env_value(
+            "WEIXIN_CDN_BASE_URL") or "https://novac2c.cdn.weixin.qq.com/c2c",
     )
 
     print()
@@ -5130,7 +5315,10 @@ def _setup_weixin():
         "Allow all group chats",
         "Only allow listed group chat IDs",
     ]
-    group_idx = prompt_choice("  How should group chats be handled?", group_choices, 0)
+    group_idx = prompt_choice(
+        "  How should group chats be handled?",
+        group_choices,
+        0)
     if group_idx == 0:
         save_env_value("WEIXIN_GROUP_POLICY", "disabled")
         save_env_value("WEIXIN_GROUP_ALLOWED_USERS", "")
@@ -5214,7 +5402,8 @@ def _setup_feishu():
         if credentials:
             used_qr = True
         if not credentials:
-            print_info("  QR setup did not complete. Continuing with manual input.")
+            print_info(
+                "  QR setup did not complete. Continuing with manual input.")
 
     # ── Manual credential input ──
     if not credentials:
@@ -5228,11 +5417,13 @@ def _setup_feishu():
         print()
         app_id = prompt("  App ID", password=False)
         if not app_id:
-            print_warning("  Skipped — Feishu / Lark won't work without an App ID.")
+            print_warning(
+                "  Skipped — Feishu / Lark won't work without an App ID.")
             return
         app_secret = prompt("  App Secret", password=True)
         if not app_secret:
-            print_warning("  Skipped — Feishu / Lark won't work without an App Secret.")
+            print_warning(
+                "  Skipped — Feishu / Lark won't work without an App Secret.")
             return
 
         domain_choices = ["feishu (China)", "lark (International)"]
@@ -5247,7 +5438,9 @@ def _setup_feishu():
             bot_info = probe_bot(app_id, app_secret, domain)
             if bot_info:
                 bot_name = bot_info.get("bot_name")
-                print_success(f"  Credentials verified — bot: {bot_name or 'unnamed'}")
+                print_success(
+                    f"  Credentials verified — bot: {
+                        bot_name or 'unnamed'}")
             else:
                 print_warning(
                     "  Could not verify bot connection. Credentials saved anyway."
@@ -5336,7 +5529,10 @@ def _setup_feishu():
         "Respond only when @mentioned in groups (recommended)",
         "Disable group chats",
     ]
-    group_idx = prompt_choice("  How should group chats be handled?", group_choices, 0)
+    group_idx = prompt_choice(
+        "  How should group chats be handled?",
+        group_choices,
+        0)
     if group_idx == 0:
         save_env_value("FEISHU_GROUP_POLICY", "open")
         print_info("  Group chats enabled (bot must be @mentioned).")
@@ -5397,7 +5593,8 @@ def _setup_qqbot():
             print_warning("  QQ Bot setup cancelled.")
             return
         if not credentials:
-            print_info("  QR setup did not complete. Continuing with manual input.")
+            print_info(
+                "  QR setup did not complete. Continuing with manual input.")
 
     # ── Manual credential input ──
     if not credentials:
@@ -5411,7 +5608,8 @@ def _setup_qqbot():
             return
         app_secret = prompt("  App Secret", password=True)
         if not app_secret:
-            print_warning("  Skipped — QQ Bot won't work without an App Secret.")
+            print_warning(
+                "  Skipped — QQ Bot won't work without an App Secret.")
             return
         credentials = {
             "app_id": app_id.strip(),
@@ -5518,7 +5716,8 @@ def _setup_signal():
         print()
         print_info("  After installing, link your account and start the daemon:")
         print_info('    signal-cli link -n "NasTechAgent"')
-        print_info("    signal-cli --account +YOURNUMBER daemon --http 127.0.0.1:8080")
+        print_info(
+            "    signal-cli --account +YOURNUMBER daemon --http 127.0.0.1:8080")
         print()
 
     # HTTP URL
@@ -5540,7 +5739,8 @@ def _setup_signal():
         if resp.status_code == 200:
             print_success("  signal-cli daemon is reachable!")
         else:
-            print_warning(f"  signal-cli responded with status {resp.status_code}.")
+            print_warning(
+                f"  signal-cli responded with status {resp.status_code}.")
             if not prompt_yes_no("  Continue anyway?", False):
                 return
     except Exception as e:
@@ -5559,7 +5759,8 @@ def _setup_signal():
     default_account = existing_account or ""
     try:
         account = input(
-            f"  Account number{f' [{default_account}]' if default_account else ''}: "
+            f"  Account number{
+                f' [{default_account}]' if default_account else ''}: "
         ).strip()
         if not account:
             account = default_account
@@ -5576,12 +5777,14 @@ def _setup_signal():
     # Allowed users
     print()
     print_info("  The gateway DENIES all users by default for security.")
-    print_info("  Enter phone numbers or UUIDs of allowed users (comma-separated).")
+    print_info(
+        "  Enter phone numbers or UUIDs of allowed users (comma-separated).")
     existing_allowed = get_env_value("SIGNAL_ALLOWED_USERS") or ""
     default_allowed = existing_allowed or account
     try:
         allowed = (
-            input(f"  Allowed users [{default_allowed}]: ").strip() or default_allowed
+            input(
+                f"  Allowed users [{default_allowed}]: ").strip() or default_allowed
         )
     except (EOFError, KeyboardInterrupt):
         print("\n  Setup cancelled.")
@@ -5614,7 +5817,8 @@ def _setup_signal():
     print_info(f"  Account: {account}")
     print_info("  DM auth: via SIGNAL_ALLOWED_USERS + DM pairing")
     print_info(
-        f"  Groups: {'enabled' if get_env_value('SIGNAL_GROUP_ALLOWED_USERS') else 'disabled'}"
+        f"  Groups: {
+            'enabled' if get_env_value('SIGNAL_GROUP_ALLOWED_USERS') else 'disabled'}"
     )
 
 
@@ -5683,10 +5887,12 @@ def _configure_platform(platform: dict) -> None:
     print(color(f"  ─── {emoji} {label} Setup ───", Colors.CYAN))
     required = entry.required_env if entry else []
     if required:
-        print_info(f"  Set these env vars in ~/.nastech/.env: {', '.join(required)}")
+        print_info(
+            f"  Set these env vars in ~/.nastech/.env: {', '.join(required)}")
     else:
         print_info(
-            f"  Configure {label} in config.yaml under gateway.platforms.{platform['key']}"
+            f"  Configure {label} in config.yaml under gateway.platforms.{
+                platform['key']}"
         )
     if platform.get("install_hint"):
         print_info(f"  {platform['install_hint']}")
@@ -5808,7 +6014,8 @@ def gateway_setup():
             or s.startswith("plugin disabled")
         )
 
-    any_configured = any(_is_progress(_platform_status(p)) for p in _all_platforms())
+    any_configured = any(_is_progress(_platform_status(p))
+                         for p in _all_platforms())
 
     if any_configured:
         print()
@@ -5833,7 +6040,8 @@ def gateway_setup():
                         stop_profile_gateway()
                         print_info("Start manually: nastech gateway")
                 except UserSystemdUnavailableError as e:
-                    print_error("  Restart failed — user systemd not reachable:")
+                    print_error(
+                        "  Restart failed — user systemd not reachable:")
                     for line in str(e).splitlines():
                         print(f"  {line}")
                 except SystemScopeRequiresRootError as e:
@@ -5872,7 +6080,8 @@ def gateway_setup():
                     platform_name = "launchd"
                 else:
                     platform_name = "Scheduled Task"
-                wsl_note = " (note: services may not survive WSL restarts)" if is_wsl() else ""
+                wsl_note = " (note: services may not survive WSL restarts)" if is_wsl(
+                ) else ""
                 start_now = prompt_yes_no("  Start the gateway now?", True)
                 start_on_login = prompt_yes_no(
                     f"  Start the gateway automatically on login/boot as a {platform_name} service?{wsl_note}",
@@ -5899,7 +6108,8 @@ def gateway_setup():
                         if did_install and start_now:
                             try:
                                 if supports_systemd_services():
-                                    systemd_start(system=installed_scope == "system")
+                                    systemd_start(
+                                        system=installed_scope == "system")
                                 elif is_macos():
                                     launchd_start()
                                 elif is_windows():
@@ -5915,10 +6125,12 @@ def gateway_setup():
                                 print_error(f"  Start failed: {e}")
                     except subprocess.CalledProcessError as e:
                         print_error(f"  Install failed: {e}")
-                        print_info("  You can try manually: nastech gateway install")
+                        print_info(
+                            "  You can try manually: nastech gateway install")
                 else:
                     print_info("  Skipped start and auto-start setup.")
-                    print_info("  You can install later: nastech gateway install")
+                    print_info(
+                        "  You can install later: nastech gateway install")
                     if supports_systemd_services():
                         print_info(
                             "  Or as a boot-time service: sudo nastech gateway install --system"
@@ -5939,14 +6151,16 @@ def gateway_setup():
                 print_info("  Termux does not use systemd/launchd services.")
                 print_info("  Run in foreground: nastech gateway run")
                 print_info(
-                    f"  Or start it manually in the background (best effort): nohup nastech gateway run >{_dhh()}/logs/gateway.log 2>&1 &"
+                    f"  Or start it manually in the background (best effort): nohup nastech gateway run >{
+                        _dhh()}/logs/gateway.log 2>&1 &"
                 )
             else:
                 print_info("  Service install not supported on this platform.")
                 print_info("  Run in foreground: nastech gateway run")
     else:
         print()
-        print_info("No platforms configured. Run 'nastech gateway setup' when ready.")
+        print_info(
+            "No platforms configured. Run 'nastech gateway setup' when ready.")
 
     print()
 
@@ -6057,7 +6271,6 @@ def _dispatch_all_via_service_manager_if_s6(action: str) -> bool:
     return True
 
 
-
 def gateway_command(args):
     """Handle gateway subcommands."""
     try:
@@ -6112,7 +6325,12 @@ def _maybe_redirect_run_to_s6_supervision(args) -> bool:
     Returns True iff dispatched (caller should ``return``).
     """
     no_supervise = getattr(args, "no_supervise", False) or \
-        os.environ.get("NASTECH_GATEWAY_NO_SUPERVISE", "").lower() in ("1", "true", "yes")
+        os.environ.get(
+        "NASTECH_GATEWAY_NO_SUPERVISE",
+        "").lower() in (
+        "1",
+        "true",
+        "yes")
     if no_supervise:
         return False
     if os.environ.get("NASTECH_S6_SUPERVISED_CHILD"):
@@ -6183,7 +6401,11 @@ def _block_until_terminated() -> None:
     path only runs inside the s6 Linux container image, the fallback
     keeps the helper safe to import and unit-test anywhere.
     """
-    signal.signal(signal.SIGTERM, lambda signum, _frame: sys.exit(128 + signum))
+    signal.signal(
+        signal.SIGTERM,
+        lambda signum,
+        _frame: sys.exit(
+            128 + signum))
     pause = getattr(signal, "pause", None)
     if pause is not None:
         while True:
@@ -6235,8 +6457,10 @@ def _gateway_command_inner(args):
                     "  Or use tmux/screen for persistence: tmux new -s nastech 'nastech gateway run'"
                 )
                 print()
-            start_now = prompt_yes_no("Start the gateway now after installing the service?", True)
-            start_on_login = prompt_yes_no("Start the gateway automatically on login/boot with systemd?", True)
+            start_now = prompt_yes_no(
+                "Start the gateway now after installing the service?", True)
+            start_on_login = prompt_yes_no(
+                "Start the gateway automatically on login/boot with systemd?", True)
             systemd_install(
                 force=force,
                 system=system,
@@ -6279,11 +6503,14 @@ def _gateway_command_inner(args):
             # at every container boot). `install` is therefore informational.
             from nastech_cli.service_manager import detect_service_manager
             if detect_service_manager() == "s6":
-                print("Per-profile gateways are auto-registered when you create a profile.")
+                print(
+                    "Per-profile gateways are auto-registered when you create a profile.")
                 print()
-                print("  nastech profile create <name>     # creates the s6 service slot")
+                print(
+                    "  nastech profile create <name>     # creates the s6 service slot")
                 print("  nastech -p <name> gateway start   # bring it up via s6")
-                print("  nastech status                    # see currently-supervised gateways")
+                print(
+                    "  nastech status                    # see currently-supervised gateways")
                 return
             # Fallback for pre-s6 containers or other container runtimes
             # we haven't taught about supervision (Podman without our
@@ -6328,10 +6555,13 @@ def _gateway_command_inner(args):
         elif is_container():
             from nastech_cli.service_manager import detect_service_manager
             if detect_service_manager() == "s6":
-                print("Per-profile gateways are auto-unregistered when you delete the profile.")
+                print(
+                    "Per-profile gateways are auto-unregistered when you delete the profile.")
                 print()
-                print("  nastech profile delete <name>     # tears down the s6 service slot")
-                print("  nastech -p <name> gateway stop    # stop without deleting the profile")
+                print(
+                    "  nastech profile delete <name>     # tears down the s6 service slot")
+                print(
+                    "  nastech -p <name> gateway stop    # stop without deleting the profile")
                 return
             print("Service uninstall is not applicable inside a Docker container.")
             print("To stop the gateway, stop or remove the container:")
@@ -6356,7 +6586,8 @@ def _gateway_command_inner(args):
             return
 
         if start_all:
-            # Kill all stale gateway processes across all profiles before starting
+            # Kill all stale gateway processes across all profiles before
+            # starting
             killed = kill_gateway_processes(all_profiles=True)
             if killed:
                 print(
@@ -6416,7 +6647,8 @@ def _gateway_command_inner(args):
 
     elif subcmd == "stop":
         # Defense: refuse self-targeting gateway stop from inside the gateway.
-        # Prevents agent-initiated kill loops when combined with supervisor KeepAlive.
+        # Prevents agent-initiated kill loops when combined with supervisor
+        # KeepAlive.
         if os.getenv("_NASTECH_GATEWAY") == "1":
             print_error(
                 "Refusing to stop the gateway from inside the gateway process.\n"
@@ -6467,7 +6699,8 @@ def _gateway_command_inner(args):
             killed = kill_gateway_processes(all_profiles=True)
             total = killed + (1 if service_available else 0)
             if total:
-                print(f"✓ Stopped {total} gateway process(es) across all profiles")
+                print(
+                    f"✓ Stopped {total} gateway process(es) across all profiles")
             else:
                 print("✗ No gateway processes found")
         else:
@@ -6499,7 +6732,8 @@ def _gateway_command_inner(args):
                         pass
 
             if not service_available:
-                # No systemd/launchd/schtasks service — use profile-scoped PID file
+                # No systemd/launchd/schtasks service — use profile-scoped PID
+                # file
                 if stop_profile_gateway():
                     print("✓ Stopped gateway for this profile")
                 else:
@@ -6509,7 +6743,8 @@ def _gateway_command_inner(args):
 
     elif subcmd == "restart":
         # Defense: refuse self-targeting gateway restart from inside the gateway.
-        # Prevents agent-initiated kill loops when combined with supervisor KeepAlive.
+        # Prevents agent-initiated kill loops when combined with supervisor
+        # KeepAlive.
         if os.getenv("_NASTECH_GATEWAY") == "1":
             print_error(
                 "Refusing to restart the gateway from inside the gateway process.\n"
@@ -6564,7 +6799,8 @@ def _gateway_command_inner(args):
             killed = kill_gateway_processes(all_profiles=True)
             total = killed + (1 if service_stopped else 0)
             if total:
-                print(f"✓ Stopped {total} gateway process(es) across all profiles")
+                print(
+                    f"✓ Stopped {total} gateway process(es) across all profiles")
             _wait_for_gateway_exit(timeout=10.0, force_after=5.0)
 
             # Start the current profile's service fresh
@@ -6695,7 +6931,8 @@ def _gateway_command_inner(args):
             # Check for manually running processes
             pids = list(snapshot.gateway_pids)
             if pids:
-                print(f"✓ Gateway is running (PID: {', '.join(map(str, pids))})")
+                print(
+                    f"✓ Gateway is running (PID: {', '.join(map(str, pids))})")
                 print("  (Running manually, not as a system service)")
                 runtime_lines = _runtime_health_lines()
                 if runtime_lines:

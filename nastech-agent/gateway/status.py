@@ -19,8 +19,9 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from nastech_constants import get_nastech_home
 from typing import Any, Optional
+
+from nastech_constants import get_nastech_home
 from utils import atomic_json_write
 
 if sys.platform == "win32":
@@ -65,7 +66,12 @@ def _get_lock_dir() -> Path:
     override = os.getenv("NASTECH_GATEWAY_LOCK_DIR")
     if override:
         return Path(override)
-    state_home = Path(os.getenv("XDG_STATE_HOME", Path.home() / ".local" / "state"))
+    state_home = Path(
+        os.getenv(
+            "XDG_STATE_HOME",
+            Path.home() /
+            ".local" /
+            "state"))
     return state_home / "nastech" / _LOCKS_DIRNAME
 
 
@@ -96,7 +102,8 @@ def terminate_pid(pid: int, *, force: bool = False) -> None:
             raise OSError(details or f"taskkill failed for PID {pid}")
         return
 
-    sig = signal.SIGTERM if not force else getattr(signal, "SIGKILL", signal.SIGTERM)
+    sig = signal.SIGTERM if not force else getattr(
+        signal, "SIGKILL", signal.SIGTERM)
     os.kill(pid, sig)
 
 
@@ -137,7 +144,8 @@ def _read_process_cmdline(pid: int) -> Optional[str]:
         pass
     else:
         if raw:
-            return raw.replace(b"\x00", b" ").decode("utf-8", errors="ignore").strip()
+            return raw.replace(b"\x00", b" ").decode(
+                "utf-8", errors="ignore").strip()
 
     try:
         result = subprocess.run(
@@ -274,7 +282,8 @@ def _read_pid_record(pid_path: Optional[Path] = None) -> Optional[dict]:
     return None
 
 
-def _read_gateway_lock_record(lock_path: Optional[Path] = None) -> Optional[dict[str, Any]]:
+def _read_gateway_lock_record(
+        lock_path: Optional[Path] = None) -> Optional[dict[str, Any]]:
     return _read_pid_record(lock_path or _get_gateway_lock_path())
 
 
@@ -379,7 +388,8 @@ def _pid_exists(pid: int) -> bool:
             ERROR_INVALID_PARAMETER = 87
             ERROR_ACCESS_DENIED = 5
             handle = kernel32.OpenProcess(
-                PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, int(pid)
+                PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, int(
+                    pid)
             )
             if not handle:
                 err = kernel32.GetLastError()
@@ -399,7 +409,9 @@ def _pid_exists(pid: int) -> bool:
             return False
     else:
         try:
-            os.kill(int(pid), 0)  # windows-footgun: ok — POSIX-only branch (the whole point of _pid_exists)
+            # windows-footgun: ok — POSIX-only branch (the whole point of
+            # _pid_exists)
+            os.kill(int(pid), 0)
             return True
         except ProcessLookupError:
             return False
@@ -408,7 +420,6 @@ def _pid_exists(pid: int) -> bool:
             return True
         except OSError:
             return False
-
 
 
 def _release_file_lock(handle) -> None:
@@ -579,7 +590,8 @@ def remove_pid_file() -> None:
         pass
 
 
-def acquire_scoped_lock(scope: str, identity: str, metadata: Optional[dict[str, Any]] = None) -> tuple[bool, Optional[dict[str, Any]]]:
+def acquire_scoped_lock(scope: str, identity: str,
+                        metadata: Optional[dict[str, Any]] = None) -> tuple[bool, Optional[dict[str, Any]]]:
     """Acquire a machine-local lock keyed by scope + identity.
 
     Used to prevent multiple local gateways from using the same external identity
@@ -611,7 +623,8 @@ def acquire_scoped_lock(scope: str, identity: str, metadata: Optional[dict[str, 
         except (KeyError, TypeError, ValueError):
             existing_pid = None
 
-        if existing_pid == os.getpid() and existing.get("start_time") == record.get("start_time"):
+        if existing_pid == os.getpid() and existing.get(
+                "start_time") == record.get("start_time"):
             _write_json_file(lock_path, record)
             return True, existing
 
@@ -641,7 +654,8 @@ def acquire_scoped_lock(scope: str, identity: str, metadata: Optional[dict[str, 
                     and not _looks_like_gateway_process(existing_pid)
                 ):
                     live_cmdline = _read_process_cmdline(existing_pid)
-                    if live_cmdline is not None or not _record_looks_like_gateway(existing):
+                    if live_cmdline is not None or not _record_looks_like_gateway(
+                            existing):
                         stale = True
                 # Check if process is stopped (Ctrl+Z / SIGTSTP) — stopped
                 # processes still appear alive to _pid_exists but are not
@@ -650,10 +664,12 @@ def acquire_scoped_lock(scope: str, identity: str, metadata: Optional[dict[str, 
                     try:
                         _proc_status = Path(f"/proc/{existing_pid}/status")
                         if _proc_status.exists():
-                            for _line in _proc_status.read_text(encoding="utf-8").splitlines():
+                            for _line in _proc_status.read_text(
+                                    encoding="utf-8").splitlines():
                                 if _line.startswith("State:"):
                                     _state = _line.split()[1]
-                                    if _state in {"T", "t"}:  # stopped or tracing stop
+                                    if _state in {
+                                            "T", "t"}:  # stopped or tracing stop
                                         stale = True
                                     break
                     except (OSError, PermissionError):
@@ -1014,7 +1030,9 @@ def get_running_pid(
     resolved_lock_path = _get_gateway_lock_path(resolved_pid_path)
     lock_active = is_gateway_runtime_lock_active(resolved_lock_path)
     if not lock_active:
-        _cleanup_invalid_pid_path(resolved_pid_path, cleanup_stale=cleanup_stale)
+        _cleanup_invalid_pid_path(
+            resolved_pid_path,
+            cleanup_stale=cleanup_stale)
         return None
 
     primary_record = _read_pid_record(resolved_pid_path)
@@ -1033,7 +1051,8 @@ def get_running_pid(
         if recorded_start is not None and current_start is not None and current_start != recorded_start:
             continue
 
-        if _looks_like_gateway_process(pid) or _record_looks_like_gateway(record):
+        if _looks_like_gateway_process(
+                pid) or _record_looks_like_gateway(record):
             return pid
 
     _cleanup_invalid_pid_path(resolved_pid_path, cleanup_stale=cleanup_stale)

@@ -89,11 +89,13 @@ def _load_raw() -> Dict[str, Any]:
 
 def _save_raw(suggestions: List[Dict[str, Any]]) -> None:
     _ensure_dir()
-    fd, tmp_path = tempfile.mkstemp(dir=str(SUGGESTIONS_FILE.parent), suffix=".tmp", prefix=".sugg_")
+    fd, tmp_path = tempfile.mkstemp(
+        dir=str(SUGGESTIONS_FILE.parent), suffix=".tmp", prefix=".sugg_")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(
-                {"suggestions": suggestions, "updated_at": _nastech_now().isoformat()},
+                {"suggestions": suggestions,
+                 "updated_at": _nastech_now().isoformat()},
                 f,
                 indent=2,
             )
@@ -116,7 +118,8 @@ def load_suggestions() -> List[Dict[str, Any]]:
 
 def list_pending() -> List[Dict[str, Any]]:
     """Return pending suggestions in creation order (oldest first)."""
-    return [s for s in load_suggestions() if s.get("status") == _STATUS_PENDING]
+    return [s for s in load_suggestions() if s.get("status")
+            == _STATUS_PENDING]
 
 
 def add_suggestion(
@@ -149,14 +152,19 @@ def add_suggestion(
         # never duplicate a still-pending proposal.
         for existing in suggestions:
             if existing.get("dedup_key") == dedup_key:
-                if existing.get("status") in (_STATUS_DISMISSED, _STATUS_ACCEPTED):
+                if existing.get("status") in (
+                        _STATUS_DISMISSED, _STATUS_ACCEPTED):
                     return None
                 if existing.get("status") == _STATUS_PENDING:
                     return None
 
-        pending_count = sum(1 for s in suggestions if s.get("status") == _STATUS_PENDING)
+        pending_count = sum(
+            1 for s in suggestions if s.get("status") == _STATUS_PENDING)
         if pending_count >= MAX_PENDING:
-            logger.info("Suggestion backlog full (%d); dropping %r", MAX_PENDING, title)
+            logger.info(
+                "Suggestion backlog full (%d); dropping %r",
+                MAX_PENDING,
+                title)
             return None
 
         record = {
@@ -183,7 +191,8 @@ def get_suggestion(ref: str) -> Optional[Dict[str, Any]]:
             return s
     # By 1-based pending index.
     if ref.isdigit():
-        pending = [s for s in suggestions if s.get("status") == _STATUS_PENDING]
+        pending = [s for s in suggestions if s.get(
+            "status") == _STATUS_PENDING]
         idx = int(ref) - 1
         if 0 <= idx < len(pending):
             return pending[idx]
@@ -217,7 +226,8 @@ def dismiss_suggestion(ref: str) -> bool:
     return _set_status(s["id"], _STATUS_DISMISSED)
 
 
-def accept_suggestion(ref: str, *, origin: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+def accept_suggestion(
+        ref: str, *, origin: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """Accept a suggestion: create the real cron job from its ``job_spec``.
 
     Returns the created cron job dict, or None if the suggestion isn't found /

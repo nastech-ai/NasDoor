@@ -27,8 +27,11 @@ from agent.redact import redact_sensitive_text
 ACP_MARKER_BASE_URL = "acp://copilot"
 _DEFAULT_TIMEOUT_SECONDS = 900.0
 
-_TOOL_CALL_BLOCK_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
-_TOOL_CALL_JSON_RE = re.compile(r"\{\s*\"id\"\s*:\s*\"[^\"]+\"\s*,\s*\"type\"\s*:\s*\"function\"\s*,\s*\"function\"\s*:\s*\{.*?\}\s*\}", re.DOTALL)
+_TOOL_CALL_BLOCK_RE = re.compile(
+    r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+_TOOL_CALL_JSON_RE = re.compile(
+    r"\{\s*\"id\"\s*:\s*\"[^\"]+\"\s*,\s*\"type\"\s*:\s*\"function\"\s*,\s*\"function\"\s*:\s*\{.*?\}\s*\}",
+    re.DOTALL)
 
 # Stderr fingerprint of the deprecated `gh copilot` CLI extension
 # (https://github.blog/changelog/2025-09-25-upcoming-deprecation-of-gh-copilot-cli-extension).
@@ -91,7 +94,9 @@ def _resolve_home_dir() -> str:
     try:
         import pwd
 
-        resolved = pwd.getpwuid(os.getuid()).pw_dir.strip()  # windows-footgun: ok — POSIX fallback inside try/except (pwd import fails on Windows)
+        # windows-footgun: ok — POSIX fallback inside try/except (pwd import
+        # fails on Windows)
+        resolved = pwd.getpwuid(os.getuid()).pw_dir.strip()
         if resolved:
             return resolved
     except Exception:
@@ -174,7 +179,11 @@ def _format_messages_as_prompt(
             )
 
     if tool_choice is not None:
-        sections.append(f"Tool choice hint: {json.dumps(tool_choice, ensure_ascii=False)}")
+        sections.append(
+            f"Tool choice hint: {
+                json.dumps(
+                    tool_choice,
+                    ensure_ascii=False)}")
 
     transcript: list[str] = []
     for message in messages:
@@ -201,10 +210,13 @@ def _format_messages_as_prompt(
         transcript.append(f"{label}:\n{rendered}")
 
     if transcript:
-        sections.append("Conversation transcript:\n\n" + "\n\n".join(transcript))
+        sections.append(
+            "Conversation transcript:\n\n" +
+            "\n\n".join(transcript))
 
     sections.append("Continue the conversation from the latest user request.")
-    return "\n\n".join(section.strip() for section in sections if section and section.strip())
+    return "\n\n".join(section.strip()
+                       for section in sections if section and section.strip())
 
 
 def _render_message_content(content: Any) -> str:
@@ -231,7 +243,8 @@ def _render_message_content(content: Any) -> str:
     return str(content).strip()
 
 
-def _extract_tool_calls_from_text(text: str) -> tuple[list[SimpleNamespace], str]:
+def _extract_tool_calls_from_text(
+        text: str) -> tuple[list[SimpleNamespace], str]:
     if not isinstance(text, str) or not text.strip():
         return [], ""
 
@@ -256,7 +269,7 @@ def _extract_tool_calls_from_text(text: str) -> tuple[list[SimpleNamespace], str
             fn_args = json.dumps(fn_args, ensure_ascii=False)
         call_id = obj.get("id")
         if not isinstance(call_id, str) or not call_id.strip():
-            call_id = f"acp_call_{len(extracted)+1}"
+            call_id = f"acp_call_{len(extracted) + 1}"
 
         extracted.append(
             SimpleNamespace(
@@ -264,7 +277,8 @@ def _extract_tool_calls_from_text(text: str) -> tuple[list[SimpleNamespace], str
                 call_id=call_id,
                 response_item_id=None,
                 type="function",
-                function=SimpleNamespace(name=fn_name.strip(), arguments=fn_args),
+                function=SimpleNamespace(
+                    name=fn_name.strip(), arguments=fn_args),
             )
         )
 
@@ -304,7 +318,6 @@ def _extract_tool_calls_from_text(text: str) -> tuple[list[SimpleNamespace], str
     return extracted, cleaned
 
 
-
 def _ensure_path_within_cwd(path_text: str, cwd: str) -> Path:
     candidate = Path(path_text)
     if not candidate.is_absolute():
@@ -314,7 +327,8 @@ def _ensure_path_within_cwd(path_text: str, cwd: str) -> Path:
     try:
         resolved.relative_to(root)
     except ValueError as exc:
-        raise PermissionError(f"Path '{resolved}' is outside the session cwd '{root}'.") from exc
+        raise PermissionError(
+            f"Path '{resolved}' is outside the session cwd '{root}'.") from exc
     return resolved
 
 
@@ -404,8 +418,11 @@ class CopilotACPClient:
                 getattr(timeout, attr, None)
                 for attr in ("read", "write", "connect", "pool", "timeout")
             ]
-            _numeric = [float(v) for v in _candidates if isinstance(v, (int, float))]
-            _effective_timeout = max(_numeric) if _numeric else _DEFAULT_TIMEOUT_SECONDS
+            _numeric = [
+                float(v) for v in _candidates if isinstance(
+                    v, (int, float))]
+            _effective_timeout = max(
+                _numeric) if _numeric else _DEFAULT_TIMEOUT_SECONDS
 
         response_text, reasoning_text = self._run_prompt(
             prompt_text,
@@ -428,14 +445,17 @@ class CopilotACPClient:
             reasoning_details=None,
         )
         finish_reason = "tool_calls" if tool_calls else "stop"
-        choice = SimpleNamespace(message=assistant_message, finish_reason=finish_reason)
+        choice = SimpleNamespace(
+            message=assistant_message,
+            finish_reason=finish_reason)
         return SimpleNamespace(
             choices=[choice],
             usage=usage,
             model=model or "copilot-acp",
         )
 
-    def _run_prompt(self, prompt_text: str, *, timeout_seconds: float) -> tuple[str, str]:
+    def _run_prompt(self, prompt_text: str, *,
+                    timeout_seconds: float) -> tuple[str, str]:
         try:
             proc = subprocess.Popen(
                 [self._acp_command] + self._acp_args,
@@ -455,7 +475,8 @@ class CopilotACPClient:
 
         if proc.stdin is None or proc.stdout is None:
             proc.kill()
-            raise RuntimeError("Copilot ACP process did not expose stdin/stdout pipes.")
+            raise RuntimeError(
+                "Copilot ACP process did not expose stdin/stdout pipes.")
 
         self.is_closed = False
         with self._active_process_lock:
@@ -486,7 +507,8 @@ class CopilotACPClient:
 
         next_id = 0
 
-        def _request(method: str, params: dict[str, Any], *, text_parts: list[str] | None = None, reasoning_parts: list[str] | None = None) -> Any:
+        def _request(method: str, params: dict[str, Any], *, text_parts: list[str]
+                     | None = None, reasoning_parts: list[str] | None = None) -> Any:
             nonlocal next_id
             next_id += 1
             request_id = next_id
@@ -522,7 +544,8 @@ class CopilotACPClient:
                 if "error" in msg:
                     err = msg.get("error") or {}
                     raise RuntimeError(
-                        f"Copilot ACP {method} failed: {err.get('message') or err}"
+                        f"Copilot ACP {method} failed: {
+                            err.get('message') or err}"
                     )
                 return msg.get("result")
 
@@ -543,8 +566,10 @@ class CopilotACPClient:
                         "directly with a Copilot subscription token) via `nastech setup`.\n\n"
                         f"Original error:\n{stderr_text}"
                     )
-                raise RuntimeError(f"Copilot ACP process exited early: {stderr_text}")
-            raise TimeoutError(f"Timed out waiting for Copilot ACP response to {method}.")
+                raise RuntimeError(
+                    f"Copilot ACP process exited early: {stderr_text}")
+            raise TimeoutError(
+                f"Timed out waiting for Copilot ACP response to {method}.")
 
         try:
             _request(
@@ -632,7 +657,8 @@ class CopilotACPClient:
             response = _permission_denied(message_id)
         elif method == "fs/read_text_file":
             try:
-                path = _ensure_path_within_cwd(str(params.get("path") or ""), cwd)
+                path = _ensure_path_within_cwd(
+                    str(params.get("path") or ""), cwd)
                 block_error = get_read_block_error(str(path))
                 if block_error:
                     raise PermissionError(block_error)
@@ -645,7 +671,8 @@ class CopilotACPClient:
                 if isinstance(line, int) and line > 1:
                     lines = content.splitlines(keepends=True)
                     start = line - 1
-                    end = start + limit if isinstance(limit, int) and limit > 0 else None
+                    end = start + \
+                        limit if isinstance(limit, int) and limit > 0 else None
                     content = "".join(lines[start:end])
                 if content:
                     content = redact_sensitive_text(content, force=True)
@@ -660,7 +687,8 @@ class CopilotACPClient:
                 response = _jsonrpc_error(message_id, -32602, str(exc))
         elif method == "fs/write_text_file":
             try:
-                path = _ensure_path_within_cwd(str(params.get("path") or ""), cwd)
+                path = _ensure_path_within_cwd(
+                    str(params.get("path") or ""), cwd)
                 if is_write_denied(str(path)):
                     raise PermissionError(
                         f"Write denied: '{path}' is a protected system/credential file."

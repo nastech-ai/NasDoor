@@ -124,10 +124,12 @@ def pixel_art(input_path, output_path, preset="arcade", **overrides):
     if isinstance(pal, str):
         # Named hardware/artistic palette
         pal_img = build_palette_image(pal)
-        quantized = small.quantize(palette=pal_img, dither=Image.FLOYDSTEINBERG)
+        quantized = small.quantize(
+            palette=pal_img, dither=Image.FLOYDSTEINBERG)
     else:
         # Adaptive N-color palette (original behavior)
-        quantized = small.quantize(colors=int(pal), dither=Image.FLOYDSTEINBERG)
+        quantized = small.quantize(
+            colors=int(pal), dither=Image.FLOYDSTEINBERG)
 
     result = quantized.resize((w, h), Image.NEAREST)
     result.save(output_path, "PNG")

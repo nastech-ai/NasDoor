@@ -47,13 +47,15 @@ logger = logging.getLogger("gateway.run")
 class GatewaySlashCommandsMixin:
     """In-session slash-command handlers for GatewayRunner."""
 
-    async def _handle_reset_command(self, event: MessageEvent) -> Union[str, EphemeralReply]:
+    async def _handle_reset_command(
+            self, event: MessageEvent) -> Union[str, EphemeralReply]:
         """Handle /new or /reset command."""
         source = event.source
-        
+
         # Get existing session key
         session_key = self._session_key_for_source(source)
-        self._invalidate_session_run_generation(session_key, reason="session_reset")
+        self._invalidate_session_run_generation(
+            session_key, reason="session_reset")
         # Evict the running-agent slot now that the generation is bumped. The
         # in-flight run's own guarded release (run_generation=old) will return
         # False and leave its dead agent behind; clearing here keeps the slot
@@ -72,7 +74,8 @@ class GatewaySlashCommandsMixin:
         if _cache_lock is not None:
             with _cache_lock:
                 _cached = self._agent_cache.get(session_key)
-                _old_agent = _cached[0] if isinstance(_cached, tuple) else _cached if _cached else None
+                _old_agent = _cached[0] if isinstance(
+                    _cached, tuple) else _cached if _cached else None
             if _old_agent is not None:
                 self._cleanup_agent_resources(_old_agent)
         self._evict_cached_agent(session_key)
@@ -148,11 +151,14 @@ class GatewaySlashCommandsMixin:
             session_info = ""
 
         if new_entry:
-            header = self._telegram_topic_new_header(source) or t("gateway.reset.header_default")
+            header = self._telegram_topic_new_header(
+                source) or t("gateway.reset.header_default")
         else:
             # No existing session, just create one
-            new_entry = self.session_store.get_or_create_session(source, force_new=True)
-            header = self._telegram_topic_new_header(source) or t("gateway.reset.header_new")
+            new_entry = self.session_store.get_or_create_session(
+                source, force_new=True)
+            header = self._telegram_topic_new_header(
+                source) or t("gateway.reset.header_new")
 
         # Set session title if provided with /new <title>
         _title_arg = event.get_command_args().strip()
@@ -166,10 +172,12 @@ class GatewaySlashCommandsMixin:
                 _title_note = t("gateway.reset.title_rejected", error=str(e))
             if sanitized:
                 try:
-                    self._session_db.set_session_title(new_entry.session_id, sanitized)
+                    self._session_db.set_session_title(
+                        new_entry.session_id, sanitized)
                     header = t("gateway.reset.header_titled", title=sanitized)
                 except ValueError as e:
-                    _title_note = t("gateway.reset.title_error_untitled", error=str(e))
+                    _title_note = t(
+                        "gateway.reset.title_error_untitled", error=str(e))
                 except Exception:
                     pass
             elif not _title_note:
@@ -186,7 +194,9 @@ class GatewaySlashCommandsMixin:
             try:
                 self._record_telegram_topic_binding(source, new_entry)
             except Exception:
-                logger.debug("Failed to rebind Telegram topic after /new", exc_info=True)
+                logger.debug(
+                    "Failed to rebind Telegram topic after /new",
+                    exc_info=True)
 
         # Fire plugin on_session_reset hook (new session guaranteed to exist)
         try:
@@ -216,8 +226,8 @@ class GatewaySlashCommandsMixin:
 
     async def _handle_profile_command(self, event: MessageEvent) -> str:
         """Handle /profile — show active profile name and home directory."""
-        from nastech_constants import display_nastech_home
         from nastech_cli.profiles import get_active_profile_name
+        from nastech_constants import display_nastech_home
 
         display = display_nastech_home()
         profile_name = get_active_profile_name()
@@ -243,7 +253,8 @@ class GatewaySlashCommandsMixin:
         policy = _policy_for_source(self.config, source)
         platform = source.platform.value if source and source.platform else "?"
         chat_type = (source.chat_type if source else "") or "dm"
-        scope = "DM" if chat_type.lower() in {"dm", "direct", "private", ""} else "group/channel"
+        scope = "DM" if chat_type.lower() in {
+            "dm", "direct", "private", ""} else "group/channel"
         user_id = (source.user_id if source else None) or "?"
 
         if not policy.enabled:
@@ -263,16 +274,19 @@ class GatewaySlashCommandsMixin:
             )
 
         # Non-admin user. Show what's actually reachable.
-        floor = ["help", "whoami"]  # mirrors slash_access._ALWAYS_ALLOWED_FOR_USERS
+        # mirrors slash_access._ALWAYS_ALLOWED_FOR_USERS
+        floor = ["help", "whoami"]
         configured = sorted(policy.user_allowed_commands)
-        # Combine + dedupe, preserve order: floor first, then operator additions.
+        # Combine + dedupe, preserve order: floor first, then operator
+        # additions.
         seen: set[str] = set()
         runnable: list[str] = []
         for c in floor + configured:
             if c not in seen:
                 seen.add(c)
                 runnable.append(c)
-        runnable_str = ", ".join(f"/{c}" for c in runnable) if runnable else "(none)"
+        runnable_str = ", ".join(
+            f"/{c}" for c in runnable) if runnable else "(none)"
         return (
             f"**You** — {platform} ({scope})\n"
             f"User ID: `{user_id}`\n"
@@ -297,6 +311,7 @@ class GatewaySlashCommandsMixin:
         import asyncio
         import re
         import shlex
+
         from nastech_cli.kanban import run_slash
 
         text = (event.text or "").strip()
@@ -344,7 +359,9 @@ class GatewaySlashCommandsMixin:
                     source = event.source
                     platform = getattr(source, "platform", None)
                     platform_str = (
-                        platform.value if hasattr(platform, "value") else str(platform or "")
+                        platform.value if hasattr(
+                            platform, "value") else str(
+                            platform or "")
                     ).lower()
                     chat_id = str(getattr(source, "chat_id", "") or "")
                     thread_id = str(getattr(source, "thread_id", "") or "")
@@ -359,7 +376,8 @@ class GatewaySlashCommandsMixin:
                                     platform=platform_str, chat_id=chat_id,
                                     thread_id=thread_id or None,
                                     user_id=user_id,
-                                    notifier_profile=getattr(self, "_kanban_notifier_profile", None) or self._active_profile_name(),
+                                    notifier_profile=getattr(
+                                        self, "_kanban_notifier_profile", None) or self._active_profile_name(),
                                 )
                             finally:
                                 conn.close()
@@ -370,12 +388,14 @@ class GatewaySlashCommandsMixin:
                             + t("gateway.kanban.subscribed_suffix", task_id=task_id)
                         )
                 except Exception as exc:
-                    logger.warning("kanban create auto-subscribe failed: %s", exc)
+                    logger.warning(
+                        "kanban create auto-subscribe failed: %s", exc)
 
         # Gateway messages have practical length caps; truncate long
         # listings to keep the UX reasonable.
         if len(output) > 3800:
-            output = output[:3800] + "\n" + t("gateway.kanban.truncated_suffix")
+            output = output[:3800] + "\n" + \
+                t("gateway.kanban.truncated_suffix")
         return output or t("gateway.kanban.no_output")
 
     async def _handle_status_command(self, event: MessageEvent) -> str:
@@ -403,7 +423,8 @@ class GatewaySlashCommandsMixin:
         db_total_tokens = 0
         if self._session_db:
             try:
-                title = self._session_db.get_session_title(session_entry.session_id)
+                title = self._session_db.get_session_title(
+                    session_entry.session_id)
             except Exception:
                 title = None
             try:
@@ -427,16 +448,20 @@ class GatewaySlashCommandsMixin:
         if title:
             lines.append(t("gateway.status.title", title=title))
         lines.extend([
-            t("gateway.status.created", timestamp=session_entry.created_at.strftime('%Y-%m-%d %H:%M')),
-            t("gateway.status.last_activity", timestamp=session_entry.updated_at.strftime('%Y-%m-%d %H:%M')),
+            t("gateway.status.created",
+              timestamp=session_entry.created_at.strftime('%Y-%m-%d %H:%M')),
+            t("gateway.status.last_activity",
+              timestamp=session_entry.updated_at.strftime('%Y-%m-%d %H:%M')),
             t("gateway.status.tokens", tokens=f"{db_total_tokens:,}"),
-            t("gateway.status.agent_running", state=t("gateway.status.state_yes") if is_running else t("gateway.status.state_no")),
+            t("gateway.status.agent_running", state=t("gateway.status.state_yes")
+              if is_running else t("gateway.status.state_no")),
         ])
         if queue_depth:
             lines.append(t("gateway.status.queued", count=queue_depth))
         lines.extend([
             "",
-            t("gateway.status.platforms", platforms=', '.join(connected_platforms)),
+            t("gateway.status.platforms",
+              platforms=', '.join(connected_platforms)),
         ])
 
         return "\n".join(lines)
@@ -491,7 +516,8 @@ class GatewaySlashCommandsMixin:
 
         if agent_rows:
             for idx, row in enumerate(agent_rows[:12], 1):
-                current = t("gateway.agents.this_chat") if row["session_key"] == current_session_key else ""
+                current = t(
+                    "gateway.agents.this_chat") if row["session_key"] == current_session_key else ""
                 sid = f" · `{row['session_id']}`" if row["session_id"] else ""
                 model = f" · `{row['model']}`" if row["model"] else ""
                 lines.append(
@@ -499,12 +525,14 @@ class GatewaySlashCommandsMixin:
                     f"{format_uptime_short(row['elapsed'])}{sid}{model}{current}"
                 )
             if len(agent_rows) > 12:
-                lines.append(t("gateway.agents.more", count=len(agent_rows) - 12))
+                lines.append(
+                    t("gateway.agents.more", count=len(agent_rows) - 12))
 
         lines.extend(
             [
                 "",
-                t("gateway.agents.running_processes", count=len(running_processes)),
+                t("gateway.agents.running_processes",
+                  count=len(running_processes)),
             ]
         )
         if running_processes:
@@ -517,7 +545,8 @@ class GatewaySlashCommandsMixin:
                     f"{format_uptime_short(int(proc.get('uptime_seconds', 0)))} · `{cmd}`"
                 )
             if len(running_processes) > 12:
-                lines.append(t("gateway.agents.more", count=len(running_processes) - 12))
+                lines.append(
+                    t("gateway.agents.more", count=len(running_processes) - 12))
 
         lines.extend(
             [
@@ -532,7 +561,8 @@ class GatewaySlashCommandsMixin:
 
         return "\n".join(lines)
 
-    async def _handle_stop_command(self, event: MessageEvent) -> Union[str, EphemeralReply]:
+    async def _handle_stop_command(
+            self, event: MessageEvent) -> Union[str, EphemeralReply]:
         """Handle /stop command - interrupt a running agent.
 
         When an agent is truly hung (blocked thread that never checks
@@ -557,7 +587,9 @@ class GatewaySlashCommandsMixin:
                 interrupt_reason=_INTERRUPT_REASON_STOP,
                 invalidation_reason="stop_command_pending",
             )
-            logger.info("STOP (pending) for session %s — sentinel cleared", session_key)
+            logger.info(
+                "STOP (pending) for session %s — sentinel cleared",
+                session_key)
             return EphemeralReply(t("gateway.stop.stopped_pending"))
         if agent:
             # Force-clean the session lock so a truly hung agent doesn't
@@ -661,7 +693,8 @@ class GatewaySlashCommandsMixin:
                     )
                 if failed[platform].get("paused"):
                     return f"{platform.value} is already paused."
-                self._pause_failed_platform(platform, reason="paused via /platform pause")
+                self._pause_failed_platform(
+                    platform, reason="paused via /platform pause")
                 return (
                     f"✓ {platform.value} paused. "
                     f"Resume with `/platform resume {platform.value}` or "
@@ -688,9 +721,11 @@ class GatewaySlashCommandsMixin:
             "  /platform resume <name> — re-queue a paused platform"
         )
 
-    async def _handle_restart_command(self, event: MessageEvent) -> Union[str, EphemeralReply]:
+    async def _handle_restart_command(
+            self, event: MessageEvent) -> Union[str, EphemeralReply]:
         """Handle /restart command - drain active work, then restart the gateway."""
         from gateway.run import _nastech_home
+
         # Defensive idempotency check: if the previous gateway process
         # recorded this same /restart (same platform + update_id) and the new
         # process is seeing it *again*, this is a re-delivery caused by PTB's
@@ -774,8 +809,10 @@ class GatewaySlashCommandsMixin:
         # us.  The detached subprocess approach (setsid + bash) doesn't work
         # under systemd (KillMode=mixed kills the cgroup) or Docker (tini
         # exits when the gateway dies, taking the detached helper with it).
-        _under_service = bool(os.environ.get("INVOCATION_ID"))  # systemd sets this
-        _in_container = os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv")
+        _under_service = bool(os.environ.get(
+            "INVOCATION_ID"))  # systemd sets this
+        _in_container = os.path.exists(
+            "/.dockerenv") or os.path.exists("/run/.containerenv")
         if _under_service or _in_container:
             self.request_restart(detached=False, via_service=True)
         else:
@@ -802,13 +839,15 @@ class GatewaySlashCommandsMixin:
             from agent.skill_commands import get_skill_commands
             skill_cmds = get_skill_commands()
             if skill_cmds:
-                lines.append(t("gateway.help.skill_header", count=len(skill_cmds)))
+                lines.append(
+                    t("gateway.help.skill_header", count=len(skill_cmds)))
                 # Show first 10, then point to /commands for the rest
                 sorted_cmds = sorted(skill_cmds)
                 for cmd in sorted_cmds[:10]:
                     lines.append(f"`{cmd}` — {skill_cmds[cmd]['description']}")
                 if len(sorted_cmds) > 10:
-                    lines.append(t("gateway.help.more_use_commands", count=len(sorted_cmds) - 10))
+                    lines.append(t("gateway.help.more_use_commands",
+                                 count=len(sorted_cmds) - 10))
         except Exception:
             pass
         return _telegramize_command_mentions(
@@ -838,7 +877,8 @@ class GatewaySlashCommandsMixin:
                 entries.append("")
                 entries.append(t("gateway.commands.skill_header"))
                 for cmd in sorted(skill_cmds):
-                    desc = skill_cmds[cmd].get("description", "").strip() or t("gateway.commands.default_desc")
+                    desc = skill_cmds[cmd].get(
+                        "description", "").strip() or t("gateway.commands.default_desc")
                     entries.append(f"`{cmd}` — {desc}")
         except Exception:
             pass
@@ -854,7 +894,8 @@ class GatewaySlashCommandsMixin:
         page_entries = entries[start:start + page_size]
 
         lines = [
-            t("gateway.commands.header", total=len(entries), page=page, total_pages=total_pages),
+            t("gateway.commands.header", total=len(entries),
+              page=page, total_pages=total_pages),
             "",
             *page_entries,
         ]
@@ -866,13 +907,15 @@ class GatewaySlashCommandsMixin:
                 nav_parts.append(t("gateway.commands.nav_next", page=page + 1))
             lines.extend(["", " | ".join(nav_parts)])
         if page != requested_page:
-            lines.append(t("gateway.commands.out_of_range", requested=requested_page, page=page))
+            lines.append(t("gateway.commands.out_of_range",
+                         requested=requested_page, page=page))
         return _telegramize_command_mentions(
             "\n".join(lines),
             getattr(getattr(event, "source", None), "platform", None),
         )
 
-    async def _handle_model_command(self, event: MessageEvent) -> Optional[str]:
+    async def _handle_model_command(
+            self, event: MessageEvent) -> Optional[str]:
         """Handle /model command — switch model for this session.
 
         Supports:
@@ -882,19 +925,21 @@ class GatewaySlashCommandsMixin:
           /model <name> --provider <provider> — switch provider + model
           /model --provider <provider>        — switch to provider, auto-detect model
         """
-        from gateway.run import _nastech_home, _load_gateway_config
         import yaml
+        from gateway.run import _load_gateway_config, _nastech_home
         from nastech_cli.model_switch import (
-            switch_model as _switch_model, parse_model_flags,
             list_authenticated_providers,
             list_picker_providers,
+            parse_model_flags,
         )
+        from nastech_cli.model_switch import switch_model as _switch_model
         from nastech_cli.providers import get_label
 
         raw_args = event.get_command_args().strip()
 
         # Parse --provider, --global, and --refresh flags
-        model_input, explicit_provider, persist_global, force_refresh = parse_model_flags(raw_args)
+        model_input, explicit_provider, persist_global, force_refresh = parse_model_flags(
+            raw_args)
 
         # --refresh: bust the disk cache so the picker shows live data.
         if force_refresh:
@@ -918,7 +963,8 @@ class GatewaySlashCommandsMixin:
                 model_cfg = cfg.get("model", {})
                 if isinstance(model_cfg, dict):
                     current_model = model_cfg.get("default", "")
-                    current_provider = model_cfg.get("provider", current_provider)
+                    current_provider = model_cfg.get(
+                        "provider", current_provider)
                     current_base_url = model_cfg.get("base_url", "")
                 user_provs = cfg.get("providers")
                 try:
@@ -992,7 +1038,8 @@ class GatewaySlashCommandsMixin:
                             custom_providers=custom_provs,
                         )
                         if not result.success:
-                            return t("gateway.model.error_prefix", error=result.error_message)
+                            return t("gateway.model.error_prefix",
+                                     error=result.error_message)
 
                         # Update cached agent in-place
                         cached_entry = None
@@ -1011,7 +1058,8 @@ class GatewaySlashCommandsMixin:
                                     api_mode=result.api_mode,
                                 )
                             except Exception as exc:
-                                logger.warning("Picker model switch failed for cached agent: %s", exc)
+                                logger.warning(
+                                    "Picker model switch failed for cached agent: %s", exc)
 
                         # Persist the new model to the session DB so the
                         # dashboard shows the updated model (#34850).
@@ -1033,8 +1081,10 @@ class GatewaySlashCommandsMixin:
                         if not hasattr(_self, "_pending_model_notes"):
                             _self._pending_model_notes = {}
                         _self._pending_model_notes[_session_key] = (
-                            f"[Note: model was just switched from {_cur_model} to {result.new_model} "
-                            f"via {result.provider_label or result.target_provider}. "
+                            f"[Note: model was just switched from {_cur_model} to {
+                                result.new_model} "
+                            f"via {
+                                result.provider_label or result.target_provider}. "
                             f"Adjust your self-identification accordingly.]"
                         )
                         _self._session_model_overrides[_session_key] = {
@@ -1052,10 +1102,14 @@ class GatewaySlashCommandsMixin:
 
                         # Build confirmation text
                         plabel = result.provider_label or result.target_provider
-                        lines = [t("gateway.model.switched", model=result.new_model)]
-                        lines.append(t("gateway.model.provider_label", provider=plabel))
+                        lines = [t("gateway.model.switched",
+                                   model=result.new_model)]
+                        lines.append(
+                            t("gateway.model.provider_label", provider=plabel))
                         mi = result.model_info
-                        from nastech_cli.model_switch import resolve_display_context_length
+                        from nastech_cli.model_switch import (
+                            resolve_display_context_length,
+                        )
                         _sw_config_ctx = None
                         try:
                             _sw_cfg = _load_gateway_config()
@@ -1076,17 +1130,22 @@ class GatewaySlashCommandsMixin:
                             config_context_length=_sw_config_ctx,
                         )
                         if ctx:
-                            lines.append(t("gateway.model.context_label", tokens=f"{ctx:,}"))
+                            lines.append(
+                                t("gateway.model.context_label", tokens=f"{ctx:,}"))
                         if mi:
                             if mi.max_output:
-                                lines.append(t("gateway.model.max_output_label", tokens=f"{mi.max_output:,}"))
+                                lines.append(
+                                    t("gateway.model.max_output_label", tokens=f"{mi.max_output:,}"))
                             if mi.has_cost_data():
-                                lines.append(t("gateway.model.cost_label", cost=mi.format_cost()))
-                            lines.append(t("gateway.model.capabilities_label", capabilities=mi.format_capabilities()))
+                                lines.append(
+                                    t("gateway.model.cost_label", cost=mi.format_cost()))
+                            lines.append(
+                                t("gateway.model.capabilities_label", capabilities=mi.format_capabilities()))
                         lines.append(t("gateway.model.session_only_hint"))
                         return "\n".join(lines)
 
-                    metadata = self._thread_metadata_for_source(source, self._reply_anchor_for_event(event))
+                    metadata = self._thread_metadata_for_source(
+                        source, self._reply_anchor_for_event(event))
                     result = await adapter.send_model_picker(
                         chat_id=source.chat_id,
                         providers=providers,
@@ -1099,9 +1158,13 @@ class GatewaySlashCommandsMixin:
                     if result.success:
                         return None  # Picker sent — adapter handles the response
 
-            # Fallback: text list (for platforms without picker or if picker failed)
+            # Fallback: text list (for platforms without picker or if picker
+            # failed)
             provider_label = get_label(current_provider)
-            lines = [t("gateway.model.current_label", model=current_model or "unknown", provider=provider_label), ""]
+            lines = [t("gateway.model.current_label",
+                       model=current_model or "unknown",
+                       provider=provider_label),
+                     ""]
 
             try:
                 providers = list_authenticated_providers(
@@ -1113,11 +1176,17 @@ class GatewaySlashCommandsMixin:
                     max_models=5,
                 )
                 for p in providers:
-                    tag = t("gateway.model.current_tag") if p["is_current"] else ""
-                    lines.append(f"**{p['name']}** `--provider {p['slug']}`{tag}:")
+                    tag = t(
+                        "gateway.model.current_tag") if p["is_current"] else ""
+                    lines.append(
+                        f"**{p['name']}** `--provider {p['slug']}`{tag}:")
                     if p["models"]:
                         model_strs = ", ".join(f"`{m}`" for m in p["models"])
-                        extra = t("gateway.model.more_models_suffix", count=p["total_models"] - len(p["models"])) if p["total_models"] > len(p["models"]) else ""
+                        extra = t(
+                            "gateway.model.more_models_suffix",
+                            count=p["total_models"] - len(
+                                p["models"])) if p["total_models"] > len(
+                            p["models"]) else ""
                         lines.append(f"  {model_strs}{extra}")
                     elif p.get("api_url"):
                         lines.append(f"  `{p['api_url']}`")
@@ -1164,7 +1233,8 @@ class GatewaySlashCommandsMixin:
                     api_mode=result.api_mode,
                 )
             except Exception as exc:
-                logger.warning("In-place model switch failed for cached agent: %s", exc)
+                logger.warning(
+                    "In-place model switch failed for cached agent: %s", exc)
 
         # Persist the new model to the session DB so the dashboard
         # shows the updated model (#34850).
@@ -1185,7 +1255,8 @@ class GatewaySlashCommandsMixin:
         if not hasattr(self, "_pending_model_notes"):
             self._pending_model_notes = {}
         self._pending_model_notes[session_key] = (
-            f"[Note: model was just switched from {current_model} to {result.new_model} "
+            f"[Note: model was just switched from {current_model} to {
+                result.new_model} "
             f"via {result.provider_label or result.target_provider}. "
             f"Adjust your self-identification accordingly.]"
         )
@@ -1216,7 +1287,8 @@ class GatewaySlashCommandsMixin:
                 # scalar and the next assignment raises
                 # ``TypeError: 'str' object does not support item assignment``.
                 # Reproduces when ``config.yaml`` has ``model: <name>`` (flat
-                # string) instead of the proper nested ``model: {default: ...}``.
+                # string) instead of the proper nested ``model: {default:
+                # ...}``.
                 raw_model = cfg.get("model")
                 if isinstance(raw_model, dict):
                     model_cfg = raw_model
@@ -1238,7 +1310,8 @@ class GatewaySlashCommandsMixin:
         # Build confirmation message with full metadata
         provider_label = result.provider_label or result.target_provider
         lines = [t("gateway.model.switched", model=result.new_model)]
-        lines.append(t("gateway.model.provider_label", provider=provider_label))
+        lines.append(t("gateway.model.provider_label",
+                     provider=provider_label))
 
         # Context: always resolve via the provider-aware chain so Codex OAuth,
         # Copilot, and Nous-enforced caps win over the raw models.dev entry.
@@ -1267,21 +1340,26 @@ class GatewaySlashCommandsMixin:
             lines.append(t("gateway.model.context_label", tokens=f"{ctx:,}"))
         if mi:
             if mi.max_output:
-                lines.append(t("gateway.model.max_output_label", tokens=f"{mi.max_output:,}"))
+                lines.append(t("gateway.model.max_output_label",
+                             tokens=f"{mi.max_output:,}"))
             if mi.has_cost_data():
-                lines.append(t("gateway.model.cost_label", cost=mi.format_cost()))
-            lines.append(t("gateway.model.capabilities_label", capabilities=mi.format_capabilities()))
+                lines.append(
+                    t("gateway.model.cost_label", cost=mi.format_cost()))
+            lines.append(t("gateway.model.capabilities_label",
+                         capabilities=mi.format_capabilities()))
 
         # Cache notice
         cache_enabled = (
-            (base_url_host_matches(result.base_url or "", "openrouter.ai") and "claude" in result.new_model.lower())
+            (base_url_host_matches(result.base_url or "", "openrouter.ai")
+             and "claude" in result.new_model.lower())
             or result.api_mode == "anthropic_messages"
         )
         if cache_enabled:
             lines.append(t("gateway.model.prompt_caching_enabled"))
 
         if result.warning_message:
-            lines.append(t("gateway.model.warning_prefix", warning=result.warning_message))
+            lines.append(t("gateway.model.warning_prefix",
+                         warning=result.warning_message))
 
         if persist_global:
             lines.append(t("gateway.model.saved_global"))
@@ -1337,7 +1415,7 @@ class GatewaySlashCommandsMixin:
 
     async def _handle_personality_command(self, event: MessageEvent) -> str:
         """Handle /personality command - list or set a personality."""
-        from gateway.run import _nastech_home, _load_gateway_config
+        from gateway.run import _load_gateway_config, _nastech_home
         from nastech_constants import display_nastech_home
 
         args = event.get_command_args().strip().lower()
@@ -1345,23 +1423,28 @@ class GatewaySlashCommandsMixin:
 
         try:
             config = _load_gateway_config()
-            personalities = cfg_get(config, "agent", "personalities", default={})
+            personalities = cfg_get(
+                config, "agent", "personalities", default={})
         except Exception:
             config = {}
             personalities = {}
 
         if not personalities:
-            return t("gateway.personality.none_configured", path=display_nastech_home())
+            return t("gateway.personality.none_configured",
+                     path=display_nastech_home())
 
         if not args:
             lines = [t("gateway.personality.header")]
             lines.append(t("gateway.personality.none_option"))
             for name, prompt in personalities.items():
                 if isinstance(prompt, dict):
-                    preview = prompt.get("description") or prompt.get("system_prompt", "")[:50]
+                    preview = prompt.get("description") or prompt.get(
+                        "system_prompt", "")[:50]
                 else:
-                    preview = prompt[:50] + "..." if len(prompt) > 50 else prompt
-                lines.append(t("gateway.personality.item", name=name, preview=preview))
+                    preview = prompt[:50] + \
+                        "..." if len(prompt) > 50 else prompt
+                lines.append(t("gateway.personality.item",
+                             name=name, preview=preview))
             lines.append(t("gateway.personality.usage"))
             return "\n".join(lines)
 
@@ -1377,7 +1460,8 @@ class GatewaySlashCommandsMixin:
 
         if args in {"none", "default", "neutral"}:
             try:
-                if "agent" not in config or not isinstance(config.get("agent"), dict):
+                if "agent" not in config or not isinstance(
+                        config.get("agent"), dict):
                     config["agent"] = {}
                 config["agent"]["system_prompt"] = ""
                 atomic_yaml_write(config_path, config)
@@ -1390,7 +1474,8 @@ class GatewaySlashCommandsMixin:
 
             # Write to config.yaml, same pattern as CLI save_config_value.
             try:
-                if "agent" not in config or not isinstance(config.get("agent"), dict):
+                if "agent" not in config or not isinstance(
+                        config.get("agent"), dict):
                     config["agent"] = {}
                 config["agent"]["system_prompt"] = new_prompt
                 atomic_yaml_write(config_path, config)
@@ -1410,7 +1495,7 @@ class GatewaySlashCommandsMixin:
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
         history = self.session_store.load_transcript(session_entry.session_id)
-        
+
         # Find the last user message
         last_user_msg = None
         last_user_idx = None
@@ -1419,16 +1504,17 @@ class GatewaySlashCommandsMixin:
                 last_user_msg = history[i].get("content", "")
                 last_user_idx = i
                 break
-        
+
         if not last_user_msg:
             return t("gateway.retry.no_previous")
-        
+
         # Truncate history to before the last user message and persist
         truncated = history[:last_user_idx]
-        self.session_store.rewrite_transcript(session_entry.session_id, truncated)
+        self.session_store.rewrite_transcript(
+            session_entry.session_id, truncated)
         # Reset stored token count — transcript was truncated
         session_entry.last_prompt_tokens = 0
-        
+
         # Re-send by creating a fake text event with the old message
         retry_event = MessageEvent(
             text=last_user_msg,
@@ -1437,7 +1523,7 @@ class GatewaySlashCommandsMixin:
             raw_message=event.raw_message,
             channel_prompt=event.channel_prompt,
         )
-        
+
         # Let the normal message handler process it
         return await self._handle_message(retry_event)
 
@@ -1467,12 +1553,15 @@ class GatewaySlashCommandsMixin:
             if state is None:
                 return t("gateway.goal.no_goal_set")
             try:
-                adapter = self.adapters.get(event.source.platform) if event.source else None
-                _quick_key = self._session_key_for_source(event.source) if event.source else None
+                adapter = self.adapters.get(
+                    event.source.platform) if event.source else None
+                _quick_key = self._session_key_for_source(
+                    event.source) if event.source else None
                 if adapter and _quick_key:
                     self._clear_goal_pending_continuations(_quick_key, adapter)
             except Exception as exc:
-                logger.debug("goal pause: pending continuation cleanup failed: %s", exc)
+                logger.debug(
+                    "goal pause: pending continuation cleanup failed: %s", exc)
             return t("gateway.goal.paused", goal=state.goal)
 
         if lower == "resume":
@@ -1485,13 +1574,17 @@ class GatewaySlashCommandsMixin:
             had = mgr.has_goal()
             mgr.clear()
             try:
-                adapter = self.adapters.get(event.source.platform) if event.source else None
-                _quick_key = self._session_key_for_source(event.source) if event.source else None
+                adapter = self.adapters.get(
+                    event.source.platform) if event.source else None
+                _quick_key = self._session_key_for_source(
+                    event.source) if event.source else None
                 if adapter and _quick_key:
                     self._clear_goal_pending_continuations(_quick_key, adapter)
             except Exception as exc:
-                logger.debug("goal clear: pending continuation cleanup failed: %s", exc)
-            return t("gateway.goal_cleared") if had else t("gateway.no_active_goal")
+                logger.debug(
+                    "goal clear: pending continuation cleanup failed: %s", exc)
+            return t("gateway.goal_cleared") if had else t(
+                "gateway.no_active_goal")
 
         # Otherwise — treat the remaining text as the new goal.
         try:
@@ -1501,8 +1594,10 @@ class GatewaySlashCommandsMixin:
 
         # Queue the goal text as an immediate first turn so the agent
         # starts making progress. The post-turn hook takes over after.
-        adapter = self.adapters.get(event.source.platform) if event.source else None
-        _quick_key = self._session_key_for_source(event.source) if event.source else None
+        adapter = self.adapters.get(
+            event.source.platform) if event.source else None
+        _quick_key = self._session_key_for_source(
+            event.source) if event.source else None
         if adapter and _quick_key:
             try:
                 kickoff_event = MessageEvent(
@@ -1610,7 +1705,8 @@ class GatewaySlashCommandsMixin:
             logger.debug("undo: cached-agent eviction skipped: %s", e)
 
         target_text = result["target_text"]
-        preview = target_text[:200] + "..." if len(target_text) > 200 else target_text
+        preview = target_text[:200] + \
+            "..." if len(target_text) > 200 else target_text
         return t(
             "gateway.undo.removed",
             turns=result["turns_undone"],
@@ -1669,19 +1765,22 @@ class GatewaySlashCommandsMixin:
             self._voice_mode[voice_key] = "voice_only"
             self._save_voice_modes()
             if adapter:
-                self._set_adapter_auto_tts_enabled(adapter, chat_id, enabled=True)
+                self._set_adapter_auto_tts_enabled(
+                    adapter, chat_id, enabled=True)
             return t("gateway.voice.enabled_voice_only")
         elif args in {"off", "disable"}:
             self._voice_mode[voice_key] = "off"
             self._save_voice_modes()
             if adapter:
-                self._set_adapter_auto_tts_disabled(adapter, chat_id, disabled=True)
+                self._set_adapter_auto_tts_disabled(
+                    adapter, chat_id, disabled=True)
             return t("gateway.voice.disabled_text")
         elif args == "tts":
             self._voice_mode[voice_key] = "all"
             self._save_voice_modes()
             if adapter:
-                self._set_adapter_auto_tts_enabled(adapter, chat_id, enabled=True)
+                self._set_adapter_auto_tts_enabled(
+                    adapter, chat_id, enabled=True)
             return t("gateway.voice.tts_enabled")
         elif args in {"channel", "join"}:
             return await self._handle_voice_channel_join(event)
@@ -1701,13 +1800,18 @@ class GatewaySlashCommandsMixin:
                 info = adapter.get_voice_channel_info(guild_id)
                 if info:
                     lines = [
-                        t("gateway.voice.status_mode", label=labels.get(mode, mode)),
-                        t("gateway.voice.status_channel", channel=info['channel_name']),
-                        t("gateway.voice.status_participants", count=info['member_count']),
+                        t("gateway.voice.status_mode",
+                          label=labels.get(mode, mode)),
+                        t("gateway.voice.status_channel",
+                          channel=info['channel_name']),
+                        t("gateway.voice.status_participants",
+                          count=info['member_count']),
                     ]
                     for m in info["members"]:
-                        status = t("gateway.voice.speaking") if m.get("is_speaking") else ""
-                        lines.append(t("gateway.voice.status_member", name=m['display_name'], status=status))
+                        status = t("gateway.voice.speaking") if m.get(
+                            "is_speaking") else ""
+                        lines.append(t("gateway.voice.status_member",
+                                     name=m['display_name'], status=status))
                     return "\n".join(lines)
             return t("gateway.voice.status_mode", label=labels.get(mode, mode))
         else:
@@ -1717,13 +1821,15 @@ class GatewaySlashCommandsMixin:
                 self._voice_mode[voice_key] = "voice_only"
                 self._save_voice_modes()
                 if adapter:
-                    self._set_adapter_auto_tts_enabled(adapter, chat_id, enabled=True)
+                    self._set_adapter_auto_tts_enabled(
+                        adapter, chat_id, enabled=True)
                 toggle_line = t("gateway.voice.enabled_short")
             else:
                 self._voice_mode[voice_key] = "off"
                 self._save_voice_modes()
                 if adapter:
-                    self._set_adapter_auto_tts_disabled(adapter, chat_id, disabled=True)
+                    self._set_adapter_auto_tts_disabled(
+                        adapter, chat_id, disabled=True)
                 toggle_line = t("gateway.voice.disabled_short")
             # Bare /voice still toggles, but append an explainer so users
             # discover the on/off/tts/status subcommands (and, on Discord,
@@ -1735,7 +1841,8 @@ class GatewaySlashCommandsMixin:
             channels = (
                 t("gateway.voice.help_channels") if supports_voice_channels else ""
             )
-            return t("gateway.voice.help", toggle=toggle_line, channels=channels)
+            return t("gateway.voice.help",
+                     toggle=toggle_line, channels=channels)
 
     async def _handle_rollback_command(self, event: MessageEvent) -> str:
         """Handle /rollback command — list or restore filesystem checkpoints."""
@@ -1784,7 +1891,8 @@ class GatewaySlashCommandsMixin:
             if 0 <= idx < len(checkpoints):
                 target_hash = checkpoints[idx]["hash"]
             else:
-                return t("gateway.rollback.invalid_number", max=len(checkpoints))
+                return t("gateway.rollback.invalid_number",
+                         max=len(checkpoints))
         except ValueError:
             target_hash = arg
 
@@ -1809,7 +1917,9 @@ class GatewaySlashCommandsMixin:
             return t("gateway.background.usage")
 
         source = event.source
-        task_id = f"bg_{datetime.now().strftime('%H%M%S')}_{os.urandom(3).hex()}"
+        task_id = f"bg_{
+            datetime.now().strftime('%H%M%S')}_{
+            os.urandom(3).hex()}"
 
         event_message_id = self._reply_anchor_for_event(event)
 
@@ -1832,7 +1942,8 @@ class GatewaySlashCommandsMixin:
         _task.add_done_callback(self._background_tasks.discard)
 
         preview = prompt[:60] + ("..." if len(prompt) > 60 else "")
-        return t("gateway.background.started", preview=preview, task_id=task_id)
+        return t("gateway.background.started",
+                 preview=preview, task_id=task_id)
 
     async def _handle_reasoning_command(self, event: MessageEvent) -> str:
         """Handle /reasoning command — manage reasoning effort and display toggle.
@@ -1845,8 +1956,8 @@ class GatewaySlashCommandsMixin:
             /reasoning show|on               Show model reasoning in responses
             /reasoning hide|off              Hide model reasoning from responses
         """
-        from gateway.run import _nastech_home, _platform_config_key
         import yaml
+        from gateway.run import _nastech_home, _platform_config_key
 
         raw_args = event.get_command_args().strip()
         args, persist_global = self._parse_reasoning_command_args(raw_args)
@@ -1854,7 +1965,8 @@ class GatewaySlashCommandsMixin:
         # Normalize the source (Telegram DM topic recovery) before deriving
         # the override key so storage matches the key the next message turn
         # reads — same fix as /model (#30479).
-        _reasoning_source = self._normalize_source_for_session_key(event.source)
+        _reasoning_source = self._normalize_source_for_session_key(
+            event.source)
         session_key = self._session_key_for_source(_reasoning_source)
         self._show_reasoning = self._load_show_reasoning()
         self._reasoning_config = self._resolve_session_reasoning_config(
@@ -1896,7 +2008,8 @@ class GatewaySlashCommandsMixin:
                 if self._show_reasoning
                 else t("gateway.reasoning.display_off")
             )
-            has_session_override = session_key in (getattr(self, "_session_reasoning_overrides", {}) or {})
+            has_session_override = session_key in (
+                getattr(self, "_session_reasoning_overrides", {}) or {})
             scope = (
                 t("gateway.reasoning.scope_session")
                 if has_session_override
@@ -1913,13 +2026,16 @@ class GatewaySlashCommandsMixin:
         platform_key = _platform_config_key(event.source.platform)
         if args in {"show", "on"}:
             self._show_reasoning = True
-            _save_config_key(f"display.platforms.{platform_key}.show_reasoning", True)
+            _save_config_key(
+                f"display.platforms.{platform_key}.show_reasoning", True)
             return t("gateway.reasoning.display_set_on", platform=platform_key)
 
         if args in {"hide", "off"}:
             self._show_reasoning = False
-            _save_config_key(f"display.platforms.{platform_key}.show_reasoning", False)
-            return t("gateway.reasoning.display_set_off", platform=platform_key)
+            _save_config_key(
+                f"display.platforms.{platform_key}.show_reasoning", False)
+            return t("gateway.reasoning.display_set_off",
+                     platform=platform_key)
 
         # Effort level change
         effort = args.strip()
@@ -1956,8 +2072,12 @@ class GatewaySlashCommandsMixin:
 
     async def _handle_fast_command(self, event: MessageEvent) -> str:
         """Handle /fast — mirror the CLI Priority Processing toggle in gateway chats."""
-        from gateway.run import _nastech_home, _load_gateway_config, _resolve_gateway_model
         import yaml
+        from gateway.run import (
+            _load_gateway_config,
+            _nastech_home,
+            _resolve_gateway_model,
+        )
         from nastech_cli.models import model_supports_fast_mode
 
         args = event.get_command_args().strip().lower()
@@ -1990,7 +2110,8 @@ class GatewaySlashCommandsMixin:
                 return False
 
         if not args or args == "status":
-            status = t("gateway.fast.status_fast") if self._service_tier == "priority" else t("gateway.fast.status_normal")
+            status = t("gateway.fast.status_fast") if self._service_tier == "priority" else t(
+                "gateway.fast.status_normal")
             return t("gateway.fast.status", mode=status)
 
         if args in {"fast", "on"}:
@@ -2008,7 +2129,8 @@ class GatewaySlashCommandsMixin:
             return t("gateway.fast.saved", label=label)
         return t("gateway.fast.session_only", label=label)
 
-    async def _handle_yolo_command(self, event: MessageEvent) -> Union[str, EphemeralReply]:
+    async def _handle_yolo_command(
+            self, event: MessageEvent) -> Union[str, EphemeralReply]:
         """Handle /yolo — toggle dangerous command approval bypass for this session only."""
         from tools.approval import (
             disable_session_yolo,
@@ -2034,12 +2156,16 @@ class GatewaySlashCommandsMixin:
         ``display.platforms.<platform>.tool_progress`` so each channel can
         have its own verbosity level independently.
         """
-        from gateway.run import _nastech_home, _load_gateway_config, _platform_config_key
+        from gateway.run import (
+            _load_gateway_config,
+            _nastech_home,
+            _platform_config_key,
+        )
 
         config_path = _nastech_home / "config.yaml"
         platform_key = _platform_config_key(event.source.platform)
 
-        # --- check config gate ------------------------------------------------
+        # --- check config gate -----------------------------------------------
         try:
             user_config = _load_gateway_config()
             gate_enabled = is_truthy_value(
@@ -2052,7 +2178,7 @@ class GatewaySlashCommandsMixin:
         if not gate_enabled:
             return t("gateway.verbose.not_enabled")
 
-        # --- cycle mode (per-platform) ----------------------------------------
+        # --- cycle mode (per-platform) ---------------------------------------
         cycle = ["off", "new", "all", "verbose"]
         descriptions = {
             "off": t("gateway.verbose.mode_off"),
@@ -2063,7 +2189,8 @@ class GatewaySlashCommandsMixin:
 
         # Read current effective mode for this platform via the resolver
         from gateway.display_config import resolve_display_setting
-        current = resolve_display_setting(user_config, platform_key, "tool_progress", "all")
+        current = resolve_display_setting(
+            user_config, platform_key, "tool_progress", "all")
         if current not in cycle:
             current = "all"
         idx = (cycle.index(current) + 1) % len(cycle)
@@ -2071,12 +2198,15 @@ class GatewaySlashCommandsMixin:
 
         # Save to display.platforms.<platform>.tool_progress
         try:
-            if "display" not in user_config or not isinstance(user_config.get("display"), dict):
+            if "display" not in user_config or not isinstance(
+                    user_config.get("display"), dict):
                 user_config["display"] = {}
             display = user_config["display"]
-            if "platforms" not in display or not isinstance(display.get("platforms"), dict):
+            if "platforms" not in display or not isinstance(
+                    display.get("platforms"), dict):
                 display["platforms"] = {}
-            if platform_key not in display["platforms"] or not isinstance(display["platforms"].get(platform_key), dict):
+            if platform_key not in display["platforms"] or not isinstance(
+                    display["platforms"].get(platform_key), dict):
                 display["platforms"][platform_key] = {}
             display["platforms"][platform_key]["tool_progress"] = new_mode
             atomic_yaml_write(config_path, user_config)
@@ -2086,7 +2216,8 @@ class GatewaySlashCommandsMixin:
             )
         except Exception as e:
             logger.warning("Failed to save tool_progress mode: %s", e)
-            return f"{descriptions[new_mode]}\n" + t("gateway.verbose.save_failed", error=e)
+            return f"{descriptions[new_mode]}\n" + \
+                t("gateway.verbose.save_failed", error=e)
 
     async def _handle_footer_command(self, event: MessageEvent) -> str:
         """Handle /footer command — toggle the runtime-metadata footer.
@@ -2102,7 +2233,12 @@ class GatewaySlashCommandsMixin:
         are respected but not modified here — edit config.yaml directly for
         per-platform control.
         """
-        from gateway.run import _nastech_home, _load_gateway_config, _platform_config_key, _resolve_gateway_model
+        from gateway.run import (
+            _load_gateway_config,
+            _nastech_home,
+            _platform_config_key,
+            _resolve_gateway_model,
+        )
         from gateway.runtime_footer import resolve_footer_config
 
         config_path = _nastech_home / "config.yaml"
@@ -2128,7 +2264,8 @@ class GatewaySlashCommandsMixin:
         effective = resolve_footer_config(user_config, platform_key)
 
         if arg in {"status", "?"}:
-            state = t("gateway.footer.state_on") if effective["enabled"] else t("gateway.footer.state_off")
+            state = t("gateway.footer.state_on") if effective["enabled"] else t(
+                "gateway.footer.state_off")
             fields = ", ".join(effective.get("fields") or [])
             return t(
                 "gateway.footer.status",
@@ -2159,7 +2296,8 @@ class GatewaySlashCommandsMixin:
             logger.warning("Failed to save runtime_footer.enabled: %s", e)
             return t("gateway.config_save_failed", error=e)
 
-        state = t("gateway.footer.state_on") if new_state else t("gateway.footer.state_off")
+        state = t("gateway.footer.state_on") if new_state else t(
+            "gateway.footer.state_off")
         example = ""
         if new_state:
             # Show a preview using current agent state if available.
@@ -2168,7 +2306,8 @@ class GatewaySlashCommandsMixin:
                 model=_resolve_gateway_model(user_config) or None,
                 context_tokens=0,
                 context_length=None,
-                fields=effective.get("fields") or ["model", "context_pct", "cwd"],
+                fields=effective.get("fields") or [
+                    "model", "context_pct", "cwd"],
             )
             if preview:
                 example = t("gateway.footer.example_line", preview=preview)
@@ -2202,12 +2341,13 @@ class GatewaySlashCommandsMixin:
             split_history_for_partial_compress,
         )
         _raw_args = (event.get_command_args() or "").strip()
-        partial, keep_last, focus_topic = parse_partial_compress_args(_raw_args)
+        partial, keep_last, focus_topic = parse_partial_compress_args(
+            _raw_args)
 
         try:
-            from run_agent import AIAgent
             from agent.manual_compression_feedback import summarize_manual_compression
             from agent.model_metadata import estimate_request_tokens_rough
+            from run_agent import AIAgent
 
             session_key = self._session_key_for_source(source)
             model, runtime_kwargs = self._resolve_session_agent_runtime(
@@ -2230,7 +2370,8 @@ class GatewaySlashCommandsMixin:
             tail: list = []
             head = msgs
             if partial:
-                head, tail = split_history_for_partial_compress(msgs, keep_last)
+                head, tail = split_history_for_partial_compress(
+                    msgs, keep_last)
                 if not tail:
                     # Degenerate split — fall back to full compression.
                     partial = False
@@ -2252,7 +2393,8 @@ class GatewaySlashCommandsMixin:
                 # figure reflects real request pressure, not a transcript-only
                 # underestimate (#6217). Must be computed after tmp_agent is
                 # built so _cached_system_prompt/tools are populated.
-                _sys_prompt = getattr(tmp_agent, "_cached_system_prompt", "") or ""
+                _sys_prompt = getattr(
+                    tmp_agent, "_cached_system_prompt", "") or ""
                 _tools = getattr(tmp_agent, "tools", None) or None
                 approx_tokens = estimate_request_tokens_rough(
                     msgs, system_prompt=_sys_prompt, tools=_tools
@@ -2265,18 +2407,21 @@ class GatewaySlashCommandsMixin:
                 loop = asyncio.get_running_loop()
                 compressed, _ = await loop.run_in_executor(
                     None,
-                    lambda: tmp_agent._compress_context(head, "", approx_tokens=approx_tokens, focus_topic=focus_topic, force=True)
+                    lambda: tmp_agent._compress_context(
+                        head, "", approx_tokens=approx_tokens, focus_topic=focus_topic, force=True)
                 )
 
                 # Re-append the verbatim tail after the compressed head,
                 # guarding the seam against illegal role adjacency.
                 if partial and tail:
-                    compressed = rejoin_compressed_head_and_tail(compressed, tail)
+                    compressed = rejoin_compressed_head_and_tail(
+                        compressed, tail)
 
                 # _compress_context already calls end_session() on the old session
                 # (preserving its full transcript in SQLite) and creates a new
                 # session_id for the continuation.  Write the compressed messages
-                # into the NEW session so the original history stays searchable.
+                # into the NEW session so the original history stays
+                # searchable.
                 new_session_id = tmp_agent.session_id
                 if new_session_id != session_entry.session_id:
                     session_entry.session_id = new_session_id
@@ -2285,8 +2430,10 @@ class GatewaySlashCommandsMixin:
                         source, session_entry, reason="compress-command",
                     )
 
-                self.session_store.rewrite_transcript(new_session_id, compressed)
-                # Reset stored token count — transcript changed, old value is stale
+                self.session_store.rewrite_transcript(
+                    new_session_id, compressed)
+                # Reset stored token count — transcript changed, old value is
+                # stale
                 self.session_store.update_session(
                     session_entry.session_key, last_prompt_tokens=0
                 )
@@ -2306,13 +2453,19 @@ class GatewaySlashCommandsMixin:
                 # usable summary and the compressor preserved messages
                 # unchanged (no drop, no placeholder).  force=True was
                 # passed above so any active cooldown is bypassed.
-                _summary_aborted = bool(getattr(compressor, "_last_compress_aborted", False))
+                _summary_aborted = bool(
+                    getattr(
+                        compressor,
+                        "_last_compress_aborted",
+                        False))
                 _summary_err = getattr(compressor, "_last_summary_error", None)
                 # Separately: did the user's CONFIGURED aux model fail
                 # and we recovered via main?  Surface that as an info
                 # note so they can fix their config.
-                _aux_fail_model = getattr(compressor, "_last_aux_model_failure_model", None)
-                _aux_fail_err = getattr(compressor, "_last_aux_model_failure_error", None)
+                _aux_fail_model = getattr(
+                    compressor, "_last_aux_model_failure_model", None)
+                _aux_fail_err = getattr(
+                    compressor, "_last_aux_model_failure_error", None)
             finally:
                 # Evict cached agent so next turn rebuilds system prompt
                 # from current files (SOUL.md, memory, etc.).
@@ -2320,7 +2473,8 @@ class GatewaySlashCommandsMixin:
                 self._cleanup_agent_resources(tmp_agent)
             lines = [f"🗜️ {summary['headline']}"]
             if focus_topic:
-                lines.append(t("gateway.compress.focus_line", topic=focus_topic))
+                lines.append(
+                    t("gateway.compress.focus_line", topic=focus_topic))
             lines.append(summary["token_line"])
             if summary["note"]:
                 lines.append(summary["note"])
@@ -2344,14 +2498,16 @@ class GatewaySlashCommandsMixin:
             logger.warning("Manual compress failed: %s", e)
             return t("gateway.compress.failed", error=e)
 
-    async def _handle_topic_command(self, event: MessageEvent, args: str = "") -> str:
+    async def _handle_topic_command(
+            self, event: MessageEvent, args: str = "") -> str:
         """Handle /topic for Telegram DM user-managed topic sessions."""
         source = event.source
         if source.platform != Platform.TELEGRAM or source.chat_type != "dm":
             return t("gateway.topic.not_telegram_dm")
         if not self._session_db:
             from nastech_state import format_session_db_unavailable
-            return format_session_db_unavailable(prefix=t("gateway.shared.session_db_unavailable_prefix"))
+            return format_session_db_unavailable(
+                prefix=t("gateway.shared.session_db_unavailable_prefix"))
 
         # Authorization: /topic activates multi-session mode and mutates
         # SQLite side tables. Unauthorized senders (not in allowlist) must
@@ -2398,7 +2554,8 @@ class GatewaySlashCommandsMixin:
                 chat_id=str(source.chat_id),
                 user_id=str(source.user_id),
                 has_topics_enabled=capabilities.get("has_topics_enabled"),
-                allows_users_to_create_topics=capabilities.get("allows_users_to_create_topics"),
+                allows_users_to_create_topics=capabilities.get(
+                    "allows_users_to_create_topics"),
             )
         except Exception as exc:
             logger.exception("Failed to enable Telegram topic mode")
@@ -2414,7 +2571,9 @@ class GatewaySlashCommandsMixin:
                     thread_id=str(source.thread_id),
                 )
             except Exception:
-                logger.debug("Failed to read Telegram topic binding", exc_info=True)
+                logger.debug(
+                    "Failed to read Telegram topic binding",
+                    exc_info=True)
                 binding = None
             if binding:
                 session_id = str(binding.get("session_id") or "")
@@ -2441,7 +2600,8 @@ class GatewaySlashCommandsMixin:
 
         if not self._session_db:
             from nastech_state import format_session_db_unavailable
-            return format_session_db_unavailable(prefix=t("gateway.shared.session_db_unavailable_prefix"))
+            return format_session_db_unavailable(
+                prefix=t("gateway.shared.session_db_unavailable_prefix"))
 
         # Ensure session exists in SQLite DB (it may only exist in session_store
         # if this is the first command in a new session)
@@ -2478,15 +2638,18 @@ class GatewaySlashCommandsMixin:
             # Show the current title and session ID
             title = self._session_db.get_session_title(session_id)
             if title:
-                return t("gateway.title.current_with_title", session_id=session_id, title=title)
+                return t("gateway.title.current_with_title",
+                         session_id=session_id, title=title)
             else:
-                return t("gateway.title.current_no_title", session_id=session_id)
+                return t("gateway.title.current_no_title",
+                         session_id=session_id)
 
     async def _handle_resume_command(self, event: MessageEvent) -> str:
         """Handle /resume command — list or switch to a previous session."""
         if not self._session_db:
             from nastech_state import format_session_db_unavailable
-            return format_session_db_unavailable(prefix=t("gateway.shared.session_db_unavailable_prefix"))
+            return format_session_db_unavailable(
+                prefix=t("gateway.shared.session_db_unavailable_prefix"))
 
         source = event.source
         session_key = self._session_key_for_source(source)
@@ -2504,7 +2667,8 @@ class GatewaySlashCommandsMixin:
 
         def _list_titled_sessions() -> list[dict]:
             user_source = source.platform.value if source.platform else None
-            sessions = self._session_db.list_sessions_rich(source=user_source, limit=10)
+            sessions = self._session_db.list_sessions_rich(
+                source=user_source, limit=10)
             return [s for s in sessions if s.get("title")][:10]
 
         if not name:
@@ -2517,8 +2681,11 @@ class GatewaySlashCommandsMixin:
                 for idx, s in enumerate(titled[:10], start=1):
                     title = s["title"]
                     preview = s.get("preview", "")[:40]
-                    preview_part = t("gateway.resume.list_preview_suffix", preview=preview) if preview else ""
-                    lines.append(t("gateway.resume.list_item_numbered", index=idx, title=title, preview_part=preview_part))
+                    preview_part = t(
+                        "gateway.resume.list_preview_suffix",
+                        preview=preview) if preview else ""
+                    lines.append(t("gateway.resume.list_item_numbered",
+                                 index=idx, title=title, preview_part=preview_part))
                 lines.append(t("gateway.resume.list_footer_numbered"))
                 return "\n".join(lines)
             except Exception as e:
@@ -2530,7 +2697,8 @@ class GatewaySlashCommandsMixin:
             try:
                 titled = _list_titled_sessions()
             except Exception as e:
-                logger.debug("Failed to list titled sessions for numeric resume: %s", e)
+                logger.debug(
+                    "Failed to list titled sessions for numeric resume: %s", e)
                 return t("gateway.resume.list_failed", error=e)
             index = int(name)
             if index < 1 or index > len(titled):
@@ -2553,7 +2721,10 @@ class GatewaySlashCommandsMixin:
         try:
             target_id = self._session_db.resolve_resume_session_id(target_id)
         except Exception as e:
-            logger.debug("Failed to resolve resume continuation for %s: %s", target_id, e)
+            logger.debug(
+                "Failed to resolve resume continuation for %s: %s",
+                target_id,
+                e)
 
         # Check if already on that session
         current_entry = self.session_store.get_or_create_session(source)
@@ -2581,11 +2752,13 @@ class GatewaySlashCommandsMixin:
 
         # Count messages for context
         history = self.session_store.load_transcript(target_id)
-        msg_count = len([m for m in history if m.get("role") == "user"]) if history else 0
+        msg_count = len([m for m in history if m.get(
+            "role") == "user"]) if history else 0
         if not msg_count:
             return t("gateway.resume.resumed_no_count", title=title)
         if msg_count == 1:
-            return t("gateway.resume.resumed_one", title=title, count=msg_count)
+            return t("gateway.resume.resumed_one",
+                     title=title, count=msg_count)
         return t("gateway.resume.resumed_many", title=title, count=msg_count)
 
     async def _handle_branch_command(self, event: MessageEvent) -> str:
@@ -2599,7 +2772,8 @@ class GatewaySlashCommandsMixin:
 
         if not self._session_db:
             from nastech_state import format_session_db_unavailable
-            return format_session_db_unavailable(prefix=t("gateway.shared.session_db_unavailable_prefix"))
+            return format_session_db_unavailable(
+                prefix=t("gateway.shared.session_db_unavailable_prefix"))
 
         source = event.source
         session_key = self._session_key_for_source(source)
@@ -2623,7 +2797,8 @@ class GatewaySlashCommandsMixin:
         if branch_name:
             branch_title = branch_name
         else:
-            current_title = self._session_db.get_session_title(current_entry.session_id)
+            current_title = self._session_db.get_session_title(
+                current_entry.session_id)
             base = current_title or "branch"
             branch_title = self._session_db.get_next_title_in_lineage(base)
 
@@ -2638,7 +2813,12 @@ class GatewaySlashCommandsMixin:
             self._session_db.create_session(
                 session_id=new_session_id,
                 source=source.platform.value if source.platform else "gateway",
-                model=(self.config.get("model", {}) or {}).get("default") if isinstance(self.config, dict) else None,
+                model=(
+                    self.config.get(
+                        "model",
+                        {}) or {}).get("default") if isinstance(
+                    self.config,
+                    dict) else None,
                 model_config={"_branched_from": parent_session_id},
                 parent_session_id=parent_session_id,
             )
@@ -2673,7 +2853,8 @@ class GatewaySlashCommandsMixin:
             pass
 
         # Switch the session store entry to the new session
-        new_entry = self.session_store.switch_session(session_key, new_session_id)
+        new_entry = self.session_store.switch_session(
+            session_key, new_session_id)
         if not new_entry:
             return t("gateway.branch.switch_failed")
         self._clear_session_boundary_security_state(session_key)
@@ -2683,7 +2864,8 @@ class GatewaySlashCommandsMixin:
 
         msg_count = len([m for m in history if m.get("role") == "user"])
         key = "gateway.branch.branched_one" if msg_count == 1 else "gateway.branch.branched_many"
-        return t(key, title=branch_title, count=msg_count, parent=parent_session_id, new=new_session_id)
+        return t(key, title=branch_title, count=msg_count,
+                 parent=parent_session_id, new=new_session_id)
 
     async def _handle_usage_command(self, event: MessageEvent) -> str:
         """Handle /usage command -- show token usage for the current session.
@@ -2711,13 +2893,24 @@ class GatewaySlashCommandsMixin:
         # Prefer the live agent; fall back to persisted billing data on the
         # SessionDB row so `/usage` still returns account info between turns
         # when no agent is resident.
-        provider = getattr(agent, "provider", None) if agent and agent is not _AGENT_PENDING_SENTINEL else None
-        base_url = getattr(agent, "base_url", None) if agent and agent is not _AGENT_PENDING_SENTINEL else None
-        api_key = getattr(agent, "api_key", None) if agent and agent is not _AGENT_PENDING_SENTINEL else None
+        provider = getattr(
+            agent,
+            "provider",
+            None) if agent and agent is not _AGENT_PENDING_SENTINEL else None
+        base_url = getattr(
+            agent,
+            "base_url",
+            None) if agent and agent is not _AGENT_PENDING_SENTINEL else None
+        api_key = getattr(
+            agent,
+            "api_key",
+            None) if agent and agent is not _AGENT_PENDING_SENTINEL else None
         if not provider and getattr(self, "_session_db", None) is not None:
             try:
-                _entry_for_billing = self.session_store.get_or_create_session(source)
-                persisted = self._session_db.get_session(_entry_for_billing.session_id) or {}
+                _entry_for_billing = self.session_store.get_or_create_session(
+                    source)
+                persisted = self._session_db.get_session(
+                    _entry_for_billing.session_id) or {}
             except Exception:
                 persisted = {}
             provider = provider or persisted.get("billing_provider")
@@ -2738,7 +2931,8 @@ class GatewaySlashCommandsMixin:
             except Exception:
                 account_snapshot = None
             if account_snapshot:
-                account_lines = render_account_usage_lines(account_snapshot, markdown=True)
+                account_lines = render_account_usage_lines(
+                    account_snapshot, markdown=True)
 
         # ── Nous credits magnitudes + monthly-grant % gauge ─────────────
         # Shared with the CLI / TUI /usage block via nastech_credits_lines(): a single
@@ -2755,14 +2949,16 @@ class GatewaySlashCommandsMixin:
         except Exception:
             credits_lines = []  # fail-open: never break /usage
 
-        if agent and hasattr(agent, "session_total_tokens") and agent.session_api_calls > 0:
+        if agent and hasattr(
+                agent, "session_total_tokens") and agent.session_api_calls > 0:
             lines = []
 
             # Rate limits (when available from provider headers)
             rl_state = agent.get_rate_limit_state()
             if rl_state and rl_state.has_data:
                 from agent.rate_limit_tracker import format_rate_limit_compact
-                lines.append(t("gateway.usage.rate_limits", state=format_rate_limit_compact(rl_state)))
+                lines.append(t("gateway.usage.rate_limits",
+                               state=format_rate_limit_compact(rl_state)))
                 lines.append("")
 
             # Session token usage — detailed breakdown matching CLI
@@ -2773,14 +2969,20 @@ class GatewaySlashCommandsMixin:
 
             lines.append(t("gateway.usage.header_session"))
             lines.append(t("gateway.usage.label_model", model=agent.model))
-            lines.append(t("gateway.usage.label_input_tokens", count=f"{input_tokens:,}"))
+            lines.append(t("gateway.usage.label_input_tokens",
+                         count=f"{input_tokens:,}"))
             if cache_read:
-                lines.append(t("gateway.usage.label_cache_read", count=f"{cache_read:,}"))
+                lines.append(t("gateway.usage.label_cache_read",
+                             count=f"{cache_read:,}"))
             if cache_write:
-                lines.append(t("gateway.usage.label_cache_write", count=f"{cache_write:,}"))
-            lines.append(t("gateway.usage.label_output_tokens", count=f"{output_tokens:,}"))
-            lines.append(t("gateway.usage.label_total", count=f"{agent.session_total_tokens:,}"))
-            lines.append(t("gateway.usage.label_api_calls", count=agent.session_api_calls))
+                lines.append(t("gateway.usage.label_cache_write",
+                             count=f"{cache_write:,}"))
+            lines.append(t("gateway.usage.label_output_tokens",
+                         count=f"{output_tokens:,}"))
+            lines.append(t("gateway.usage.label_total",
+                         count=f"{agent.session_total_tokens:,}"))
+            lines.append(t("gateway.usage.label_api_calls",
+                         count=agent.session_api_calls))
 
             # Cost estimation
             try:
@@ -2798,7 +3000,9 @@ class GatewaySlashCommandsMixin:
                 )
                 if cost_result.amount_usd is not None:
                     prefix = "~" if cost_result.status == "estimated" else ""
-                    lines.append(t("gateway.usage.label_cost", prefix=prefix, amount=f"{float(cost_result.amount_usd):.4f}"))
+                    lines.append(t("gateway.usage.label_cost",
+                                   prefix=prefix,
+                                   amount=f"{float(cost_result.amount_usd):.4f}"))
                 elif cost_result.status == "included":
                     lines.append(t("gateway.usage.label_cost_included"))
             except Exception:
@@ -2807,10 +3011,20 @@ class GatewaySlashCommandsMixin:
             # Context window and compressions
             ctx = agent.context_compressor
             if ctx.last_prompt_tokens:
-                pct = min(100, ctx.last_prompt_tokens / ctx.context_length * 100) if ctx.context_length else 0
-                lines.append(t("gateway.usage.label_context", used=f"{ctx.last_prompt_tokens:,}", total=f"{ctx.context_length:,}", pct=f"{pct:.0f}"))
+                pct = min(
+                    100,
+                    ctx.last_prompt_tokens /
+                    ctx.context_length *
+                    100) if ctx.context_length else 0
+                lines.append(
+                    t(
+                        "gateway.usage.label_context", used=f"{
+                            ctx.last_prompt_tokens:,}", total=f"{
+                            ctx.context_length:,}", pct=f"{
+                            pct:.0f}"))
             if ctx.compression_count:
-                lines.append(t("gateway.usage.label_compressions", count=ctx.compression_count))
+                lines.append(t("gateway.usage.label_compressions",
+                             count=ctx.compression_count))
 
             if account_lines:
                 lines.append("")
@@ -2826,12 +3040,15 @@ class GatewaySlashCommandsMixin:
         history = self.session_store.load_transcript(session_entry.session_id)
         if history:
             from agent.model_metadata import estimate_messages_tokens_rough
-            msgs = [m for m in history if m.get("role") in {"user", "assistant"} and m.get("content")]
+            msgs = [
+                m for m in history if m.get("role") in {
+                    "user", "assistant"} and m.get("content")]
             approx = estimate_messages_tokens_rough(msgs)
             lines = [
                 t("gateway.usage.header_session_info"),
                 t("gateway.usage.label_messages", count=len(msgs)),
-                t("gateway.usage.label_estimated_context", count=f"{approx:,}"),
+                t("gateway.usage.label_estimated_context",
+                  count=f"{approx:,}"),
                 t("gateway.usage.detailed_after_first"),
             ]
             if account_lines:
@@ -2842,7 +3059,8 @@ class GatewaySlashCommandsMixin:
                 lines.extend(credits_lines)
             return "\n".join(lines)
         if account_lines or credits_lines:
-            # account-only, credits-only, or both — joined with a blank divider.
+            # account-only, credits-only, or both — joined with a blank
+            # divider.
             parts = list(account_lines)
             if credits_lines:
                 if parts:
@@ -2855,8 +3073,12 @@ class GatewaySlashCommandsMixin:
         """Handle /insights command -- show usage insights and analytics."""
         args = event.get_command_args().strip()
 
-        # Normalize Unicode dashes (Telegram/iOS auto-converts -- to em/en dash)
-        args = re.sub(r'[\u2012\u2013\u2014\u2015](days|source)', r'--\1', args)
+        # Normalize Unicode dashes (Telegram/iOS auto-converts -- to em/en
+        # dash)
+        args = re.sub(
+            r'[\u2012\u2013\u2014\u2015](days|source)',
+            r'--\1',
+            args)
 
         days = 30
         source = None
@@ -2870,7 +3092,8 @@ class GatewaySlashCommandsMixin:
                     try:
                         days = int(parts[i + 1])
                     except ValueError:
-                        return t("gateway.insights.invalid_days", value=parts[i + 1])
+                        return t("gateway.insights.invalid_days",
+                                 value=parts[i + 1])
                     i += 2
                 elif parts[i] == "--source" and i + 1 < len(parts):
                     source = parts[i + 1]
@@ -2882,8 +3105,8 @@ class GatewaySlashCommandsMixin:
                     i += 1
 
         try:
-            from nastech_state import SessionDB
             from agent.insights import InsightsEngine
+            from nastech_state import SessionDB
 
             loop = asyncio.get_running_loop()
 
@@ -2900,7 +3123,8 @@ class GatewaySlashCommandsMixin:
             logger.error("Insights command error: %s", e, exc_info=True)
             return t("gateway.insights.error", error=e)
 
-    async def _handle_reload_mcp_command(self, event: MessageEvent) -> Optional[str]:
+    async def _handle_reload_mcp_command(
+            self, event: MessageEvent) -> Optional[str]:
         """Handle /reload-mcp — reconnect MCP servers and rebuild the cached agent.
 
         Reloading MCP tools invalidates the provider prompt cache for the
@@ -2922,7 +3146,8 @@ class GatewaySlashCommandsMixin:
         # Read the gate fresh from disk so a prior "always" click takes
         # effect on the next invocation without restarting the gateway.
         user_config = self._read_user_config()
-        approvals = user_config.get("approvals") if isinstance(user_config, dict) else None
+        approvals = user_config.get("approvals") if isinstance(
+            user_config, dict) else None
         confirm_required = True
         if isinstance(approvals, dict):
             confirm_required = bool(approvals.get("mcp_reload_confirm", True))
@@ -2947,11 +3172,13 @@ class GatewaySlashCommandsMixin:
                         session_key,
                     )
                 except Exception as exc:
-                    logger.warning("Failed to persist mcp_reload_confirm=false: %s", exc)
+                    logger.warning(
+                        "Failed to persist mcp_reload_confirm=false: %s", exc)
             # once / always → run the reload
             result = await self._execute_mcp_reload(event)
             if choice == "always":
-                return f"{result}\n\n" + t("gateway.reload_mcp.always_followup")
+                return f"{result}\n\n" + \
+                    t("gateway.reload_mcp.always_followup")
             return result
 
         prompt_message = t("gateway.reload_mcp.confirm_prompt")
@@ -2983,8 +3210,10 @@ class GatewaySlashCommandsMixin:
             from agent.skill_commands import reload_skills
 
             result = await loop.run_in_executor(None, reload_skills)
-            added = result.get("added", [])      # [{"name", "description"}, ...]
-            removed = result.get("removed", [])  # [{"name", "description"}, ...]
+            # [{"name", "description"}, ...]
+            added = result.get("added", [])
+            # [{"name", "description"}, ...]
+            removed = result.get("removed", [])
             total = result.get("total", 0)
 
             # Let each connected adapter refresh any platform-side state
@@ -3019,7 +3248,8 @@ class GatewaySlashCommandsMixin:
                 nm = item.get("name", "")
                 desc = item.get("description", "")
                 if desc:
-                    return t("gateway.reload_skills.item_with_desc", name=nm, desc=desc)
+                    return t("gateway.reload_skills.item_with_desc",
+                             name=nm, desc=desc)
                 return t("gateway.reload_skills.item_no_desc", name=nm)
 
             if added:
@@ -3071,7 +3301,7 @@ class GatewaySlashCommandsMixin:
         invoking the bundle's own ``/<slug>`` command, not by this one.
         """
         try:
-            from agent.skill_bundles import list_bundles, _bundles_dir
+            from agent.skill_bundles import _bundles_dir, list_bundles
         except Exception as exc:
             logger.warning("Bundles command unavailable: %s", exc)
             return f"Bundles subsystem unavailable: {exc}"
@@ -3098,7 +3328,8 @@ class GatewaySlashCommandsMixin:
         lines.append("Invoke a bundle with `/<slug>` to load all its skills.")
         return "\n".join(lines)
 
-    async def _handle_approve_command(self, event: MessageEvent) -> Optional[str]:
+    async def _handle_approve_command(
+            self, event: MessageEvent) -> Optional[str]:
         """Handle /approve command — unblock waiting agent thread(s).
 
         The agent thread(s) are blocked inside tools/approval.py waiting for
@@ -3122,7 +3353,8 @@ class GatewaySlashCommandsMixin:
         session_key = self._session_key_for_source(source)
 
         from tools.approval import (
-            resolve_gateway_approval, has_blocking_approval,
+            has_blocking_approval,
+            resolve_gateway_approval,
         )
 
         if not has_blocking_approval(session_key):
@@ -3131,7 +3363,8 @@ class GatewaySlashCommandsMixin:
                 return t("gateway.approval_expired")
             return t("gateway.approve.no_pending")
 
-        # Parse args: support "all", "all session", "all always", "session", "always"
+        # Parse args: support "all", "all session", "all always", "session",
+        # "always"
         args = event.get_command_args().strip().lower().split()
         resolve_all = "all" in args
         remaining = [a for a in args if a != "all"]
@@ -3143,7 +3376,8 @@ class GatewaySlashCommandsMixin:
         else:
             choice = "once"
 
-        count = resolve_gateway_approval(session_key, choice, resolve_all=resolve_all)
+        count = resolve_gateway_approval(
+            session_key, choice, resolve_all=resolve_all)
         if not count:
             return t("gateway.approve.no_pending")
 
@@ -3152,7 +3386,10 @@ class GatewaySlashCommandsMixin:
         if _adapter:
             _adapter.resume_typing_for_chat(source.chat_id)
 
-        logger.info("User approved %d dangerous command(s) via /approve (%s)", count, choice)
+        logger.info(
+            "User approved %d dangerous command(s) via /approve (%s)",
+            count,
+            choice)
         plural = "plural" if count > 1 else "singular"
         return t(f"gateway.approve.{choice}_{plural}", count=count)
 
@@ -3168,7 +3405,8 @@ class GatewaySlashCommandsMixin:
         session_key = self._session_key_for_source(source)
 
         from tools.approval import (
-            resolve_gateway_approval, has_blocking_approval,
+            has_blocking_approval,
+            resolve_gateway_approval,
         )
 
         if not has_blocking_approval(session_key):
@@ -3180,7 +3418,8 @@ class GatewaySlashCommandsMixin:
         args = event.get_command_args().strip().lower()
         resolve_all = "all" in args
 
-        count = resolve_gateway_approval(session_key, "deny", resolve_all=resolve_all)
+        count = resolve_gateway_approval(
+            session_key, "deny", resolve_all=resolve_all)
         if not count:
             return t("gateway.deny.no_pending")
 
@@ -3202,10 +3441,14 @@ class GatewaySlashCommandsMixin:
         full log uploads should use ``nastech debug share`` from the CLI.
         """
         import asyncio
+
         from nastech_cli.debug import (
-            _capture_dump, collect_debug_report,
-            upload_to_pastebin, _schedule_auto_delete,
-            _GATEWAY_PRIVACY_NOTICE, _best_effort_sweep_expired_pastes,
+            _GATEWAY_PRIVACY_NOTICE,
+            _best_effort_sweep_expired_pastes,
+            _capture_dump,
+            _schedule_auto_delete,
+            collect_debug_report,
+            upload_to_pastebin,
         )
 
         loop = asyncio.get_running_loop()
@@ -3225,7 +3468,11 @@ class GatewaySlashCommandsMixin:
             # Schedule auto-deletion after 6 hours
             _schedule_auto_delete(list(urls.values()))
 
-            lines = [_GATEWAY_PRIVACY_NOTICE, "", t("gateway.debug.header"), ""]
+            lines = [
+                _GATEWAY_PRIVACY_NOTICE,
+                "",
+                t("gateway.debug.header"),
+                ""]
             label_width = max(len(k) for k in urls)
             for label, url in urls.items():
                 lines.append(f"`{label:<{label_width}}`  {url}")
@@ -3246,12 +3493,13 @@ class GatewaySlashCommandsMixin:
         files are written so either the current gateway process or the next one
         can notify the user when the update finishes.
         """
-        from gateway.run import _nastech_home, _resolve_nastech_bin
         import json
         import shutil
         import subprocess
         from datetime import datetime
-        from nastech_cli.config import is_managed, format_managed_message
+
+        from gateway.run import _nastech_home, _resolve_nastech_bin
+        from nastech_cli.config import format_managed_message, is_managed
 
         # Block non-messaging platforms (API server, webhooks, ACP)
         platform = event.source.platform
@@ -3327,6 +3575,7 @@ class GatewaySlashCommandsMixin:
         try:
             if sys.platform == "win32":
                 import textwrap
+
                 from nastech_cli._subprocess_compat import windows_detach_popen_kwargs
 
                 # nastech_cmd is a list of argv parts we can pass directly
@@ -3357,7 +3606,8 @@ class GatewaySlashCommandsMixin:
                     **windows_detach_popen_kwargs(),
                 )
             else:
-                nastech_cmd_str = " ".join(shlex.quote(part) for part in nastech_cmd)
+                nastech_cmd_str = " ".join(
+                    shlex.quote(part) for part in nastech_cmd)
                 update_cmd = (
                     f"PYTHONUNBUFFERED=1 {nastech_cmd_str} update --gateway"
                     f" > {shlex.quote(str(output_path))} 2>&1; "
@@ -3365,7 +3615,9 @@ class GatewaySlashCommandsMixin:
                     # in zsh, and this command string is copied/reused in macOS/zsh
                     # operator wrappers. Keep the template zsh-safe even though this
                     # specific subprocess currently runs under bash.
-                    f"rc=$?; printf '%s' \"$rc\" > {shlex.quote(str(exit_code_path))}"
+                    f"rc=$?; printf '%s' \"$rc\" > {
+                        shlex.quote(
+                            str(exit_code_path))}"
                 )
                 setsid_bin = shutil.which("setsid")
                 if setsid_bin:
@@ -3377,7 +3629,8 @@ class GatewaySlashCommandsMixin:
                         start_new_session=True,
                     )
                 else:
-                    # Fallback: start_new_session=True calls os.setsid() in child
+                    # Fallback: start_new_session=True calls os.setsid() in
+                    # child
                     subprocess.Popen(
                         ["bash", "-c", update_cmd],
                         stdout=subprocess.DEVNULL,

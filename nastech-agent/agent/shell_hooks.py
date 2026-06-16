@@ -71,7 +71,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 try:
-    import fcntl  # POSIX only; Windows falls back to best-effort without flock.
+    # POSIX only; Windows falls back to best-effort without flock.
+    import fcntl
 except ImportError:  # pragma: no cover
     fcntl = None  # type: ignore[assignment]
 
@@ -210,7 +211,9 @@ def register_from_config(
         with _registered_lock:
             if key in _registered:
                 continue
-            manager._hooks.setdefault(spec.event, []).append(_make_callback(spec))
+            manager._hooks.setdefault(
+                spec.event, []).append(
+                _make_callback(spec))
             _registered.add(key)
             registered.append(spec)
             logger.info(
@@ -221,7 +224,8 @@ def register_from_config(
     return registered
 
 
-def iter_configured_hooks(cfg: Optional[Dict[str, Any]]) -> List[ShellHookSpec]:
+def iter_configured_hooks(
+        cfg: Optional[Dict[str, Any]]) -> List[ShellHookSpec]:
     """Return the parsed ``ShellHookSpec`` entries from config without
     registering anything.  Used by ``nastech hooks list`` and ``doctor``."""
     if not isinstance(cfg, dict):
@@ -313,7 +317,8 @@ def _parse_single_entry(
         )
         matcher = None
 
-    if matcher is not None and event not in {"pre_tool_call", "post_tool_call"}:
+    if matcher is not None and event not in {
+            "pre_tool_call", "post_tool_call"}:
         logger.warning(
             "hooks.%s[%d].matcher=%r will be ignored at runtime — the "
             "matcher field is only honored for pre_tool_call / "
@@ -358,7 +363,11 @@ def _parse_single_entry(
 # Subprocess callback
 # ---------------------------------------------------------------------------
 
-_TOP_LEVEL_PAYLOAD_KEYS = {"tool_name", "args", "session_id", "parent_session_id"}
+_TOP_LEVEL_PAYLOAD_KEYS = {
+    "tool_name",
+    "args",
+    "session_id",
+    "parent_session_id"}
 
 
 def _spawn(spec: ShellHookSpec, stdin_json: str) -> Dict[str, Any]:
@@ -419,7 +428,8 @@ def _spawn(spec: ShellHookSpec, stdin_json: str) -> Dict[str, Any]:
     return result
 
 
-def _make_callback(spec: ShellHookSpec) -> Callable[..., Optional[Dict[str, Any]]]:
+def _make_callback(
+        spec: ShellHookSpec) -> Callable[..., Optional[Dict[str, Any]]]:
     """Build the closure that ``invoke_hook()`` will call per firing."""
 
     def _callback(**kwargs: Any) -> Optional[Dict[str, Any]]:
@@ -466,7 +476,8 @@ def _make_callback(spec: ShellHookSpec) -> Callable[..., Optional[Dict[str, Any]
 def _serialize_payload(event: str, kwargs: Dict[str, Any]) -> str:
     """Render the stdin JSON payload.  Unserialisable values are
     stringified via ``default=str`` rather than dropped."""
-    extras = {k: v for k, v in kwargs.items() if k not in _TOP_LEVEL_PAYLOAD_KEYS}
+    extras = {k: v for k, v in kwargs.items(
+    ) if k not in _TOP_LEVEL_PAYLOAD_KEYS}
     try:
         cwd = str(Path.cwd())
     except OSError:
@@ -527,9 +538,11 @@ def _parse_response(event: str, stdout: str) -> Optional[Dict[str, Any]]:
 
     if event == "pre_tool_call":
         if data.get("action") == "block":
-            return {"action": "block", "message": _block_message(data.get("message"), data.get("reason"))}
+            return {"action": "block", "message": _block_message(
+                data.get("message"), data.get("reason"))}
         if data.get("decision") == "block":
-            return {"action": "block", "message": _block_message(data.get("reason"), data.get("message"))}
+            return {"action": "block", "message": _block_message(
+                data.get("reason"), data.get("message"))}
         return None
 
     context = data.get("context")

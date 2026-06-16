@@ -14,7 +14,8 @@ DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT = float(
 def parse_restart_drain_timeout(raw: object) -> float:
     """Parse a configured drain timeout, falling back to the shared default."""
     try:
-        value = float(raw) if str(raw or "").strip() else DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT
+        value = float(raw) if str(raw or "").strip(
+        ) else DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT
     except (TypeError, ValueError):
         return DEFAULT_GATEWAY_RESTART_DRAIN_TIMEOUT
     return max(0.0, value)

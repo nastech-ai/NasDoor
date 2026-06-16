@@ -35,7 +35,10 @@ def build_login_parser(subparsers, *, cmd_login: Callable) -> None:
     login_parser.add_argument(
         "--client-id", default=None, help="OAuth client id to use (default: nastech-cli)"
     )
-    login_parser.add_argument("--scope", default=None, help="OAuth scope to request")
+    login_parser.add_argument(
+        "--scope",
+        default=None,
+        help="OAuth scope to request")
     login_parser.add_argument(
         "--no-browser",
         action="store_true",

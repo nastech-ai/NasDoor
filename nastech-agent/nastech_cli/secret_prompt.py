@@ -7,7 +7,6 @@ import os
 import sys
 from collections.abc import Callable
 
-
 _BACKSPACE_CHARS = {"\b", "\x7f"}
 _ENTER_CHARS = {"\r", "\n"}
 _EOF_CHARS = {"\x04", "\x1a"}

@@ -44,7 +44,8 @@ def _scan_source(content: str, rel_path: str) -> List[Finding]:
                                      "__import__ with non-literal module name"))
             # getattr(obj, <computed>)
             elif isinstance(f, ast.Name) and f.id == "getattr":
-                if len(node.args) >= 2 and not isinstance(node.args[1], ast.Constant):
+                if len(node.args) >= 2 and not isinstance(
+                        node.args[1], ast.Constant):
                     findings.append((rel_path, node.lineno, "dynamic_getattr",
                                      "getattr with non-literal attribute name"))
             self.generic_visit(node)
@@ -129,5 +130,6 @@ def format_ast_report(findings: List[Finding], skill_name: str = "") -> str:
             lines.append(f"  {f}")
         lines.append(f"    L{line}  {pid}  — {desc}")
     lines.append("")
-    lines.append("  Note: diagnostic hints for human review, not security verdicts.")
+    lines.append(
+        "  Note: diagnostic hints for human review, not security verdicts.")
     return "\n".join(lines)

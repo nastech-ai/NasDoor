@@ -67,7 +67,8 @@ class _ClarifyEntry:
 _lock = threading.RLock()
 # clarify_id → _ClarifyEntry  (primary lookup for button callbacks)
 _entries: Dict[str, _ClarifyEntry] = {}
-# session_key → list[clarify_id]  (FIFO; for text-fallback intercept and session cleanup)
+# session_key → list[clarify_id]  (FIFO; for text-fallback intercept and
+# session cleanup)
 _session_index: Dict[str, List[str]] = {}
 
 
@@ -91,7 +92,8 @@ def register(
         session_key=session_key,
         question=question,
         choices=list(choices) if choices else None,
-        # Open-ended (no choices) → next message IS the response, no buttons needed.
+        # Open-ended (no choices) → next message IS the response, no buttons
+        # needed.
         awaiting_text=not bool(choices),
     )
     with _lock:
@@ -121,7 +123,9 @@ def wait_for_response(clarify_id: str, timeout: float) -> Optional[str]:
         touch_activity_if_due = None
 
     deadline = time.monotonic() + max(timeout, 0.0)
-    activity_state = {"last_touch": time.monotonic(), "start": time.monotonic()}
+    activity_state = {
+        "last_touch": time.monotonic(),
+        "start": time.monotonic()}
     while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
@@ -129,7 +133,9 @@ def wait_for_response(clarify_id: str, timeout: float) -> Optional[str]:
         if entry.event.wait(timeout=min(1.0, remaining)):
             break
         if touch_activity_if_due is not None:
-            touch_activity_if_due(activity_state, "waiting for user clarify response")
+            touch_activity_if_due(
+                activity_state,
+                "waiting for user clarify response")
 
     with _lock:
         # Remove from indices regardless of resolution outcome.
@@ -258,7 +264,8 @@ def get_clarify_timeout() -> int:
 _notify_cbs: Dict[str, Callable[[_ClarifyEntry], None]] = {}
 
 
-def register_notify(session_key: str, cb: Callable[[_ClarifyEntry], None]) -> None:
+def register_notify(session_key: str, cb: Callable[[
+                    _ClarifyEntry], None]) -> None:
     """Register a per-session notify callback used by ``clarify_callback``."""
     with _lock:
         _notify_cbs[session_key] = cb

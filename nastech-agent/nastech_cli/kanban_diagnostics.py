@@ -29,11 +29,10 @@ Design goals:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Optional
 import json
 import time
-
+from dataclasses import dataclass, field
+from typing import Any, Callable, Iterable, Optional
 
 # Severity rungs, ordered least → most urgent. The UI colors them
 # amber (warning), orange (error), red (critical). Sorted outputs put
@@ -41,7 +40,8 @@ import time
 SEVERITY_ORDER = ("warning", "error", "critical")
 
 
-def severity_at_or_above(severity: Optional[str], threshold: Optional[str]) -> bool:
+def severity_at_or_above(
+        severity: Optional[str], threshold: Optional[str]) -> bool:
     """Return True when ``severity`` meets or exceeds ``threshold``."""
     if threshold is None:
         return True
@@ -194,7 +194,10 @@ def _active_hallucination_events(
 # Standard always-available actions. Every diagnostic can offer these as
 # fallbacks regardless of kind — they're the two baseline recovery
 # primitives the kernel supports.
-def _generic_recovery_actions(task: Any, *, running: bool) -> list[DiagnosticAction]:
+
+
+def _generic_recovery_actions(
+        task: Any, *, running: bool) -> list[DiagnosticAction]:
     out: list[DiagnosticAction] = []
     if running:
         out.append(DiagnosticAction(
@@ -283,7 +286,8 @@ def triage_aux_status(config: Optional[dict]) -> Optional[dict]:
         return explicit
 
     aux = config.get("auxiliary")
-    kanban_cfg = config.get("kanban") if isinstance(config.get("kanban"), dict) else {}
+    kanban_cfg = config.get("kanban") if isinstance(
+        config.get("kanban"), dict) else {}
 
     # Have we been handed any config context at all? When neither auxiliary
     # nor kanban nor model keys are present, the caller is a low-level test
@@ -331,7 +335,8 @@ def _rule_hallucinated_cards(task, events, runs, now, cfg) -> list[Diagnostic]:
     Auto-clears when a successful completion (or edit) follows the
     blocked event.
     """
-    hits = _active_hallucination_events(events, "completion_blocked_hallucination")
+    hits = _active_hallucination_events(
+        events, "completion_blocked_hallucination")
     if not hits:
         return []
     phantom_ids: list[str] = []
@@ -369,7 +374,8 @@ def _rule_hallucinated_cards(task, events, runs, now, cfg) -> list[Diagnostic]:
     )]
 
 
-def _rule_triage_aux_unavailable(task, events, runs, now, cfg) -> list[Diagnostic]:
+def _rule_triage_aux_unavailable(
+        task, events, runs, now, cfg) -> list[Diagnostic]:
     """A triage task cannot leave triage without an auxiliary helper.
 
     With the auto-decompose dispatcher (kanban.auto_decompose, default True),
@@ -488,7 +494,8 @@ def _rule_prose_phantom_refs(task, events, runs, now, cfg) -> list[Diagnostic]:
     Auto-clears when a fresh clean completion arrives AFTER the
     suspected event.
     """
-    hits = _active_hallucination_events(events, "suspected_hallucinated_references")
+    hits = _active_hallucination_events(
+        events, "suspected_hallucinated_references")
     if not hits:
         return []
     phantom_refs: list[str] = []
@@ -595,7 +602,8 @@ def _rule_repeated_failures(task, events, runs, now, cfg) -> list[Diagnostic]:
 
     severity = "critical" if failures >= threshold * 2 else "error"
     err_text = (last_err or "").strip() if last_err else ""
-    err_snippet = err_text[:500] + ("…" if len(err_text) > 500 else "") if err_text else ""
+    err_snippet = err_text[:500] + \
+        ("…" if len(err_text) > 500 else "") if err_text else ""
     outcome_label = {
         "spawn_failed": "spawn",
         "timed_out": "timeout",
@@ -698,7 +706,8 @@ def _rule_repeated_crashes(task, events, runs, now, cfg) -> list[Diagnostic]:
     # having to open the logs. Truncate defensively — these can be huge
     # (full tracebacks).
     err_text = (last_err or "").strip() if last_err else ""
-    err_snippet = err_text[:500] + ("…" if len(err_text) > 500 else "") if err_text else ""
+    err_snippet = err_text[:500] + \
+        ("…" if len(err_text) > 500 else "") if err_text else ""
     if err_snippet:
         title = f"Agent crashed {consecutive}x: {err_snippet.splitlines()[0][:160]}"
         detail = (
@@ -747,7 +756,8 @@ def _rule_stuck_in_blocked(task, events, runs, now, cfg) -> list[Diagnostic]:
         return []
     # Any comment / unblock after the block breaks the "stale" signal.
     for ev in events:
-        if _event_kind(ev) in {"commented", "unblocked"} and _event_ts(ev) > last_blocked_ts:
+        if _event_kind(ev) in {"commented", "unblocked"} and _event_ts(
+                ev) > last_blocked_ts:
             return []
     actions: list[DiagnosticAction] = [
         DiagnosticAction(
@@ -774,7 +784,8 @@ def _rule_stuck_in_blocked(task, events, runs, now, cfg) -> list[Diagnostic]:
     )]
 
 
-def _rule_block_unblock_cycling(task, events, runs, now, cfg) -> list[Diagnostic]:
+def _rule_block_unblock_cycling(
+        task, events, runs, now, cfg) -> list[Diagnostic]:
     """Task has cycled through blocked → unblocked many times — the
     ``unblock`` is not fixing the underlying problem and the worker
     keeps re-blocking for substantially the same reason.
@@ -832,7 +843,10 @@ def _rule_block_unblock_cycling(task, events, runs, now, cfg) -> list[Diagnostic
     return [Diagnostic(
         kind="block_unblock_cycling",
         severity="warning",
-        title=f"Task block→unblock cycled {cycles}x in {int(window_seconds/3600)}h",
+        title=f"Task block→unblock cycled {cycles}x in {
+            int(
+                window_seconds /
+                3600)}h",
         detail=(
             f"This task has been blocked {cycles} times after being "
             "unblocked, suggesting the unblock is not addressing the "
@@ -841,8 +855,10 @@ def _rule_block_unblock_cycling(task, events, runs, now, cfg) -> list[Diagnostic
             "intervention (reassign, change scope, archive) may be needed."
         ),
         actions=actions,
-        first_seen_at=int(initial_blocked_ts) if initial_blocked_ts else int(now),
-        last_seen_at=int(last_cycle_blocked_ts) if last_cycle_blocked_ts else int(now),
+        first_seen_at=int(
+            initial_blocked_ts) if initial_blocked_ts else int(now),
+        last_seen_at=int(
+            last_cycle_blocked_ts) if last_cycle_blocked_ts else int(now),
         count=cycles,
         data={
             "cycles": cycles,

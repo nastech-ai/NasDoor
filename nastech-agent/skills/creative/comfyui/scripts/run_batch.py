@@ -34,21 +34,33 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (  # noqa: E402
-    DEFAULT_LOCAL_HOST, ENV_API_KEY, coerce_seed, emit_json, log,
-    looks_like_video_workflow, resolve_api_key, unwrap_workflow,
-)
-from run_workflow import (  # noqa: E402
-    ComfyRunner, download_outputs, inject_params,
+    DEFAULT_LOCAL_HOST,
+    ENV_API_KEY,
+    coerce_seed,
+    emit_json,
+    log,
+    looks_like_video_workflow,
+    resolve_api_key,
+    unwrap_workflow,
 )
 from extract_schema import extract_schema  # noqa: E402
+from run_workflow import (  # noqa: E402
+    ComfyRunner,
+    download_outputs,
+    inject_params,
+)
 
 
-def expand_sweep(sweep: dict, base_args: dict, count: int, randomize_seed: bool) -> list[dict]:
+def expand_sweep(sweep: dict, base_args: dict, count: int,
+                 randomize_seed: bool) -> list[dict]:
     """Generate a list of args dicts for each run."""
     if sweep:
         # Cartesian product
         keys = list(sweep.keys())
-        values = [sweep[k] if isinstance(sweep[k], list) else [sweep[k]] for k in keys]
+        values = [
+            sweep[k] if isinstance(
+                sweep[k], list) else [
+                sweep[k]] for k in keys]
         runs = []
         for combo in itertools.product(*values):
             ar = dict(base_args)
@@ -77,7 +89,8 @@ def execute_one(
                 "details": sub.get("body"), "args": args}
     pid = sub.get("prompt_id")
     if not pid:
-        return {"status": "error", "error": "no prompt_id", "response": sub, "args": args}
+        return {"status": "error", "error": "no prompt_id",
+                "response": sub, "args": args}
     if sub.get("node_errors"):
         return {"status": "error", "error": "validation failed",
                 "node_errors": sub["node_errors"], "args": args}
@@ -96,7 +109,11 @@ def execute_one(
         }
 
     outputs = result.get("outputs") or runner.get_outputs(pid)
-    downloaded = download_outputs(runner, outputs, output_dir, preserve_subfolder=False)
+    downloaded = download_outputs(
+        runner,
+        outputs,
+        output_dir,
+        preserve_subfolder=False)
     return {
         "status": "success",
         "prompt_id": pid,
@@ -142,13 +159,20 @@ def main(argv: list[str] | None = None) -> int:
     # Validate sweep shape
     if sweep:
         if not isinstance(sweep, dict):
-            emit_json({"error": "--sweep must be a JSON object {param: [values]}"})
+            emit_json(
+                {"error": "--sweep must be a JSON object {param: [values]}"})
             return 1
-        empty = [k for k, v in sweep.items() if isinstance(v, list) and len(v) == 0]
+        empty = [
+            k for k,
+            v in sweep.items() if isinstance(
+                v,
+                list) and len(v) == 0]
         if empty:
-            emit_json({"error": f"--sweep parameters have empty value lists: {empty}"})
+            emit_json(
+                {"error": f"--sweep parameters have empty value lists: {empty}"})
             return 1
-        # If user passed BOTH --sweep and --count/--randomize-seed, --sweep wins
+        # If user passed BOTH --sweep and --count/--randomize-seed, --sweep
+        # wins
         if args.count or args.randomize_seed:
             log("--sweep set; ignoring --count / --randomize-seed (sweep defines the runs)")
 
@@ -168,11 +192,15 @@ def main(argv: list[str] | None = None) -> int:
     log(f"Planned {len(runs)} run(s)")
 
     api_key = resolve_api_key(args.api_key)
-    runner = ComfyRunner(host=args.host, api_key=api_key, partner_key=args.partner_key)
+    runner = ComfyRunner(
+        host=args.host,
+        api_key=api_key,
+        partner_key=args.partner_key)
 
     ok, info = runner.check_server()
     if not ok:
-        emit_json({"error": "Cannot reach server", "details": info, "host": args.host})
+        emit_json({"error": "Cannot reach server",
+                  "details": info, "host": args.host})
         return 1
 
     timeout = args.timeout
@@ -205,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
                 results.append(r)
                 if r["status"] != "success":
                     failures += 1
-                    log(f"  run {i} → {r['status']}: {r.get('error','?')}")
+                    log(f"  run {i} → {r['status']}: {r.get('error', '?')}")
                     if not args.continue_on_error:
                         log("  --continue-on-error not set; aborting batch")
                         break
@@ -215,12 +243,12 @@ def main(argv: list[str] | None = None) -> int:
         for i, ar in enumerate(runs):
             run_dir = base_dir / f"run_{i:04d}"
             r = execute_one(runner, workflow, schema, ar,
-                           output_dir=run_dir, timeout=timeout, ws=args.ws)
+                            output_dir=run_dir, timeout=timeout, ws=args.ws)
             r["index"] = i
             results.append(r)
             if r["status"] != "success":
                 failures += 1
-                log(f"  run {i} → {r['status']}: {r.get('error','?')}")
+                log(f"  run {i} → {r['status']}: {r.get('error', '?')}")
                 if not args.continue_on_error:
                     log("  --continue-on-error not set; aborting batch")
                     break

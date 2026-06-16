@@ -63,7 +63,8 @@ _LANGUAGE_ALIASES: dict[str, str] = {
     "french": "fr", "français": "fr", "france": "fr", "fr-fr": "fr", "fr-be": "fr", "fr-ca": "fr", "fr-ch": "fr",
     "ukrainian": "uk", "ukrainisch": "uk", "українська": "uk", "uk-ua": "uk", "ua": "uk",
     "turkish": "tr", "türkçe": "tr", "tr-tr": "tr",
-    # Afrikaans — South African Dutch-derived language; "af-ZA" is the common BCP-47 tag.
+    # Afrikaans — South African Dutch-derived language; "af-ZA" is the common
+    # BCP-47 tag.
     "afrikaans": "af", "af-za": "af",
     # Korean
     "korean": "ko", "한국어": "ko", "ko-kr": "ko",
@@ -72,7 +73,8 @@ _LANGUAGE_ALIASES: dict[str, str] = {
     # Irish (Gaeilge) — ga is the BCP-47 code
     "irish": "ga", "gaeilge": "ga", "ga-ie": "ga",
     # Portuguese — bare "portuguese" routes to European Portuguese; pt-br
-    # is in the same family but rendered identically here (no separate br catalog).
+    # is in the same family but rendered identically here (no separate br
+    # catalog).
     "portuguese": "pt", "português": "pt", "portugues": "pt",
     "pt-pt": "pt", "pt-br": "pt", "brazilian": "pt", "brasileiro": "pt",
     # Russian

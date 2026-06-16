@@ -168,7 +168,8 @@ def _fetch_manifest_with_fallback(
             continue
         data = _fetch_manifest(url, timeout)
         if data is not None:
-            logger.info("model catalog primary URL failed; using fallback %s", url)
+            logger.info(
+                "model catalog primary URL failed; using fallback %s", url)
             return data
     return None
 
@@ -252,7 +253,8 @@ def get_catalog(*, force_refresh: bool = False) -> dict[str, Any]:
     now = time.time()
     disk_fresh = disk_data is not None and (now - disk_mtime) < ttl_seconds
 
-    # In-process cache hit: disk hasn't changed since we loaded it and still fresh.
+    # In-process cache hit: disk hasn't changed since we loaded it and still
+    # fresh.
     if (
         not force_refresh
         and _catalog_cache is not None
@@ -372,15 +374,21 @@ def seed_cache_from_checkout(project_root: "Path | str") -> bool:
     as non-fatal — the network fetch path still applies on the next picker
     open).
     """
-    src = Path(project_root) / "website" / "static" / "api" / "model-catalog.json"
+    src = Path(project_root) / "website" / \
+        "static" / "api" / "model-catalog.json"
     try:
         with open(src, encoding="utf-8") as fh:
             data = json.load(fh)
     except (OSError, json.JSONDecodeError) as exc:
-        logger.debug("model catalog seed from checkout skipped (%s): %s", src, exc)
+        logger.debug(
+            "model catalog seed from checkout skipped (%s): %s",
+            src,
+            exc)
         return False
     if not _validate_manifest(data):
-        logger.debug("model catalog seed from checkout skipped: invalid manifest at %s", src)
+        logger.debug(
+            "model catalog seed from checkout skipped: invalid manifest at %s",
+            src)
         return False
     _write_disk_cache(data)
     reset_cache()  # drop the in-process copy so the next read picks up the seed

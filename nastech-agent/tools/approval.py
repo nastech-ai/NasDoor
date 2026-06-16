@@ -17,8 +17,8 @@ import threading
 import time
 import unicodedata
 from typing import Optional
-from nastech_cli.config import cfg_get
 
+from nastech_cli.config import cfg_get
 from utils import env_var_enabled, is_truthy_value
 
 logger = logging.getLogger(__name__)
@@ -71,7 +71,6 @@ def _fire_approval_hook(hook_name: str, **kwargs) -> None:
         # means the dispatch layer itself failed. Log and move on -- approval
         # flow is safety-critical, plugin observability is not.
         logger.debug("Approval hook %s dispatch failed: %s", hook_name, exc)
-
 
 
 def set_current_session_key(session_key: str) -> contextvars.Token[str]:
@@ -149,6 +148,7 @@ def _is_gateway_approval_context() -> bool:
     if env_var_enabled("NASTECH_GATEWAY_SESSION"):
         return True
     return bool(_get_session_platform())
+
 
 # Sensitive write targets that should trigger approval even when referenced
 # via shell expansions like $HOME or $NASTECH_HOME, or by the resolved absolute
@@ -254,14 +254,19 @@ _CMDPOS = (
 
 HARDLINE_PATTERNS = [
     # rm recursive targeting the root filesystem or protected roots
-    (r'\brm\s+(-[^\s]*\s+)*(/|/\*|/ \*)(\s|$)', "recursive delete of root filesystem"),
-    (r'\brm\s+(-[^\s]*\s+)*(/home|/home/\*|/root|/root/\*|/etc|/etc/\*|/usr|/usr/\*|/var|/var/\*|/bin|/bin/\*|/sbin|/sbin/\*|/boot|/boot/\*|/lib|/lib/\*)(\s|$)', "recursive delete of system directory"),
-    (r'\brm\s+(-[^\s]*\s+)*(~|\$HOME)(/?|/\*)?(\s|$)', "recursive delete of home directory"),
+    (r'\brm\s+(-[^\s]*\s+)*(/|/\*|/ \*)(\s|$)',
+     "recursive delete of root filesystem"),
+    (r'\brm\s+(-[^\s]*\s+)*(/home|/home/\*|/root|/root/\*|/etc|/etc/\*|/usr|/usr/\*|/var|/var/\*|/bin|/bin/\*|/sbin|/sbin/\*|/boot|/boot/\*|/lib|/lib/\*)(\s|$)',
+     "recursive delete of system directory"),
+    (r'\brm\s+(-[^\s]*\s+)*(~|\$HOME)(/?|/\*)?(\s|$)',
+     "recursive delete of home directory"),
     # Filesystem format
     (r'\bmkfs(\.[a-z0-9]+)?\b', "format filesystem (mkfs)"),
     # Raw block device overwrites (dd + redirection)
-    (r'\bdd\b[^\n]*\bof=/dev/(sd|nvme|hd|mmcblk|vd|xvd)[a-z0-9]*', "dd to raw block device"),
-    (r'>\s*/dev/(sd|nvme|hd|mmcblk|vd|xvd)[a-z0-9]*\b', "redirect to raw block device"),
+    (r'\bdd\b[^\n]*\bof=/dev/(sd|nvme|hd|mmcblk|vd|xvd)[a-z0-9]*',
+     "dd to raw block device"),
+    (r'>\s*/dev/(sd|nvme|hd|mmcblk|vd|xvd)[a-z0-9]*\b',
+     "redirect to raw block device"),
     # Fork bomb (classic shell form)
     (r':\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:', "fork bomb"),
     # Kill every process on the system
@@ -272,7 +277,8 @@ HARDLINE_PATTERNS = [
     # _CMDPOS matches start-of-command positions.
     (_CMDPOS + r'(shutdown|reboot|halt|poweroff)\b', "system shutdown/reboot"),
     (_CMDPOS + r'init\s+[06]\b', "init 0/6 (shutdown/reboot)"),
-    (_CMDPOS + r'systemctl\s+(poweroff|reboot|halt|kexec)\b', "systemctl poweroff/reboot"),
+    (_CMDPOS + r'systemctl\s+(poweroff|reboot|halt|kexec)\b',
+     "systemctl poweroff/reboot"),
     (_CMDPOS + r'telinit\s+[06]\b', "telinit 0/6 (shutdown/reboot)"),
 ]
 
@@ -374,8 +380,10 @@ DANGEROUS_PATTERNS = [
     (r'\brm\s+(-[^\s]*\s+)*/', "delete in root path"),
     (r'\brm\s+-[^\s]*r', "recursive delete"),
     (r'\brm\s+--recursive\b', "recursive delete (long flag)"),
-    (r'\bchmod\s+(-[^\s]*\s+)*(777|666|o\+[rwx]*w|a\+[rwx]*w)\b', "world/other-writable permissions"),
-    (r'\bchmod\s+--recursive\b.*(777|666|o\+[rwx]*w|a\+[rwx]*w)', "recursive world/other-writable (long flag)"),
+    (r'\bchmod\s+(-[^\s]*\s+)*(777|666|o\+[rwx]*w|a\+[rwx]*w)\b',
+     "world/other-writable permissions"),
+    (r'\bchmod\s+--recursive\b.*(777|666|o\+[rwx]*w|a\+[rwx]*w)',
+     "recursive world/other-writable (long flag)"),
     (r'\bchown\s+(-[^\s]*)?R\s+root', "recursive chown to root"),
     (r'\bchown\s+--recursive\b.*root', "recursive chown to root (long flag)"),
     (r'\bmkfs\b', "format filesystem"),
@@ -387,26 +395,37 @@ DANGEROUS_PATTERNS = [
     (r'\bDELETE\s+FROM\b(?![^\n]*\bWHERE\b)', "SQL DELETE without WHERE"),
     (r'\bTRUNCATE\s+(TABLE)?\s*\w', "SQL TRUNCATE"),
     (rf'>\s*{_SYSTEM_CONFIG_PATH}', "overwrite system config"),
-    (r'\bsystemctl\s+(-[^\s]+\s+)*(stop|restart|disable|mask)\b', "stop/restart system service"),
+    (r'\bsystemctl\s+(-[^\s]+\s+)*(stop|restart|disable|mask)\b',
+     "stop/restart system service"),
     (r'\bkill\s+-9\s+-1\b', "kill all processes"),
     (r'\bpkill\s+-9\b', "force kill processes"),
     # killall with SIGKILL (parallel to pkill -9). Catches -9 / -KILL /
     # -s KILL / -SIGKILL forms, and also `killall -r <regex>` broad sweeps
     # that can wipe out unrelated processes by accident.
     # Inspired by Claude Code 2.1.113 expanded deny rules.
-    (r'\bkillall\s+(-[^\s]*\s+)*-(9|KILL|SIGKILL)\b', "force kill processes (killall -KILL)"),
-    (r'\bkillall\s+(-[^\s]*\s+)*-s\s+(KILL|SIGKILL|9)\b', "force kill processes (killall -s KILL)"),
+    (r'\bkillall\s+(-[^\s]*\s+)*-(9|KILL|SIGKILL)\b',
+     "force kill processes (killall -KILL)"),
+    (r'\bkillall\s+(-[^\s]*\s+)*-s\s+(KILL|SIGKILL|9)\b',
+     "force kill processes (killall -s KILL)"),
     (r'\bkillall\s+(-[^\s]*\s+)*-r\b', "kill processes by regex (killall -r)"),
     (r':\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:', "fork bomb"),
     # Any shell invocation via -c or combined flags like -lc, -ic, etc.
-    (r'\b(bash|sh|zsh|ksh)\s+-[^\s]*c(\s+|$)', "shell command via -c/-lc flag"),
-    (r'\b(python[23]?|perl|ruby|node)\s+-[ec]\s+', "script execution via -e/-c flag"),
-    (r'\b(curl|wget)\b.*\|\s*(?:[/\w]*/)?(?:ba)?sh(?:\s|$|-c)', "pipe remote content to shell"),
-    (r'\b(bash|sh|zsh|ksh)\s+<\s*<?\s*\(\s*(curl|wget)\b', "execute remote script via process substitution"),
-    (rf'\btee\b.*["\']?{_SENSITIVE_WRITE_TARGET}', "overwrite system file via tee"),
-    (rf'>>?\s*["\']?{_SENSITIVE_WRITE_TARGET}', "overwrite system file via redirection"),
-    (rf'\btee\b.*["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_COMMAND_TAIL}', "overwrite project env/config via tee"),
-    (rf'>>?\s*["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_COMMAND_TAIL}', "overwrite project env/config via redirection"),
+    (r'\b(bash|sh|zsh|ksh)\s+-[^\s]*c(\s+|$)',
+     "shell command via -c/-lc flag"),
+    (r'\b(python[23]?|perl|ruby|node)\s+-[ec]\s+',
+     "script execution via -e/-c flag"),
+    (r'\b(curl|wget)\b.*\|\s*(?:[/\w]*/)?(?:ba)?sh(?:\s|$|-c)',
+     "pipe remote content to shell"),
+    (r'\b(bash|sh|zsh|ksh)\s+<\s*<?\s*\(\s*(curl|wget)\b',
+     "execute remote script via process substitution"),
+    (rf'\btee\b.*["\']?{_SENSITIVE_WRITE_TARGET}',
+     "overwrite system file via tee"),
+    (rf'>>?\s*["\']?{_SENSITIVE_WRITE_TARGET}',
+     "overwrite system file via redirection"),
+    (rf'\btee\b.*["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_COMMAND_TAIL}',
+     "overwrite project env/config via tee"),
+    (rf'>>?\s*["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_COMMAND_TAIL}',
+     "overwrite project env/config via redirection"),
     (r'\bxargs\s+.*\brm\b', "xargs with rm"),
     # find -exec rm / -execdir rm — the -execdir variant (same semantics,
     # runs in the directory of each match) was previously missed. Claude
@@ -417,38 +436,52 @@ DANGEROUS_PATTERNS = [
     # Gateway lifecycle protection: prevent the agent from killing its own
     # gateway process.  These commands trigger a gateway restart/stop that
     # terminates all running agents mid-work.
-    (r'\bnastech\s+gateway\s+(stop|restart)\b', "stop/restart nastech gateway (kills running agents)"),
+    (r'\bnastech\s+gateway\s+(stop|restart)\b',
+     "stop/restart nastech gateway (kills running agents)"),
     (r'\bnastech\s+update\b', "nastech update (restarts gateway, kills running agents)"),
     # Docker container lifecycle — any user with docker.sock mounted (a common
     # Docker Compose pattern) gives the agent the ability to restart/stop/kill
     # containers without approval.  These are agent-initiated lifecycle operations
     # that should always require user consent, just like `nastech gateway restart`
     # already does for the gateway process.
-    (r'\bdocker\s+compose\s+(restart|stop|kill|down)\b', "docker compose restart/stop/kill/down (container lifecycle)"),
-    (r'\bdocker\s+(restart|stop|kill)\b', "docker restart/stop/kill (container lifecycle)"),
+    (r'\bdocker\s+compose\s+(restart|stop|kill|down)\b',
+     "docker compose restart/stop/kill/down (container lifecycle)"),
+    (r'\bdocker\s+(restart|stop|kill)\b',
+     "docker restart/stop/kill (container lifecycle)"),
     # Gateway protection: never start gateway outside systemd management
-    (r'gateway\s+run\b.*(&\s*$|&\s*;|\bdisown\b|\bsetsid\b)', "start gateway outside systemd (use 'systemctl --user restart nastech-gateway')"),
-    (r'\bnohup\b.*gateway\s+run\b', "start gateway outside systemd (use 'systemctl --user restart nastech-gateway')"),
+    (r'gateway\s+run\b.*(&\s*$|&\s*;|\bdisown\b|\bsetsid\b)',
+     "start gateway outside systemd (use 'systemctl --user restart nastech-gateway')"),
+    (r'\bnohup\b.*gateway\s+run\b',
+     "start gateway outside systemd (use 'systemctl --user restart nastech-gateway')"),
     # Self-termination protection: prevent agent from killing its own process
-    (r'\b(pkill|killall)\b.*\b(nastech|gateway|cli\.py)\b', "kill nastech/gateway process (self-termination)"),
+    (r'\b(pkill|killall)\b.*\b(nastech|gateway|cli\.py)\b',
+     "kill nastech/gateway process (self-termination)"),
     # Self-termination via kill + command substitution (pgrep/pidof).
     # The name-based pattern above catches `pkill nastech` but not
     # `kill -9 $(pgrep -f nastech)` because the substitution is opaque
     # to regex at detection time. Catch the structural pattern instead.
     (r'\bkill\b.*\$\(\s*pgrep\b', "kill process via pgrep expansion (self-termination)"),
-    (r'\bkill\b.*`\s*pgrep\b', "kill process via backtick pgrep expansion (self-termination)"),
+    (r'\bkill\b.*`\s*pgrep\b',
+     "kill process via backtick pgrep expansion (self-termination)"),
     # File copy/move/edit into sensitive system paths (/etc/ and macOS
     # /private/etc/ mirror).
-    (rf'\b(cp|mv|install)\b.*\s{_SYSTEM_CONFIG_PATH}', "copy/move file into system config path"),
-    (rf'\b(cp|mv|install)\b.*\s["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_COMMAND_TAIL}', "overwrite project env/config file"),
-    (rf'\bsed\s+-[^\s]*i.*\s{_SYSTEM_CONFIG_PATH}', "in-place edit of system config"),
-    (rf'\bsed\s+--in-place\b.*\s{_SYSTEM_CONFIG_PATH}', "in-place edit of system config (long flag)"),
+    (rf'\b(cp|mv|install)\b.*\s{_SYSTEM_CONFIG_PATH}',
+     "copy/move file into system config path"),
+    (
+        rf'\b(cp|mv|install)\b.*\s["\']?{_PROJECT_SENSITIVE_WRITE_TARGET}["\']?{_COMMAND_TAIL}',
+        "overwrite project env/config file"),
+    (rf'\bsed\s+-[^\s]*i.*\s{_SYSTEM_CONFIG_PATH}',
+     "in-place edit of system config"),
+    (rf'\bsed\s+--in-place\b.*\s{_SYSTEM_CONFIG_PATH}',
+     "in-place edit of system config (long flag)"),
     # In-place edit of a NasTech-managed security file (~/.nastech/config.yaml or
     # .env). sed -i bypasses the redirection/tee patterns above because it
     # mutates the file directly. Pairs the file_tools write_file/patch deny so
     # the terminal side is not an open door. See #14639.
-    (rf'\bsed\s+-[^\s]*i.*(?:{_NASTECH_CONFIG_PATH}|{_NASTECH_ENV_PATH})', "in-place edit of NasTech config/env"),
-    (rf'\bsed\s+--in-place\b.*(?:{_NASTECH_CONFIG_PATH}|{_NASTECH_ENV_PATH})', "in-place edit of NasTech config/env (long flag)"),
+    (rf'\bsed\s+-[^\s]*i.*(?:{_NASTECH_CONFIG_PATH}|{_NASTECH_ENV_PATH})',
+     "in-place edit of NasTech config/env"),
+    (rf'\bsed\s+--in-place\b.*(?:{_NASTECH_CONFIG_PATH}|{_NASTECH_ENV_PATH})',
+     "in-place edit of NasTech config/env (long flag)"),
     # perl -i and ruby -i perform the same in-place mutation as sed -i but are
     # not caught by the -e/-c script-execution pattern above (which targets code
     # evaluation, not file mutation). Pairs the sed -i coverage from #14639.
@@ -457,7 +490,9 @@ DANGEROUS_PATTERNS = [
     # backup suffix (`perl -i.bak`). Match any flag token containing `i`
     # anywhere in the args, not just the first token — `perl -e '...'` (code
     # eval, no -i) does not trip because it has no `-...i` flag token.
-    (rf'\b(?:perl|ruby)\b.*(?:^|\s)-[^\s]*i\b.*(?:{_NASTECH_CONFIG_PATH}|{_NASTECH_ENV_PATH})', "in-place edit of NasTech config/env (perl/ruby)"),
+    (
+        rf'\b(?:perl|ruby)\b.*(?:^|\s)-[^\s]*i\b.*(?:{_NASTECH_CONFIG_PATH}|{_NASTECH_ENV_PATH})',
+        "in-place edit of NasTech config/env (perl/ruby)"),
     # Script execution via heredoc — bypasses the -e/-c flag patterns above.
     # `python3 << 'EOF'` feeds arbitrary code via stdin without -c/-e flags.
     (r'\b(python[23]?|perl|ruby|node)\s+<<', "script execution via heredoc"),
@@ -466,12 +501,14 @@ DANGEROUS_PATTERNS = [
     (r'\bgit\s+reset\s+--hard\b', "git reset --hard (destroys uncommitted changes)"),
     (r'\bgit\s+push\b.*--force\b', "git force push (rewrites remote history)"),
     (r'\bgit\s+push\b.*-f\b', "git force push short flag (rewrites remote history)"),
-    (r'\bgit\s+clean\s+-[^\s]*f', "git clean with force (deletes untracked files)"),
+    (r'\bgit\s+clean\s+-[^\s]*f',
+     "git clean with force (deletes untracked files)"),
     (r'\bgit\s+branch\s+-D\b', "git branch force delete"),
     # Script execution after chmod +x — catches the two-step pattern where
     # a script is first made executable then immediately run. The script
     # content may contain dangerous commands that individual patterns miss.
-    (r'\bchmod\s+\+x\b.*[;&|]+\s*\./', "chmod +x followed by immediate execution"),
+    (r'\bchmod\s+\+x\b.*[;&|]+\s*\./',
+     "chmod +x followed by immediate execution"),
     # Sudo with stdin / askpass / shell / list-privs flags. An LLM-driven
     # agent has no TTY, so sudo invocations that succeed without human
     # interaction are those reading the password from stdin (-S/--stdin)
@@ -510,8 +547,10 @@ _PATTERN_KEY_ALIASES: dict[str, set[str]] = {}
 for _pattern, _description in DANGEROUS_PATTERNS:
     _legacy_key = _legacy_pattern_key(_pattern)
     _canonical_key = _description
-    _PATTERN_KEY_ALIASES.setdefault(_canonical_key, set()).update({_canonical_key, _legacy_key})
-    _PATTERN_KEY_ALIASES.setdefault(_legacy_key, set()).update({_legacy_key, _canonical_key})
+    _PATTERN_KEY_ALIASES.setdefault(_canonical_key, set()).update({
+        _canonical_key, _legacy_key})
+    _PATTERN_KEY_ALIASES.setdefault(_legacy_key, set()).update({
+        _legacy_key, _canonical_key})
 
 
 def _approval_key_aliases(pattern_key: str) -> set[str]:
@@ -634,8 +673,10 @@ class _ApprovalEntry:
         self.result: Optional[str] = None  # "once"|"session"|"always"|"deny"
 
 
-_gateway_queues: dict[str, list] = {}        # session_key → [_ApprovalEntry, …]
-_gateway_notify_cbs: dict[str, object] = {}  # session_key → callable(approval_data)
+# session_key → [_ApprovalEntry, …]
+_gateway_queues: dict[str, list] = {}
+# session_key → callable(approval_data)
+_gateway_notify_cbs: dict[str, object] = {}
 
 
 def register_gateway_notify(session_key: str, cb) -> None:
@@ -737,7 +778,8 @@ def clear_session(session_key: str) -> None:
         entries = _gateway_queues.pop(session_key, [])
     for entry in entries:
         # Session-boundary cleanup should cancel any blocked approval waits
-        # immediately so the old run can unwind instead of idling until timeout.
+        # immediately so the old run can unwind instead of idling until
+        # timeout.
         entry.result = "deny"
         entry.event.set()
 
@@ -779,7 +821,6 @@ def load_permanent(patterns: set):
     """Bulk-load permanent allowlist entries from config."""
     with _lock:
         _permanent_approved.update(patterns)
-
 
 
 # =========================================================================
@@ -894,7 +935,8 @@ def prompt_dangerous_approval(command: str, description: str,
 
             def get_input():
                 try:
-                    prompt = t("approval.prompt_long") if allow_permanent else t("approval.prompt_short")
+                    prompt = t("approval.prompt_long") if allow_permanent else t(
+                        "approval.prompt_short")
                     result["choice"] = input(prompt).strip().lower()
                 except (EOFError, OSError):
                     result["choice"] = ""
@@ -979,7 +1021,12 @@ def _get_cron_approval_mode() -> str:
     try:
         from nastech_cli.config import load_config
         config = load_config()
-        mode = str(cfg_get(config, "approvals", "cron_mode", default="deny")).lower().strip()
+        mode = str(
+            cfg_get(
+                config,
+                "approvals",
+                "cron_mode",
+                default="deny")).lower().strip()
         if mode in {"approve", "off", "allow", "yes"}:
             return "approve"
         return "deny"
@@ -1059,7 +1106,8 @@ def check_dangerous_command(command: str, env_type: str,
     # to wipe the disk or power the box off.
     is_hardline, hardline_desc = detect_hardline_command(command)
     if is_hardline:
-        logger.warning("Hardline block: %s (command: %s)", hardline_desc, command[:200])
+        logger.warning("Hardline block: %s (command: %s)",
+                       hardline_desc, command[:200])
         return _hardline_block_result(hardline_desc)
 
     # --yolo: bypass all approval prompts. Gateway /yolo is session-scoped;
@@ -1159,7 +1207,8 @@ def _format_tirith_description(tirith_result: dict) -> str:
         title = f.get("title", "")
         desc = f.get("description", "")
         if title and desc:
-            parts.append(f"[{severity}] {title}: {desc}" if severity else f"{title}: {desc}")
+            parts.append(
+                f"[{severity}] {title}: {desc}" if severity else f"{title}: {desc}")
         elif title:
             parts.append(f"[{severity}] {title}" if severity else title)
     if not parts:
@@ -1289,7 +1338,8 @@ def check_all_command_guards(command: str, env_type: str,
     # no session-level setting can bypass it.
     is_hardline, hardline_desc = detect_hardline_command(command)
     if is_hardline:
-        logger.warning("Hardline block: %s (command: %s)", hardline_desc, command[:200])
+        logger.warning("Hardline block: %s (command: %s)",
+                       hardline_desc, command[:200])
         return _hardline_block_result(hardline_desc)
 
     # == Sudo stdin guard ==
@@ -1320,7 +1370,8 @@ def check_all_command_guards(command: str, env_type: str,
         if env_var_enabled("NASTECH_CRON_SESSION"):
             if _get_cron_approval_mode() == "deny":
                 # Run detection to get a description for the block message
-                is_dangerous, _pk, description = detect_dangerous_command(command)
+                is_dangerous, _pk, description = detect_dangerous_command(
+                    command)
                 if is_dangerous:
                     return {
                         "approved": False,
@@ -1361,7 +1412,8 @@ def check_all_command_guards(command: str, env_type: str,
     # inspect the explanation and approve if they understand the risk.
     if tirith_result["action"] in {"block", "warn"}:
         findings = tirith_result.get("findings") or []
-        rule_id = findings[0].get("rule_id", "unknown") if findings else "unknown"
+        rule_id = findings[0].get(
+            "rule_id", "unknown") if findings else "unknown"
         tirith_key = f"tirith:{rule_id}"
         tirith_desc = _format_tirith_description(tirith_result)
         if not is_approved(session_key, tirith_key):
@@ -1396,7 +1448,7 @@ def check_all_command_guards(command: str, env_type: str,
             return {
                 "approved": False,
                 "message": f"BLOCKED by smart approval: {combined_desc_for_llm}. "
-                           "The command was assessed as genuinely dangerous. Do NOT retry.",
+                "The command was assessed as genuinely dangerous. Do NOT retry.",
                 "smart_denied": True,
             }
         # verdict == "escalate" → fall through to manual prompt
@@ -1591,7 +1643,8 @@ def check_execute_code_guard(code: str, env_type: str) -> dict:
 
     # Isolated backends already sandbox the child — matches the container skip
     # in check_all_command_guards / check_dangerous_command.
-    if env_type in {"docker", "singularity", "modal", "daytona", "vercel_sandbox"}:
+    if env_type in {"docker", "singularity",
+                    "modal", "daytona", "vercel_sandbox"}:
         return {"approved": True, "message": None}
 
     # --yolo or approvals.mode=off: bypass (session- or process-scoped).
@@ -1731,7 +1784,8 @@ def check_execute_code_guard(code: str, env_type: str) -> dict:
             "user_consent": False,
         }
 
-    # Approved — persist based on scope (same logic as check_all_command_guards).
+    # Approved — persist based on scope (same logic as
+    # check_all_command_guards).
     if choice == "session":
         approve_session(session_key, pattern_key)
     elif choice == "always":

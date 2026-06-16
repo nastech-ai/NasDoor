@@ -48,7 +48,8 @@ class MeetingInvitedPayload:
 
 def _as_dict(value: Any) -> Dict[str, Any]:
     """Coerce a lark SDK object / dict / JSON string into a plain dict."""
-    if isinstance(value, SimpleNamespace) or (value is not None and hasattr(value, "__dict__")):
+    if isinstance(value, SimpleNamespace) or (
+            value is not None and hasattr(value, "__dict__")):
         value = vars(value)
     if isinstance(value, dict):
         return {str(k): v for k, v in value.items()}
@@ -68,7 +69,8 @@ def _content_payload(container: Dict[str, Any]) -> Dict[str, Any]:
         return {}
     for item in content:
         item = _as_dict(item)
-        ctype = str(item.get("contentType") or item.get("content_type") or "").lower()
+        ctype = str(item.get("contentType") or item.get(
+            "content_type") or "").lower()
         if ctype and ctype != "application/json":
             continue
         for key in ("data", "value", "content", "json"):
@@ -137,12 +139,16 @@ def parse_meeting_invited_event(data: Any) -> Optional[MeetingInvitedPayload]:
 
 def build_meeting_invite_prompt(payload: MeetingInvitedPayload) -> str:
     meeting = payload.meeting
-    inviter_name = (payload.inviter.user_name if payload.inviter else "") or "unknown"
-    host_name = (meeting.host_user.user_name if meeting and meeting.host_user else "") or "unknown"
-    display = (meeting.topic or meeting.meeting_no or meeting.id) if meeting else "unknown meeting"
+    inviter_name = (
+        payload.inviter.user_name if payload.inviter else "") or "unknown"
+    host_name = (
+        meeting.host_user.user_name if meeting and meeting.host_user else "") or "unknown"
+    display = (
+        meeting.topic or meeting.meeting_no or meeting.id) if meeting else "unknown meeting"
     return "\n".join(
         [
-            f"You have been invited to join a meeting: {display or 'unknown meeting'}",
+            f"You have been invited to join a meeting: {
+                display or 'unknown meeting'}",
             "",
             f"Meeting Number: {(meeting.meeting_no if meeting else '') or 'unknown'}",
             f"Topic: {(meeting.topic if meeting else '') or 'unknown'}",
@@ -168,13 +174,16 @@ async def handle_meeting_invited_event(adapter: Any, data: Any) -> None:
     """Convert a vc.bot.meeting_invited_v1 event into a gateway MessageEvent."""
     payload = parse_meeting_invited_event(data)
     if payload is None:
-        logger.warning("[Feishu-MeetingInvite] Dropping malformed meeting invite event")
+        logger.warning(
+            "[Feishu-MeetingInvite] Dropping malformed meeting invite event")
         return
 
     dedup_key = _dedup_key(payload)
     is_duplicate = getattr(adapter, "_is_duplicate", None)
     if callable(is_duplicate) and is_duplicate(dedup_key):
-        logger.debug("[Feishu-MeetingInvite] Dropping duplicate event: %s", dedup_key)
+        logger.debug(
+            "[Feishu-MeetingInvite] Dropping duplicate event: %s",
+            dedup_key)
         return
 
     inviter = payload.inviter
@@ -194,14 +203,17 @@ async def handle_meeting_invited_event(adapter: Any, data: Any) -> None:
     )
     sender_profile = await adapter._resolve_sender_profile(sender_id)
 
-    user_name = sender_profile.get("user_name") or inviter.user_name or inviter.open_id
+    user_name = sender_profile.get(
+        "user_name") or inviter.user_name or inviter.open_id
     source = adapter.build_source(
         chat_id=inviter.open_id,
         chat_name=user_name,
         chat_type="dm",
-        user_id=sender_profile.get("user_id") or inviter.user_id or inviter.open_id,
+        user_id=sender_profile.get(
+            "user_id") or inviter.user_id or inviter.open_id,
         user_name=user_name,
-        user_id_alt=sender_profile.get("user_id_alt") or inviter.union_id or None,
+        user_id_alt=sender_profile.get(
+            "user_id_alt") or inviter.union_id or None,
     )
     event = MessageEvent(
         text=build_meeting_invite_prompt(payload),

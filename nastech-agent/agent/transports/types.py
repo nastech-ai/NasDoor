@@ -147,7 +147,8 @@ def build_tool_call(
 
     Any extra keyword arguments are collected into ``provider_data``.
     """
-    args_str = json.dumps(arguments) if isinstance(arguments, dict) else str(arguments)
+    args_str = json.dumps(arguments) if isinstance(
+        arguments, dict) else str(arguments)
     pd = dict(provider_fields) if provider_fields else None
     return ToolCall(id=id, name=name, arguments=args_str, provider_data=pd)
 

@@ -8,34 +8,37 @@ the provider's config schema. Writes config to config.yaml + .env.
 from __future__ import annotations
 
 import os
-import sys
 import shlex
+import sys
 from pathlib import Path
 
-from nastech_constants import get_nastech_home
 from nastech_cli.secret_prompt import masked_secret_prompt
-
+from nastech_constants import get_nastech_home
 
 # ---------------------------------------------------------------------------
 # Curses-based interactive picker (same pattern as nastech tools)
 # ---------------------------------------------------------------------------
 
-def _curses_select(title: str, items: list[tuple[str, str]], default: int = 0) -> int:
+def _curses_select(
+        title: str, items: list[tuple[str, str]], default: int = 0) -> int:
     """Interactive single-select with arrow keys.
 
     items: list of (label, description) tuples.
     Returns selected index, or default on escape/quit.
     """
     from nastech_cli.curses_ui import curses_radiolist
+
     # Format (label, desc) tuples into display strings
     display_items = [
         f"{label}  {desc}" if desc else label
         for label, desc in items
     ]
-    return curses_radiolist(title, display_items, selected=default, cancel_returns=default)
+    return curses_radiolist(title, display_items,
+                            selected=default, cancel_returns=default)
 
 
-def _prompt(label: str, default: str | None = None, secret: bool = False) -> str:
+def _prompt(label: str, default: str | None = None,
+            secret: bool = False) -> str:
     """Prompt for a value with optional default and secret masking."""
     suffix = f" [{default}]" if default else ""
     if secret:
@@ -54,6 +57,7 @@ def _prompt(label: str, default: str | None = None, secret: bool = False) -> str
 def _install_dependencies(provider_name: str) -> None:
     """Install pip dependencies declared in plugin.yaml."""
     import subprocess
+
     from plugins.memory import find_provider_dir
 
     plugin_dir = find_provider_dir(provider_name)
@@ -85,7 +89,8 @@ def _install_dependencies(provider_name: str) -> None:
     # Check which packages are missing
     missing = []
     for dep in pip_deps:
-        import_name = _IMPORT_NAMES.get(dep, dep.replace("-", "_").split("[")[0])
+        import_name = _IMPORT_NAMES.get(
+            dep, dep.replace("-", "_").split("[")[0])
         try:
             __import__(import_name)
         except ImportError:
@@ -100,8 +105,16 @@ def _install_dependencies(provider_name: str) -> None:
 
     uv_path = shutil.which("uv")
     if uv_path:
-        install_cmd = [uv_path, "pip", "install", "--python", sys.executable, "--quiet"] + missing
-        manual_cmd = f"uv pip install --python {sys.executable} {' '.join(missing)}"
+        install_cmd = [
+            uv_path,
+            "pip",
+            "install",
+            "--python",
+            sys.executable,
+            "--quiet"] + missing
+        manual_cmd = f"uv pip install --python {
+            sys.executable} {
+            ' '.join(missing)}"
     else:
         pip_cmd = shutil.which("pip3") or shutil.which("pip")
         if not pip_cmd:
@@ -110,7 +123,12 @@ def _install_dependencies(provider_name: str) -> None:
             print(f"  Then re-run: nastech memory setup")
             return
         print(f"  ⚠ uv not found. Falling back to standard pip...")
-        install_cmd = [sys.executable, "-m", "pip", "install", "--quiet"] + missing
+        install_cmd = [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--quiet"] + missing
         manual_cmd = f"{sys.executable} -m pip install {' '.join(missing)}"
 
     try:
@@ -167,7 +185,8 @@ def _get_available_providers() -> list:
         except Exception:
             continue
 
-        schema = provider.get_config_schema() if hasattr(provider, "get_config_schema") else []
+        schema = provider.get_config_schema() if hasattr(
+            provider, "get_config_schema") else []
         has_secrets = any(f.get("secret") for f in schema)
         has_non_secrets = any(not f.get("secret") for f in schema)
         if has_secrets and has_non_secrets:
@@ -241,7 +260,10 @@ def cmd_setup(args) -> None:
     items.append(("Built-in only", "— MEMORY.md / USER.md (default)"))
 
     builtin_idx = len(items) - 1
-    selected = _curses_select("Memory provider setup", items, default=builtin_idx)
+    selected = _curses_select(
+        "Memory provider setup",
+        items,
+        default=builtin_idx)
 
     config = load_config()
     if not isinstance(config.get("memory"), dict):
@@ -267,7 +289,8 @@ def cmd_setup(args) -> None:
         provider.post_setup(nastech_home, config)
         return
 
-    schema = provider.get_config_schema() if hasattr(provider, "get_config_schema") else []
+    schema = provider.get_config_schema() if hasattr(
+        provider, "get_config_schema") else []
 
     provider_config = config["memory"].get(name, {})
     if not isinstance(provider_config, dict):
@@ -299,7 +322,8 @@ def cmd_setup(args) -> None:
             # Skip fields whose "when" condition doesn't match
             when = field.get("when")
             if when and isinstance(when, dict):
-                if not all(provider_config.get(k) == v for k, v in when.items()):
+                if not all(provider_config.get(k) ==
+                           v for k, v in when.items()):
                     continue
 
             if choices and not is_secret:
@@ -309,14 +333,18 @@ def cmd_setup(args) -> None:
                 current_idx = 0
                 if current and current in choices:
                     current_idx = choices.index(current)
-                sel = _curses_select(f"  {desc}", choice_items, default=current_idx)
+                sel = _curses_select(
+                    f"  {desc}", choice_items, default=current_idx)
                 provider_config[key] = choices[sel]
             elif is_secret:
                 # Prompt for secret
                 existing = os.environ.get(env_var, "") if env_var else ""
                 if existing:
-                    masked = f"...{existing[-4:]}" if len(existing) > 4 else "set"
-                    val = _prompt(f"{desc} (current: {masked}, blank to keep)", secret=True)
+                    masked = f"...{existing[-4:]}" if len(
+                        existing) > 4 else "set"
+                    val = _prompt(
+                        f"{desc} (current: {masked}, blank to keep)",
+                        secret=True)
                 else:
                     hint = f"  Get yours at {url}" if url else ""
                     if hint:
@@ -328,7 +356,8 @@ def cmd_setup(args) -> None:
                 # Regular text prompt
                 current = provider_config.get(key)
                 effective_default = current or default
-                val = _prompt(desc, default=str(effective_default) if effective_default else None)
+                val = _prompt(desc, default=str(effective_default)
+                              if effective_default else None)
                 if val:
                     provider_config[key] = val
                     # Also write to .env if this field has an env_var
@@ -425,8 +454,10 @@ def cmd_status(args) -> None:
                     else:
                         print(f"  Status:    not available ✗")
                         schema = p.get_config_schema() if hasattr(p, "get_config_schema") else []
-                        # Check all fields that have env_var (both secret and non-secret)
-                        required_fields = [f for f in schema if f.get("env_var")]
+                        # Check all fields that have env_var (both secret and
+                        # non-secret)
+                        required_fields = [
+                            f for f in schema if f.get("env_var")]
                         if required_fields:
                             print(f"  Missing:")
                             for f in required_fields:
@@ -441,7 +472,8 @@ def cmd_status(args) -> None:
                     break
         else:
             print(f"\n  Plugin:    NOT installed ✗")
-            print(f"  Install the '{provider_name}' memory plugin to ~/.nastech/plugins/")
+            print(
+                f"  Install the '{provider_name}' memory plugin to ~/.nastech/plugins/")
 
     providers = _get_available_providers()
     if providers:

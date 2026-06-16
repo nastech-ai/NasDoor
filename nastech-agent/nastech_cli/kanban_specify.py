@@ -39,7 +39,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 from nastech_cli import kanban_db as kb
-
 from utils import env_int
 
 NASTECH_KANBAN_SPECIFY_MAX_TOKENS = max(
@@ -119,7 +118,7 @@ def _extract_json_blob(raw: str) -> Optional[dict]:
     last = stripped.rfind("}")
     if first == -1 or last == -1 or last <= first:
         return None
-    candidate = stripped[first : last + 1]
+    candidate = stripped[first: last + 1]
     try:
         val = json.loads(candidate)
     except (ValueError, json.JSONDecodeError):
@@ -162,7 +161,10 @@ def specify_task(
         )
 
     try:
-        from agent.auxiliary_client import get_auxiliary_extra_body, get_text_auxiliary_client
+        from agent.auxiliary_client import (
+            get_auxiliary_extra_body,
+            get_text_auxiliary_client,
+        )
     except Exception as exc:  # pragma: no cover — import smoke test
         logger.debug("specify: auxiliary client import failed: %s", exc)
         return SpecifyOutcome(task_id, False, "auxiliary client unavailable")
@@ -234,7 +236,8 @@ def specify_task(
             else None
         )
         new_body = (
-            body_val if isinstance(body_val, str) and body_val.strip() else None
+            body_val if isinstance(
+                body_val, str) and body_val.strip() else None
         )
         if new_body is None and new_title is None:
             return SpecifyOutcome(

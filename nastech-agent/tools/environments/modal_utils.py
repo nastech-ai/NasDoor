@@ -91,7 +91,8 @@ class BaseModalExecutionEnvironment(BaseEnvironment):
         try:
             start = self._start_modal_exec(prepared)
         except Exception as exc:
-            return self._error_result(f"{self._unexpected_error_prefix}: {exc}")
+            return self._error_result(
+                f"{self._unexpected_error_prefix}: {exc}")
 
         if start.immediate_result is not None:
             return start.immediate_result
@@ -103,7 +104,8 @@ class BaseModalExecutionEnvironment(BaseEnvironment):
 
         deadline = None
         if self._client_timeout_grace_seconds is not None:
-            deadline = time.monotonic() + prepared.timeout + self._client_timeout_grace_seconds
+            deadline = time.monotonic() + prepared.timeout + \
+                self._client_timeout_grace_seconds
 
         _now = time.monotonic()
         _activity_state = {
@@ -122,7 +124,8 @@ class BaseModalExecutionEnvironment(BaseEnvironment):
             try:
                 result = self._poll_modal_exec(start.handle)
             except Exception as exc:
-                return self._error_result(f"{self._unexpected_error_prefix}: {exc}")
+                return self._error_result(
+                    f"{self._unexpected_error_prefix}: {exc}")
 
             if result is not None:
                 return result

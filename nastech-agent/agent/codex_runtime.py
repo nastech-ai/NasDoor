@@ -369,7 +369,8 @@ def _raise_stream_error(event: Any) -> None:
     pull in ``run_agent`` (e.g. plugin code, doc tools).
     """
     from run_agent import _StreamErrorEvent
-    message = (_event_field(event, "message", "") or "stream emitted error event").strip()
+    message = (_event_field(event, "message", "")
+               or "stream emitted error event").strip()
     raise _StreamErrorEvent(
         message,
         code=_event_field(event, "code"),
@@ -442,7 +443,9 @@ def _consume_codex_event_stream(
             except Exception:
                 # Genuine bugs in third-party debug/log hooks shouldn't break
                 # stream consumption.
-                logger.debug("Codex stream on_event hook raised", exc_info=True)
+                logger.debug(
+                    "Codex stream on_event hook raised",
+                    exc_info=True)
         if interrupt_check is not None and interrupt_check():
             break
 
@@ -468,17 +471,20 @@ def _consume_codex_event_stream(
                             try:
                                 on_first_delta()
                             except Exception:
-                                logger.debug("Codex stream on_first_delta raised", exc_info=True)
+                                logger.debug(
+                                    "Codex stream on_first_delta raised", exc_info=True)
                     if on_text_delta is not None:
                         try:
                             on_text_delta(delta_text)
                         except Exception:
-                            logger.debug("Codex stream on_text_delta raised", exc_info=True)
+                            logger.debug(
+                                "Codex stream on_text_delta raised", exc_info=True)
             continue
 
         if "function_call" in event_type:
             has_tool_calls = True
-            # fall through — function_call items still get added on output_item.done
+            # fall through — function_call items still get added on
+            # output_item.done
 
         if "reasoning" in event_type and "delta" in event_type:
             reasoning_text = _event_field(event, "delta", "")
@@ -486,7 +492,9 @@ def _consume_codex_event_stream(
                 try:
                     on_reasoning_delta(reasoning_text)
                 except Exception:
-                    logger.debug("Codex stream on_reasoning_delta raised", exc_info=True)
+                    logger.debug(
+                        "Codex stream on_reasoning_delta raised",
+                        exc_info=True)
             continue
 
         if event_type == "response.output_item.done":
@@ -512,9 +520,12 @@ def _consume_codex_event_stream(
                 if isinstance(rstatus, str):
                     terminal_status = rstatus
                 if event_type == "response.incomplete":
-                    terminal_incomplete_details = getattr(resp_obj, "incomplete_details", None)
-                    if terminal_incomplete_details is None and isinstance(resp_obj, dict):
-                        terminal_incomplete_details = resp_obj.get("incomplete_details")
+                    terminal_incomplete_details = getattr(
+                        resp_obj, "incomplete_details", None)
+                    if terminal_incomplete_details is None and isinstance(
+                            resp_obj, dict):
+                        terminal_incomplete_details = resp_obj.get(
+                            "incomplete_details")
                 if event_type == "response.failed":
                     terminal_error = getattr(resp_obj, "error", None)
                     if terminal_error is None and isinstance(resp_obj, dict):
@@ -530,7 +541,8 @@ def _consume_codex_event_stream(
 
     # Build the final output list.  Prefer items observed via output_item.done;
     # if none arrived but we streamed plain text deltas (no tool calls), synthesize
-    # a single message item so downstream normalization has something to work with.
+    # a single message item so downstream normalization has something to work
+    # with.
     if collected_output_items:
         output = list(collected_output_items)
     elif collected_text_deltas and not has_tool_calls:
@@ -570,7 +582,8 @@ def _consume_codex_event_stream(
     return final
 
 
-def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta=None):
+def run_codex_stream(agent, api_kwargs: dict,
+                     client: Any = None, on_first_delta=None):
     """Execute one streaming Responses API request and return the final response.
 
     Uses ``responses.create(stream=True)`` (low-level raw event iteration)
@@ -581,7 +594,8 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
     """
     import httpx as _httpx
 
-    active_client = client or agent._ensure_primary_openai_client(reason="codex_stream_direct")
+    active_client = client or agent._ensure_primary_openai_client(
+        reason="codex_stream_direct")
     max_stream_retries = 1
     # Accumulate streamed text so callers / compat shims can read it.
     agent._codex_streamed_text_parts: list = []
@@ -603,7 +617,8 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
 
     for attempt in range(max_stream_retries + 1):
         if agent._interrupt_requested:
-            raise InterruptedError("Agent interrupted before Codex stream retry")
+            raise InterruptedError(
+                "Agent interrupted before Codex stream retry")
 
         stream_kwargs = dict(api_kwargs)
         stream_kwargs["stream"] = True
@@ -623,7 +638,8 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
         try:
             # Compatibility: some mocks/providers return a concrete response
             # instead of an iterable.  Pass it straight through.
-            if hasattr(event_stream, "output") and not hasattr(event_stream, "__iter__"):
+            if hasattr(event_stream, "output") and not hasattr(
+                    event_stream, "__iter__"):
                 return event_stream
 
             try:
@@ -666,7 +682,8 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                     pass
 
 
-def run_codex_create_stream_fallback(agent, api_kwargs: dict, client: Any = None):
+def run_codex_create_stream_fallback(
+        agent, api_kwargs: dict, client: Any = None):
     """Backward-compatible alias for the unified event-driven path.
 
     Historically this was the fallback when the SDK's high-level

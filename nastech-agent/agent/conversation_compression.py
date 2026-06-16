@@ -96,7 +96,8 @@ def check_compression_model_feasibility(agent: Any) -> None:
         # to the client's base_url hostname so the user can still tell
         # where the compression model is actually being called.
         try:
-            _aux_cfg_provider, _, _, _, _ = _resolve_task_provider_model("compression")
+            _aux_cfg_provider, _, _, _, _ = _resolve_task_provider_model(
+                "compression")
         except Exception:
             _aux_cfg_provider = ""
         if client is None or not aux_model:
@@ -131,17 +132,24 @@ def check_compression_model_feasibility(agent: Any) -> None:
         # fallbacks, which don't require auth — pass empty string rather
         # than minting a bearer JWT just to look up a context length.
         _raw_aux_key = getattr(client, "api_key", "")
-        aux_api_key = "" if (callable(_raw_aux_key) and not isinstance(_raw_aux_key, str)) else str(_raw_aux_key or "")
+        aux_api_key = "" if (
+            callable(_raw_aux_key) and not isinstance(
+                _raw_aux_key, str)) else str(
+            _raw_aux_key or "")
 
         aux_context = get_model_context_length(
             aux_model,
             base_url=aux_base_url,
             api_key=aux_api_key,
-            config_context_length=getattr(agent, "_aux_compression_context_length_config", None),
+            config_context_length=getattr(
+                agent, "_aux_compression_context_length_config", None),
             # Each model must be resolved with its own provider so that
             # provider-specific paths (e.g. Bedrock static table, OpenRouter API)
-            # are invoked for the correct client, not inherited from the main model.
-            provider=(_aux_cfg_provider if _aux_cfg_provider and _aux_cfg_provider != "auto" else getattr(agent, "provider", "")),
+            # are invoked for the correct client, not inherited from the main
+            # model.
+            provider=(
+                _aux_cfg_provider if _aux_cfg_provider and _aux_cfg_provider != "auto" else getattr(
+                    agent, "provider", "")),
             custom_providers=agent._custom_providers,
         )
 
@@ -380,7 +388,8 @@ def compress_context(
             # per session and proceed WITHOUT the lock rather than letting
             # the exception spin the outer loop.
             _lock_holder = None  # we don't own anything to release
-            if getattr(agent, "_last_compression_lock_error_sid", None) != _lock_sid:
+            if getattr(agent, "_last_compression_lock_error_sid",
+                       None) != _lock_sid:
                 agent._last_compression_lock_error_sid = _lock_sid
                 logger.warning(
                     "compression lock subsystem unavailable for session=%s "
@@ -401,8 +410,10 @@ def compress_context(
                 _lock_sid, existing,
             )
             _lock_holder = None  # don't release a lock we don't own
-            # Surface to the user once — quiet for downstream auto-compress loops
-            if getattr(agent, "_last_compression_lock_warning_sid", None) != _lock_sid:
+            # Surface to the user once — quiet for downstream auto-compress
+            # loops
+            if getattr(agent, "_last_compression_lock_warning_sid",
+                       None) != _lock_sid:
                 agent._last_compression_lock_warning_sid = _lock_sid
                 try:
                     agent._emit_warning(
@@ -433,11 +444,13 @@ def compress_context(
             pass
 
     try:
-        compressed = agent.context_compressor.compress(messages, current_tokens=approx_tokens, focus_topic=focus_topic, force=force)
+        compressed = agent.context_compressor.compress(
+            messages, current_tokens=approx_tokens, focus_topic=focus_topic, force=force)
     except TypeError:
         # Plugin context engine with strict signature that doesn't accept
         # focus_topic / force — fall back to calling without them.
-        compressed = agent.context_compressor.compress(messages, current_tokens=approx_tokens)
+        compressed = agent.context_compressor.compress(
+            messages, current_tokens=approx_tokens)
     except BaseException:
         # ANY exception during compress() must release the lock so the
         # session isn't permanently blocked from future compression.
@@ -450,7 +463,10 @@ def compress_context(
     # session has logically ended), and let auto-compress callers detect
     # the no-op via len(returned) == len(input).
     if getattr(agent.context_compressor, "_last_compress_aborted", False):
-        _err = getattr(agent.context_compressor, "_last_summary_error", None) or "unknown error"
+        _err = getattr(
+            agent.context_compressor,
+            "_last_summary_error",
+            None) or "unknown error"
         if getattr(agent, "_last_compression_summary_warning", None) != _err:
             agent._last_compression_summary_warning = _err
             agent._emit_warning(
@@ -464,9 +480,13 @@ def compress_context(
         _release_lock()  # compression aborted — no rotation will happen
         return messages, _existing_sp
 
-    summary_error = getattr(agent.context_compressor, "_last_summary_error", None)
+    summary_error = getattr(
+        agent.context_compressor,
+        "_last_summary_error",
+        None)
     if summary_error:
-        if getattr(agent, "_last_compression_summary_warning", None) != summary_error:
+        if getattr(agent, "_last_compression_summary_warning",
+                   None) != summary_error:
             agent._last_compression_summary_warning = summary_error
             agent._emit_warning(
                 f"⚠ Compression summary failed: {summary_error}. "
@@ -477,12 +497,19 @@ def compress_context(
         # and get recovered by retrying on main?  Surface that so users
         # know their auxiliary.compression.model setting is broken even
         # though compression succeeded.
-        _aux_fail_model = getattr(agent.context_compressor, "_last_aux_model_failure_model", None)
-        _aux_fail_err = getattr(agent.context_compressor, "_last_aux_model_failure_error", None)
+        _aux_fail_model = getattr(
+            agent.context_compressor,
+            "_last_aux_model_failure_model",
+            None)
+        _aux_fail_err = getattr(
+            agent.context_compressor,
+            "_last_aux_model_failure_error",
+            None)
         if _aux_fail_model:
             # Dedup on (model, error) so we don't spam on every compaction
             _aux_key = (_aux_fail_model, _aux_fail_err)
-            if getattr(agent, "_last_aux_fallback_warning_key", None) != _aux_key:
+            if getattr(agent, "_last_aux_fallback_warning_key",
+                       None) != _aux_key:
                 agent._last_aux_fallback_warning_key = _aux_key
                 agent._emit_warning(
                     f"ℹ Configured compression model '{_aux_fail_model}' failed "
@@ -506,9 +533,13 @@ def compress_context(
             agent.commit_memory_session(messages)
             agent._session_db.end_session(agent.session_id, "compression")
             old_session_id = agent.session_id
-            agent.session_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
+            agent.session_id = f"{
+                datetime.now().strftime('%Y%m%d_%H%M%S')}_{
+                uuid.uuid4().hex[
+                    :6]}"
             # Ordering contract: the agent thread updates the contextvar here;
-            # the gateway propagates to SessionEntry after run_in_executor returns.
+            # the gateway propagates to SessionEntry after run_in_executor
+            # returns.
             try:
                 from gateway.session_context import set_current_session_id
 
@@ -533,7 +564,8 @@ def compress_context(
             agent._session_db_created = False
             agent._session_db.create_session(
                 session_id=agent.session_id,
-                source=agent.platform or os.environ.get("NASTECH_SESSION_SOURCE", "cli"),
+                source=agent.platform or os.environ.get(
+                    "NASTECH_SESSION_SOURCE", "cli"),
                 model=agent.model,
                 model_config=agent._session_init_model_config,
                 parent_session_id=old_session_id,
@@ -542,15 +574,20 @@ def compress_context(
             # Auto-number the title for the continuation session
             if old_title:
                 try:
-                    new_title = agent._session_db.get_next_title_in_lineage(old_title)
-                    agent._session_db.set_session_title(agent.session_id, new_title)
+                    new_title = agent._session_db.get_next_title_in_lineage(
+                        old_title)
+                    agent._session_db.set_session_title(
+                        agent.session_id, new_title)
                 except (ValueError, Exception) as e:
-                    logger.debug("Could not propagate title on compression: %s", e)
-            agent._session_db.update_system_prompt(agent.session_id, new_system_prompt)
+                    logger.debug(
+                        "Could not propagate title on compression: %s", e)
+            agent._session_db.update_system_prompt(
+                agent.session_id, new_system_prompt)
             # Reset flush cursor — new session starts with no messages written
             agent._last_flushed_db_idx = 0
         except Exception as e:
-            logger.warning("Session DB compression split failed — new session will NOT be indexed: %s", e)
+            logger.warning(
+                "Session DB compression split failed — new session will NOT be indexed: %s", e)
 
     # Notify the context engine that the session_id rotated because of
     # compression (not a fresh /new). Plugin engines (e.g. nastech-lcm) use
@@ -567,7 +604,9 @@ def compress_context(
                 conversation_id=getattr(agent, "_gateway_session_key", None),
             )
     except Exception as _ce_err:
-        logger.debug("context engine on_session_start (compression): %s", _ce_err)
+        logger.debug(
+            "context engine on_session_start (compression): %s",
+            _ce_err)
 
     # Notify memory providers of the compression-driven session_id rotation
     # so provider-cached per-session state (Hindsight's _document_id,
@@ -584,7 +623,9 @@ def compress_context(
                 reason="compression",
             )
     except Exception as _me_err:
-        logger.debug("memory manager on_session_switch (compression): %s", _me_err)
+        logger.debug(
+            "memory manager on_session_switch (compression): %s",
+            _me_err)
 
     # Warn on repeated compressions (quality degrades with each pass)
     _cc = agent.context_compressor.compression_count
@@ -655,7 +696,8 @@ def try_shrink_image_parts_in_messages(api_messages: list) -> bool:
     try:
         from tools.vision_tools import _resize_image_for_vision
     except Exception as exc:
-        logger.warning("image-shrink recovery: vision_tools unavailable — %s", exc)
+        logger.warning(
+            "image-shrink recovery: vision_tools unavailable — %s", exc)
         return False
 
     # 4 MB target leaves comfortable headroom under Anthropic's 5 MB.
@@ -693,8 +735,9 @@ def try_shrink_image_parts_in_messages(api_messages: list) -> bool:
                 if not data_d:
                     return None
                 raw_d = _b64_dim.b64decode(data_d)
-                from PIL import Image as _PILImage
                 import io as _io_dim
+
+                from PIL import Image as _PILImage
                 with _PILImage.open(_io_dim.BytesIO(raw_d)) as _img:
                     if max(_img.size) <= max_dimension:
                         return None  # both bytes and pixels are fine

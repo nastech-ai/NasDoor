@@ -14,9 +14,9 @@ Usage:
 
 import json
 import sys
-import urllib.request
-import urllib.parse
 import urllib.error
+import urllib.parse
+import urllib.request
 
 GAMMA = "https://gamma-api.polymarket.com"
 CLOB = "https://clob.polymarket.com"
@@ -25,7 +25,9 @@ DATA = "https://data-api.polymarket.com"
 
 def _get(url: str) -> dict | list:
     """GET request, return parsed JSON."""
-    req = urllib.request.Request(url, headers={"User-Agent": "nastech-agent/1.0"})
+    req = urllib.request.Request(
+        url, headers={
+            "User-Agent": "nastech-agent/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read().decode())
@@ -78,7 +80,8 @@ def _print_market(m: dict, indent: str = ""):
     status = " [CLOSED]" if closed else ""
 
     if isinstance(prices, list) and len(prices) >= 2:
-        outcome_labels = outcomes if isinstance(outcomes, list) else ["Yes", "No"]
+        outcome_labels = outcomes if isinstance(
+            outcomes, list) else ["Yes", "No"]
         price_str = " / ".join(
             f"{outcome_labels[i]}: {_fmt_pct(prices[i])}"
             for i in range(min(len(prices), len(outcome_labels)))
@@ -102,7 +105,15 @@ def cmd_search(query: str):
     print(f"Found {total} results for \"{query}\":\n")
     for evt in events[:10]:
         print(f"=== {evt['title']} ===")
-        print(f"  Volume: {_fmt_volume(evt.get('volume', 0))}  |  slug: {evt.get('slug', '')}")
+        print(
+            f"  Volume: {
+                _fmt_volume(
+                    evt.get(
+                        'volume',
+                        0))}  |  slug: {
+                evt.get(
+                    'slug',
+                    '')}")
         markets = evt.get("markets", [])
         for m in markets[:5]:
             _print_market(m, indent="  ")
@@ -113,11 +124,21 @@ def cmd_search(query: str):
 
 def cmd_trending(limit: int = 10):
     """Show trending events by volume."""
-    events = _get(f"{GAMMA}/events?limit={limit}&active=true&closed=false&order=volume&ascending=false")
+    events = _get(
+        f"{GAMMA}/events?limit={limit}&active=true&closed=false&order=volume&ascending=false")
     print(f"Top {len(events)} trending events:\n")
     for i, evt in enumerate(events, 1):
         print(f"{i}. {evt['title']}")
-        print(f"   Volume: {_fmt_volume(evt.get('volume', 0))}  |  Markets: {len(evt.get('markets', []))}")
+        print(
+            f"   Volume: {
+                _fmt_volume(
+                    evt.get(
+                        'volume',
+                        0))}  |  Markets: {
+                len(
+                    evt.get(
+                        'markets',
+                        []))}")
         print(f"   slug: {evt.get('slug', '')}")
         markets = evt.get("markets", [])
         for m in markets[:3]:
@@ -142,7 +163,8 @@ def cmd_market(slug: str):
     if isinstance(tokens, list):
         outcomes = _parse_json_field(m.get("outcomes", "[]"))
         for i, t in enumerate(tokens):
-            label = outcomes[i] if isinstance(outcomes, list) and i < len(outcomes) else f"Outcome {i}"
+            label = outcomes[i] if isinstance(
+                outcomes, list) and i < len(outcomes) else f"Outcome {i}"
             print(f"  token ({label}): {t}")
     desc = m.get("description", "")
     if desc:
@@ -183,21 +205,43 @@ def cmd_book(token_id: str):
     asks = book.get("asks", [])
     last = book.get("last_trade_price", "?")
     print(f"Orderbook for {token_id[:30]}...")
-    print(f"Last trade: {_fmt_pct(last)}  |  Tick size: {book.get('tick_size', '?')}")
+    print(
+        f"Last trade: {
+            _fmt_pct(last)}  |  Tick size: {
+            book.get(
+                'tick_size',
+                '?')}")
     print(f"\n  Top bids ({len(bids)} total):")
     # Show bids sorted by price descending (best bids first)
-    sorted_bids = sorted(bids, key=lambda x: float(x.get("price", 0)), reverse=True)
+    sorted_bids = sorted(
+        bids,
+        key=lambda x: float(
+            x.get(
+                "price",
+                0)),
+        reverse=True)
     for b in sorted_bids[:10]:
-        print(f"    {_fmt_pct(b['price']):>7}  |  Size: {float(b['size']):>10.2f}")
+        print(
+            f"    {
+                _fmt_pct(
+                    b['price']):>7}  |  Size: {
+                float(
+                    b['size']):>10.2f}")
     print(f"\n  Top asks ({len(asks)} total):")
     sorted_asks = sorted(asks, key=lambda x: float(x.get("price", 0)))
     for a in sorted_asks[:10]:
-        print(f"    {_fmt_pct(a['price']):>7}  |  Size: {float(a['size']):>10.2f}")
+        print(
+            f"    {
+                _fmt_pct(
+                    a['price']):>7}  |  Size: {
+                float(
+                    a['size']):>10.2f}")
 
 
 def cmd_history(condition_id: str, interval: str = "all", fidelity: int = 50):
     """Get price history for a market."""
-    data = _get(f"{CLOB}/prices-history?market={condition_id}&interval={interval}&fidelity={fidelity}")
+    data = _get(
+        f"{CLOB}/prices-history?market={condition_id}&interval={interval}&fidelity={fidelity}")
     history = data.get("history", [])
     if not history:
         print("No price history available for this market.")
@@ -205,7 +249,8 @@ def cmd_history(condition_id: str, interval: str = "all", fidelity: int = 50):
     print(f"Price history ({len(history)} points, interval={interval}):\n")
     from datetime import datetime, timezone
     for pt in history:
-        ts = datetime.fromtimestamp(pt["t"], tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
+        ts = datetime.fromtimestamp(
+            pt["t"], tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
         price = _fmt_pct(pt["p"])
         bar = "█" * int(float(pt["p"]) * 40)
         print(f"  {ts}  {price:>7}  {bar}")
@@ -228,7 +273,11 @@ def cmd_trades(limit: int = 10, market: str = None):
         outcome = t.get("outcome", "?")
         title = t.get("title", "?")[:50]
         ts = t.get("timestamp", "")
-        print(f"  {side:4}  {price:>7}  x{float(size):>8.2f}  [{outcome}]  {title}")
+        print(
+            f"  {
+                side:4}  {
+                price:>7}  x{
+                float(size):>8.2f}  [{outcome}]  {title}")
 
 
 def main():

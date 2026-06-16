@@ -14,7 +14,8 @@ from typing import Callable
 from nastech_cli.subcommands._shared import add_accept_hooks_flag
 
 
-def build_gateway_parser(subparsers, *, cmd_gateway: Callable, cmd_proxy: Callable) -> None:
+def build_gateway_parser(
+        subparsers, *, cmd_gateway: Callable, cmd_proxy: Callable) -> None:
     """Attach the ``gateway`` and ``proxy`` subcommands to ``subparsers``."""
     # =========================================================================
     # gateway command
@@ -77,7 +78,8 @@ def build_gateway_parser(subparsers, *, cmd_gateway: Callable, cmd_proxy: Callab
     )
 
     # gateway stop
-    gateway_stop = gateway_subparsers.add_parser("stop", help="Stop gateway service")
+    gateway_stop = gateway_subparsers.add_parser(
+        "stop", help="Stop gateway service")
     gateway_stop.add_argument(
         "--system",
         action="store_true",
@@ -105,8 +107,12 @@ def build_gateway_parser(subparsers, *, cmd_gateway: Callable, cmd_proxy: Callab
     )
 
     # gateway status
-    gateway_status = gateway_subparsers.add_parser("status", help="Show gateway status")
-    gateway_status.add_argument("--deep", action="store_true", help="Deep status check")
+    gateway_status = gateway_subparsers.add_parser(
+        "status", help="Show gateway status")
+    gateway_status.add_argument(
+        "--deep",
+        action="store_true",
+        help="Deep status check")
     gateway_status.add_argument(
         "-l",
         "--full",
@@ -123,7 +129,10 @@ def build_gateway_parser(subparsers, *, cmd_gateway: Callable, cmd_proxy: Callab
     gateway_install = gateway_subparsers.add_parser(
         "install", help="Install gateway as a systemd/launchd background service"
     )
-    gateway_install.add_argument("--force", action="store_true", help="Force reinstall")
+    gateway_install.add_argument(
+        "--force",
+        action="store_true",
+        help="Force reinstall")
     gateway_install.add_argument(
         "--system",
         action="store_true",
@@ -178,10 +187,12 @@ def build_gateway_parser(subparsers, *, cmd_gateway: Callable, cmd_proxy: Callab
     )
 
     # gateway list
-    gateway_subparsers.add_parser("list", help="List all profiles and their gateway status")
+    gateway_subparsers.add_parser(
+        "list", help="List all profiles and their gateway status")
 
     # gateway setup
-    gateway_subparsers.add_parser("setup", help="Configure messaging platforms")
+    gateway_subparsers.add_parser(
+        "setup", help="Configure messaging platforms")
 
     # gateway migrate-legacy
     gateway_migrate_legacy = gateway_subparsers.add_parser(

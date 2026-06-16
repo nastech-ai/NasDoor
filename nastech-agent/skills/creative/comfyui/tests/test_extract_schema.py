@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-
 from extract_schema import (
     extract_schema,
     find_negative_prompt_node,
     find_positive_prompt_node,
     trace_to_node,
 )
-
 
 # =============================================================================
 # Connection tracing

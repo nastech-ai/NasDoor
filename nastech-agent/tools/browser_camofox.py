@@ -35,7 +35,6 @@ from typing import Any, Dict, Optional
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 import requests
-
 from nastech_cli.config import cfg_get, load_config
 from tools.browser_camofox_state import get_camofox_identity
 from tools.registry import tool_error
@@ -107,7 +106,8 @@ def _get_camofox_config() -> Dict[str, Any]:
     try:
         camofox_cfg = load_config().get("browser", {}).get("camofox", {})
     except Exception as exc:
-        logger.warning("camofox config check failed, defaulting to disabled: %s", exc)
+        logger.warning(
+            "camofox config check failed, defaulting to disabled: %s", exc)
         return {}
     return camofox_cfg if isinstance(camofox_cfg, dict) else {}
 
@@ -124,14 +124,17 @@ def _managed_persistence_enabled() -> bool:
     return bool(_get_camofox_config().get("managed_persistence"))
 
 
-def _camofox_identity_override(task_id: Optional[str], camofox_cfg: Dict[str, Any]) -> Optional[Dict[str, str]]:
+def _camofox_identity_override(
+        task_id: Optional[str], camofox_cfg: Dict[str, Any]) -> Optional[Dict[str, str]]:
     """Return an externally configured Camofox identity, if one is set.
 
     Integrations that own the visible Camofox browser can set a shared user ID
     so NasTech operates in the same browser profile instead of creating a
     separate private session.
     """
-    user_id = os.getenv("CAMOFOX_USER_ID", "").strip() or str(camofox_cfg.get("user_id") or "").strip()
+    user_id = os.getenv(
+        "CAMOFOX_USER_ID", "").strip() or str(
+        camofox_cfg.get("user_id") or "").strip()
     if not user_id:
         return None
 
@@ -205,7 +208,8 @@ def _is_loopback_hostname(hostname: Optional[str]) -> bool:
         return False
 
 
-def _rewrite_loopback_url_for_camofox(url: str) -> tuple[str, Optional[Dict[str, str]]]:
+def _rewrite_loopback_url_for_camofox(
+        url: str) -> tuple[str, Optional[Dict[str, str]]]:
     """Rewrite loopback page URLs for Docker-hosted Camofox, if configured.
 
     Returns ``(rewritten_url, metadata)``.  ``metadata`` is present only when a
@@ -220,7 +224,8 @@ def _rewrite_loopback_url_for_camofox(url: str) -> tuple[str, Optional[Dict[str,
     except ValueError:
         return url, None
 
-    if parsed.scheme not in {"http", "https"} or not _is_loopback_hostname(parsed.hostname):
+    if parsed.scheme not in {"http", "https"} or not _is_loopback_hostname(
+            parsed.hostname):
         return url, None
 
     alias = _loopback_rewrite_host(camofox_cfg)
@@ -233,10 +238,16 @@ def _rewrite_loopback_url_for_camofox(url: str) -> tuple[str, Optional[Dict[str,
         if parsed.password:
             userinfo += f":{parsed.password}"
         userinfo += "@"
-    host_part = f"[{alias}]" if ":" in alias and not alias.startswith("[") else alias
+    host_part = f"[{alias}]" if ":" in alias and not alias.startswith(
+        "[") else alias
     port_part = f":{parsed.port}" if parsed.port else ""
     rewritten = urlunsplit(
-        SplitResult(parsed.scheme, f"{userinfo}{host_part}{port_part}", parsed.path, parsed.query, parsed.fragment)
+        SplitResult(
+            parsed.scheme,
+            f"{userinfo}{host_part}{port_part}",
+            parsed.path,
+            parsed.query,
+            parsed.fragment)
     )
     return rewritten, {
         "from": parsed.hostname or "",
@@ -268,9 +279,18 @@ def _adopt_existing_tab(session: Dict[str, Any]) -> Dict[str, Any]:
         return session
 
     try:
-        tabs = _get("/tabs", params={"userId": session["user_id"]}, timeout=5).get("tabs", [])
+        tabs = _get(
+            "/tabs",
+            params={
+                "userId": session["user_id"]},
+            timeout=5).get(
+            "tabs",
+            [])
     except Exception as exc:
-        logger.debug("Camofox tab adoption failed for %s: %s", session.get("user_id"), exc)
+        logger.debug(
+            "Camofox tab adoption failed for %s: %s",
+            session.get("user_id"),
+            exc)
         return session
 
     if not isinstance(tabs, list) or not tabs:
@@ -282,12 +302,17 @@ def _adopt_existing_tab(session: Dict[str, Any]) -> Dict[str, Any]:
         for tab in tabs
         if isinstance(tab, dict) and tab.get("listItemId") == session_key
     ]
-    candidates = matching_tabs or [tab for tab in tabs if isinstance(tab, dict)]
+    candidates = matching_tabs or [
+        tab for tab in tabs if isinstance(
+            tab, dict)]
     latest = candidates[-1] if candidates else None
     tab_id = latest.get("tabId") if isinstance(latest, dict) else None
     if isinstance(tab_id, str) and tab_id:
         session["tab_id"] = tab_id
-        logger.debug("Adopted existing Camofox tab %s for %s", tab_id, session.get("user_id"))
+        logger.debug(
+            "Adopted existing Camofox tab %s for %s",
+            tab_id,
+            session.get("user_id"))
 
     return session
 
@@ -335,7 +360,8 @@ def _get_session(task_id: Optional[str]) -> Dict[str, Any]:
         return _adopt_existing_tab(session)
 
 
-def _ensure_tab(task_id: Optional[str], url: str = "about:blank") -> Dict[str, Any]:
+def _ensure_tab(task_id: Optional[str],
+                url: str = "about:blank") -> Dict[str, Any]:
     """Ensure a tab exists for the session, creating one if needed."""
     session = _get_session(task_id)
     if session["tab_id"]:
@@ -373,9 +399,12 @@ def camofox_soft_cleanup(task_id: Optional[str] = None) -> bool:
     :func:`camofox_close`.
     """
     camofox_cfg = _get_camofox_config()
-    if bool(camofox_cfg.get("managed_persistence")) or _camofox_identity_override(task_id, camofox_cfg):
+    if bool(camofox_cfg.get("managed_persistence")
+            ) or _camofox_identity_override(task_id, camofox_cfg):
         _drop_session(task_id)
-        logger.debug("Camofox soft cleanup for task %s (managed persistence)", task_id)
+        logger.debug(
+            "Camofox soft cleanup for task %s (managed persistence)",
+            task_id)
         return True
     return False
 
@@ -392,7 +421,8 @@ def _post(path: str, body: dict, timeout: int = _DEFAULT_TIMEOUT) -> dict:
     return resp.json()
 
 
-def _get(path: str, params: dict = None, timeout: int = _DEFAULT_TIMEOUT) -> dict:
+def _get(path: str, params: dict = None,
+         timeout: int = _DEFAULT_TIMEOUT) -> dict:
     """GET from camofox and return parsed response."""
     url = f"{get_camofox_url()}{path}"
     resp = requests.get(url, params=params, timeout=timeout)
@@ -400,7 +430,8 @@ def _get(path: str, params: dict = None, timeout: int = _DEFAULT_TIMEOUT) -> dic
     return resp.json()
 
 
-def _get_raw(path: str, params: dict = None, timeout: int = _DEFAULT_TIMEOUT) -> requests.Response:
+def _get_raw(path: str, params: dict = None,
+             timeout: int = _DEFAULT_TIMEOUT) -> requests.Response:
     """GET from camofox and return raw response (for binary data)."""
     url = f"{get_camofox_url()}{path}"
     resp = requests.get(url, params=params, timeout=timeout)
@@ -408,7 +439,8 @@ def _get_raw(path: str, params: dict = None, timeout: int = _DEFAULT_TIMEOUT) ->
     return resp
 
 
-def _delete(path: str, body: dict = None, timeout: int = _DEFAULT_TIMEOUT) -> dict:
+def _delete(path: str, body: dict = None,
+            timeout: int = _DEFAULT_TIMEOUT) -> dict:
     """DELETE to camofox and return parsed response."""
     url = f"{get_camofox_url()}{path}"
     resp = requests.delete(url, json=body, timeout=timeout)
@@ -481,8 +513,8 @@ def camofox_navigate(url: str, task_id: Optional[str] = None) -> str:
         return json.dumps({
             "success": False,
             "error": f"Cannot connect to Camofox at {get_camofox_url()}. "
-                     "Is the server running? Start with: npm start (in camofox-browser dir) "
-                     "or: docker run -p 9377:9377 -e CAMOFOX_PORT=9377 jo-inc/camofox-browser",
+            "Is the server running? Start with: npm start (in camofox-browser dir) "
+            "or: docker run -p 9377:9377 -e CAMOFOX_PORT=9377 jo-inc/camofox-browser",
         })
     except Exception as e:
         return tool_error(str(e), success=False)
@@ -494,7 +526,8 @@ def camofox_snapshot(full: bool = False, task_id: Optional[str] = None,
     try:
         session = _get_session(task_id)
         if not session["tab_id"]:
-            return tool_error("No browser session. Call browser_navigate first.", success=False)
+            return tool_error(
+                "No browser session. Call browser_navigate first.", success=False)
 
         data = _get(
             f"/tabs/{session['tab_id']}/snapshot",
@@ -531,7 +564,8 @@ def camofox_click(ref: str, task_id: Optional[str] = None) -> str:
     try:
         session = _get_session(task_id)
         if not session["tab_id"]:
-            return tool_error("No browser session. Call browser_navigate first.", success=False)
+            return tool_error(
+                "No browser session. Call browser_navigate first.", success=False)
 
         # Strip @ prefix if present (our tool convention)
         clean_ref = ref.lstrip("@")
@@ -554,7 +588,8 @@ def camofox_type(ref: str, text: str, task_id: Optional[str] = None) -> str:
     try:
         session = _get_session(task_id)
         if not session["tab_id"]:
-            return tool_error("No browser session. Call browser_navigate first.", success=False)
+            return tool_error(
+                "No browser session. Call browser_navigate first.", success=False)
 
         clean_ref = ref.lstrip("@")
 
@@ -576,7 +611,8 @@ def camofox_scroll(direction: str, task_id: Optional[str] = None) -> str:
     try:
         session = _get_session(task_id)
         if not session["tab_id"]:
-            return tool_error("No browser session. Call browser_navigate first.", success=False)
+            return tool_error(
+                "No browser session. Call browser_navigate first.", success=False)
 
         _post(
             f"/tabs/{session['tab_id']}/scroll",
@@ -592,7 +628,8 @@ def camofox_back(task_id: Optional[str] = None) -> str:
     try:
         session = _get_session(task_id)
         if not session["tab_id"]:
-            return tool_error("No browser session. Call browser_navigate first.", success=False)
+            return tool_error(
+                "No browser session. Call browser_navigate first.", success=False)
 
         data = _post(
             f"/tabs/{session['tab_id']}/back",
@@ -608,7 +645,8 @@ def camofox_press(key: str, task_id: Optional[str] = None) -> str:
     try:
         session = _get_session(task_id)
         if not session["tab_id"]:
-            return tool_error("No browser session. Call browser_navigate first.", success=False)
+            return tool_error(
+                "No browser session. Call browser_navigate first.", success=False)
 
         _post(
             f"/tabs/{session['tab_id']}/press",
@@ -643,7 +681,8 @@ def camofox_get_images(task_id: Optional[str] = None) -> str:
     try:
         session = _get_session(task_id)
         if not session["tab_id"]:
-            return tool_error("No browser session. Call browser_navigate first.", success=False)
+            return tool_error(
+                "No browser session. Call browser_navigate first.", success=False)
 
         import re
 
@@ -666,7 +705,8 @@ def camofox_get_images(task_id: Optional[str] = None) -> str:
                 # Look for URL on the next line
                 src = ""
                 if i + 1 < len(lines):
-                    url_match = re.search(r'/url:\s*(\S+)', lines[i + 1].strip())
+                    url_match = re.search(
+                        r'/url:\s*(\S+)', lines[i + 1].strip())
                     if url_match:
                         src = url_match.group(1)
                 if alt or src:
@@ -687,7 +727,8 @@ def camofox_vision(question: str, annotate: bool = False,
     try:
         session = _get_session(task_id)
         if not session["tab_id"]:
-            return tool_error("No browser session. Call browser_navigate first.", success=False)
+            return tool_error(
+                "No browser session. Call browser_navigate first.", success=False)
 
         # Get screenshot as binary PNG
         resp = _get_raw(
@@ -699,7 +740,8 @@ def camofox_vision(question: str, annotate: bool = False,
         from nastech_constants import get_nastech_home
         screenshots_dir = get_nastech_home() / "browser_screenshots"
         screenshots_dir.mkdir(parents=True, exist_ok=True)
-        screenshot_path = str(screenshots_dir / f"browser_screenshot_{uuid.uuid4().hex[:8]}.png")
+        screenshot_path = str(screenshots_dir /
+                              f"browser_screenshot_{uuid.uuid4().hex[:8]}.png")
 
         with open(screenshot_path, "wb") as f:
             f.write(resp.content)
@@ -715,7 +757,10 @@ def camofox_vision(question: str, annotate: bool = False,
                     f"/tabs/{session['tab_id']}/snapshot",
                     params={"userId": session["user_id"]},
                 )
-                annotation_context = f"\n\nAccessibility tree (element refs for interaction):\n{snap_data.get('snapshot', '')[:3000]}"
+                annotation_context = f"\n\nAccessibility tree (element refs for interaction):\n{
+                    snap_data.get(
+                        'snapshot', '')[
+                        :3000]}"
             except Exception:
                 pass
 
@@ -759,7 +804,8 @@ def camofox_vision(question: str, annotate: bool = False,
             temperature=_vision_temperature,
             timeout=_vision_timeout,
         )
-        analysis = (response.choices[0].message.content or "").strip() if response.choices else ""
+        analysis = (response.choices[0].message.content or "").strip(
+        ) if response.choices else ""
 
         # Redact secrets the vision LLM may have read from the screenshot.
         from agent.redact import redact_sensitive_text
@@ -789,6 +835,3 @@ def camofox_console(clear: bool = False, task_id: Optional[str] = None) -> str:
         "note": "Console log capture is not available with the Camofox backend. "
                 "Use browser_snapshot or browser_vision to inspect page state.",
     })
-
-
-

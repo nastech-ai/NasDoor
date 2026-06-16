@@ -58,7 +58,8 @@ def _restore_file_mode(path: Path, mode: "int | None") -> None:
         pass
 
 
-def atomic_replace(tmp_path: Union[str, Path], target: Union[str, Path]) -> str:
+def atomic_replace(tmp_path: Union[str, Path],
+                   target: Union[str, Path]) -> str:
     """Atomically move *tmp_path* onto *target*, preserving symlinks.
 
     ``os.replace(tmp, target)`` atomically swaps ``tmp`` into place at
@@ -77,7 +78,8 @@ def atomic_replace(tmp_path: Union[str, Path], target: Union[str, Path]) -> str:
     need to re-apply permissions can target it instead of the symlink.
     """
     target_str = str(target)
-    real_path = os.path.realpath(target_str) if os.path.islink(target_str) else target_str
+    real_path = os.path.realpath(target_str) if os.path.islink(
+        target_str) else target_str
     os.replace(str(tmp_path), real_path)
     return real_path
 
@@ -185,7 +187,11 @@ def atomic_yaml_write(
     )
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            yaml.dump(data, f, default_flow_style=default_flow_style, sort_keys=sort_keys)
+            yaml.dump(
+                data,
+                f,
+                default_flow_style=default_flow_style,
+                sort_keys=sort_keys)
             if extra_content:
                 f.write(extra_content)
             f.flush()
@@ -267,7 +273,7 @@ def atomic_roundtrip_yaml_update(
         raise
 
 
-# ─── JSON Helpers ─────────────────────────────────────────────────────────────
+# ─── JSON Helpers ───────────────────────────────────────────────────────
 
 
 def safe_json_loads(text: str, default: Any = None) -> Any:
@@ -283,7 +289,7 @@ def safe_json_loads(text: str, default: Any = None) -> Any:
         return default
 
 
-# ─── Environment Variable Helpers ─────────────────────────────────────────────
+# ─── Environment Variable Helpers ───────────────────────────────────────
 
 
 def env_int(key: str, default: int = 0) -> int:
@@ -302,7 +308,7 @@ def env_bool(key: str, default: bool = False) -> bool:
     return is_truthy_value(os.getenv(key, ""), default=default)
 
 
-# ─── Proxy Helpers ────────────────────────────────────────────────────────────
+# ─── Proxy Helpers ──────────────────────────────────────────────────────
 
 
 _PROXY_ENV_KEYS = (
@@ -335,7 +341,7 @@ def normalize_proxy_env_vars() -> None:
             os.environ[key] = normalized
 
 
-# ─── URL Parsing Helpers ──────────────────────────────────────────────────────
+# ─── URL Parsing Helpers ────────────────────────────────────────────────
 
 
 def base_url_hostname(base_url: str) -> str:

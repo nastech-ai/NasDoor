@@ -31,12 +31,13 @@ from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from pathlib import Path
 
+from _nastech_home import get_nastech_home
+
 # Ensure sibling modules (_nastech_home) are importable when run standalone.
 _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from _nastech_home import get_nastech_home
 
 NASTECH_HOME = get_nastech_home()
 TOKEN_PATH = NASTECH_HOME / "google_token.json"
@@ -64,7 +65,11 @@ def _normalize_authorized_user_payload(payload: dict) -> dict:
 def _ensure_authenticated():
     if not TOKEN_PATH.exists():
         print("Not authenticated. Run the setup script first:", file=sys.stderr)
-        print(f"  python {Path(__file__).parent / 'setup.py'}", file=sys.stderr)
+        print(
+            f"  python {
+                Path(__file__).parent /
+                'setup.py'}",
+            file=sys.stderr)
         sys.exit(1)
 
 
@@ -92,7 +97,8 @@ def _gws_env() -> dict[str, str]:
     return env
 
 
-def _run_gws(parts: list[str], *, params: dict | None = None, body: dict | None = None):
+def _run_gws(parts: list[str], *, params: dict |
+             None = None, body: dict | None = None):
     binary = _gws_binary()
     if not binary:
         raise RuntimeError("gws not installed")
@@ -140,16 +146,24 @@ def _extract_message_body(msg: dict) -> str:
     body = ""
     payload = msg.get("payload", {})
     if payload.get("body", {}).get("data"):
-        body = base64.urlsafe_b64decode(payload["body"]["data"]).decode("utf-8", errors="replace")
+        body = base64.urlsafe_b64decode(
+            payload["body"]["data"]).decode(
+            "utf-8", errors="replace")
     elif payload.get("parts"):
         for part in payload["parts"]:
-            if part.get("mimeType") == "text/plain" and part.get("body", {}).get("data"):
-                body = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="replace")
+            if part.get(
+                    "mimeType") == "text/plain" and part.get("body", {}).get("data"):
+                body = base64.urlsafe_b64decode(
+                    part["body"]["data"]).decode(
+                    "utf-8", errors="replace")
                 break
         if not body:
             for part in payload["parts"]:
-                if part.get("mimeType") == "text/html" and part.get("body", {}).get("data"):
-                    body = base64.urlsafe_b64decode(part["body"]["data"]).decode("utf-8", errors="replace")
+                if part.get(
+                        "mimeType") == "text/html" and part.get("body", {}).get("data"):
+                    body = base64.urlsafe_b64decode(
+                        part["body"]["data"]).decode(
+                        "utf-8", errors="replace")
                     break
     return body
 
@@ -182,15 +196,17 @@ def get_credentials():
     """Load and refresh credentials from token file."""
     _ensure_authenticated()
 
-    from google.oauth2.credentials import Credentials
     from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
 
-    creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), _stored_token_scopes())
+    creds = Credentials.from_authorized_user_file(
+        str(TOKEN_PATH), _stored_token_scopes())
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
         TOKEN_PATH.write_text(
             json.dumps(
-                _normalize_authorized_user_payload(json.loads(creds.to_json())),
+                _normalize_authorized_user_payload(
+                    json.loads(creds.to_json())),
                 indent=2,
             )
         )
@@ -274,7 +290,6 @@ def gmail_search(args):
     print(json.dumps(output, indent=2, ensure_ascii=False))
 
 
-
 def gmail_get(args):
     if _gws_binary():
         msg = _run_gws(
@@ -314,7 +329,6 @@ def gmail_get(args):
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
 
-
 def gmail_send(args):
     if _gws_binary():
         message = MIMEText(args.body, "html" if args.html else "plain")
@@ -335,7 +349,8 @@ def gmail_send(args):
             params={"userId": "me"},
             body=body,
         )
-        print(json.dumps({"status": "sent", "id": result["id"], "threadId": result.get("threadId", "")}, indent=2))
+        print(json.dumps({"status": "sent", "id": result["id"], "threadId": result.get(
+            "threadId", "")}, indent=2))
         return
 
     service = build_service("gmail", "v1")
@@ -354,8 +369,8 @@ def gmail_send(args):
         body["threadId"] = args.thread_id
 
     result = service.users().messages().send(userId="me", body=body).execute()
-    print(json.dumps({"status": "sent", "id": result["id"], "threadId": result.get("threadId", "")}, indent=2))
-
+    print(json.dumps({"status": "sent", "id": result["id"], "threadId": result.get(
+        "threadId", "")}, indent=2))
 
 
 def gmail_reply(args):
@@ -390,7 +405,8 @@ def gmail_reply(args):
             params={"userId": "me"},
             body={"raw": raw, "threadId": original["threadId"]},
         )
-        print(json.dumps({"status": "sent", "id": result["id"], "threadId": result.get("threadId", "")}, indent=2))
+        print(json.dumps({"status": "sent", "id": result["id"], "threadId": result.get(
+            "threadId", "")}, indent=2))
         return
 
     service = build_service("gmail", "v1")
@@ -417,22 +433,24 @@ def gmail_reply(args):
     body = {"raw": raw, "threadId": original["threadId"]}
 
     result = service.users().messages().send(userId="me", body=body).execute()
-    print(json.dumps({"status": "sent", "id": result["id"], "threadId": result.get("threadId", "")}, indent=2))
-
+    print(json.dumps({"status": "sent", "id": result["id"], "threadId": result.get(
+        "threadId", "")}, indent=2))
 
 
 def gmail_labels(args):
     if _gws_binary():
-        results = _run_gws(["gmail", "users", "labels", "list"], params={"userId": "me"})
-        labels = [{"id": l["id"], "name": l["name"], "type": l.get("type", "")} for l in results.get("labels", [])]
+        results = _run_gws(["gmail", "users", "labels",
+                           "list"], params={"userId": "me"})
+        labels = [{"id": l["id"], "name": l["name"], "type": l.get(
+            "type", "")} for l in results.get("labels", [])]
         print(json.dumps(labels, indent=2))
         return
 
     service = build_service("gmail", "v1")
     results = service.users().labels().list(userId="me").execute()
-    labels = [{"id": l["id"], "name": l["name"], "type": l.get("type", "")} for l in results.get("labels", [])]
+    labels = [{"id": l["id"], "name": l["name"], "type": l.get(
+        "type", "")} for l in results.get("labels", [])]
     print(json.dumps(labels, indent=2))
-
 
 
 def gmail_modify(args):
@@ -448,12 +466,15 @@ def gmail_modify(args):
             params={"userId": "me", "id": args.message_id},
             body=body,
         )
-        print(json.dumps({"id": result["id"], "labels": result.get("labelIds", [])}, indent=2))
+        print(json.dumps(
+            {"id": result["id"], "labels": result.get("labelIds", [])}, indent=2))
         return
 
     service = build_service("gmail", "v1")
-    result = service.users().messages().modify(userId="me", id=args.message_id, body=body).execute()
-    print(json.dumps({"id": result["id"], "labels": result.get("labelIds", [])}, indent=2))
+    result = service.users().messages().modify(
+        userId="me", id=args.message_id, body=body).execute()
+    print(json.dumps(
+        {"id": result["id"], "labels": result.get("labelIds", [])}, indent=2))
 
 
 # =========================================================================
@@ -464,7 +485,8 @@ def gmail_modify(args):
 def calendar_list(args):
     now = datetime.now(timezone.utc)
     time_min = _datetime_with_timezone(args.start or now.isoformat())
-    time_max = _datetime_with_timezone(args.end or (now + timedelta(days=7)).isoformat())
+    time_max = _datetime_with_timezone(
+        args.end or (now + timedelta(days=7)).isoformat())
 
     if _gws_binary():
         results = _run_gws(
@@ -514,7 +536,6 @@ def calendar_list(args):
     print(json.dumps(events, indent=2, ensure_ascii=False))
 
 
-
 def calendar_create(args):
     event = {
         "summary": args.summary,
@@ -526,7 +547,8 @@ def calendar_create(args):
     if args.description:
         event["description"] = args.description
     if args.attendees:
-        event["attendees"] = [{"email": e.strip()} for e in args.attendees.split(",") if e.strip()]
+        event["attendees"] = [{"email": e.strip()}
+                              for e in args.attendees.split(",") if e.strip()]
 
     if _gws_binary():
         result = _run_gws(
@@ -552,15 +574,17 @@ def calendar_create(args):
     }, indent=2))
 
 
-
 def calendar_delete(args):
     if _gws_binary():
-        _run_gws(["calendar", "events", "delete"], params={"calendarId": args.calendar, "eventId": args.event_id})
+        _run_gws(["calendar", "events", "delete"], params={
+                 "calendarId": args.calendar, "eventId": args.event_id})
         print(json.dumps({"status": "deleted", "eventId": args.event_id}))
         return
 
     service = build_service("calendar", "v3")
-    service.events().delete(calendarId=args.calendar, eventId=args.event_id).execute()
+    service.events().delete(
+        calendarId=args.calendar,
+        eventId=args.event_id).execute()
     print(json.dumps({"status": "deleted", "eventId": args.event_id}))
 
 
@@ -570,7 +594,8 @@ def calendar_delete(args):
 
 
 def drive_search(args):
-    query = args.query if args.raw_query else f"fullText contains '{args.query}'"
+    query = args.query if args.raw_query else f"fullText contains '{
+        args.query}'"
     if _gws_binary():
         results = _run_gws(
             ["drive", "files", "list"],
@@ -580,7 +605,13 @@ def drive_search(args):
                 "fields": "files(id, name, mimeType, modifiedTime, webViewLink)",
             },
         )
-        print(json.dumps(results.get("files", []), indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                results.get(
+                    "files",
+                    []),
+                indent=2,
+                ensure_ascii=False))
         return
 
     service = build_service("drive", "v3")
@@ -611,6 +642,7 @@ def drive_upload(args):
     """Upload a local file to Drive. Falls through to Python client even when gws
     is installed, because gws doesn't do multipart uploads."""
     import mimetypes
+
     from googleapiclient.http import MediaFileUpload
 
     local_path = Path(args.path).expanduser()
@@ -618,7 +650,8 @@ def drive_upload(args):
         print(f"ERROR: file not found: {local_path}", file=sys.stderr)
         sys.exit(1)
 
-    mime = args.mime_type or mimetypes.guess_type(str(local_path))[0] or "application/octet-stream"
+    mime = args.mime_type or mimetypes.guess_type(
+        str(local_path))[0] or "application/octet-stream"
     metadata = {"name": args.name or local_path.name}
     if args.parent:
         metadata["parents"] = [args.parent]
@@ -643,12 +676,15 @@ def drive_download(args):
     """Download a Drive file to a local path. Google-native files (Docs/Sheets/Slides)
     must be exported; binary files are downloaded as-is."""
     import io
+
     from googleapiclient.http import MediaIoBaseDownload
 
     service = build_service("drive", "v3")
 
     # Look up the file to decide download vs export.
-    meta = service.files().get(fileId=args.file_id, fields="id, name, mimeType").execute()
+    meta = service.files().get(
+        fileId=args.file_id,
+        fields="id, name, mimeType").execute()
     mime = meta.get("mimeType", "")
     name = meta.get("name", args.file_id)
 
@@ -660,14 +696,16 @@ def drive_download(args):
         "application/vnd.google-apps.drawing": ("image/png", ".png"),
     }
 
-    out_path = Path(args.output).expanduser() if args.output else Path.cwd() / name
+    out_path = Path(args.output).expanduser(
+    ) if args.output else Path.cwd() / name
 
     if mime in native_export_map:
         export_mime = args.export_mime or native_export_map[mime][0]
         default_ext = native_export_map[mime][1]
         if not args.output and not out_path.suffix:
             out_path = out_path.with_suffix(default_ext)
-        request = service.files().export_media(fileId=args.file_id, mimeType=export_mime)
+        request = service.files().export_media(
+            fileId=args.file_id, mimeType=export_mime)
     else:
         request = service.files().get_media(fileId=args.file_id)
 
@@ -727,12 +765,16 @@ def drive_share(args):
     }
     if args.type in {"user", "group"}:
         if not args.email:
-            print("ERROR: --email is required for type=user or type=group", file=sys.stderr)
+            print(
+                "ERROR: --email is required for type=user or type=group",
+                file=sys.stderr)
             sys.exit(1)
         permission["emailAddress"] = args.email
     elif args.type == "domain":
         if not args.domain:
-            print("ERROR: --domain is required for type=domain", file=sys.stderr)
+            print(
+                "ERROR: --domain is required for type=domain",
+                file=sys.stderr)
             sys.exit(1)
         permission["domain"] = args.domain
 
@@ -774,12 +816,15 @@ def drive_delete(args):
     """Trash or permanently delete a Drive file. Defaults to trash (reversible)."""
     if args.permanent:
         if _gws_binary():
-            _run_gws(["drive", "files", "delete"], params={"fileId": args.file_id})
-            print(json.dumps({"status": "deleted", "fileId": args.file_id, "permanent": True}))
+            _run_gws(["drive", "files", "delete"],
+                     params={"fileId": args.file_id})
+            print(json.dumps({"status": "deleted",
+                  "fileId": args.file_id, "permanent": True}))
             return
         service = build_service("drive", "v3")
         service.files().delete(fileId=args.file_id).execute()
-        print(json.dumps({"status": "deleted", "fileId": args.file_id, "permanent": True}))
+        print(json.dumps({"status": "deleted",
+              "fileId": args.file_id, "permanent": True}))
         return
 
     # Trash (reversible). Use files.update with trashed=True.
@@ -790,12 +835,14 @@ def drive_delete(args):
             params={"fileId": args.file_id},
             body=body,
         )
-        print(json.dumps({"status": "trashed", "fileId": args.file_id, "permanent": False}))
+        print(json.dumps({"status": "trashed",
+              "fileId": args.file_id, "permanent": False}))
         return
 
     service = build_service("drive", "v3")
     service.files().update(fileId=args.file_id, body=body).execute()
-    print(json.dumps({"status": "trashed", "fileId": args.file_id, "permanent": False}))
+    print(json.dumps({"status": "trashed",
+          "fileId": args.file_id, "permanent": False}))
 
 
 # =========================================================================
@@ -856,7 +903,13 @@ def sheets_get(args):
             ["sheets", "spreadsheets", "values", "get"],
             params={"spreadsheetId": args.sheet_id, "range": args.range},
         )
-        print(json.dumps(result.get("values", []), indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                result.get(
+                    "values",
+                    []),
+                indent=2,
+                ensure_ascii=False))
         return
 
     service = build_service("sheets", "v4")
@@ -864,7 +917,6 @@ def sheets_get(args):
         spreadsheetId=args.sheet_id, range=args.range,
     ).execute()
     print(json.dumps(result.get("values", []), indent=2, ensure_ascii=False))
-
 
 
 def sheets_update(args):
@@ -881,7 +933,8 @@ def sheets_update(args):
             },
             body=body,
         )
-        print(json.dumps({"updatedCells": result.get("updatedCells", 0), "updatedRange": result.get("updatedRange", "")}, indent=2))
+        print(json.dumps({"updatedCells": result.get(
+            "updatedCells", 0), "updatedRange": result.get("updatedRange", "")}, indent=2))
         return
 
     service = build_service("sheets", "v4")
@@ -889,8 +942,8 @@ def sheets_update(args):
         spreadsheetId=args.sheet_id, range=args.range,
         valueInputOption="USER_ENTERED", body=body,
     ).execute()
-    print(json.dumps({"updatedCells": result.get("updatedCells", 0), "updatedRange": result.get("updatedRange", "")}, indent=2))
-
+    print(json.dumps({"updatedCells": result.get("updatedCells", 0),
+          "updatedRange": result.get("updatedRange", "")}, indent=2))
 
 
 def sheets_append(args):
@@ -908,7 +961,8 @@ def sheets_append(args):
             },
             body=body,
         )
-        print(json.dumps({"updatedCells": result.get("updates", {}).get("updatedCells", 0)}, indent=2))
+        print(json.dumps({"updatedCells": result.get(
+            "updates", {}).get("updatedCells", 0)}, indent=2))
         return
 
     service = build_service("sheets", "v4")
@@ -916,7 +970,8 @@ def sheets_append(args):
         spreadsheetId=args.sheet_id, range=args.range,
         valueInputOption="USER_ENTERED", insertDataOption="INSERT_ROWS", body=body,
     ).execute()
-    print(json.dumps({"updatedCells": result.get("updates", {}).get("updatedCells", 0)}, indent=2))
+    print(json.dumps({"updatedCells": result.get(
+        "updates", {}).get("updatedCells", 0)}, indent=2))
 
 
 def sheets_create(args):
@@ -954,7 +1009,8 @@ def sheets_create(args):
 
 def docs_get(args):
     if _gws_binary():
-        doc = _run_gws(["docs", "documents", "get"], params={"documentId": args.doc_id})
+        doc = _run_gws(["docs", "documents", "get"],
+                       params={"documentId": args.doc_id})
         result = {
             "title": doc.get("title", ""),
             "documentId": doc.get("documentId", ""),
@@ -999,7 +1055,8 @@ def docs_create(args):
 def docs_append(args):
     """Append text to the end of an existing Doc."""
     if _gws_binary():
-        doc = _run_gws(["docs", "documents", "get"], params={"documentId": args.doc_id})
+        doc = _run_gws(["docs", "documents", "get"],
+                       params={"documentId": args.doc_id})
     else:
         service = build_service("docs", "v1")
         doc = service.documents().get(documentId=args.doc_id).execute()
@@ -1043,7 +1100,9 @@ def _docs_insert_text(doc_id: str, text: str, index: int) -> None:
         return
 
     service = build_service("docs", "v1")
-    service.documents().batchUpdate(documentId=doc_id, body={"requests": requests}).execute()
+    service.documents().batchUpdate(
+        documentId=doc_id, body={
+            "requests": requests}).execute()
 
 
 # =========================================================================
@@ -1052,7 +1111,8 @@ def _docs_insert_text(doc_id: str, text: str, index: int) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Google Workspace API for NasTech Agent")
+    parser = argparse.ArgumentParser(
+        description="Google Workspace API for NasTech Agent")
     sub = parser.add_subparsers(dest="service", required=True)
 
     # --- Gmail ---
@@ -1073,7 +1133,11 @@ def main():
     p.add_argument("--subject", required=True)
     p.add_argument("--body", required=True)
     p.add_argument("--cc", default="")
-    p.add_argument("--from", dest="from_header", default="", help="Custom From header (e.g. '\"Agent Name\" <user@example.com>')")
+    p.add_argument(
+        "--from",
+        dest="from_header",
+        default="",
+        help="Custom From header (e.g. '\"Agent Name\" <user@example.com>')")
     p.add_argument("--html", action="store_true", help="Send body as HTML")
     p.add_argument("--thread-id", default="", help="Thread ID for threading")
     p.set_defaults(func=gmail_send)
@@ -1081,7 +1145,11 @@ def main():
     p = gmail_sub.add_parser("reply")
     p.add_argument("message_id", help="Message ID to reply to")
     p.add_argument("--body", required=True)
-    p.add_argument("--from", dest="from_header", default="", help="Custom From header (e.g. '\"Agent Name\" <user@example.com>')")
+    p.add_argument(
+        "--from",
+        dest="from_header",
+        default="",
+        help="Custom From header (e.g. '\"Agent Name\" <user@example.com>')")
     p.set_defaults(func=gmail_reply)
 
     p = gmail_sub.add_parser("labels")
@@ -1089,8 +1157,14 @@ def main():
 
     p = gmail_sub.add_parser("modify")
     p.add_argument("message_id")
-    p.add_argument("--add-labels", default="", help="Comma-separated label IDs to add")
-    p.add_argument("--remove-labels", default="", help="Comma-separated label IDs to remove")
+    p.add_argument(
+        "--add-labels",
+        default="",
+        help="Comma-separated label IDs to add")
+    p.add_argument(
+        "--remove-labels",
+        default="",
+        help="Comma-separated label IDs to remove")
     p.set_defaults(func=gmail_modify)
 
     # --- Calendar ---
@@ -1106,11 +1180,17 @@ def main():
 
     p = cal_sub.add_parser("create")
     p.add_argument("--summary", required=True)
-    p.add_argument("--start", required=True, help="Start (ISO 8601 with timezone)")
+    p.add_argument(
+        "--start",
+        required=True,
+        help="Start (ISO 8601 with timezone)")
     p.add_argument("--end", required=True, help="End (ISO 8601 with timezone)")
     p.add_argument("--location", default="")
     p.add_argument("--description", default="")
-    p.add_argument("--attendees", default="", help="Comma-separated email addresses")
+    p.add_argument(
+        "--attendees",
+        default="",
+        help="Comma-separated email addresses")
     p.add_argument("--calendar", default="primary")
     p.set_defaults(func=calendar_create)
 
@@ -1126,7 +1206,10 @@ def main():
     p = drv_sub.add_parser("search")
     p.add_argument("query")
     p.add_argument("--max", type=int, default=10)
-    p.add_argument("--raw-query", action="store_true", help="Use query as raw Drive API query")
+    p.add_argument(
+        "--raw-query",
+        action="store_true",
+        help="Use query as raw Drive API query")
     p.set_defaults(func=drive_search)
 
     p = drv_sub.add_parser("get")
@@ -1135,34 +1218,77 @@ def main():
 
     p = drv_sub.add_parser("upload")
     p.add_argument("path", help="Local file path to upload")
-    p.add_argument("--name", default="", help="Override file name in Drive (defaults to local filename)")
+    p.add_argument(
+        "--name",
+        default="",
+        help="Override file name in Drive (defaults to local filename)")
     p.add_argument("--parent", default="", help="Parent folder ID")
-    p.add_argument("--mime-type", default="", help="Override MIME type (auto-detected if omitted)")
+    p.add_argument(
+        "--mime-type",
+        default="",
+        help="Override MIME type (auto-detected if omitted)")
     p.set_defaults(func=drive_upload)
 
     p = drv_sub.add_parser("download")
     p.add_argument("file_id")
-    p.add_argument("--output", default="", help="Local output path (defaults to ./<name> in cwd)")
-    p.add_argument("--export-mime", default="", help="Export MIME for Google-native files (overrides defaults: pdf for Docs/Slides, csv for Sheets, png for Drawings)")
+    p.add_argument(
+        "--output",
+        default="",
+        help="Local output path (defaults to ./<name> in cwd)")
+    p.add_argument(
+        "--export-mime",
+        default="",
+        help="Export MIME for Google-native files (overrides defaults: pdf for Docs/Slides, csv for Sheets, png for Drawings)")
     p.set_defaults(func=drive_download)
 
     p = drv_sub.add_parser("create-folder")
     p.add_argument("name")
-    p.add_argument("--parent", default="", help="Parent folder ID (defaults to root)")
+    p.add_argument(
+        "--parent",
+        default="",
+        help="Parent folder ID (defaults to root)")
     p.set_defaults(func=drive_create_folder)
 
     p = drv_sub.add_parser("share")
     p.add_argument("file_id")
-    p.add_argument("--role", default="reader", choices=["reader", "commenter", "writer", "fileOrganizer", "organizer", "owner"])
-    p.add_argument("--type", default="user", choices=["user", "group", "domain", "anyone"])
-    p.add_argument("--email", default="", help="Email address (required for type=user or type=group)")
-    p.add_argument("--domain", default="", help="Domain (required for type=domain)")
-    p.add_argument("--notify", action="store_true", help="Send notification email")
+    p.add_argument(
+        "--role",
+        default="reader",
+        choices=[
+            "reader",
+            "commenter",
+            "writer",
+            "fileOrganizer",
+            "organizer",
+            "owner"])
+    p.add_argument(
+        "--type",
+        default="user",
+        choices=[
+            "user",
+            "group",
+            "domain",
+            "anyone"])
+    p.add_argument(
+        "--email",
+        default="",
+        help="Email address (required for type=user or type=group)")
+    p.add_argument(
+        "--domain",
+        default="",
+        help="Domain (required for type=domain)")
+    p.add_argument(
+        "--notify",
+        action="store_true",
+        help="Send notification email")
     p.set_defaults(func=drive_share)
 
     p = drv_sub.add_parser("delete")
     p.add_argument("file_id")
-    p.add_argument("--permanent", action="store_true", help="Permanently delete (default is trash, which is reversible)")
+    p.add_argument(
+        "--permanent",
+        action="store_true",
+        help="Permanently delete (default is trash, which is reversible)")
     p.set_defaults(func=drive_delete)
 
     # --- Contacts ---
@@ -1196,7 +1322,10 @@ def main():
 
     p = sh_sub.add_parser("create")
     p.add_argument("--title", required=True, help="Spreadsheet title")
-    p.add_argument("--sheet-name", default="", help="Name of the first tab (defaults to 'Sheet1')")
+    p.add_argument(
+        "--sheet-name",
+        default="",
+        help="Name of the first tab (defaults to 'Sheet1')")
     p.set_defaults(func=sheets_create)
 
     # --- Docs ---
@@ -1214,7 +1343,10 @@ def main():
 
     p = docs_sub.add_parser("append")
     p.add_argument("doc_id")
-    p.add_argument("--text", required=True, help="Text to append to the end of the document")
+    p.add_argument(
+        "--text",
+        required=True,
+        help="Text to append to the end of the document")
     p.set_defaults(func=docs_append)
 
     args = parser.parse_args()

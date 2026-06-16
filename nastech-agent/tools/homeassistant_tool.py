@@ -17,13 +17,16 @@ import os
 import re
 from typing import Any, Dict, Optional
 
+from tools.registry import registry, tool_error
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
-# Kept for backward compatibility (e.g. test monkeypatching); prefer _get_config().
+# Kept for backward compatibility (e.g. test monkeypatching); prefer
+# _get_config().
 _HASS_URL: str = ""
 _HASS_TOKEN: str = ""
 
@@ -31,11 +34,14 @@ _HASS_TOKEN: str = ""
 def _get_config():
     """Return (hass_url, hass_token) from env vars at call time."""
     return (
-        (_HASS_URL or os.getenv("HASS_URL", "http://homeassistant.local:8123")).rstrip("/"),
+        (_HASS_URL or os.getenv("HASS_URL",
+                                "http://homeassistant.local:8123")).rstrip("/"),
         _HASS_TOKEN or os.getenv("HASS_TOKEN", ""),
     )
 
-# Regex for valid HA entity_id format (e.g. "light.living_room", "sensor.temperature_1")
+
+# Regex for valid HA entity_id format (e.g. "light.living_room",
+# "sensor.temperature_1")
 _ENTITY_ID_RE = re.compile(r"^[a-z_][a-z0-9_]*\.[a-z0-9_]+$")
 
 # Regex for valid HA service/domain names (e.g. "light", "turn_on", "shell_command").
@@ -49,7 +55,8 @@ _SERVICE_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 # Service domains blocked for security -- these allow arbitrary code/command
 # execution on the HA host or enable SSRF attacks on the local network.
-# HA provides zero service-level access control; all safety must be in our layer.
+# HA provides zero service-level access control; all safety must be in our
+# layer.
 _BLOCKED_DOMAINS = frozenset({
     "shell_command",    # arbitrary shell commands as root in HA container
     "command_line",     # sensors/switches that execute shell commands
@@ -81,7 +88,11 @@ def _filter_and_summarize(
 ) -> Dict[str, Any]:
     """Filter raw HA states by domain/area and return a compact summary."""
     if domain:
-        states = [s for s in states if s.get("entity_id", "").startswith(f"{domain}.")]
+        states = [
+            s for s in states if s.get(
+                "entity_id",
+                "").startswith(
+                f"{domain}.")]
 
     if area:
         area_lower = area.lower()
@@ -281,7 +292,12 @@ def _handle_call_service(args: dict, **kw) -> str:
             return tool_error(f"Invalid JSON string in 'data' parameter: {e}")
 
     try:
-        result = _run_async(_async_call_service(domain, service, entity_id, data))
+        result = _run_async(
+            _async_call_service(
+                domain,
+                service,
+                entity_id,
+                data))
         return json.dumps({"result": result})
     except Exception as e:
         logger.error("ha_call_service error: %s", e)
@@ -298,7 +314,9 @@ async def _async_list_services(domain: Optional[str] = None) -> Dict[str, Any]:
 
     hass_url, hass_token = _get_config()
     url = f"{hass_url}/api/services"
-    headers = {"Authorization": f"Bearer {hass_token}", "Content-Type": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {hass_token}",
+        "Content-Type": "application/json"}
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
             resp.raise_for_status()
@@ -313,7 +331,8 @@ async def _async_list_services(domain: Optional[str] = None) -> Dict[str, Any]:
         d = svc_domain.get("domain", "")
         domain_services = {}
         for svc_name, svc_info in svc_domain.get("services", {}).items():
-            svc_entry: Dict[str, Any] = {"description": svc_info.get("description", "")}
+            svc_entry: Dict[str, Any] = {
+                "description": svc_info.get("description", "")}
             fields = svc_info.get("fields", {})
             if fields:
                 svc_entry["fields"] = {
@@ -474,7 +493,6 @@ HA_CALL_SERVICE_SCHEMA = {
 # Registration
 # ---------------------------------------------------------------------------
 
-from tools.registry import registry, tool_error
 
 registry.register(
     name="ha_list_entities",

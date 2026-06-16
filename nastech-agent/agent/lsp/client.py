@@ -99,7 +99,8 @@ def uri_to_path(uri: str) -> str:
     if not uri.startswith("file://"):
         return uri
     raw = uri[len("file://"):]
-    if os.name == "nt" and raw.startswith("/") and len(raw) > 2 and raw[2] == ":":
+    if os.name == "nt" and raw.startswith(
+            "/") and len(raw) > 2 and raw[2] == ":":
         raw = raw[1:]  # strip leading slash before drive letter
     return os.path.normpath(unquote(raw))
 
@@ -293,7 +294,8 @@ class LSPClient:
                     break
                 text = line.decode("utf-8", errors="replace").rstrip()
                 if text:
-                    logger.debug("[%s] stderr: %s", self.server_id, text[:1000])
+                    logger.debug("[%s] stderr: %s",
+                                 self.server_id, text[:1000])
         except (asyncio.CancelledError, OSError):
             pass
 
@@ -304,7 +306,9 @@ class LSPClient:
             while True:
                 msg = await read_message(self._proc.stdout)
                 if msg is None:
-                    logger.debug("[%s] server closed stdout cleanly", self.server_id)
+                    logger.debug(
+                        "[%s] server closed stdout cleanly",
+                        self.server_id)
                     break
                 kind, key = classify_message(msg)
                 if kind == "response":
@@ -314,16 +318,21 @@ class LSPClient:
                 elif kind == "notification":
                     self._dispatch_notification(key, msg)
                 else:
-                    logger.warning("[%s] dropping invalid message: %r", self.server_id, msg)
+                    logger.warning(
+                        "[%s] dropping invalid message: %r", self.server_id, msg)
         except LSPProtocolError as e:
-            logger.warning("[%s] protocol error in reader loop: %s", self.server_id, e)
+            logger.warning(
+                "[%s] protocol error in reader loop: %s",
+                self.server_id,
+                e)
         except (asyncio.CancelledError, OSError):
             pass
         finally:
             # Wake up any pending requests so they can fail fast.
             for fut in list(self._pending.values()):
                 if not fut.done():
-                    fut.set_exception(LSPProtocolError("server connection closed"))
+                    fut.set_exception(
+                        LSPProtocolError("server connection closed"))
             self._pending.clear()
 
     async def _initialize(self) -> None:
@@ -377,7 +386,8 @@ class LSPClient:
             timeout=INITIALIZE_TIMEOUT,
         )
         self._initialize_result = result
-        self._sync_kind = self._extract_sync_kind(result.get("capabilities") or {})
+        self._sync_kind = self._extract_sync_kind(
+            result.get("capabilities") or {})
 
         await self._send_notification("initialized", {})
         if self._init_options:
@@ -467,7 +477,12 @@ class LSPClient:
         fut: asyncio.Future = loop.create_future()
         self._pending[req_id] = fut
         try:
-            self._proc.stdin.write(encode_message(make_request(req_id, method, params)))
+            self._proc.stdin.write(
+                encode_message(
+                    make_request(
+                        req_id,
+                        method,
+                        params)))
             await self._proc.stdin.drain()
         except (BrokenPipeError, ConnectionResetError, OSError) as e:
             self._pending.pop(req_id, None)
@@ -477,7 +492,8 @@ class LSPClient:
         finally:
             self._pending.pop(req_id, None)
 
-    async def _send_request_with_retry(self, method: str, params: Any, *, timeout: float) -> Any:
+    async def _send_request_with_retry(
+            self, method: str, params: Any, *, timeout: float) -> Any:
         """Send a request, retrying on ``ContentModified`` (-32801).
 
         Other errors propagate.  The retry policy matches Claude Code's
@@ -497,25 +513,39 @@ class LSPClient:
         if self._proc is None or self._proc.stdin is None or self._proc.stdin.is_closing():
             return
         try:
-            self._proc.stdin.write(encode_message(make_notification(method, params)))
+            self._proc.stdin.write(
+                encode_message(
+                    make_notification(
+                        method, params)))
             await self._proc.stdin.drain()
         except (BrokenPipeError, ConnectionResetError, OSError) as e:
-            logger.debug("[%s] notify %s failed: %s", self.server_id, method, e)
+            logger.debug(
+                "[%s] notify %s failed: %s",
+                self.server_id,
+                method,
+                e)
 
     async def _send_response(self, req_id: Any, result: Any) -> None:
         if self._proc is None or self._proc.stdin is None or self._proc.stdin.is_closing():
             return
         try:
-            self._proc.stdin.write(encode_message(make_response(req_id, result)))
+            self._proc.stdin.write(
+                encode_message(
+                    make_response(
+                        req_id, result)))
             await self._proc.stdin.drain()
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
 
-    async def _send_error_response(self, req_id: Any, code: int, message: str) -> None:
+    async def _send_error_response(
+            self, req_id: Any, code: int, message: str) -> None:
         if self._proc is None or self._proc.stdin is None or self._proc.stdin.is_closing():
             return
         try:
-            self._proc.stdin.write(encode_message(make_error_response(req_id, code, message)))
+            self._proc.stdin.write(
+                encode_message(
+                    make_error_response(
+                        req_id, code, message)))
             await self._proc.stdin.drain()
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
@@ -546,7 +576,11 @@ class LSPClient:
         try:
             result = await handler(params)
         except Exception as e:  # noqa: BLE001 — protocol must not blow up
-            logger.warning("[%s] request handler %s failed: %s", self.server_id, method, e)
+            logger.warning(
+                "[%s] request handler %s failed: %s",
+                self.server_id,
+                method,
+                e)
             await self._send_error_response(req_id, -32000, f"handler failed: {e}")
             return
         await self._send_response(req_id, result)
@@ -558,7 +592,11 @@ class LSPClient:
         try:
             handler(msg.get("params"))
         except Exception as e:  # noqa: BLE001
-            logger.debug("[%s] notification handler %s failed: %s", self.server_id, method, e)
+            logger.debug(
+                "[%s] notification handler %s failed: %s",
+                self.server_id,
+                method,
+                e)
 
     # ------------------------------------------------------------------
     # built-in server-→-client request handlers
@@ -670,7 +708,8 @@ class LSPClient:
     # public file-sync API
     # ------------------------------------------------------------------
 
-    async def open_file(self, path: str, *, language_id: str = "plaintext") -> int:
+    async def open_file(self, path: str, *,
+                        language_id: str = "plaintext") -> int:
         """Send didOpen (first time) or didChange (subsequent) for ``path``.
 
         Returns the new document version number that the agent's
@@ -774,7 +813,10 @@ class LSPClient:
                 timeout=DIAGNOSTICS_REQUEST_TIMEOUT,
             )
         except (LSPRequestError, LSPProtocolError, asyncio.TimeoutError) as e:
-            logger.debug("[%s] document diagnostic pull failed: %s", self.server_id, e)
+            logger.debug(
+                "[%s] document diagnostic pull failed: %s",
+                self.server_id,
+                e)
             return
         if not isinstance(result, dict):
             return
@@ -814,8 +856,11 @@ class LSPClient:
                 return
 
             # Concurrent: document pull + push wait.
-            pull_task = asyncio.create_task(self._pull_document_diagnostics(abs_path))
-            push_task = asyncio.create_task(self._wait_for_fresh_push(abs_path, version, remaining))
+            pull_task = asyncio.create_task(
+                self._pull_document_diagnostics(abs_path))
+            push_task = asyncio.create_task(
+                self._wait_for_fresh_push(
+                    abs_path, version, remaining))
             done, pending = await asyncio.wait(
                 {pull_task, push_task},
                 timeout=remaining,
@@ -843,13 +888,15 @@ class LSPClient:
 
             # Loop until budget runs out.
 
-    async def _wait_for_fresh_push(self, path: str, version: int, timeout: float) -> None:
+    async def _wait_for_fresh_push(
+            self, path: str, version: int, timeout: float) -> None:
         """Wait until a publishDiagnostics arrives for ``path`` at ``version``+."""
         deadline = asyncio.get_event_loop().time() + timeout
         baseline = self._push_counter
         while True:
             current_v = self._published_version.get(path)
-            if path in self._published and (current_v is None or current_v >= version):
+            if path in self._published and (
+                    current_v is None or current_v >= version):
                 # Debounce — wait a tick in case more diagnostics arrive
                 # immediately after.  TS often emits in pairs.  We
                 # snapshot the counter so we wake on a *new* push, not
@@ -928,7 +975,11 @@ def _diagnostic_key(d: Dict[str, Any]) -> str:
             str(code or ""),
             str(d.get("source") or ""),
             str(d.get("message") or "").strip(),
-            f"{start.get('line', 0)}:{start.get('character', 0)}-{end.get('line', 0)}:{end.get('character', 0)}",
+            f"{start.get('line',
+                         0)}:{start.get('character',
+                                        0)}-{end.get('line',
+                                                     0)}:{end.get('character',
+                                                                  0)}",
         ]
     )
 

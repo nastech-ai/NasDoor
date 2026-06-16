@@ -18,17 +18,17 @@ NasTech authentication paths:
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import logging
 import os
-import shutil
 import shlex
+import shutil
 import ssl
 import stat
-import sys
-import base64
-import hashlib
 import subprocess
+import sys
 import threading
 import time
 import uuid
@@ -42,10 +42,9 @@ from typing import Any, Callable, Dict, FrozenSet, List, Optional, Tuple
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
-
-from nastech_cli.config import get_nastech_home, get_config_path, read_raw_config
-from nastech_constants import OPENROUTER_BASE_URL, secure_parent_dir
 from agent.credential_persistence import sanitize_borrowed_credential_payload
+from nastech_cli.config import get_config_path, get_nastech_home, read_raw_config
+from nastech_constants import OPENROUTER_BASE_URL, secure_parent_dir
 from utils import atomic_replace, atomic_yaml_write, is_truthy_value
 
 logger = logging.getLogger(__name__)
@@ -311,7 +310,10 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         name="Anthropic",
         auth_type="api_key",
         inference_base_url="https://api.anthropic.com",
-        api_key_env_vars=("ANTHROPIC_API_KEY", "ANTHROPIC_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"),
+        api_key_env_vars=(
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_TOKEN",
+            "CLAUDE_CODE_OAUTH_TOKEN"),
         base_url_env_var="ANTHROPIC_BASE_URL",
     ),
     "alibaba": ProviderConfig(
@@ -456,10 +458,13 @@ try:
         # openrouter/custom are aggregator/user-supplied and handled outside
         # the registry — adding them here breaks runtime_provider resolution
         # that relies on `openrouter not in PROVIDER_REGISTRY`).
-        if _pp.name in {"copilot", "kimi-coding", "kimi-coding-cn", "zai", "openrouter", "custom"}:
+        if _pp.name in {"copilot", "kimi-coding",
+                        "kimi-coding-cn", "zai", "openrouter", "custom"}:
             continue
-        _api_key_vars = tuple(v for v in _pp.env_vars if not v.endswith("_BASE_URL") and not v.endswith("_URL"))
-        _base_url_var = next((v for v in _pp.env_vars if v.endswith("_BASE_URL") or v.endswith("_URL")), None)
+        _api_key_vars = tuple(v for v in _pp.env_vars if not v.endswith(
+            "_BASE_URL") and not v.endswith("_URL"))
+        _base_url_var = next((v for v in _pp.env_vars if v.endswith(
+            "_BASE_URL") or v.endswith("_URL")), None)
         PROVIDER_REGISTRY[_pp.name] = ProviderConfig(
             id=_pp.name,
             name=_pp.display_name or _pp.name,
@@ -515,7 +520,8 @@ def get_anthropic_key() -> str:
 KIMI_CODE_BASE_URL = "https://api.kimi.com/coding"
 
 
-def _resolve_kimi_base_url(api_key: str, default_url: str, env_override: str) -> str:
+def _resolve_kimi_base_url(
+        api_key: str, default_url: str, env_override: str) -> str:
     """Return the correct Kimi base URL based on the API key prefix.
 
     If the user has explicitly set KIMI_BASE_URL, that always wins.
@@ -529,7 +535,6 @@ def _resolve_kimi_base_url(api_key: str, default_url: str, env_override: str) ->
     if api_key.startswith("sk-kimi-"):
         return KIMI_CODE_BASE_URL
     return default_url
-
 
 
 _PLACEHOLDER_SECRET_VALUES = {
@@ -567,7 +572,10 @@ def _resolve_api_key_provider_secret(
     if provider_id == "copilot":
         # Use the dedicated copilot auth module for proper token validation
         try:
-            from nastech_cli.copilot_auth import resolve_copilot_token, get_copilot_api_token
+            from nastech_cli.copilot_auth import (
+                get_copilot_api_token,
+                resolve_copilot_token,
+            )
             token, source = resolve_copilot_token()
             if token:
                 return get_copilot_api_token(token), source
@@ -591,7 +599,9 @@ def _resolve_api_key_provider_secret(
         if pool and pool.has_credentials():
             entry = pool.peek()
             if entry:
-                key = getattr(entry, "access_token", "") or getattr(entry, "runtime_api_key", "")
+                key = getattr(
+                    entry, "access_token", "") or getattr(
+                    entry, "runtime_api_key", "")
                 key = str(key).strip()
                 if has_usable_secret(key):
                     return key, f"credential_pool:{provider_id}"
@@ -614,14 +624,17 @@ def _resolve_api_key_provider_secret(
 
 ZAI_ENDPOINTS = [
     # (id, base_url, probe_models, label)
-    ("global",        "https://api.z.ai/api/paas/v4",        ["glm-5"],   "Global"),
-    ("cn",            "https://open.bigmodel.cn/api/paas/v4", ["glm-5"],   "China"),
-    ("coding-global", "https://api.z.ai/api/coding/paas/v4",  ["glm-5.1", "glm-5v-turbo", "glm-4.7"], "Global (Coding Plan)"),
-    ("coding-cn",     "https://open.bigmodel.cn/api/coding/paas/v4", ["glm-5.1", "glm-5v-turbo", "glm-4.7"], "China (Coding Plan)"),
+    ("global", "https://api.z.ai/api/paas/v4", ["glm-5"], "Global"),
+    ("cn", "https://open.bigmodel.cn/api/paas/v4", ["glm-5"], "China"),
+    ("coding-global", "https://api.z.ai/api/coding/paas/v4",
+     ["glm-5.1", "glm-5v-turbo", "glm-4.7"], "Global (Coding Plan)"),
+    ("coding-cn", "https://open.bigmodel.cn/api/coding/paas/v4",
+     ["glm-5.1", "glm-5v-turbo", "glm-4.7"], "China (Coding Plan)"),
 ]
 
 
-def detect_zai_endpoint(api_key: str, timeout: float = 8.0) -> Optional[Dict[str, str]]:
+def detect_zai_endpoint(
+        api_key: str, timeout: float = 8.0) -> Optional[Dict[str, str]]:
     """Probe z.ai endpoints to find one that accepts this API key.
 
     Returns {"id": ..., "base_url": ..., "model": ..., "label": ...} for the
@@ -646,20 +659,33 @@ def detect_zai_endpoint(api_key: str, timeout: float = 8.0) -> Optional[Dict[str
                     timeout=timeout,
                 )
                 if resp.status_code == 200:
-                    logger.debug("Z.AI endpoint probe: %s (%s) model=%s OK", ep_id, base_url, model)
+                    logger.debug(
+                        "Z.AI endpoint probe: %s (%s) model=%s OK",
+                        ep_id,
+                        base_url,
+                        model)
                     return {
                         "id": ep_id,
                         "base_url": base_url,
                         "model": model,
                         "label": label,
                     }
-                logger.debug("Z.AI endpoint probe: %s model=%s returned %s", ep_id, model, resp.status_code)
+                logger.debug(
+                    "Z.AI endpoint probe: %s model=%s returned %s",
+                    ep_id,
+                    model,
+                    resp.status_code)
             except Exception as exc:
-                logger.debug("Z.AI endpoint probe: %s model=%s failed: %s", ep_id, model, exc)
+                logger.debug(
+                    "Z.AI endpoint probe: %s model=%s failed: %s",
+                    ep_id,
+                    model,
+                    exc)
     return None
 
 
-def _resolve_zai_base_url(api_key: str, default_url: str, env_override: str) -> str:
+def _resolve_zai_base_url(api_key: str, default_url: str,
+                          env_override: str) -> str:
     """Return the correct Z.AI base URL by probing endpoints.
 
     If the user has explicitly set GLM_BASE_URL, that always wins.
@@ -701,7 +727,10 @@ def _resolve_zai_base_url(api_key: str, default_url: str, env_override: str) -> 
             "key_hash": key_hash,
         }
         _save_provider_state(auth_store, "zai", state)
-        logger.info("Z.AI: auto-detected endpoint %s (%s)", detected["label"], detected["base_url"])
+        logger.info(
+            "Z.AI: auto-detected endpoint %s (%s)",
+            detected["label"],
+            detected["base_url"])
         return detected["base_url"]
 
     logger.debug("Z.AI: probe failed, falling back to default %s", default_url)
@@ -794,7 +823,8 @@ def format_auth_error(error: Exception) -> str:
             return _format_nastech_entitlement_auth_error(error)
         return "Subscription credits are exhausted. Top up/renew credits, then retry."
 
-    if error.code in {"subscription_expired", "no_usable_credits", "account_missing"}:
+    if error.code in {"subscription_expired",
+                      "no_usable_credits", "account_missing"}:
         if error.provider == "nous":
             return _format_nastech_entitlement_auth_error(error)
 
@@ -838,14 +868,20 @@ def _oauth_trace_enabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
-def _oauth_trace(event: str, *, sequence_id: Optional[str] = None, **fields: Any) -> None:
+def _oauth_trace(
+        event: str, *, sequence_id: Optional[str] = None, **fields: Any) -> None:
     if not _oauth_trace_enabled():
         return
     payload: Dict[str, Any] = {"event": event}
     if sequence_id:
         payload["sequence_id"] = sequence_id
     payload.update(fields)
-    logger.info("oauth_trace %s", json.dumps(payload, sort_keys=True, ensure_ascii=False))
+    logger.info(
+        "oauth_trace %s",
+        json.dumps(
+            payload,
+            sort_keys=True,
+            ensure_ascii=False))
 
 
 # =============================================================================
@@ -860,7 +896,11 @@ def _auth_file_path() -> Path:
     # hermetic conftest, or sandbox escapes via threads/subprocesses. In
     # production (no PYTEST_CURRENT_TEST) this is a single dict lookup.
     if os.environ.get("PYTEST_CURRENT_TEST"):
-        real_home_auth = (Path.home() / ".nastech" / "auth.json").resolve(strict=False)
+        real_home_auth = (
+            Path.home() /
+            ".nastech" /
+            "auth.json").resolve(
+            strict=False)
         try:
             resolved = path.resolve(strict=False)
         except Exception:
@@ -891,7 +931,8 @@ def _global_auth_file_path() -> Optional[Path]:
         return None
     profile_home = get_nastech_home()
     try:
-        if profile_home.resolve(strict=False) == global_root.resolve(strict=False):
+        if profile_home.resolve(
+                strict=False) == global_root.resolve(strict=False):
             return None
     except Exception:
         if profile_home == global_root:
@@ -929,7 +970,8 @@ def _load_global_auth_store() -> Dict[str, Any]:
         if real_home_env:
             real_root = Path(real_home_env) / ".nastech" / "auth.json"
             try:
-                if global_path.resolve(strict=False) == real_root.resolve(strict=False):
+                if global_path.resolve(
+                        strict=False) == real_root.resolve(strict=False):
                     return {}
             except Exception:
                 pass
@@ -992,7 +1034,9 @@ def _file_lock(
         while True:
             try:
                 if fcntl:
-                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(
+                        lock_file.fileno(),
+                        fcntl.LOCK_EX | fcntl.LOCK_NB)
                 else:
                     lock_file.seek(0)
                     msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
@@ -1089,12 +1133,14 @@ def _save_auth_store(auth_store: Dict[str, Any]) -> Path:
     auth_store["version"] = AUTH_STORE_VERSION
     auth_store["updated_at"] = datetime.now(timezone.utc).isoformat()
     payload = json.dumps(auth_store, indent=2) + "\n"
-    tmp_path = auth_file.with_name(f"{auth_file.name}.tmp.{os.getpid()}.{uuid.uuid4().hex}")
+    tmp_path = auth_file.with_name(
+        f"{auth_file.name}.tmp.{os.getpid()}.{uuid.uuid4().hex}")
     try:
         # Create with 0o600 atomically via os.open(O_EXCL) + fdopen to close
         # the TOCTOU window where default umask (often 0o644) briefly exposed
         # OAuth tokens to other local users between open() and chmod().
-        # Mirrors agent/google_oauth.py (#19673) and tools/mcp_oauth.py (#21148).
+        # Mirrors agent/google_oauth.py (#19673) and tools/mcp_oauth.py
+        # (#21148).
         fd = os.open(
             str(tmp_path),
             os.O_WRONLY | os.O_CREAT | os.O_EXCL,
@@ -1128,7 +1174,8 @@ def _save_auth_store(auth_store: Dict[str, Any]) -> Path:
     return auth_file
 
 
-def _load_provider_state(auth_store: Dict[str, Any], provider_id: str) -> Optional[Dict[str, Any]]:
+def _load_provider_state(
+        auth_store: Dict[str, Any], provider_id: str) -> Optional[Dict[str, Any]]:
     """Return a provider's persisted state.
 
     In profile mode, falls back to the global-root ``auth.json`` when the
@@ -1157,7 +1204,8 @@ def _load_provider_state(auth_store: Dict[str, Any], provider_id: str) -> Option
     return None
 
 
-def _save_provider_state(auth_store: Dict[str, Any], provider_id: str, state: Dict[str, Any]) -> None:
+def _save_provider_state(
+        auth_store: Dict[str, Any], provider_id: str, state: Dict[str, Any]) -> None:
     providers = auth_store.setdefault("providers", {})
     if not isinstance(providers, dict):
         auth_store["providers"] = {}
@@ -1235,7 +1283,8 @@ def read_credential_pool(provider_id: Optional[str] = None) -> Dict[str, Any]:
 
     global_pool: Dict[str, Any] = {}
     global_store = _load_global_auth_store()
-    maybe_global_pool = global_store.get("credential_pool") if global_store else None
+    maybe_global_pool = global_store.get(
+        "credential_pool") if global_store else None
     if isinstance(maybe_global_pool, dict):
         global_pool = maybe_global_pool
 
@@ -1259,7 +1308,8 @@ def read_credential_pool(provider_id: Optional[str] = None) -> Dict[str, Any]:
     return list(global_entries) if isinstance(global_entries, list) else []
 
 
-def write_credential_pool(provider_id: str, entries: List[Dict[str, Any]]) -> Path:
+def write_credential_pool(
+        provider_id: str, entries: List[Dict[str, Any]]) -> Path:
     """Persist one provider's credential pool under auth.json.
 
     This is the final disk-boundary guard for borrowed/reference-only
@@ -1576,7 +1626,8 @@ def resolve_provider(
     except Exception as e:
         logger.debug("Could not detect active auth provider: %s", e)
 
-    if has_usable_secret(os.getenv("OPENAI_API_KEY")) or has_usable_secret(os.getenv("OPENROUTER_API_KEY")):
+    if has_usable_secret(os.getenv("OPENAI_API_KEY")) or has_usable_secret(
+            os.getenv("OPENROUTER_API_KEY")):
         return "openrouter"
 
     # Auto-detect an OpenRouter credential added via `nastech auth add openrouter`
@@ -1683,7 +1734,8 @@ _ALLOWED_NASTECH_INFERENCE_HOSTS: FrozenSet[str] = frozenset({
 })
 
 
-def _validate_nastech_inference_url_from_network(url: Optional[str]) -> Optional[str]:
+def _validate_nastech_inference_url_from_network(
+        url: Optional[str]) -> Optional[str]:
     """Validate a Portal-returned inference URL against the host allowlist.
 
     Returns ``url`` (normalised by stripping trailing slashes) if it's a
@@ -1841,15 +1893,18 @@ def _log_nastech_invoke_jwt_selected(
     )
 
 
-def _nastech_jwt_expires_at(token: Any, fallback_expires_at: Any = None) -> Optional[str]:
+def _nastech_jwt_expires_at(
+        token: Any, fallback_expires_at: Any = None) -> Optional[str]:
     claims = _decode_jwt_claims(token)
     exp = claims.get("exp")
     if isinstance(exp, (int, float)):
         try:
-            return datetime.fromtimestamp(float(exp), tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(
+                float(exp), tz=timezone.utc).isoformat()
         except Exception:
             pass
-    return fallback_expires_at if isinstance(fallback_expires_at, str) else None
+    return fallback_expires_at if isinstance(
+        fallback_expires_at, str) else None
 
 
 def _set_nastech_agent_key_from_invoke_jwt(
@@ -1922,7 +1977,8 @@ def _nastech_effective_provider_state(state: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _codex_access_token_is_expiring(access_token: Any, skew_seconds: int) -> bool:
+def _codex_access_token_is_expiring(
+        access_token: Any, skew_seconds: int) -> bool:
     claims = _decode_jwt_claims(access_token)
     exp = claims.get("exp")
     if not isinstance(exp, (int, float)):
@@ -1966,7 +2022,8 @@ def _save_qwen_cli_tokens(tokens: Dict[str, Any]) -> Path:
     secure_parent_dir(auth_path)
     # Per-process random temp suffix avoids collisions between concurrent
     # writers and stale leftovers from a crashed prior write.
-    tmp_path = auth_path.with_name(f"{auth_path.name}.tmp.{os.getpid()}.{uuid.uuid4().hex}")
+    tmp_path = auth_path.with_name(
+        f"{auth_path.name}.tmp.{os.getpid()}.{uuid.uuid4().hex}")
     # Create with 0o600 atomically via os.open(O_EXCL) — closes the TOCTOU
     # window where write_text() + post-write chmod briefly exposed tokens
     # at process umask (typically 0o644). See #19673, #21148.
@@ -1990,7 +2047,8 @@ def _save_qwen_cli_tokens(tokens: Dict[str, Any]) -> Path:
     return auth_path
 
 
-def _qwen_access_token_is_expiring(expiry_date_ms: Any, skew_seconds: int = QWEN_ACCESS_TOKEN_REFRESH_SKEW_SECONDS) -> bool:
+def _qwen_access_token_is_expiring(
+        expiry_date_ms: Any, skew_seconds: int = QWEN_ACCESS_TOKEN_REFRESH_SKEW_SECONDS) -> bool:
     try:
         expiry_ms = int(expiry_date_ms)
     except Exception:
@@ -1998,7 +2056,8 @@ def _qwen_access_token_is_expiring(expiry_date_ms: Any, skew_seconds: int = QWEN
     return (time.time() + max(0, int(skew_seconds))) * 1000 >= expiry_ms
 
 
-def _refresh_qwen_cli_tokens(tokens: Dict[str, Any], timeout_seconds: float = 20.0) -> Dict[str, Any]:
+def _refresh_qwen_cli_tokens(
+        tokens: Dict[str, Any], timeout_seconds: float = 20.0) -> Dict[str, Any]:
     refresh_token = str(tokens.get("refresh_token", "") or "").strip()
     if not refresh_token:
         raise AuthError(
@@ -2046,7 +2105,8 @@ def _refresh_qwen_cli_tokens(tokens: Dict[str, Any], timeout_seconds: float = 20
             code="qwen_refresh_invalid_json",
         ) from exc
 
-    if not isinstance(payload, dict) or not str(payload.get("access_token", "") or "").strip():
+    if not isinstance(payload, dict) or not str(
+            payload.get("access_token", "") or "").strip():
         raise AuthError(
             "Qwen OAuth refresh response missing access_token.",
             provider="qwen-oauth",
@@ -2099,7 +2159,8 @@ def resolve_qwen_runtime_credentials(
     access_token = str(tokens.get("access_token", "") or "").strip()
     should_refresh = bool(force_refresh)
     if not should_refresh and refresh_if_expiring:
-        should_refresh = _qwen_access_token_is_expiring(tokens.get("expiry_date"), refresh_skew_seconds)
+        should_refresh = _qwen_access_token_is_expiring(
+            tokens.get("expiry_date"), refresh_skew_seconds)
     if should_refresh:
         tokens = _refresh_qwen_cli_tokens(tokens)
         access_token = str(tokens.get("access_token", "") or "").strip()
@@ -2110,7 +2171,8 @@ def resolve_qwen_runtime_credentials(
             code="qwen_access_token_missing",
         )
 
-    base_url = os.getenv("NASTECH_QWEN_BASE_URL", "").strip().rstrip("/") or DEFAULT_QWEN_BASE_URL
+    base_url = os.getenv("NASTECH_QWEN_BASE_URL",
+                         "").strip().rstrip("/") or DEFAULT_QWEN_BASE_URL
     return {
         "provider": "qwen-oauth",
         "base_url": base_url,
@@ -2393,7 +2455,8 @@ def _spotify_validate_redirect_uri(redirect_uri: str) -> tuple[str, int, str]:
     return host, parsed.port, parsed.path or "/"
 
 
-def _make_spotify_callback_handler(expected_path: str) -> tuple[type[BaseHTTPRequestHandler], dict[str, Any]]:
+def _make_spotify_callback_handler(
+        expected_path: str) -> tuple[type[BaseHTTPRequestHandler], dict[str, Any]]:
     result: dict[str, Any] = {
         "code": None,
         "state": None,
@@ -2414,7 +2477,8 @@ def _make_spotify_callback_handler(expected_path: str) -> tuple[type[BaseHTTPReq
             result["code"] = params.get("code", [None])[0]
             result["state"] = params.get("state", [None])[0]
             result["error"] = params.get("error", [None])[0]
-            result["error_description"] = params.get("error_description", [None])[0]
+            result["error_description"] = params.get(
+                "error_description", [None])[0]
 
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -2451,7 +2515,9 @@ def _spotify_wait_for_callback(
             code="spotify_callback_bind_failed",
         ) from exc
 
-    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.1}, daemon=True)
+    thread = threading.Thread(
+        target=server.serve_forever, kwargs={
+            "poll_interval": 0.1}, daemon=True)
     thread.start()
     deadline = time.monotonic() + max(5.0, timeout_seconds)
     try:
@@ -2470,7 +2536,8 @@ def _spotify_wait_for_callback(
     )
 
 
-def _xai_validate_loopback_redirect_uri(redirect_uri: str) -> tuple[str, int, str]:
+def _xai_validate_loopback_redirect_uri(
+        redirect_uri: str) -> tuple[str, int, str]:
     parsed = urlparse(redirect_uri)
     if parsed.scheme != "http":
         raise AuthError(
@@ -2505,7 +2572,8 @@ def _xai_callback_cors_origin(origin: Optional[str]) -> str:
     return origin if origin in allowed else ""
 
 
-def _make_xai_callback_handler(expected_path: str) -> tuple[type[BaseHTTPRequestHandler], dict[str, Any]]:
+def _make_xai_callback_handler(
+        expected_path: str) -> tuple[type[BaseHTTPRequestHandler], dict[str, Any]]:
     result: dict[str, Any] = {
         "code": None,
         "state": None,
@@ -2520,9 +2588,14 @@ def _make_xai_callback_handler(expected_path: str) -> tuple[type[BaseHTTPRequest
             allow_origin = _xai_callback_cors_origin(origin)
             if allow_origin:
                 self.send_header("Access-Control-Allow-Origin", allow_origin)
-                self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-                self.send_header("Access-Control-Allow-Headers", "Content-Type")
-                self.send_header("Access-Control-Allow-Private-Network", "true")
+                self.send_header(
+                    "Access-Control-Allow-Methods",
+                    "GET, OPTIONS")
+                self.send_header(
+                    "Access-Control-Allow-Headers",
+                    "Content-Type")
+                self.send_header(
+                    "Access-Control-Allow-Private-Network", "true")
                 self.send_header("Vary", "Origin")
 
         def do_OPTIONS(self) -> None:  # noqa: N802
@@ -2706,7 +2779,8 @@ def _spotify_token_payload_to_state(
 ) -> Dict[str, Any]:
     now = datetime.now(timezone.utc)
     expires_in = _coerce_ttl_seconds(token_payload.get("expires_in", 0))
-    expires_at = datetime.fromtimestamp(now.timestamp() + expires_in, tz=timezone.utc)
+    expires_at = datetime.fromtimestamp(
+        now.timestamp() + expires_in, tz=timezone.utc)
     state = dict(previous_state or {})
     state.update({
         "client_id": client_id,
@@ -2768,7 +2842,8 @@ def _spotify_exchange_code_for_tokens(
             code="spotify_token_exchange_failed",
         )
     payload = response.json()
-    if not isinstance(payload, dict) or not str(payload.get("access_token", "") or "").strip():
+    if not isinstance(payload, dict) or not str(
+            payload.get("access_token", "") or "").strip():
         raise AuthError(
             "Spotify token response did not include an access_token.",
             provider="spotify",
@@ -2822,7 +2897,8 @@ def _refresh_spotify_oauth_state(
         )
 
     payload = response.json()
-    if not isinstance(payload, dict) or not str(payload.get("access_token", "") or "").strip():
+    if not isinstance(payload, dict) or not str(
+            payload.get("access_token", "") or "").strip():
         raise AuthError(
             "Spotify refresh response did not include an access_token.",
             provider="spotify",
@@ -2860,10 +2936,12 @@ def resolve_spotify_runtime_credentials(
 
         should_refresh = bool(force_refresh)
         if not should_refresh and refresh_if_expiring:
-            should_refresh = _is_expiring(state.get("expires_at"), refresh_skew_seconds)
+            should_refresh = _is_expiring(
+                state.get("expires_at"), refresh_skew_seconds)
         if should_refresh:
             state = _refresh_spotify_oauth_state(state)
-            _store_provider_state(auth_store, "spotify", state, set_active=False)
+            _store_provider_state(
+                auth_store, "spotify", state, set_active=False)
             _save_auth_store(auth_store)
 
     access_token = str(state.get("access_token", "") or "").strip()
@@ -2953,7 +3031,8 @@ def _spotify_interactive_setup(redirect_uri_hint: str) -> str:
 
     if not raw:
         print()
-        print(f"No Client ID entered. See {SPOTIFY_DOCS_URL} for the full guide.")
+        print(
+            f"No Client ID entered. See {SPOTIFY_DOCS_URL} for the full guide.")
         raise SystemExit("Spotify setup cancelled: empty Client ID.")
 
     # Persist so subsequent `nastech auth spotify` runs skip the wizard.
@@ -2982,11 +3061,17 @@ def login_spotify_command(args) -> None:
         if getattr(exc, "code", "") != "spotify_client_id_missing":
             raise
         client_id = _spotify_interactive_setup(
-            redirect_uri_hint=getattr(args, "redirect_uri", None) or DEFAULT_SPOTIFY_REDIRECT_URI,
+            redirect_uri_hint=getattr(
+                args, "redirect_uri", None) or DEFAULT_SPOTIFY_REDIRECT_URI,
         )
 
-    redirect_uri = _spotify_redirect_uri(getattr(args, "redirect_uri", None), existing_state)
-    scope = _spotify_scope_string(getattr(args, "scope", None) or existing_state.get("scope"))
+    redirect_uri = _spotify_redirect_uri(
+        getattr(args, "redirect_uri", None), existing_state)
+    scope = _spotify_scope_string(
+        getattr(
+            args,
+            "scope",
+            None) or existing_state.get("scope"))
     accounts_base_url = _spotify_accounts_base_url(existing_state)
     api_base_url = _spotify_api_base_url(existing_state)
     open_browser = not getattr(args, "no_browser", False)
@@ -3055,7 +3140,11 @@ def login_spotify_command(args) -> None:
 
     with _auth_store_lock():
         auth_store = _load_auth_store()
-        _store_provider_state(auth_store, "spotify", spotify_state, set_active=False)
+        _store_provider_state(
+            auth_store,
+            "spotify",
+            spotify_state,
+            set_active=False)
         saved_to = _save_auth_store(auth_store)
 
     print("Spotify login successful!")
@@ -3066,6 +3155,7 @@ def login_spotify_command(args) -> None:
 # =============================================================================
 # SSH / remote session detection
 # =============================================================================
+
 
 def _is_remote_session() -> bool:
     """Detect environments where loopback OAuth can't reach the local browser.
@@ -3088,7 +3178,7 @@ def _is_remote_session() -> bool:
         "CLOUD_SHELL",         # GCP Cloud Shell
         "CODESPACES",          # GitHub Codespaces
         "CODESPACE_NAME",      # GitHub Codespaces (alt)
-        "GITPOD_WORKSPACE_ID", # Gitpod
+        "GITPOD_WORKSPACE_ID",  # Gitpod
         "REPL_ID",             # cloud shell
         "STACKBLITZ",          # StackBlitz
     ):
@@ -3266,7 +3356,8 @@ def _ssh_user_at_host() -> str:
     return f"{user}@{hostname}"
 
 
-def _print_loopback_ssh_hint(redirect_uri: str, *, docs_url: str | None = None) -> None:
+def _print_loopback_ssh_hint(redirect_uri: str, *,
+                             docs_url: str | None = None) -> None:
     """Print an SSH tunnel hint when running a loopback-redirect OAuth flow on a
     remote host. The auth server (xAI, Spotify, ...) will redirect the user's
     browser to ``127.0.0.1:<port>/callback``. If the browser is on a different
@@ -3322,7 +3413,7 @@ def _print_loopback_ssh_hint(redirect_uri: str, *, docs_url: str | None = None) 
 
 def _read_codex_tokens(*, _lock: bool = True) -> Dict[str, Any]:
     """Read Codex OAuth tokens from NasTech auth store (~/.nastech/auth.json).
-    
+
     Returns dict with 'tokens' (access_token, refresh_token) and 'last_refresh'.
     Raises AuthError if no Codex tokens are stored.
     """
@@ -3470,10 +3561,13 @@ def _sync_codex_pool_entries(
         entry["last_error_reset_at"] = None
 
 
-def _save_codex_tokens(tokens: Dict[str, str], last_refresh: str = None, label: str = None) -> None:
+def _save_codex_tokens(
+        tokens: Dict[str, str], last_refresh: str = None, label: str = None) -> None:
     """Save Codex OAuth tokens to NasTech auth store (~/.nastech/auth.json)."""
     if last_refresh is None:
-        last_refresh = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        last_refresh = datetime.now(
+            timezone.utc).isoformat().replace(
+            "+00:00", "Z")
     with _auth_store_lock():
         auth_store = _load_auth_store()
         state = _load_provider_state(auth_store, "openai-codex") or {}
@@ -3482,7 +3576,8 @@ def _save_codex_tokens(tokens: Dict[str, str], last_refresh: str = None, label: 
         # (which should be refreshed) from independent accounts that
         # ``nastech auth add openai-codex`` created (which must not be
         # overwritten — see #39236).
-        previous_singleton_tokens = state.get("tokens") if isinstance(state.get("tokens"), dict) else None
+        previous_singleton_tokens = state.get("tokens") if isinstance(
+            state.get("tokens"), dict) else None
         state["tokens"] = tokens
         state["last_refresh"] = last_refresh
         state["auth_mode"] = "chatgpt"
@@ -3532,7 +3627,8 @@ def refresh_codex_oauth_pure(
         # cannot lift a quota cap. Classify distinctly from auth failures so
         # callers surface a "retry later" notice instead of a misleading
         # "run nastech auth" prompt (see issue #32790).
-        retry_after = _parse_retry_after_seconds(getattr(response, "headers", None))
+        retry_after = _parse_retry_after_seconds(
+            getattr(response, "headers", None))
         if retry_after is not None:
             message = (
                 f"Codex provider quota exhausted (429); retry after {retry_after}s. "
@@ -3552,26 +3648,32 @@ def refresh_codex_oauth_pure(
 
     if response.status_code != 200:
         code = "codex_refresh_failed"
-        message = f"Codex token refresh failed with status {response.status_code}."
+        message = f"Codex token refresh failed with status {
+            response.status_code}."
         relogin_required = False
         try:
             err = response.json()
             if isinstance(err, dict):
                 err_obj = err.get("error")
-                # OpenAI shape: {"error": {"code": "...", "message": "...", "type": "..."}}
+                # OpenAI shape: {"error": {"code": "...", "message": "...",
+                # "type": "..."}}
                 if isinstance(err_obj, dict):
                     nested_code = err_obj.get("code") or err_obj.get("type")
                     if isinstance(nested_code, str) and nested_code.strip():
                         code = nested_code.strip()
                     nested_msg = err_obj.get("message")
                     if isinstance(nested_msg, str) and nested_msg.strip():
-                        message = f"Codex token refresh failed: {nested_msg.strip()}"
-                # OAuth spec shape: {"error": "code_str", "error_description": "..."}
+                        message = f"Codex token refresh failed: {
+                            nested_msg.strip()}"
+                # OAuth spec shape: {"error": "code_str", "error_description":
+                # "..."}
                 elif isinstance(err_obj, str) and err_obj.strip():
                     code = err_obj.strip()
-                    err_desc = err.get("error_description") or err.get("message")
+                    err_desc = err.get(
+                        "error_description") or err.get("message")
                     if isinstance(err_desc, str) and err_desc.strip():
-                        message = f"Codex token refresh failed: {err_desc.strip()}"
+                        message = f"Codex token refresh failed: {
+                            err_desc.strip()}"
         except Exception:
             pass
         if code in {"invalid_grant", "invalid_token", "invalid_request"}:
@@ -3631,7 +3733,7 @@ def _refresh_codex_auth_tokens(
     timeout_seconds: float,
 ) -> Dict[str, str]:
     """Refresh Codex access token using the refresh token.
-    
+
     Saves the new tokens to NasTech auth store automatically.
     """
     refreshed = refresh_codex_oauth_pure(
@@ -3649,7 +3751,7 @@ def _refresh_codex_auth_tokens(
 
 def _import_codex_cli_tokens() -> Optional[Dict[str, str]]:
     """Try to read tokens from ~/.codex/auth.json (Codex CLI shared file).
-    
+
     Returns tokens dict if valid and not expired, None otherwise.
     Does NOT write to the shared file.
     """
@@ -3719,11 +3821,13 @@ def resolve_codex_runtime_credentials(
 
     tokens = dict(data["tokens"])
     access_token = str(tokens.get("access_token", "") or "").strip()
-    refresh_timeout_seconds = float(os.getenv("NASTECH_CODEX_REFRESH_TIMEOUT_SECONDS", "20"))
+    refresh_timeout_seconds = float(
+        os.getenv("NASTECH_CODEX_REFRESH_TIMEOUT_SECONDS", "20"))
 
     should_refresh = bool(force_refresh)
     if (not should_refresh) and refresh_if_expiring:
-        should_refresh = _codex_access_token_is_expiring(access_token, refresh_skew_seconds)
+        should_refresh = _codex_access_token_is_expiring(
+            access_token, refresh_skew_seconds)
     if should_refresh:
         # Re-read under lock to avoid racing with other NasTech processes
         with _auth_store_lock(timeout_seconds=max(float(AUTH_LOCK_TIMEOUT_SECONDS), refresh_timeout_seconds + 5.0)):
@@ -3733,11 +3837,16 @@ def resolve_codex_runtime_credentials(
 
             should_refresh = bool(force_refresh)
             if (not should_refresh) and refresh_if_expiring:
-                should_refresh = _codex_access_token_is_expiring(access_token, refresh_skew_seconds)
+                should_refresh = _codex_access_token_is_expiring(
+                    access_token, refresh_skew_seconds)
 
             if should_refresh:
-                tokens = _refresh_codex_auth_tokens(tokens, refresh_timeout_seconds)
-                access_token = str(tokens.get("access_token", "") or "").strip()
+                tokens = _refresh_codex_auth_tokens(
+                    tokens, refresh_timeout_seconds)
+                access_token = str(
+                    tokens.get(
+                        "access_token",
+                        "") or "").strip()
 
     base_url = (
         os.getenv("NASTECH_CODEX_BASE_URL", "").strip().rstrip("/")
@@ -3852,7 +3961,9 @@ def _save_xai_oauth_tokens(
     last_refresh: Optional[str] = None,
 ) -> None:
     if last_refresh is None:
-        last_refresh = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        last_refresh = datetime.now(
+            timezone.utc).isoformat().replace(
+            "+00:00", "Z")
     with _auth_store_lock():
         auth_store = _load_auth_store()
         state = _load_provider_state(auth_store, "xai-oauth") or {}
@@ -3867,7 +3978,8 @@ def _save_xai_oauth_tokens(
         _save_auth_store(auth_store)
 
 
-def _xai_access_token_is_expiring(access_token: str, skew_seconds: int = 0) -> bool:
+def _xai_access_token_is_expiring(
+        access_token: str, skew_seconds: int = 0) -> bool:
     if not isinstance(access_token, str) or "." not in access_token:
         return False
     try:
@@ -3876,7 +3988,8 @@ def _xai_access_token_is_expiring(access_token: str, skew_seconds: int = 0) -> b
             return False
         payload_b64 = parts[1]
         payload_b64 += "=" * (-len(payload_b64) % 4)
-        payload = json.loads(base64.urlsafe_b64decode(payload_b64.encode("ascii")).decode("utf-8"))
+        payload = json.loads(base64.urlsafe_b64decode(
+            payload_b64.encode("ascii")).decode("utf-8"))
         exp = payload.get("exp")
         if not isinstance(exp, (int, float)):
             return False
@@ -3916,7 +4029,8 @@ def _xai_validate_oauth_endpoint(url: str, *, field: str) -> str:
         )
     if host != "x.ai" and not host.endswith(".x.ai"):
         raise AuthError(
-            f"xAI OIDC discovery {field} host {host!r} is not on the xAI origin "
+            f"xAI OIDC discovery {field} host {
+                host!r} is not on the xAI origin "
             f"(expected x.ai or a *.x.ai subdomain). Refusing to use a cached "
             f"endpoint that may have been substituted by a MITM during initial "
             f"discovery; re-authenticate with `nastech model` to re-fetch.",
@@ -4015,7 +4129,10 @@ def _xai_oauth_discovery(timeout_seconds: float = 15.0) -> Dict[str, str]:
             provider="xai-oauth",
             code="xai_discovery_incomplete",
         )
-    authorization_endpoint = str(payload.get("authorization_endpoint", "") or "").strip()
+    authorization_endpoint = str(
+        payload.get(
+            "authorization_endpoint",
+            "") or "").strip()
     token_endpoint = str(payload.get("token_endpoint", "") or "").strip()
     if not authorization_endpoint or not token_endpoint:
         raise AuthError(
@@ -4023,7 +4140,9 @@ def _xai_oauth_discovery(timeout_seconds: float = 15.0) -> Dict[str, str]:
             provider="xai-oauth",
             code="xai_discovery_incomplete",
         )
-    _xai_validate_oauth_endpoint(authorization_endpoint, field="authorization_endpoint")
+    _xai_validate_oauth_endpoint(
+        authorization_endpoint,
+        field="authorization_endpoint")
     _xai_validate_oauth_endpoint(token_endpoint, field="token_endpoint")
     return {
         "authorization_endpoint": authorization_endpoint,
@@ -4046,7 +4165,8 @@ def refresh_xai_oauth_pure(
             code="xai_auth_missing_refresh_token",
             relogin_required=True,
         )
-    endpoint = token_endpoint.strip() or _xai_oauth_discovery(timeout_seconds)["token_endpoint"]
+    endpoint = token_endpoint.strip() or _xai_oauth_discovery(
+        timeout_seconds)["token_endpoint"]
     # Re-validate cached endpoints on the refresh hot path: an auth.json
     # written by an older NasTech (or hand-edited) may carry a non-xAI
     # token_endpoint that would receive every future refresh_token in
@@ -4169,28 +4289,35 @@ def resolve_xai_oauth_runtime_credentials(
     data = _read_xai_oauth_tokens()
     tokens = dict(data["tokens"])
     access_token = str(tokens.get("access_token", "") or "").strip()
-    refresh_timeout_seconds = float(os.getenv("NASTECH_XAI_REFRESH_TIMEOUT_SECONDS", "20"))
+    refresh_timeout_seconds = float(
+        os.getenv("NASTECH_XAI_REFRESH_TIMEOUT_SECONDS", "20"))
     discovery = dict(data.get("discovery") or {})
     token_endpoint = str(discovery.get("token_endpoint", "") or "").strip()
     redirect_uri = str(data.get("redirect_uri", "") or "").strip()
 
     should_refresh = bool(force_refresh)
     if (not should_refresh) and refresh_if_expiring:
-        should_refresh = _xai_access_token_is_expiring(access_token, refresh_skew_seconds)
+        should_refresh = _xai_access_token_is_expiring(
+            access_token, refresh_skew_seconds)
     if should_refresh:
         with _auth_store_lock(timeout_seconds=max(float(AUTH_LOCK_TIMEOUT_SECONDS), refresh_timeout_seconds + 5.0)):
             data = _read_xai_oauth_tokens(_lock=False)
             tokens = dict(data["tokens"])
             access_token = str(tokens.get("access_token", "") or "").strip()
             discovery = dict(data.get("discovery") or {})
-            token_endpoint = str(discovery.get("token_endpoint", "") or "").strip()
+            token_endpoint = str(
+                discovery.get(
+                    "token_endpoint",
+                    "") or "").strip()
             redirect_uri = str(data.get("redirect_uri", "") or "").strip()
             should_refresh = bool(force_refresh)
             if (not should_refresh) and refresh_if_expiring:
-                should_refresh = _xai_access_token_is_expiring(access_token, refresh_skew_seconds)
+                should_refresh = _xai_access_token_is_expiring(
+                    access_token, refresh_skew_seconds)
             if should_refresh:
                 if not token_endpoint:
-                    token_endpoint = _xai_oauth_discovery(refresh_timeout_seconds)["token_endpoint"]
+                    token_endpoint = _xai_oauth_discovery(
+                        refresh_timeout_seconds)["token_endpoint"]
                 try:
                     tokens = _refresh_xai_oauth_tokens(
                         tokens,
@@ -4198,15 +4325,20 @@ def resolve_xai_oauth_runtime_credentials(
                         redirect_uri=redirect_uri,
                         timeout_seconds=refresh_timeout_seconds,
                     )
-                    access_token = str(tokens.get("access_token", "") or "").strip()
+                    access_token = str(
+                        tokens.get(
+                            "access_token",
+                            "") or "").strip()
                 except AuthError as exc:
                     if _is_terminal_xai_oauth_refresh_error(exc):
                         # Terminal failure (HTTP 400/401/403 — invalid_grant, token revoked).
                         # Clear dead tokens from auth.json so subsequent sessions fail fast
-                        # without a network retry. Mirrors credential_pool.py quarantine.
+                        # without a network retry. Mirrors credential_pool.py
+                        # quarantine.
                         try:
                             _q_store = _load_auth_store()
-                            _q_state = _load_provider_state(_q_store, "xai-oauth") or {}
+                            _q_state = _load_provider_state(
+                                _q_store, "xai-oauth") or {}
                             _q_tokens = dict(_q_state.get("tokens") or {})
                             _q_tokens.pop("access_token", None)
                             _q_tokens.pop("refresh_token", None)
@@ -4219,7 +4351,8 @@ def resolve_xai_oauth_runtime_credentials(
                                 "relogin_required": True,
                                 "at": datetime.now(timezone.utc).isoformat(),
                             }
-                            _store_provider_state(_q_store, "xai-oauth", _q_state, set_active=False)
+                            _store_provider_state(
+                                _q_store, "xai-oauth", _q_state, set_active=False)
                             _save_auth_store(_q_store)
                         except Exception as _save_exc:
                             logger.debug(
@@ -4326,7 +4459,9 @@ def _request_device_code(
     ]
     missing = [f for f in required_fields if f not in data]
     if missing:
-        raise ValueError(f"Device code response missing fields: {', '.join(missing)}")
+        raise ValueError(
+            f"Device code response missing fields: {
+                ', '.join(missing)}")
     return data
 
 
@@ -4340,7 +4475,8 @@ def _poll_for_token(
 ) -> Dict[str, Any]:
     """Poll the token endpoint until the user approves or the code expires."""
     deadline = time.monotonic() + max(1, expires_in)
-    current_interval = max(1, min(poll_interval, DEVICE_AUTH_POLL_INTERVAL_CAP_SECONDS))
+    current_interval = max(
+        1, min(poll_interval, DEVICE_AUTH_POLL_INTERVAL_CAP_SECONDS))
 
     while time.monotonic() < deadline:
         response = client.post(
@@ -4362,7 +4498,8 @@ def _poll_for_token(
             error_payload = response.json()
         except Exception:
             response.raise_for_status()
-            raise RuntimeError("Token endpoint returned a non-JSON error response")
+            raise RuntimeError(
+                "Token endpoint returned a non-JSON error response")
 
         error_code = error_payload.get("error", "")
         if error_code == "authorization_pending":
@@ -4373,7 +4510,8 @@ def _poll_for_token(
             time.sleep(current_interval)
             continue
 
-        description = error_payload.get("error_description") or "Unknown authentication error"
+        description = error_payload.get(
+            "error_description") or "Unknown authentication error"
         raise RuntimeError(f"{error_code}: {description}")
 
     raise TimeoutError("Timed out waiting for device authorization")
@@ -4452,7 +4590,8 @@ def _nastech_shared_store_path() -> Path:
 
 
 @contextmanager
-def _nastech_shared_store_lock(timeout_seconds: float = AUTH_LOCK_TIMEOUT_SECONDS):
+def _nastech_shared_store_lock(
+        timeout_seconds: float = AUTH_LOCK_TIMEOUT_SECONDS):
     """Cross-profile lock for the shared NasTech OAuth store.
 
     Lock ordering invariant: if both this and ``_auth_store_lock`` need
@@ -4551,7 +4690,8 @@ def _write_shared_nastech_state(state: Dict[str, Any]) -> None:
             path.parent.mkdir(parents=True, exist_ok=True)
             # secure_parent_dir refuses to chmod / or top-level dirs (#25821).
             secure_parent_dir(path)
-            tmp = path.with_name(f"{path.name}.tmp.{os.getpid()}.{uuid.uuid4().hex}")
+            tmp = path.with_name(
+                f"{path.name}.tmp.{os.getpid()}.{uuid.uuid4().hex}")
             # Create with 0o600 atomically via os.open(O_EXCL) — closes the TOCTOU
             # window where write_text() + post-write chmod briefly exposed Nous
             # refresh_token at process umask. See #19673, #21148.
@@ -4598,7 +4738,10 @@ def _read_shared_nastech_state() -> Optional[Dict[str, Any]]:
     try:
         payload = json.loads(path.read_text())
     except (OSError, ValueError) as exc:
-        logger.debug("Shared NasTech auth store at %s is unreadable: %s", path, exc)
+        logger.debug(
+            "Shared NasTech auth store at %s is unreadable: %s",
+            path,
+            exc)
         return None
     if not isinstance(payload, dict):
         return None
@@ -4724,9 +4867,12 @@ def _quarantine_nastech_pool_entries(
 
     retained = []
     removed = False
-    singleton_sources = {NASTECH_DEVICE_CODE_SOURCE, f"manual:{NASTECH_DEVICE_CODE_SOURCE}"}
+    singleton_sources = {
+        NASTECH_DEVICE_CODE_SOURCE,
+        f"manual:{NASTECH_DEVICE_CODE_SOURCE}"}
     for entry in entries:
-        if isinstance(entry, dict) and entry.get("source") in singleton_sources:
+        if isinstance(entry, dict) and entry.get(
+                "source") in singleton_sources:
             removed = True
             continue
         retained.append(entry)
@@ -4781,7 +4927,8 @@ def _try_import_shared_nastech_state(
                 "tls": {"insecure": False, "ca_bundle": None},
             }
 
-            def _persist_shared_refresh(updated_state: Dict[str, Any], _reason: str) -> None:
+            def _persist_shared_refresh(
+                    updated_state: Dict[str, Any], _reason: str) -> None:
                 _write_shared_nastech_state(updated_state)
 
             refreshed = refresh_nastech_oauth_from_state(
@@ -4798,7 +4945,8 @@ def _try_import_shared_nastech_state(
             error_code=getattr(exc, "code", None),
         )
         if _is_terminal_nastech_refresh_error(exc):
-            _clear_shared_nastech_state("shared_import_terminal_refresh_failure")
+            _clear_shared_nastech_state(
+                "shared_import_terminal_refresh_failure")
         logger.debug("Shared Nous import failed: %s", exc)
         return None
     except Exception as exc:
@@ -4842,8 +4990,12 @@ def _refresh_access_token(
                         provider="nous", relogin_required=True) from exc
 
     code = str(error_payload.get("error", "invalid_grant"))
-    description = str(error_payload.get("error_description") or "Refresh token exchange failed")
-    relogin = code in {"invalid_grant", "invalid_token", "refresh_token_reused"}
+    description = str(error_payload.get("error_description")
+                      or "Refresh token exchange failed")
+    relogin = code in {
+        "invalid_grant",
+        "invalid_token",
+        "refresh_token_reused"}
 
     # Detect the OAuth 2.1 "refresh token reuse" signal from the NasTech portal
     # server and surface an actionable message.  This fires when an external
@@ -4867,7 +5019,11 @@ def _refresh_access_token(
         )
         relogin = True
 
-    raise AuthError(description, provider="nous", code=code, relogin_required=relogin)
+    raise AuthError(
+        description,
+        provider="nous",
+        code=code,
+        relogin_required=relogin)
 
 
 def fetch_nastech_models(
@@ -4886,13 +5042,18 @@ def fetch_nastech_models(
         )
 
     if response.status_code != 200:
-        description = f"/models request failed with status {response.status_code}"
+        description = f"/models request failed with status {
+            response.status_code}"
         try:
             err = response.json()
-            description = str(err.get("error_description") or err.get("error") or description)
+            description = str(err.get("error_description")
+                              or err.get("error") or description)
         except Exception as e:
             logger.debug("Could not parse error response JSON: %s", e)
-        raise AuthError(description, provider="nous", code="models_fetch_failed")
+        raise AuthError(
+            description,
+            provider="nous",
+            code="models_fetch_failed")
 
     payload = response.json()
     data = payload.get("data")
@@ -4906,7 +5067,8 @@ def fetch_nastech_models(
         model_id = item.get("id")
         if isinstance(model_id, str) and model_id.strip():
             mid = model_id.strip()
-            # Skip NasTech models — they're not reliable for agentic tool-calling
+            # Skip NasTech models — they're not reliable for agentic
+            # tool-calling
             if "nastech" in mid.lower():
                 continue
             model_ids.append(mid)
@@ -4965,7 +5127,10 @@ def resolve_nastech_access_token(
             or DEFAULT_NASTECH_PORTAL_URL
         ).rstrip("/")
         client_id = str(state.get("client_id") or DEFAULT_NASTECH_CLIENT_ID)
-        verify = _resolve_verify(insecure=insecure, ca_bundle=ca_bundle, auth_state=state)
+        verify = _resolve_verify(
+            insecure=insecure,
+            ca_bundle=ca_bundle,
+            auth_state=state)
 
         with _nastech_shared_store_lock(timeout_seconds=max(timeout_seconds + 5.0, AUTH_LOCK_TIMEOUT_SECONDS)):
             merged_shared = _merge_shared_nastech_oauth_state(state)
@@ -4991,7 +5156,8 @@ def resolve_nastech_access_token(
                     relogin_required=True,
                 )
 
-            timeout = httpx.Timeout(timeout_seconds if timeout_seconds else 15.0)
+            timeout = httpx.Timeout(
+                timeout_seconds if timeout_seconds else 15.0)
             with httpx.Client(
                 timeout=timeout,
                 headers={"Accept": "application/json"},
@@ -5023,8 +5189,10 @@ def resolve_nastech_access_token(
             now = datetime.now(timezone.utc)
             access_ttl = _coerce_ttl_seconds(refreshed.get("expires_in"))
             state["access_token"] = refreshed["access_token"]
-            state["refresh_token"] = refreshed.get("refresh_token") or refresh_token
-            state["token_type"] = refreshed.get("token_type") or state.get("token_type") or "Bearer"
+            state["refresh_token"] = refreshed.get(
+                "refresh_token") or refresh_token
+            state["token_type"] = refreshed.get(
+                "token_type") or state.get("token_type") or "Bearer"
             state["scope"] = refreshed.get("scope") or state.get("scope")
             state["obtained_at"] = now.isoformat()
             state["expires_in"] = access_ttl
@@ -5086,7 +5254,10 @@ def refresh_nastech_oauth_pure(
             "ca_bundle": ca_bundle,
         },
     }
-    verify = _resolve_verify(insecure=insecure, ca_bundle=ca_bundle, auth_state=state)
+    verify = _resolve_verify(
+        insecure=insecure,
+        ca_bundle=ca_bundle,
+        auth_state=state)
     timeout = httpx.Timeout(timeout_seconds if timeout_seconds else 15.0)
 
     with httpx.Client(timeout=timeout, headers={"Accept": "application/json"}, verify=verify) as client:
@@ -5097,7 +5268,8 @@ def refresh_nastech_oauth_pure(
         )
         if force_refresh or current_invoke_jwt_status is not None:
             refresh_token_value = state.get("refresh_token")
-            if not isinstance(refresh_token_value, str) or not refresh_token_value:
+            if not isinstance(refresh_token_value,
+                              str) or not refresh_token_value:
                 if current_invoke_jwt_status is not None:
                     raise AuthError(
                         "Nous Portal access token is not a usable inference JWT "
@@ -5121,10 +5293,13 @@ def refresh_nastech_oauth_pure(
             now = datetime.now(timezone.utc)
             access_ttl = _coerce_ttl_seconds(refreshed.get("expires_in"))
             state["access_token"] = refreshed["access_token"]
-            state["refresh_token"] = refreshed.get("refresh_token") or refresh_token_value
-            state["token_type"] = refreshed.get("token_type") or state.get("token_type") or "Bearer"
+            state["refresh_token"] = refreshed.get(
+                "refresh_token") or refresh_token_value
+            state["token_type"] = refreshed.get(
+                "token_type") or state.get("token_type") or "Bearer"
             state["scope"] = refreshed.get("scope") or state.get("scope")
-            refreshed_url = _validate_nastech_inference_url_from_network(refreshed.get("inference_base_url"))
+            refreshed_url = _validate_nastech_inference_url_from_network(
+                refreshed.get("inference_base_url"))
             if refreshed_url:
                 state["inference_base_url"] = refreshed_url
             state["obtained_at"] = now.isoformat()
@@ -5236,7 +5411,8 @@ def _sync_nastech_pool_from_auth_store() -> None:
 
         load_pool("nastech")
     except Exception as exc:
-        logger.debug("Failed to sync NasTech credential pool from auth store: %s", exc)
+        logger.debug(
+            "Failed to sync NasTech credential pool from auth store: %s", exc)
 
 
 def resolve_nastech_runtime_credentials(
@@ -5310,7 +5486,8 @@ def resolve_nastech_runtime_credentials(
                 "nastech_state_persisted",
                 sequence_id=sequence_id,
                 reason=reason,
-                refresh_token_fp=_token_fingerprint(state.get("refresh_token")),
+                refresh_token_fp=_token_fingerprint(
+                    state.get("refresh_token")),
                 access_token_fp=_token_fingerprint(state.get("access_token")),
             )
             persisted_state = dict(state)
@@ -5321,7 +5498,10 @@ def resolve_nastech_runtime_credentials(
             # _write_shared_nastech_state.
             _write_shared_nastech_state(state)
 
-        verify = _resolve_verify(insecure=insecure, ca_bundle=ca_bundle, auth_state=state)
+        verify = _resolve_verify(
+            insecure=insecure,
+            ca_bundle=ca_bundle,
+            auth_state=state)
         timeout = httpx.Timeout(timeout_seconds if timeout_seconds else 15.0)
         _oauth_trace(
             "nastech_runtime_credentials_start",
@@ -5355,7 +5535,8 @@ def resolve_nastech_runtime_credentials(
                         _persist_state("post_shared_merge_access_unusable")
 
                     if force_refresh or invoke_jwt_status is not None:
-                        if not isinstance(refresh_token, str) or not refresh_token:
+                        if not isinstance(refresh_token,
+                                          str) or not refresh_token:
                             reason = invoke_jwt_status or "force_refresh"
                             raise AuthError(
                                 "Nous Portal access token is not a usable inference JWT "
@@ -5366,7 +5547,8 @@ def resolve_nastech_runtime_credentials(
                                 relogin_required=True,
                             )
 
-                        refresh_reason = "force_refresh" if force_refresh else (invoke_jwt_status or "access_unusable")
+                        refresh_reason = "force_refresh" if force_refresh else (
+                            invoke_jwt_status or "access_unusable")
                         _oauth_trace(
                             "refresh_start",
                             sequence_id=sequence_id,
@@ -5390,16 +5572,22 @@ def resolve_nastech_runtime_credentials(
                                     exc,
                                     reason="runtime_access_refresh_failure",
                                 )
-                                _persist_state("terminal_runtime_access_refresh_failure")
+                                _persist_state(
+                                    "terminal_runtime_access_refresh_failure")
                             raise
                         now = datetime.now(timezone.utc)
-                        access_ttl = _coerce_ttl_seconds(refreshed.get("expires_in"))
+                        access_ttl = _coerce_ttl_seconds(
+                            refreshed.get("expires_in"))
                         previous_refresh_token = refresh_token
                         state["access_token"] = refreshed["access_token"]
-                        state["refresh_token"] = refreshed.get("refresh_token") or refresh_token
-                        state["token_type"] = refreshed.get("token_type") or state.get("token_type") or "Bearer"
-                        state["scope"] = refreshed.get("scope") or state.get("scope")
-                        refreshed_url = _validate_nastech_inference_url_from_network(refreshed.get("inference_base_url"))
+                        state["refresh_token"] = refreshed.get(
+                            "refresh_token") or refresh_token
+                        state["token_type"] = refreshed.get(
+                            "token_type") or state.get("token_type") or "Bearer"
+                        state["scope"] = refreshed.get(
+                            "scope") or state.get("scope")
+                        refreshed_url = _validate_nastech_inference_url_from_network(
+                            refreshed.get("inference_base_url"))
                         if refreshed_url:
                             inference_base_url = refreshed_url
                         state["obtained_at"] = now.isoformat()
@@ -5413,10 +5601,13 @@ def resolve_nastech_runtime_credentials(
                             "refresh_success",
                             sequence_id=sequence_id,
                             reason=refresh_reason,
-                            previous_refresh_token_fp=_token_fingerprint(previous_refresh_token),
-                            new_refresh_token_fp=_token_fingerprint(refresh_token),
+                            previous_refresh_token_fp=_token_fingerprint(
+                                previous_refresh_token),
+                            new_refresh_token_fp=_token_fingerprint(
+                                refresh_token),
                         )
-                        # Persist immediately so validation failures cannot drop rotated refresh tokens.
+                        # Persist immediately so validation failures cannot
+                        # drop rotated refresh tokens.
                         _persist_state("post_refresh_access_token")
 
             _assert_nastech_inference_jwt_usable(
@@ -5503,8 +5694,10 @@ def _snapshot_nastech_pool_status() -> Dict[str, Any]:
             return _empty_nastech_auth_status()
 
         def _entry_sort_key(entry: Any) -> tuple[float, float, int]:
-            agent_exp = _parse_iso_timestamp(getattr(entry, "agent_key_expires_at", None)) or 0.0
-            access_exp = _parse_iso_timestamp(getattr(entry, "expires_at", None)) or 0.0
+            agent_exp = _parse_iso_timestamp(
+                getattr(entry, "agent_key_expires_at", None)) or 0.0
+            access_exp = _parse_iso_timestamp(
+                getattr(entry, "expires_at", None)) or 0.0
             priority = int(getattr(entry, "priority", 0) or 0)
             return (agent_exp, access_exp, -priority)
 
@@ -5551,9 +5744,11 @@ def _snapshot_nastech_pool_status() -> Dict[str, Any]:
 # subscription-feature checks) call it many times per render — `nastech tools` → "All Platforms"
 # was firing the refresh ~31× during one menu paint, racking up >13s of HTTP and burning
 # single-use refresh tokens. Cache the snapshot for a few seconds, keyed on the auth.json
-# mtime so that `nastech auth login/logout/add/remove` invalidate naturally on the next call.
+# mtime so that `nastech auth login/logout/add/remove` invalidate
+# naturally on the next call.
 _NASTECH_AUTH_STATUS_CACHE_TTL = 15.0  # seconds
-_nastech_auth_status_cache: Optional[Tuple[float, Optional[float], Dict[str, Any]]] = None
+_nastech_auth_status_cache: Optional[Tuple[float,
+                                           Optional[float], Dict[str, Any]]] = None
 
 
 def _auth_file_mtime() -> Optional[float]:
@@ -5663,7 +5858,7 @@ def _compute_nastech_auth_status() -> Dict[str, Any]:
 
 def get_codex_auth_status() -> Dict[str, Any]:
     """Status snapshot for Codex auth.
-    
+
     Checks the credential pool first (where `nastech auth` stores credentials),
     then falls back to the legacy provider state.
     """
@@ -5760,14 +5955,16 @@ def get_api_key_provider_status(provider_id: str) -> Dict[str, Any]:
 
     api_key = ""
     key_source = ""
-    api_key, key_source = _resolve_api_key_provider_secret(provider_id, pconfig)
+    api_key, key_source = _resolve_api_key_provider_secret(
+        provider_id, pconfig)
 
     env_url = ""
     if pconfig.base_url_env_var:
         env_url = os.getenv(pconfig.base_url_env_var, "").strip()
 
     if provider_id in {"kimi-coding", "kimi-coding-cn"}:
-        base_url = _resolve_kimi_base_url(api_key, pconfig.inference_base_url, env_url)
+        base_url = _resolve_kimi_base_url(
+            api_key, pconfig.inference_base_url, env_url)
     elif env_url:
         base_url = env_url
     else:
@@ -5796,7 +5993,8 @@ def get_external_process_provider_status(provider_id: str) -> Dict[str, Any]:
     )
     raw_args = os.getenv("NASTECH_COPILOT_ACP_ARGS", "").strip()
     args = shlex.split(raw_args) if raw_args else ["--acp", "--stdio"]
-    base_url = os.getenv(pconfig.base_url_env_var, "").strip() if pconfig.base_url_env_var else ""
+    base_url = os.getenv(pconfig.base_url_env_var,
+                         "").strip() if pconfig.base_url_env_var else ""
     if not base_url:
         base_url = pconfig.inference_base_url
 
@@ -5846,7 +6044,8 @@ def get_auth_status(provider_id: Optional[str] = None) -> Dict[str, Any]:
             from agent.bedrock_adapter import has_aws_credentials
             return {"logged_in": has_aws_credentials(), "provider": target}
         except ImportError:
-            return {"logged_in": False, "provider": target, "error": "boto3 not installed"}
+            return {"logged_in": False, "provider": target,
+                    "error": "boto3 not installed"}
     return {"logged_in": False}
 
 
@@ -5867,7 +6066,7 @@ def _get_azure_foundry_auth_status() -> Dict[str, Any]:
     """
     info: Dict[str, Any] = {"provider": "azure-foundry"}
     try:
-        from nastech_cli.config import load_config, get_env_value
+        from nastech_cli.config import get_env_value, load_config
         cfg = load_config()
     except Exception:
         cfg = {}
@@ -5876,7 +6075,8 @@ def _get_azure_foundry_auth_status() -> Dict[str, Any]:
     auth_mode = "api_key"
     base_url = ""
     if isinstance(model_cfg, dict):
-        auth_mode = str(model_cfg.get("auth_mode") or "api_key").strip().lower() or "api_key"
+        auth_mode = str(model_cfg.get("auth_mode")
+                        or "api_key").strip().lower() or "api_key"
         base_url = str(model_cfg.get("base_url") or "").strip()
     info["auth_mode"] = auth_mode
     info["base_url"] = base_url
@@ -5884,13 +6084,14 @@ def _get_azure_foundry_auth_status() -> Dict[str, Any]:
     if auth_mode == "entra_id":
         try:
             from agent.azure_identity_adapter import (
-                EntraIdentityConfig,
                 SCOPE_AI_AZURE_DEFAULT,
+                EntraIdentityConfig,
                 has_azure_identity_installed,
             )
             installed = has_azure_identity_installed()
             entra_cfg = {}
-            if isinstance(model_cfg, dict) and isinstance(model_cfg.get("entra"), dict):
+            if isinstance(model_cfg, dict) and isinstance(
+                    model_cfg.get("entra"), dict):
                 entra_cfg = model_cfg["entra"]
             identity_config = EntraIdentityConfig.from_dict(
                 entra_cfg,
@@ -5920,7 +6121,8 @@ def _get_azure_foundry_auth_status() -> Dict[str, Any]:
 
     # api_key mode (default)
     try:
-        api_key = get_env_value("AZURE_FOUNDRY_API_KEY") or os.getenv("AZURE_FOUNDRY_API_KEY", "")
+        api_key = get_env_value("AZURE_FOUNDRY_API_KEY") or os.getenv(
+            "AZURE_FOUNDRY_API_KEY", "")
     except Exception:
         api_key = os.getenv("AZURE_FOUNDRY_API_KEY", "")
     info["logged_in"] = has_usable_secret(api_key)
@@ -5942,7 +6144,8 @@ def resolve_api_key_provider_credentials(provider_id: str) -> Dict[str, Any]:
 
     api_key = ""
     key_source = ""
-    api_key, key_source = _resolve_api_key_provider_secret(provider_id, pconfig)
+    api_key, key_source = _resolve_api_key_provider_secret(
+        provider_id, pconfig)
 
     # No-auth LM Studio: substitute a placeholder so runtime / auxiliary_client
     # see the local server as configured. doctor still reports unconfigured
@@ -5956,9 +6159,11 @@ def resolve_api_key_provider_credentials(provider_id: str) -> Dict[str, Any]:
         env_url = os.getenv(pconfig.base_url_env_var, "").strip()
 
     if provider_id in {"kimi-coding", "kimi-coding-cn"}:
-        base_url = _resolve_kimi_base_url(api_key, pconfig.inference_base_url, env_url)
+        base_url = _resolve_kimi_base_url(
+            api_key, pconfig.inference_base_url, env_url)
     elif provider_id == "zai":
-        base_url = _resolve_zai_base_url(api_key, pconfig.inference_base_url, env_url)
+        base_url = _resolve_zai_base_url(
+            api_key, pconfig.inference_base_url, env_url)
     elif env_url:
         base_url = env_url.rstrip("/")
     else:
@@ -5972,7 +6177,8 @@ def resolve_api_key_provider_credentials(provider_id: str) -> Dict[str, Any]:
     }
 
 
-def resolve_external_process_provider_credentials(provider_id: str) -> Dict[str, Any]:
+def resolve_external_process_provider_credentials(
+        provider_id: str) -> Dict[str, Any]:
     """Resolve runtime details for local subprocess-backed providers."""
     pconfig = PROVIDER_REGISTRY.get(provider_id)
     if not pconfig or pconfig.auth_type != "external_process":
@@ -5982,7 +6188,8 @@ def resolve_external_process_provider_credentials(provider_id: str) -> Dict[str,
             code="invalid_provider",
         )
 
-    base_url = os.getenv(pconfig.base_url_env_var, "").strip() if pconfig.base_url_env_var else ""
+    base_url = os.getenv(pconfig.base_url_env_var,
+                         "").strip() if pconfig.base_url_env_var else ""
     if not base_url:
         base_url = pconfig.inference_base_url
 
@@ -6054,7 +6261,8 @@ def _update_config_for_provider(
     if inference_base_url and inference_base_url.strip():
         model_cfg["base_url"] = inference_base_url.rstrip("/")
     else:
-        # Clear stale base_url to prevent contamination when switching providers
+        # Clear stale base_url to prevent contamination when switching
+        # providers
         model_cfg.pop("base_url", None)
 
     # Clear stale api_key/api_mode left over from a previous custom provider.
@@ -6107,12 +6315,14 @@ def _config_provider_matches(provider_id: Optional[str]) -> bool:
     return _get_config_provider() == provider_id.strip().lower()
 
 
-def _should_reset_config_provider_on_logout(provider_id: Optional[str]) -> bool:
+def _should_reset_config_provider_on_logout(
+        provider_id: Optional[str]) -> bool:
     """Return True when logout should reset the model provider config."""
     if not provider_id:
         return False
     normalized = provider_id.strip().lower()
-    return normalized in PROVIDER_REGISTRY and _config_provider_matches(normalized)
+    return normalized in PROVIDER_REGISTRY and _config_provider_matches(
+        normalized)
 
 
 def _logout_default_provider_from_config() -> Optional[str]:
@@ -6182,7 +6392,9 @@ def _prompt_model_selection(
 
     # Column-aligned labels when pricing is available
     has_pricing = bool(pricing and any(pricing.get(m) for m in all_models))
-    name_col = max((len(m) for m in all_models), default=0) + 2 if has_pricing else 0
+    name_col = max(
+        (len(m) for m in all_models),
+        default=0) + 2 if has_pricing else 0
 
     # Pre-compute formatted prices and dynamic column widths
     _price_cache: dict[str, tuple[str, str, str]] = {}
@@ -6196,7 +6408,8 @@ def _prompt_model_selection(
                 inp = _format_price_per_mtok(p.get("prompt", ""))
                 out = _format_price_per_mtok(p.get("completion", ""))
                 cache_read = p.get("input_cache_read", "")
-                cache = _format_price_per_mtok(cache_read) if cache_read else ""
+                cache = _format_price_per_mtok(
+                    cache_read) if cache_read else ""
                 if cache:
                     has_cache = True
             else:
@@ -6230,7 +6443,10 @@ def _prompt_model_selection(
         # Each choice is "  {label}" (2 spaces) and simple_term_menu prepends
         # a 3-char cursor region ("-> " or "   "), so content starts at col 5.
         pad = " " * 5
-        header = f"\n{pad}{'':>{name_col}} {'In':>{price_col}}  {'Out':>{price_col}}"
+        header = f"\n{pad}{
+            '':>{name_col}} {
+            'In':>{price_col}}  {
+            'Out':>{price_col}}"
         if has_cache:
             header += f"  {'Cache':>{cache_col}}"
         menu_title += header + "  /Mtok"
@@ -6341,7 +6557,7 @@ def _save_model_choice(model_id: str) -> None:
     The model is stored in config.yaml only — NOT in .env.  This avoids
     conflicts in multi-agent setups where env vars would stomp each other.
     """
-    from nastech_cli.config import save_config, load_config
+    from nastech_cli.config import load_config, save_config
 
     config = load_config()
     # Always use dict format so provider/base_url can be stored alongside
@@ -6379,17 +6595,21 @@ def _login_openai_codex(
             # here the token should be valid — but double-check before telling
             # the user "Login successful!".
             _resolved_key = existing.get("api_key", "")
-            if isinstance(_resolved_key, str) and _resolved_key and not _codex_access_token_is_expiring(_resolved_key, 60):
+            if isinstance(_resolved_key, str) and _resolved_key and not _codex_access_token_is_expiring(
+                    _resolved_key, 60):
                 print("Existing Codex credentials found in NasTech auth store.")
                 try:
-                    reuse = input("Use existing credentials? [Y/n]: ").strip().lower()
+                    reuse = input(
+                        "Use existing credentials? [Y/n]: ").strip().lower()
                 except (EOFError, KeyboardInterrupt):
                     reuse = "y"
                 if reuse in {"", "y", "yes"}:
-                    config_path = _update_config_for_provider("openai-codex", existing.get("base_url", DEFAULT_CODEX_BASE_URL))
+                    config_path = _update_config_for_provider(
+                        "openai-codex", existing.get("base_url", DEFAULT_CODEX_BASE_URL))
                     print()
                     print("Login successful!")
-                    print(f"  Config updated: {config_path} (model.provider=openai-codex)")
+                    print(
+                        f"  Config updated: {config_path} (model.provider=openai-codex)")
                     return
             else:
                 print("Existing Codex credentials are expired. Starting fresh login...")
@@ -6401,19 +6621,25 @@ def _login_openai_codex(
         cli_tokens = _import_codex_cli_tokens()
         if cli_tokens:
             print("Found existing Codex CLI credentials at ~/.codex/auth.json")
-            print("NasTech will create its own session to avoid conflicts with Codex CLI / VS Code.")
+            print(
+                "NasTech will create its own session to avoid conflicts with Codex CLI / VS Code.")
             try:
-                do_import = input("Import these credentials? (a separate login is recommended) [y/N]: ").strip().lower()
+                do_import = input(
+                    "Import these credentials? (a separate login is recommended) [y/N]: ").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 do_import = "n"
             if do_import in {"y", "yes"}:
                 _save_codex_tokens(cli_tokens)
-                base_url = os.getenv("NASTECH_CODEX_BASE_URL", "").strip().rstrip("/") or DEFAULT_CODEX_BASE_URL
-                config_path = _update_config_for_provider("openai-codex", base_url)
+                base_url = os.getenv(
+                    "NASTECH_CODEX_BASE_URL",
+                    "").strip().rstrip("/") or DEFAULT_CODEX_BASE_URL
+                config_path = _update_config_for_provider(
+                    "openai-codex", base_url)
                 print()
                 print("Credentials imported. Note: if Codex CLI refreshes its token,")
                 print("NasTech will keep working independently with its own session.")
-                print(f"  Config updated: {config_path} (model.provider=openai-codex)")
+                print(
+                    f"  Config updated: {config_path} (model.provider=openai-codex)")
                 return
 
     # Run a fresh device code flow — NasTech gets its own OAuth session
@@ -6426,7 +6652,8 @@ def _login_openai_codex(
 
     # Save tokens to NasTech auth store
     _save_codex_tokens(creds["tokens"], creds.get("last_refresh"))
-    config_path = _update_config_for_provider("openai-codex", creds.get("base_url", DEFAULT_CODEX_BASE_URL))
+    config_path = _update_config_for_provider(
+        "openai-codex", creds.get("base_url", DEFAULT_CODEX_BASE_URL))
     print()
     print("Login successful!")
     from nastech_constants import display_nastech_home as _dhh
@@ -6446,10 +6673,12 @@ def _login_xai_oauth(
         try:
             existing = resolve_xai_oauth_runtime_credentials()
             api_key = existing.get("api_key", "")
-            if isinstance(api_key, str) and api_key and not _xai_access_token_is_expiring(api_key, 60):
+            if isinstance(api_key, str) and api_key and not _xai_access_token_is_expiring(
+                    api_key, 60):
                 print("Existing xAI OAuth credentials found in NasTech auth store.")
                 try:
-                    reuse = input("Use existing credentials? [Y/n]: ").strip().lower()
+                    reuse = input(
+                        "Use existing credentials? [Y/n]: ").strip().lower()
                 except (EOFError, KeyboardInterrupt):
                     reuse = "y"
                 if reuse in {"", "y", "yes"}:
@@ -6459,7 +6688,8 @@ def _login_xai_oauth(
                     )
                     print()
                     print("Login successful!")
-                    print(f"  Config updated: {config_path} (model.provider=xai-oauth)")
+                    print(
+                        f"  Config updated: {config_path} (model.provider=xai-oauth)")
                     return
         except AuthError:
             pass
@@ -6486,7 +6716,8 @@ def _login_xai_oauth(
         redirect_uri=creds.get("redirect_uri", ""),
         last_refresh=creds.get("last_refresh"),
     )
-    config_path = _update_config_for_provider("xai-oauth", creds.get("base_url", DEFAULT_XAI_OAUTH_BASE_URL))
+    config_path = _update_config_for_provider(
+        "xai-oauth", creds.get("base_url", DEFAULT_XAI_OAUTH_BASE_URL))
     print()
     print("Login successful!")
     from nastech_constants import display_nastech_home as _dhh
@@ -6726,7 +6957,8 @@ def _xai_oauth_loopback_login(
                 if opened:
                     print("Browser opened for xAI authorization.")
                 else:
-                    print("Could not open the browser automatically; use the URL above.")
+                    print(
+                        "Could not open the browser automatically; use the URL above.")
 
             try:
                 callback = _xai_wait_for_callback(
@@ -6748,7 +6980,8 @@ def _xai_oauth_loopback_login(
                 print("You can also re-run with `--manual-paste` to skip the")
                 print("loopback listener from the start.")
                 callback = _prompt_manual_callback_paste(redirect_uri)
-                if callback.get("code") is None and callback.get("error") is None:
+                if callback.get("code") is None and callback.get(
+                        "error") is None:
                     raise exc
         except Exception:
             try:
@@ -6898,7 +7131,9 @@ def _codex_device_code_login() -> Dict[str, Any]:
                 _time.sleep(poll_interval)
                 poll_resp = client.post(
                     f"{issuer}/api/accounts/deviceauth/token",
-                    json={"device_auth_id": device_auth_id, "user_code": user_code},
+                    json={
+                        "device_auth_id": device_auth_id,
+                        "user_code": user_code},
                     headers={"Content-Type": "application/json"},
                 )
 
@@ -6909,7 +7144,8 @@ def _codex_device_code_login() -> Dict[str, Any]:
                     continue  # User hasn't completed login yet
                 else:
                     raise AuthError(
-                        f"Device auth polling returned status {poll_resp.status_code}.",
+                        f"Device auth polling returned status {
+                            poll_resp.status_code}.",
                         provider="openai-codex", code="device_code_poll_error",
                     )
     except KeyboardInterrupt:
@@ -7021,7 +7257,8 @@ def _minimax_request_user_code(
     )
     if response.status_code != 200:
         raise AuthError(
-            f"MiniMax OAuth authorization failed: {response.text or response.reason_phrase}",
+            f"MiniMax OAuth authorization failed: {
+                response.text or response.reason_phrase}",
             provider="minimax-oauth", code="authorization_failed",
         )
     payload = response.json()
@@ -7039,12 +7276,14 @@ def _minimax_request_user_code(
     return payload
 
 
-def _minimax_expired_in_looks_like_unix_ms(expired_in: int, *, now_ms: int) -> bool:
+def _minimax_expired_in_looks_like_unix_ms(
+        expired_in: int, *, now_ms: int) -> bool:
     """True if ``expired_in`` is plausibly a unix-ms absolute time (vs TTL seconds)."""
     return int(expired_in) > (now_ms // 2)
 
 
-def _minimax_resolve_token_expiry_unix(expired_in: int, *, now: datetime) -> float:
+def _minimax_resolve_token_expiry_unix(
+        expired_in: int, *, now: datetime) -> float:
     """Return access-token expiry as unix seconds (MiniMax uses ms epoch or TTL seconds)."""
     raw = int(expired_in)
     now_ms = int(now.timestamp() * 1000)
@@ -7058,7 +7297,8 @@ def _minimax_poll_token(
     user_code: str, code_verifier: str, expired_in: int, interval_ms: Optional[int],
 ) -> Dict[str, Any]:
     # OpenClaw treats expired_in as a unix-ms timestamp (Date.now() < expireTimeMs).
-    # Defensive parsing: if it's small enough to be a duration, treat as seconds.
+    # Defensive parsing: if it's small enough to be a duration, treat as
+    # seconds.
     import time as _time
     now_ms = int(_time.time() * 1000)
     raw = int(expired_in)
@@ -7088,7 +7328,8 @@ def _minimax_poll_token(
             payload = {}
 
         if response.status_code != 200:
-            msg = (payload.get("base_resp", {}) or {}).get("status_msg") or response.text
+            msg = (payload.get("base_resp", {}) or {}).get(
+                "status_msg") or response.text
             raise AuthError(
                 f"MiniMax OAuth error: {msg or 'unknown'}",
                 provider="minimax-oauth", code="token_exchange_failed",
@@ -7101,7 +7342,8 @@ def _minimax_poll_token(
                 provider="minimax-oauth", code="authorization_denied",
             )
         if status == "success":
-            if not all(payload.get(k) for k in ("access_token", "refresh_token", "expired_in")):
+            if not all(payload.get(k)
+                       for k in ("access_token", "refresh_token", "expired_in")):
                 raise AuthError(
                     "MiniMax OAuth success payload missing required token fields.",
                     provider="minimax-oauth", code="token_incomplete",
@@ -7218,7 +7460,8 @@ def _refresh_minimax_oauth_state(
             provider="minimax-oauth", code="no_refresh_token", relogin_required=True,
         )
     try:
-        expires_at = datetime.fromisoformat(state.get("expires_at", "")).timestamp()
+        expires_at = datetime.fromisoformat(
+            state.get("expires_at", "")).timestamp()
     except Exception:
         expires_at = 0.0
     now = time.time()
@@ -7245,7 +7488,8 @@ def _refresh_minimax_oauth_state(
         relogin = any(m in body for m in
                       ("invalid_grant", "refresh_token_reused", "invalid_refresh_token"))
         raise AuthError(
-            f"MiniMax OAuth refresh failed: {response.text or response.reason_phrase}",
+            f"MiniMax OAuth refresh failed: {
+                response.text or response.reason_phrase}",
             provider="minimax-oauth", code="refresh_failed",
             relogin_required=relogin,
         )
@@ -7273,7 +7517,8 @@ def _refresh_minimax_oauth_state(
     return new_state
 
 
-def _minimax_oauth_quarantine_on_terminal_refresh(state: Dict[str, Any], exc: AuthError) -> None:
+def _minimax_oauth_quarantine_on_terminal_refresh(
+        state: Dict[str, Any], exc: AuthError) -> None:
     """Wipe dead tokens from auth.json after a terminal refresh failure.
 
     Shared by both the eager-resolve path and the lazy per-request token
@@ -7282,7 +7527,8 @@ def _minimax_oauth_quarantine_on_terminal_refresh(state: Dict[str, Any], exc: Au
     """
     if not (exc.relogin_required and state.get("refresh_token")):
         return
-    for _k in ("access_token", "refresh_token", "expires_at", "expires_in", "obtained_at"):
+    for _k in ("access_token", "refresh_token",
+               "expires_at", "expires_in", "obtained_at"):
         state.pop(_k, None)
     state["last_auth_error"] = {
         "provider": "minimax-oauth",
@@ -7295,7 +7541,9 @@ def _minimax_oauth_quarantine_on_terminal_refresh(state: Dict[str, Any], exc: Au
     try:
         _minimax_save_auth_state(state)
     except Exception as _save_exc:
-        logger.debug("MiniMax OAuth: failed to persist quarantined state: %s", _save_exc)
+        logger.debug(
+            "MiniMax OAuth: failed to persist quarantined state: %s",
+            _save_exc)
 
 
 def build_minimax_oauth_token_provider() -> Callable[[], str]:
@@ -7392,7 +7640,8 @@ def get_minimax_oauth_auth_status() -> Dict[str, Any]:
     if not state or not state.get("access_token"):
         return {"logged_in": False, "provider": "minimax-oauth"}
     try:
-        expires_at = datetime.fromisoformat(state.get("expires_at", "")).timestamp()
+        expires_at = datetime.fromisoformat(
+            state.get("expires_at", "")).timestamp()
         token_valid = (expires_at - time.time()) > 0
     except Exception:
         token_valid = bool(state.get("access_token"))
@@ -7445,7 +7694,8 @@ def _nastech_device_code_login(
     client_id = client_id or pconfig.client_id
     scope = scope or pconfig.scope
     timeout = httpx.Timeout(timeout_seconds)
-    verify: bool | str = False if insecure else (ca_bundle if ca_bundle else True)
+    verify: bool | str = False if insecure else (
+        ca_bundle if ca_bundle else True)
 
     if _is_remote_session():
         open_browser = False
@@ -7482,7 +7732,8 @@ def _nastech_device_code_login(
             else:
                 print("  Could not open browser automatically — use the URL above.")
 
-        effective_interval = max(1, min(interval, DEVICE_AUTH_POLL_INTERVAL_CAP_SECONDS))
+        effective_interval = max(
+            1, min(interval, DEVICE_AUTH_POLL_INTERVAL_CAP_SECONDS))
         print(f"Waiting for approval (polling every {effective_interval}s)...")
 
         token_data = _poll_for_token(
@@ -7571,11 +7822,13 @@ def _login_nastech(args, pconfig: ProviderConfig) -> None:
                 shared_path = None
             print()
             if shared_path:
-                print(f"Found existing NasTech OAuth credentials at {shared_path}")
+                print(
+                    f"Found existing NasTech OAuth credentials at {shared_path}")
             else:
                 print("Found existing shared NasTech OAuth credentials")
             try:
-                do_import = input("Import these credentials? [Y/n]: ").strip().lower()
+                do_import = input(
+                    "Import these credentials? [Y/n]: ").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 do_import = "y"
             if do_import in {"", "y", "yes"}:
@@ -7584,13 +7837,15 @@ def _login_nastech(args, pconfig: ProviderConfig) -> None:
                     timeout_seconds=timeout_seconds,
                 )
                 if auth_state is None:
-                    print("Could not refresh shared credentials — falling back to device-code login.")
+                    print(
+                        "Could not refresh shared credentials — falling back to device-code login.")
 
         if auth_state is None:
             auth_state = _nastech_device_code_login(
                 portal_base_url=getattr(args, "portal_url", None),
                 inference_base_url=getattr(args, "inference_url", None),
-                client_id=getattr(args, "client_id", None) or pconfig.client_id,
+                client_id=getattr(
+                    args, "client_id", None) or pconfig.client_id,
                 scope=getattr(args, "scope", None),
                 open_browser=not getattr(args, "no_browser", False),
                 timeout_seconds=timeout_seconds,
@@ -7629,7 +7884,8 @@ def _login_nastech(args, pconfig: ProviderConfig) -> None:
         # OpenRouter).  The auth.json active_provider was already set above.
         selected_model = None
         try:
-            runtime_key = auth_state.get("agent_key") or auth_state.get("access_token")
+            runtime_key = auth_state.get(
+                "agent_key") or auth_state.get("access_token")
             if not isinstance(runtime_key, str) or not runtime_key:
                 raise AuthError(
                     "No runtime API key available to fetch models",
@@ -7638,8 +7894,10 @@ def _login_nastech(args, pconfig: ProviderConfig) -> None:
                 )
 
             from nastech_cli.models import (
-                get_curated_nastech_model_ids, get_pricing_for_provider,
-                check_nastech_free_tier, partition_nastech_models_by_tier,
+                check_nastech_free_tier,
+                get_curated_nastech_model_ids,
+                get_pricing_for_provider,
+                partition_nastech_models_by_tier,
                 union_with_portal_free_recommendations,
                 union_with_portal_paid_recommendations,
             )
@@ -7661,7 +7919,8 @@ def _login_nastech(args, pconfig: ProviderConfig) -> None:
                             get_nastech_portal_account_info,
                         )
 
-                        _account_info = get_nastech_portal_account_info(force_fresh=True)
+                        _account_info = get_nastech_portal_account_info(
+                            force_fresh=True)
                         unavailable_message = (
                             format_nastech_portal_entitlement_message(
                                 _account_info,
@@ -7692,7 +7951,9 @@ def _login_nastech(args, pconfig: ProviderConfig) -> None:
                     )
             _portal = auth_state.get("portal_base_url", "")
             if model_ids:
-                print(f"Showing {len(model_ids)} curated models — use \"Enter custom model name\" for others.")
+                print(
+                    f"Showing {
+                        len(model_ids)} curated models — use \"Enter custom model name\" for others.")
                 selected_model = _prompt_model_selection(
                     model_ids, pricing=pricing,
                     unavailable_models=unavailable_models,
@@ -7702,13 +7963,16 @@ def _login_nastech(args, pconfig: ProviderConfig) -> None:
             elif unavailable_models:
                 _url = (_portal or DEFAULT_NASTECH_PORTAL_URL).rstrip("/")
                 print("No free models currently available.")
-                print(unavailable_message or f"Upgrade at {_url} to access paid models.")
+                print(
+                    unavailable_message or f"Upgrade at {_url} to access paid models.")
             else:
                 print("No curated models available for Nous Portal.")
         except Exception as exc:
-            message = format_auth_error(exc) if isinstance(exc, AuthError) else str(exc)
+            message = format_auth_error(exc) if isinstance(
+                exc, AuthError) else str(exc)
             print()
-            print(f"Login succeeded, but could not fetch available models. Reason: {message}")
+            print(
+                f"Login succeeded, but could not fetch available models. Reason: {message}")
 
         # Write provider + model atomically so config is never mismatched.
         # If no model was selected (user picked "Skip (keep current)",
@@ -7779,5 +8043,6 @@ def logout_command(args) -> None:
     else:
         print(f"No auth state found for {provider_name}.")
 
-# ── backward-compat alias (provider naming) ───────────────────────────────────
+
+# ── backward-compat alias (provider naming) ─────────────────────────────
 _login_nous = _login_nastech

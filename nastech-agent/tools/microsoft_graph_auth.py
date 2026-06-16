@@ -10,7 +10,6 @@ from typing import Any
 
 import httpx
 
-
 DEFAULT_GRAPH_SCOPE = "https://graph.microsoft.com/.default"
 DEFAULT_GRAPH_AUTHORITY_URL = "https://login.microsoftonline.com"
 DEFAULT_TOKEN_SKEW_SECONDS = 120
@@ -93,7 +92,8 @@ class CachedAccessToken:
     expires_at: float
     token_type: str = "Bearer"
 
-    def is_expired(self, *, skew_seconds: int = DEFAULT_TOKEN_SKEW_SECONDS) -> bool:
+    def is_expired(
+            self, *, skew_seconds: int = DEFAULT_TOKEN_SKEW_SECONDS) -> bool:
         return self.expires_at <= (time.time() + max(0, int(skew_seconds)))
 
     @property
@@ -198,7 +198,8 @@ class MicrosoftGraphTokenProvider:
             ) from exc
 
         access_token = str(payload.get("access_token") or "").strip()
-        token_type = str(payload.get("token_type") or "Bearer").strip() or "Bearer"
+        token_type = str(payload.get("token_type")
+                         or "Bearer").strip() or "Bearer"
         expires_in = payload.get("expires_in")
 
         if not access_token:

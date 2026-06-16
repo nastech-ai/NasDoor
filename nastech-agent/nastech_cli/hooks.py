@@ -49,8 +49,8 @@ def hooks_command(args) -> None:
 # ---------------------------------------------------------------------------
 
 def _cmd_list(_args) -> None:
-    from nastech_cli.config import load_config
     from agent import shell_hooks
+    from nastech_cli.config import load_config
 
     specs = shell_hooks.iter_configured_hooks(load_config())
 
@@ -86,7 +86,8 @@ def _cmd_list(_args) -> None:
             )
 
             if is_approved:
-                entry = shell_hooks.allowlist_entry_for(spec.event, spec.command)
+                entry = shell_hooks.allowlist_entry_for(
+                    spec.event, spec.command)
                 if entry and entry.get("approved_at"):
                     print(f"      approved_at: {entry['approved_at']}")
                     mtime_now = shell_hooks.script_mtime_iso(spec.command)
@@ -186,9 +187,9 @@ _DEFAULT_PAYLOADS = {
 
 
 def _cmd_test(args) -> None:
+    from agent import shell_hooks
     from nastech_cli.config import load_config
     from nastech_cli.plugins import VALID_HOOKS
-    from agent import shell_hooks
 
     event = args.event
     if event not in VALID_HOOKS:
@@ -198,18 +199,26 @@ def _cmd_test(args) -> None:
 
     # Synthetic kwargs in the same shape invoke_hook() would pass.  Merged
     # with --for-tool (overrides tool_name) and --payload-file (extra kwargs).
-    payload = dict(_DEFAULT_PAYLOADS.get(event, {"session_id": "test-session"}))
+    payload = dict(
+        _DEFAULT_PAYLOADS.get(
+            event, {
+                "session_id": "test-session"}))
 
     if getattr(args, "for_tool", None):
         payload["tool_name"] = args.for_tool
 
     if getattr(args, "payload_file", None):
         try:
-            custom = json.loads(Path(args.payload_file).read_text(encoding="utf-8"))
+            custom = json.loads(
+                Path(
+                    args.payload_file).read_text(
+                    encoding="utf-8"))
             if isinstance(custom, dict):
                 payload.update(custom)
             else:
-                print(f"Warning: {args.payload_file} is not a JSON object; ignoring")
+                print(
+                    f"Warning: {
+                        args.payload_file} is not a JSON object; ignoring")
         except Exception as exc:
             print(f"Error reading payload file: {exc}")
             return
@@ -291,8 +300,8 @@ def _cmd_revoke(args) -> None:
 # ---------------------------------------------------------------------------
 
 def _cmd_doctor(_args) -> None:
-    from nastech_cli.config import load_config
     from agent import shell_hooks
+    from nastech_cli.config import load_config
 
     specs = shell_hooks.iter_configured_hooks(load_config())
 
@@ -328,7 +337,11 @@ def _doctor_one(spec, shell_hooks) -> int:
     # 2. Allowlist status
     entry = shell_hooks.allowlist_entry_for(spec.event, spec.command)
     if entry:
-        print(f"      ✓ allowlisted (approved {entry.get('approved_at', '?')})")
+        print(
+            f"      ✓ allowlisted (approved {
+                entry.get(
+                    'approved_at',
+                    '?')})")
     else:
         problems += 1
         print("      ✗ not allowlisted — hook will NOT fire at runtime "

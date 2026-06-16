@@ -66,7 +66,10 @@ def mirror_to_session(
 
         _append_to_sqlite(session_id, mirror_msg)
 
-        logger.debug("Mirror: wrote to session %s (from %s)", session_id, source_label)
+        logger.debug(
+            "Mirror: wrote to session %s (from %s)",
+            session_id,
+            source_label)
         return True
 
     except Exception as e:
@@ -112,7 +115,9 @@ def _find_session_id(
 
     for _key, entry in data.items():
         origin = entry.get("origin") or {}
-        entry_platform = (origin.get("platform") or entry.get("platform", "")).lower()
+        entry_platform = (
+            origin.get("platform") or entry.get(
+                "platform", "")).lower()
 
         if entry_platform != platform_lower:
             continue
@@ -120,7 +125,8 @@ def _find_session_id(
         origin_chat_id = str(origin.get("chat_id", ""))
         if origin_chat_id == str(chat_id):
             origin_thread_id = origin.get("thread_id")
-            if thread_id is not None and str(origin_thread_id or "") != str(thread_id):
+            if thread_id is not None and str(
+                    origin_thread_id or "") != str(thread_id):
                 continue
             candidates.append(entry)
 
@@ -147,7 +153,6 @@ def _find_session_id(
 
     best_entry = max(candidates, key=lambda entry: entry.get("updated_at", ""))
     return best_entry.get("session_id")
-
 
 
 def _append_to_sqlite(session_id: str, message: dict) -> None:

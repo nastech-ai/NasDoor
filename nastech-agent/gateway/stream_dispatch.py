@@ -108,7 +108,8 @@ class GatewayEventDispatcher:
             line = self.adapter.format_tool_event(
                 event, mode=self.tool_mode, preview_max_len=self.preview_max_len,
             )
-            # None == adapter chose to eat this event (can't render tool chrome).
+            # None == adapter chose to eat this event (can't render tool
+            # chrome).
             if line:
                 self._enqueue_tool_line(line)
             return

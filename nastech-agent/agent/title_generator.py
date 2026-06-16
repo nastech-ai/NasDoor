@@ -63,7 +63,8 @@ def generate_title(
             main_runtime=main_runtime,
         )
         title = (response.choices[0].message.content or "").strip()
-        # Clean up: remove quotes, trailing punctuation, prefixes like "Title: "
+        # Clean up: remove quotes, trailing punctuation, prefixes like "Title:
+        # "
         title = title.strip('"\'')
         if title.lower().startswith("title:"):
             title = title[6:].strip()
@@ -80,7 +81,9 @@ def generate_title(
             try:
                 failure_callback("title generation", e)
             except Exception:
-                logger.debug("Title generation failure_callback raised", exc_info=True)
+                logger.debug(
+                    "Title generation failure_callback raised",
+                    exc_info=True)
         return None
 
 
@@ -104,7 +107,8 @@ def auto_title_session(
     if not session_db or not session_id:
         return
 
-    # Check if title already exists (user may have set one via /title before first response)
+    # Check if title already exists (user may have set one via /title before
+    # first response)
     try:
         existing = session_db.get_session_title(session_id)
         if existing:
@@ -153,7 +157,9 @@ def maybe_auto_title(
     # conversation_history includes the exchange that just happened,
     # so for a first exchange we expect exactly 1 user message
     # (or 2 counting system). Be generous: generate on first 2 exchanges.
-    user_msg_count = sum(1 for m in (conversation_history or []) if m.get("role") == "user")
+    user_msg_count = sum(
+        1 for m in (
+            conversation_history or []) if m.get("role") == "user")
     if user_msg_count > 2:
         return
 

@@ -11,20 +11,34 @@ Modular wizard with independently-runnable sections:
 Config files are stored in ~/.nastech/ for easy access.
 """
 
+import copy
 import importlib.util
 import logging
 import os
 import re
 import shutil
 import sys
-import copy
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
+from nastech_cli.colors import Colors, color
+from nastech_cli.config import (
+    DEFAULT_CONFIG,
+    cfg_get,
+    ensure_nastech_home,
+    get_config_path,
+    get_env_path,
+    get_env_value,
+    get_nastech_home,
+    load_config,
+    remove_env_value,
+    save_config,
+    save_env_value,
+)
 from nastech_cli.nastech_subscription import get_nastech_subscription_features
+from nastech_constants import get_optional_skills_dir
 from tools.tool_backend_helpers import managed_nastech_tools_enabled
 from utils import base_url_hostname
-from nastech_constants import get_optional_skills_dir
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +61,8 @@ def _get_credential_pool_strategies(config: Dict[str, Any]) -> Dict[str, str]:
     return dict(strategies) if isinstance(strategies, dict) else {}
 
 
-def _set_credential_pool_strategy(config: Dict[str, Any], provider: str, strategy: str) -> None:
+def _set_credential_pool_strategy(
+        config: Dict[str, Any], provider: str, strategy: str) -> None:
     if not provider:
         return
     strategies = _get_credential_pool_strategies(config)
@@ -126,25 +141,9 @@ def _set_reasoning_effort(config: Dict[str, Any], effort: str) -> None:
     agent_cfg["reasoning_effort"] = effort
 
 
-
-
 # Import config helpers
-from nastech_cli.config import (
-    cfg_get,
-    DEFAULT_CONFIG,
-    get_nastech_home,
-    get_config_path,
-    get_env_path,
-    load_config,
-    save_config,
-    save_env_value,
-    remove_env_value,
-    get_env_value,
-    ensure_nastech_home,
-)
-# display_nastech_home imported lazily at call sites (stale-module safety during nastech update)
-
-from nastech_cli.colors import Colors, color
+# display_nastech_home imported lazily at call sites (stale-module safety
+# during nastech update)
 
 
 def print_header(title: str):
@@ -176,7 +175,11 @@ def is_interactive_stdin() -> bool:
 def print_noninteractive_setup_guidance(reason: str | None = None) -> None:
     """Print guidance for headless/non-interactive setup flows."""
     print()
-    print(color("⚕ NasTech Setup — Non-interactive mode", Colors.CYAN, Colors.BOLD))
+    print(
+        color(
+            "⚕ NasTech Setup — Non-interactive mode",
+            Colors.CYAN,
+            Colors.BOLD))
     print()
     if reason:
         print_info(reason)
@@ -188,7 +191,8 @@ def print_noninteractive_setup_guidance(reason: str | None = None) -> None:
     print_info("  nastech config set model.default your-model-name")
     print()
     print_info("Or set OPENROUTER_API_KEY / OPENAI_API_KEY in your environment.")
-    print_info("Run 'nastech setup' in an interactive terminal to use the full wizard.")
+    print_info(
+        "Run 'nastech setup' in an interactive terminal to use the full wizard.")
     print()
 
 
@@ -222,20 +226,26 @@ def _sanitize_pasted_input(value: str) -> str:
     return _BRACKETED_PASTE_PATTERN.sub("", value)
 
 
-def _curses_prompt_choice(question: str, choices: list, default: int = 0, description: str | None = None) -> int:
+def _curses_prompt_choice(question: str, choices: list,
+                          default: int = 0, description: str | None = None) -> int:
     """Single-select menu using curses. Delegates to curses_radiolist."""
     from nastech_cli.curses_ui import curses_radiolist
-    return curses_radiolist(question, choices, selected=default, cancel_returns=-1, description=description)
+    return curses_radiolist(question, choices, selected=default,
+                            cancel_returns=-1, description=description)
 
 
-
-def prompt_choice(question: str, choices: list, default: int = 0, description: str | None = None) -> int:
+def prompt_choice(question: str, choices: list, default: int = 0,
+                  description: str | None = None) -> int:
     """Prompt for a choice from a list with arrow key navigation.
 
     Escape keeps the current default (skips the question).
     Ctrl+C exits the wizard.
     """
-    idx = _curses_prompt_choice(question, choices, default, description=description)
+    idx = _curses_prompt_choice(
+        question,
+        choices,
+        default,
+        description=description)
     if idx >= 0:
         if idx == default:
             print_info("  Skipped (keeping current)")
@@ -257,7 +267,8 @@ def prompt_choice(question: str, choices: list, default: int = 0, description: s
     while True:
         try:
             value = input(
-                color(f"  Select [1-{len(choices)}] ({default + 1}): ", Colors.DIM)
+                color(
+                    f"  Select [1-{len(choices)}] ({default + 1}): ", Colors.DIM)
             )
             if not value:
                 return default
@@ -296,7 +307,8 @@ def prompt_yes_no(question: str, default: bool = True) -> bool:
         print_error("Please enter 'y' or 'n'")
 
 
-def prompt_checklist(title: str, items: list, pre_selected: list = None) -> list:
+def prompt_checklist(title: str, items: list,
+                     pre_selected: list = None) -> list:
     """
     Display a multi-select checklist and return the indices of selected items.
 
@@ -333,7 +345,13 @@ def _prompt_api_key(var: dict):
         tools_str += f", +{len(tools) - 3} more"
 
     print()
-    print(color(f"  ─── {var.get('description', var['name'])} ───", Colors.CYAN))
+    print(
+        color(
+            f"  ─── {
+                var.get(
+                    'description',
+                    var['name'])} ───",
+            Colors.CYAN))
     print()
     if tools_str:
         print_info(f"  Enables: {tools_str}")
@@ -373,9 +391,13 @@ def _print_setup_summary(config: dict, nastech_home):
     if _vision_backends:
         tool_status.append(("Vision (image analysis)", True, None))
     else:
-        tool_status.append(("Vision (image analysis)", False, "run 'nastech setup' to configure"))
+        tool_status.append(
+            ("Vision (image analysis)",
+             False,
+             "run 'nastech setup' to configure"))
 
-    # Mixture of Agents — requires OpenRouter specifically (calls multiple models)
+    # Mixture of Agents — requires OpenRouter specifically (calls multiple
+    # models)
     if get_env_value("OPENROUTER_API_KEY"):
         tool_status.append(("Mixture of Agents", True, None))
     else:
@@ -383,19 +405,26 @@ def _print_setup_summary(config: dict, nastech_home):
 
     # Web tools (Exa, Parallel, Firecrawl, or Tavily)
     if subscription_features.web.managed_by_nous:
-        tool_status.append(("Web Search & Extract (Nous subscription)", True, None))
+        tool_status.append(
+            ("Web Search & Extract (Nous subscription)", True, None))
     elif subscription_features.web.available:
         label = "Web Search & Extract"
         if subscription_features.web.current_provider:
-            label = f"Web Search & Extract ({subscription_features.web.current_provider})"
+            label = f"Web Search & Extract ({
+                subscription_features.web.current_provider})"
         tool_status.append((label, True, None))
     else:
-        tool_status.append(("Web Search & Extract", False, "EXA_API_KEY, PARALLEL_API_KEY, FIRECRAWL_API_KEY/FIRECRAWL_API_URL, TAVILY_API_KEY, or SEARXNG_URL"))
+        tool_status.append(
+            ("Web Search & Extract",
+             False,
+             "EXA_API_KEY, PARALLEL_API_KEY, FIRECRAWL_API_KEY/FIRECRAWL_API_URL, TAVILY_API_KEY, or SEARXNG_URL"))
 
-    # Browser tools (local Chromium, Camofox, Browserbase, Browser Use, or Firecrawl)
+    # Browser tools (local Chromium, Camofox, Browserbase, Browser Use, or
+    # Firecrawl)
     browser_provider = subscription_features.browser.current_provider
     if subscription_features.browser.managed_by_nous:
-        tool_status.append(("Browser Automation (Nous Browser Use)", True, None))
+        tool_status.append(
+            ("Browser Automation (Nous Browser Use)", True, None))
     elif subscription_features.browser.available:
         label = "Browser Automation"
         if browser_provider:
@@ -425,7 +454,8 @@ def _print_setup_summary(config: dict, nastech_home):
     # Image generation — FAL (direct or via Nous), or any plugin-registered
     # provider (OpenAI, etc.)
     if subscription_features.image_gen.managed_by_nous:
-        tool_status.append(("Image Generation (Nous subscription)", True, None))
+        tool_status.append(
+            ("Image Generation (Nous subscription)", True, None))
     elif subscription_features.image_gen.available:
         tool_status.append(("Image Generation", True, None))
     else:
@@ -449,19 +479,24 @@ def _print_setup_summary(config: dict, nastech_home):
         except Exception:
             pass
         if _img_backend:
-            tool_status.append((f"Image Generation ({_img_backend})", True, None))
+            tool_status.append(
+                (f"Image Generation ({_img_backend})", True, None))
         else:
-            tool_status.append(("Image Generation", False, "FAL_KEY or OPENAI_API_KEY"))
+            tool_status.append(
+                ("Image Generation", False, "FAL_KEY or OPENAI_API_KEY"))
 
     # Video generation — opt-in via `nastech tools` → Video Generation.
     # Only show the row when a plugin reports available so we don't badger
     # users who don't care about video gen with a "missing" status line.
     if subscription_features.video_gen.managed_by_nous:
-        tool_status.append(("Video Generation (FAL via Nous subscription)", True, None))
+        tool_status.append(
+            ("Video Generation (FAL via Nous subscription)", True, None))
     else:
         try:
             from agent.video_gen_registry import list_providers as _list_video_providers
-            from nastech_cli.plugins import _ensure_plugins_discovered as _ensure_plugins
+            from nastech_cli.plugins import (
+                _ensure_plugins_discovered as _ensure_plugins,
+            )
             _ensure_plugins()
             _video_backend = None
             for _vp in _list_video_providers():
@@ -474,16 +509,19 @@ def _print_setup_summary(config: dict, nastech_home):
         except Exception:
             _video_backend = None
         if _video_backend:
-            tool_status.append((f"Video Generation ({_video_backend})", True, None))
+            tool_status.append(
+                (f"Video Generation ({_video_backend})", True, None))
 
     # TTS — show configured provider
     tts_provider = cfg_get(config, "tts", "provider", default="edge")
     if subscription_features.tts.managed_by_nous:
-        tool_status.append(("Text-to-Speech (OpenAI via Nous subscription)", True, None))
+        tool_status.append(
+            ("Text-to-Speech (OpenAI via Nous subscription)", True, None))
     elif tts_provider == "elevenlabs" and get_env_value("ELEVENLABS_API_KEY"):
         tool_status.append(("Text-to-Speech (ElevenLabs)", True, None))
     elif tts_provider == "openai" and (
-        get_env_value("VOICE_TOOLS_OPENAI_KEY") or get_env_value("OPENAI_API_KEY")
+        get_env_value("VOICE_TOOLS_OPENAI_KEY") or get_env_value(
+            "OPENAI_API_KEY")
     ):
         tool_status.append(("Text-to-Speech (OpenAI)", True, None))
     elif tts_provider == "minimax" and get_env_value("MINIMAX_API_KEY"):
@@ -500,16 +538,23 @@ def _print_setup_summary(config: dict, nastech_home):
         if neutts_ok:
             tool_status.append(("Text-to-Speech (NeuTTS local)", True, None))
         else:
-            tool_status.append(("Text-to-Speech (NeuTTS — not installed)", False, "run 'nastech setup tts'"))
+            tool_status.append(
+                ("Text-to-Speech (NeuTTS — not installed)",
+                 False,
+                 "run 'nastech setup tts'"))
     elif tts_provider == "kittentts":
         try:
             kittentts_ok = importlib.util.find_spec("kittentts") is not None
         except Exception:
             kittentts_ok = False
         if kittentts_ok:
-            tool_status.append(("Text-to-Speech (KittenTTS local)", True, None))
+            tool_status.append(
+                ("Text-to-Speech (KittenTTS local)", True, None))
         else:
-            tool_status.append(("Text-to-Speech (KittenTTS — not installed)", False, "run 'nastech setup tts'"))
+            tool_status.append(
+                ("Text-to-Speech (KittenTTS — not installed)",
+                 False,
+                 "run 'nastech setup tts'"))
     else:
         tool_status.append(("Text-to-Speech (Edge TTS)", True, None))
 
@@ -519,9 +564,11 @@ def _print_setup_summary(config: dict, nastech_home):
         if subscription_features.modal.direct_override:
             tool_status.append(("Modal Execution (direct Modal)", True, None))
         else:
-            tool_status.append(("Modal Execution", False, "run 'nastech setup terminal'"))
+            tool_status.append(
+                ("Modal Execution", False, "run 'nastech setup terminal'"))
     elif managed_nastech_tools_enabled() and subscription_features.nastech_auth_present:
-        tool_status.append(("Modal Execution (optional via Nous subscription)", True, None))
+        tool_status.append(
+            ("Modal Execution (optional via Nous subscription)", True, None))
 
     # Home Assistant
     if get_env_value("HASS_TOKEN"):
@@ -531,7 +578,8 @@ def _print_setup_summary(config: dict, nastech_home):
     try:
         from nastech_cli.auth import get_provider_auth_state
         _spotify_state = get_provider_auth_state("spotify") or {}
-        if _spotify_state.get("access_token") or _spotify_state.get("refresh_token"):
+        if _spotify_state.get(
+                "access_token") or _spotify_state.get("refresh_token"):
             tool_status.append(("Spotify (PKCE OAuth)", True, None))
     except Exception:
         pass
@@ -563,18 +611,27 @@ def _print_setup_summary(config: dict, nastech_home):
             print(f"   {color('✓', Colors.GREEN)} {name}")
         else:
             print(
-                f"   {color('✗', Colors.RED)} {name} {color(f'(missing {missing_var})', Colors.DIM)}"
+                f"   {
+                    color(
+                        '✗',
+                        Colors.RED)} {name} {
+                    color(
+                        f'(missing {missing_var})',
+                        Colors.DIM)}"
             )
 
     print()
 
-    disabled_tools = [(name, var) for name, avail, var in tool_status if not avail]
+    disabled_tools = [(name, var)
+                      for name, avail, var in tool_status if not avail]
     if disabled_tools:
         print_warning(
             "Some tools are disabled. Run 'nastech setup tools' to configure them,"
         )
         from nastech_constants import display_nastech_home as _dhh
-        print_warning(f"or edit {_dhh()}/.env directly to add the missing API keys.")
+        print_warning(
+            f"or edit {
+                _dhh()}/.env directly to add the missing API keys.")
         print()
 
     # Done banner
@@ -598,12 +655,20 @@ def _print_setup_summary(config: dict, nastech_home):
 
     # Show file locations prominently
     from nastech_constants import display_nastech_home as _dhh
-    print(color(f"📁 All your files are in {_dhh()}/:", Colors.CYAN, Colors.BOLD))
+    print(
+        color(
+            f"📁 All your files are in {
+                _dhh()}/:",
+            Colors.CYAN,
+            Colors.BOLD))
     print()
     print(f"   {color('Settings:', Colors.YELLOW)}  {get_config_path()}")
     print(f"   {color('API Keys:', Colors.YELLOW)}  {get_env_path()}")
     print(
-        f"   {color('Data:', Colors.YELLOW)}      {nastech_home}/cron/, sessions/, logs/"
+        f"   {
+            color(
+                'Data:',
+                Colors.YELLOW)}      {nastech_home}/cron/, sessions/, logs/"
     )
     print()
 
@@ -611,15 +676,42 @@ def _print_setup_summary(config: dict, nastech_home):
     print()
     print(color("📝 To edit your configuration:", Colors.CYAN, Colors.BOLD))
     print()
-    print(f"   {color('nastech setup', Colors.GREEN)}          Re-run the full wizard")
-    print(f"   {color('nastech setup model', Colors.GREEN)}    Change model/provider")
-    print(f"   {color('nastech setup terminal', Colors.GREEN)} Change terminal backend")
-    print(f"   {color('nastech setup gateway', Colors.GREEN)}  Configure messaging")
-    print(f"   {color('nastech setup tools', Colors.GREEN)}    Configure tool providers")
-    print()
-    print(f"   {color('nastech config', Colors.GREEN)}         View current settings")
     print(
-        f"   {color('nastech config edit', Colors.GREEN)}    Open config in your editor"
+        f"   {
+            color(
+                'nastech setup',
+                Colors.GREEN)}          Re-run the full wizard")
+    print(
+        f"   {
+            color(
+                'nastech setup model',
+                Colors.GREEN)}    Change model/provider")
+    print(
+        f"   {
+            color(
+                'nastech setup terminal',
+                Colors.GREEN)} Change terminal backend")
+    print(
+        f"   {
+            color(
+                'nastech setup gateway',
+                Colors.GREEN)}  Configure messaging")
+    print(
+        f"   {
+            color(
+                'nastech setup tools',
+                Colors.GREEN)}    Configure tool providers")
+    print()
+    print(
+        f"   {
+            color(
+                'nastech config',
+                Colors.GREEN)}         View current settings")
+    print(
+        f"   {
+            color(
+                'nastech config edit',
+                Colors.GREEN)}    Open config in your editor"
     )
     print(f"   {color('nastech config set <key> <value>', Colors.GREEN)}")
     print("                          Set a specific value")
@@ -634,7 +726,11 @@ def _print_setup_summary(config: dict, nastech_home):
     print(color("🚀 Ready to go!", Colors.CYAN, Colors.BOLD))
     print()
     print(f"   {color('nastech', Colors.GREEN)}              Start chatting")
-    print(f"   {color('nastech gateway', Colors.GREEN)}      Start messaging gateway")
+    print(
+        f"   {
+            color(
+                'nastech gateway',
+                Colors.GREEN)}      Start messaging gateway")
     print(f"   {color('nastech doctor', Colors.GREEN)}       Check for issues")
     print()
 
@@ -654,7 +750,8 @@ def _prompt_container_resources(config: dict):
     persist_str = prompt(
         "  Persist filesystem across sessions? (yes/no)", persist_label
     )
-    terminal["container_persistent"] = persist_str.lower() in {"yes", "true", "y", "1"}
+    terminal["container_persistent"] = persist_str.lower() in {
+        "yes", "true", "y", "1"}
 
     # CPU
     current_cpu = terminal.get("container_cpu", 1)
@@ -688,7 +785,6 @@ def _prompt_container_resources(config: dict):
 # =============================================================================
 # Section 1: Model & Provider Configuration
 # =============================================================================
-
 
 
 def setup_model_provider(config: dict, *, quick: bool = False):
@@ -727,7 +823,8 @@ def setup_model_provider(config: dict, *, quick: bool = False):
     # and the wizard's final save_config(config) must not overwrite those
     # changes with stale values (#4172). Refresh the dict in place so callers
     # that keep the same object see every section the shared model picker may
-    # have changed (model, custom_providers, auxiliary, provider metadata, etc.).
+    # have changed (model, custom_providers, auxiliary, provider metadata,
+    # etc.).
     _refreshed = load_config()
     config.clear()
     config.update(_refreshed)
@@ -755,7 +852,8 @@ def setup_model_provider(config: dict, *, quick: bool = False):
 
 def _check_espeak_ng() -> bool:
     """Check if espeak-ng is installed."""
-    return shutil.which("espeak-ng") is not None or shutil.which("espeak") is not None
+    return shutil.which(
+        "espeak-ng") is not None or shutil.which("espeak") is not None
 
 
 def _install_neutts_deps() -> bool:
@@ -777,18 +875,23 @@ def _install_neutts_deps() -> bool:
         if prompt_yes_no("Install espeak-ng now?", True):
             try:
                 if sys.platform == "darwin":
-                    subprocess.run(["brew", "install", "espeak-ng"], check=True)
+                    subprocess.run(
+                        ["brew", "install", "espeak-ng"], check=True)
                 elif sys.platform == "win32":
-                    subprocess.run(["choco", "install", "espeak-ng", "-y"], check=True)
+                    subprocess.run(
+                        ["choco", "install", "espeak-ng", "-y"], check=True)
                 else:
-                    subprocess.run(["sudo", "apt", "install", "-y", "espeak-ng"], check=True)
+                    subprocess.run(["sudo", "apt", "install",
+                                   "-y", "espeak-ng"], check=True)
                 print_success("espeak-ng installed")
             except (subprocess.CalledProcessError, FileNotFoundError) as e:
-                print_warning(f"Could not install espeak-ng automatically: {e}")
+                print_warning(
+                    f"Could not install espeak-ng automatically: {e}")
                 print_info("Please install it manually and re-run setup.")
                 return False
         else:
-            print_warning("espeak-ng is required for NeuTTS. Install it manually before using NeuTTS.")
+            print_warning(
+                "espeak-ng is required for NeuTTS. Install it manually before using NeuTTS.")
 
     # Install neutts Python package
     print()
@@ -797,7 +900,8 @@ def _install_neutts_deps() -> bool:
     print()
     try:
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-U", "neutts[all]", "--quiet"],
+            [sys.executable, "-m", "pip", "install",
+                "-U", "neutts[all]", "--quiet"],
             check=True, timeout=300,
         )
         print_success("neutts installed successfully")
@@ -818,18 +922,21 @@ def _install_kittentts_deps() -> bool:
         "0.8.1/kittentts-0.8.1-py3-none-any.whl"
     )
     print()
-    print_info("Installing kittentts Python package (~25-80MB model downloaded on first use)...")
+    print_info(
+        "Installing kittentts Python package (~25-80MB model downloaded on first use)...")
     print()
     try:
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-U", wheel_url, "soundfile", "--quiet"],
+            [sys.executable, "-m", "pip", "install",
+                "-U", wheel_url, "soundfile", "--quiet"],
             check=True, timeout=300,
         )
         print_success("kittentts installed successfully")
         return True
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
         print_error(f"Failed to install kittentts: {e}")
-        print_info(f"Try manually: python -m pip install -U '{wheel_url}' soundfile")
+        print_info(
+            f"Try manually: python -m pip install -U '{wheel_url}' soundfile")
         return False
 
 
@@ -912,7 +1019,8 @@ def _setup_tts_provider(config: dict):
     choices = []
     providers = []
     if managed_nastech_tools_enabled() and subscription_features.nastech_auth_present:
-        choices.append("Nous Subscription (managed OpenAI TTS, billed to your subscription)")
+        choices.append(
+            "Nous Subscription (managed OpenAI TTS, billed to your subscription)")
         providers.append("nastech-openai")
     choices.extend(
         [
@@ -927,7 +1035,8 @@ def _setup_tts_provider(config: dict):
             "KittenTTS (local on-device, free, lightweight ~25-80MB ONNX)",
         ]
     )
-    providers.extend(["edge", "elevenlabs", "openai", "xai", "minimax", "mistral", "gemini", "neutts", "kittentts"])
+    providers.extend(["edge", "elevenlabs", "openai", "xai",
+                     "minimax", "mistral", "gemini", "neutts", "kittentts"])
     choices.append(f"Keep current ({current_label})")
     keep_current_idx = len(choices) - 1
     idx = prompt_choice("Select TTS provider:", choices, keep_current_idx)
@@ -939,8 +1048,10 @@ def _setup_tts_provider(config: dict):
     selected_via_nous = selected == "nastech-openai"
     if selected == "nastech-openai":
         selected = "openai"
-        print_info("OpenAI TTS will use the managed Nous gateway and bill to your subscription.")
-        if get_env_value("VOICE_TOOLS_OPENAI_KEY") or get_env_value("OPENAI_API_KEY"):
+        print_info(
+            "OpenAI TTS will use the managed Nous gateway and bill to your subscription.")
+        if get_env_value("VOICE_TOOLS_OPENAI_KEY") or get_env_value(
+                "OPENAI_API_KEY"):
             print_warning(
                 "Direct OpenAI credentials are still configured and may take precedence until removed from ~/.nastech/.env."
             )
@@ -957,15 +1068,18 @@ def _setup_tts_provider(config: dict):
         else:
             print()
             print_info("NeuTTS requires:")
-            print_info("  • Python package: neutts (~50MB install + ~300MB model on first use)")
+            print_info(
+                "  • Python package: neutts (~50MB install + ~300MB model on first use)")
             print_info("  • System package: espeak-ng (phonemizer)")
             print()
             if prompt_yes_no("Install NeuTTS dependencies now?", True):
                 if not _install_neutts_deps():
-                    print_warning("NeuTTS installation incomplete. Falling back to Edge TTS.")
+                    print_warning(
+                        "NeuTTS installation incomplete. Falling back to Edge TTS.")
                     selected = "edge"
             else:
-                print_info("Skipping install. Set tts.provider to 'neutts' after installing manually.")
+                print_info(
+                    "Skipping install. Set tts.provider to 'neutts' after installing manually.")
                 selected = "edge"
 
     elif selected == "elevenlabs":
@@ -981,7 +1095,8 @@ def _setup_tts_provider(config: dict):
                 selected = "edge"
 
     elif selected == "openai" and not selected_via_nous:
-        existing = get_env_value("VOICE_TOOLS_OPENAI_KEY") or get_env_value("OPENAI_API_KEY")
+        existing = get_env_value(
+            "VOICE_TOOLS_OPENAI_KEY") or get_env_value("OPENAI_API_KEY")
         if not existing:
             print()
             api_key = prompt("OpenAI API key for TTS", password=True)
@@ -1038,7 +1153,8 @@ def _setup_tts_provider(config: dict):
                     from nastech_constants import display_nastech_home as _dhh
                     print_warning(
                         "No xAI API key provided for TTS. Configure XAI_API_KEY "
-                        f"via nastech setup model or {_dhh()}/.env to use xAI TTS. "
+                        f"via nastech setup model or {
+                            _dhh()}/.env to use xAI TTS. "
                         "Falling back to Edge TTS."
                     )
                     selected = "edge"
@@ -1048,11 +1164,13 @@ def _setup_tts_provider(config: dict):
 
         if selected == "xai":
             print()
-            voice_id = prompt("xAI voice_id (Enter for 'eve', or paste a custom voice ID)")
+            voice_id = prompt(
+                "xAI voice_id (Enter for 'eve', or paste a custom voice ID)")
             if voice_id and voice_id.strip():
-                config.setdefault("tts", {}).setdefault("xai", {})["voice_id"] = voice_id.strip()
+                config.setdefault(
+                    "tts", {}).setdefault(
+                    "xai", {})["voice_id"] = voice_id.strip()
                 print_success(f"xAI voice_id set to: {voice_id.strip()}")
-
 
     elif selected == "minimax":
         existing = get_env_value("MINIMAX_API_KEY")
@@ -1079,10 +1197,12 @@ def _setup_tts_provider(config: dict):
                 selected = "edge"
 
     elif selected == "gemini":
-        existing = get_env_value("GEMINI_API_KEY") or get_env_value("GOOGLE_API_KEY")
+        existing = get_env_value(
+            "GEMINI_API_KEY") or get_env_value("GOOGLE_API_KEY")
         if not existing:
             print()
-            print_info("Get a free API key at https://aistudio.google.com/app/apikey")
+            print_info(
+                "Get a free API key at https://aistudio.google.com/app/apikey")
             api_key = prompt("Gemini API key for TTS", password=True)
             if api_key:
                 save_env_value("GEMINI_API_KEY", api_key)
@@ -1094,7 +1214,8 @@ def _setup_tts_provider(config: dict):
     elif selected == "kittentts":
         # Check if already installed
         try:
-            already_installed = importlib.util.find_spec("kittentts") is not None
+            already_installed = importlib.util.find_spec(
+                "kittentts") is not None
         except Exception:
             already_installed = False
 
@@ -1102,15 +1223,19 @@ def _setup_tts_provider(config: dict):
             print_success("KittenTTS is already installed")
         else:
             print()
-            print_info("KittenTTS is lightweight (~25-80MB, CPU-only, no API key required).")
-            print_info("Voices: Jasper, Bella, Luna, Bruno, Rosie, Hugo, Kiki, Leo")
+            print_info(
+                "KittenTTS is lightweight (~25-80MB, CPU-only, no API key required).")
+            print_info(
+                "Voices: Jasper, Bella, Luna, Bruno, Rosie, Hugo, Kiki, Leo")
             print()
             if prompt_yes_no("Install KittenTTS now?", True):
                 if not _install_kittentts_deps():
-                    print_warning("KittenTTS installation incomplete. Falling back to Edge TTS.")
+                    print_warning(
+                        "KittenTTS installation incomplete. Falling back to Edge TTS.")
                     selected = "edge"
             else:
-                print_info("Skipping install. Set tts.provider to 'kittentts' after installing manually.")
+                print_info(
+                    "Skipping install. Set tts.provider to 'kittentts' after installing manually.")
                 selected = "edge"
 
     # Save the selection
@@ -1118,7 +1243,11 @@ def _setup_tts_provider(config: dict):
         config["tts"] = {}
     config["tts"]["provider"] = selected
     save_config(config)
-    print_success(f"TTS provider set to: {provider_labels.get(selected, selected)}")
+    print_success(
+        f"TTS provider set to: {
+            provider_labels.get(
+                selected,
+                selected)}")
 
 
 def setup_tts(config: dict):
@@ -1151,12 +1280,23 @@ def setup_terminal_backend(config: dict):
         "SSH - run on a remote machine",
         "Daytona - persistent cloud development environment",
     ]
-    idx_to_backend = {0: "local", 1: "docker", 2: "modal", 3: "ssh", 4: "daytona"}
-    backend_to_idx = {"local": 0, "docker": 1, "modal": 2, "ssh": 3, "daytona": 4}
+    idx_to_backend = {
+        0: "local",
+        1: "docker",
+        2: "modal",
+        3: "ssh",
+        4: "daytona"}
+    backend_to_idx = {
+        "local": 0,
+        "docker": 1,
+        "modal": 2,
+        "ssh": 3,
+        "daytona": 4}
 
     next_idx = 5
     if is_linux:
-        terminal_choices.append("Singularity/Apptainer - HPC-friendly container")
+        terminal_choices.append(
+            "Singularity/Apptainer - HPC-friendly container")
         idx_to_backend[next_idx] = "singularity"
         backend_to_idx["singularity"] = next_idx
         next_idx += 1
@@ -1196,7 +1336,8 @@ def setup_terminal_backend(config: dict):
         else:
             print_info(f"Docker found: {docker_bin}")
 
-        # Image and resource limits use defaults; tune via `nastech setup terminal`.
+        # Image and resource limits use defaults; tune via `nastech setup
+        # terminal`.
         config["terminal"].setdefault(
             "docker_image", "nikolaik/python-nodejs:python3.11-nodejs20"
         )
@@ -1214,7 +1355,8 @@ def setup_terminal_backend(config: dict):
         else:
             print_info(f"Found: {sing_bin}")
 
-        # Image and resource limits use defaults; tune via `nastech setup terminal`.
+        # Image and resource limits use defaults; tune via `nastech setup
+        # terminal`.
         config["terminal"].setdefault(
             "singularity_image",
             "docker://nikolaik/python-nodejs:python3.11-nodejs20",
@@ -1222,7 +1364,8 @@ def setup_terminal_backend(config: dict):
 
     elif selected_backend == "modal":
         print_success("Terminal backend: Modal")
-        print_info("Serverless cloud sandboxes. Each session gets its own container.")
+        print_info(
+            "Serverless cloud sandboxes. Each session gets its own container.")
         from tools.managed_tool_gateway import is_managed_tool_gateway_ready
         from tools.tool_backend_helpers import normalize_modal_mode
 
@@ -1232,7 +1375,8 @@ def setup_terminal_backend(config: dict):
             get_nastech_subscription_features(config).nastech_auth_present
             and is_managed_tool_gateway_ready("modal")
         )
-        modal_mode = normalize_modal_mode(cfg_get(config, "terminal", "modal_mode"))
+        modal_mode = normalize_modal_mode(
+            cfg_get(config, "terminal", "modal_mode"))
         use_managed_modal = False
         if managed_modal_available:
             modal_choices = [
@@ -1254,8 +1398,10 @@ def setup_terminal_backend(config: dict):
 
         if use_managed_modal:
             config["terminal"]["modal_mode"] = "managed"
-            print_info("Modal execution will use the managed Nous gateway and bill to your subscription.")
-            if get_env_value("MODAL_TOKEN_ID") or get_env_value("MODAL_TOKEN_SECRET"):
+            print_info(
+                "Modal execution will use the managed Nous gateway and bill to your subscription.")
+            if get_env_value("MODAL_TOKEN_ID") or get_env_value(
+                    "MODAL_TOKEN_SECRET"):
                 print_info(
                     "Direct Modal credentials are still configured, but this backend is pinned to managed mode."
                 )
@@ -1293,7 +1439,8 @@ def setup_terminal_backend(config: dict):
                 if result.returncode == 0:
                     print_success("modal SDK installed")
                 else:
-                    print_warning("Install failed — run manually: pip install modal")
+                    print_warning(
+                        "Install failed — run manually: pip install modal")
 
             # Modal token
             print()
@@ -1304,7 +1451,8 @@ def setup_terminal_backend(config: dict):
                 print_info("  Modal token: already configured")
                 if prompt_yes_no("  Update Modal credentials?", False):
                     token_id = prompt("    Modal Token ID", password=True)
-                    token_secret = prompt("    Modal Token Secret", password=True)
+                    token_secret = prompt(
+                        "    Modal Token Secret", password=True)
                     if token_id:
                         save_env_value("MODAL_TOKEN_ID", token_id)
                     if token_secret:
@@ -1320,7 +1468,8 @@ def setup_terminal_backend(config: dict):
     elif selected_backend == "daytona":
         print_success("Terminal backend: Daytona")
         print_info("Persistent cloud development environments.")
-        print_info("Each session gets a dedicated sandbox with filesystem persistence.")
+        print_info(
+            "Each session gets a dedicated sandbox with filesystem persistence.")
         print_info("Sign up at: https://daytona.io")
 
         # Check if daytona SDK is installed
@@ -1333,7 +1482,8 @@ def setup_terminal_backend(config: dict):
             uv_bin = shutil.which("uv")
             if uv_bin:
                 result = subprocess.run(
-                    [uv_bin, "pip", "install", "--python", sys.executable, "daytona"],
+                    [uv_bin, "pip", "install", "--python",
+                        sys.executable, "daytona"],
                     capture_output=True,
                     text=True,
                 )
@@ -1346,9 +1496,11 @@ def setup_terminal_backend(config: dict):
             if result.returncode == 0:
                 print_success("daytona SDK installed")
             else:
-                print_warning("Install failed — run manually: pip install daytona")
+                print_warning(
+                    "Install failed — run manually: pip install daytona")
                 if result.stderr:
-                    print_info(f"  Error: {result.stderr.strip().splitlines()[-1]}")
+                    print_info(
+                        f"  Error: {result.stderr.strip().splitlines()[-1]}")
 
         # Daytona API key
         print()
@@ -1366,7 +1518,8 @@ def setup_terminal_backend(config: dict):
                 save_env_value("DAYTONA_API_KEY", api_key)
                 print_success("    Configured")
 
-        # Image and resource limits use defaults; tune via `nastech setup terminal`.
+        # Image and resource limits use defaults; tune via `nastech setup
+        # terminal`.
         config["terminal"].setdefault(
             "daytona_image", "nikolaik/python-nodejs:python3.11-nodejs20"
         )
@@ -1412,18 +1565,25 @@ def setup_terminal_backend(config: dict):
                 ssh_cmd.extend(["-p", port])
             ssh_cmd.append(f"{user}@{host}" if user else host)
             ssh_cmd.append("echo ok")
-            result = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=10)
+            result = subprocess.run(
+                ssh_cmd, capture_output=True, text=True, timeout=10)
             if result.returncode == 0:
                 print_success("  SSH connection successful!")
             else:
-                print_warning(f"  SSH connection failed: {result.stderr.strip()}")
+                print_warning(
+                    f"  SSH connection failed: {
+                        result.stderr.strip()}")
                 print_info("  Check your SSH key and host settings.")
 
     # Sync terminal backend to .env so terminal_tool picks it up directly.
     # config.yaml is the source of truth, but terminal_tool reads TERMINAL_ENV.
     save_env_value("TERMINAL_ENV", selected_backend)
     if selected_backend == "modal":
-        save_env_value("TERMINAL_MODAL_MODE", config["terminal"].get("modal_mode", "auto"))
+        save_env_value(
+            "TERMINAL_MODAL_MODE",
+            config["terminal"].get(
+                "modal_mode",
+                "auto"))
     save_config(config)
     print()
     print_success(f"Terminal backend set to: {selected_backend}")
@@ -1524,8 +1684,14 @@ def setup_agent_settings(config: dict):
 
     config.setdefault("compression", {})["enabled"] = True
 
-    current_threshold = cfg_get(config, "compression", "threshold", default=0.50)
-    threshold_str = prompt("Compression threshold (0.5-0.95)", str(current_threshold))
+    current_threshold = cfg_get(
+        config,
+        "compression",
+        "threshold",
+        default=0.50)
+    threshold_str = prompt(
+        "Compression threshold (0.5-0.95)",
+        str(current_threshold))
     try:
         threshold = float(threshold_str)
         if 0.5 <= threshold <= 0.95:
@@ -1534,7 +1700,9 @@ def setup_agent_settings(config: dict):
         pass
 
     print_success(
-        f"Context compression threshold set to {config['compression'].get('threshold', 0.50)}"
+        f"Context compression threshold set to {
+            config['compression'].get(
+                'threshold', 0.50)}"
     )
 
     # ── Session Reset Policy ──
@@ -1572,9 +1740,18 @@ def setup_agent_settings(config: dict):
     current_idle = current_policy.get("idle_minutes", 1440)
     current_hour = current_policy.get("at_hour", 4)
 
-    default_reset = {"both": 0, "idle": 1, "daily": 2, "none": 3}.get(current_mode, 0)
+    default_reset = {
+        "both": 0,
+        "idle": 1,
+        "daily": 2,
+        "none": 3}.get(
+        current_mode,
+        0)
 
-    reset_idx = prompt_choice("Session reset mode:", reset_choices, default_reset)
+    reset_idx = prompt_choice(
+        "Session reset mode:",
+        reset_choices,
+        default_reset)
 
     config.setdefault("session_reset", {})
 
@@ -1587,7 +1764,9 @@ def setup_agent_settings(config: dict):
                 config["session_reset"]["idle_minutes"] = idle_val
         except ValueError:
             pass
-        hour_str = prompt("  Daily reset hour (0-23, local time)", str(current_hour))
+        hour_str = prompt(
+            "  Daily reset hour (0-23, local time)",
+            str(current_hour))
         try:
             hour_val = int(hour_str)
             if 0 <= hour_val <= 23:
@@ -1595,7 +1774,13 @@ def setup_agent_settings(config: dict):
         except ValueError:
             pass
         print_success(
-            f"Sessions reset after {config['session_reset'].get('idle_minutes', 1440)} min idle or daily at {config['session_reset'].get('at_hour', 4)}:00"
+            f"Sessions reset after {
+                config['session_reset'].get(
+                    'idle_minutes',
+                    1440)} min idle or daily at {
+                config['session_reset'].get(
+                    'at_hour',
+                    4)}:00"
         )
     elif reset_idx == 1:  # Idle only
         config["session_reset"]["mode"] = "idle"
@@ -1607,11 +1792,16 @@ def setup_agent_settings(config: dict):
         except ValueError:
             pass
         print_success(
-            f"Sessions reset after {config['session_reset'].get('idle_minutes', 1440)} min of inactivity"
+            f"Sessions reset after {
+                config['session_reset'].get(
+                    'idle_minutes',
+                    1440)} min of inactivity"
         )
     elif reset_idx == 2:  # Daily only
         config["session_reset"]["mode"] = "daily"
-        hour_str = prompt("  Daily reset hour (0-23, local time)", str(current_hour))
+        hour_str = prompt(
+            "  Daily reset hour (0-23, local time)",
+            str(current_hour))
         try:
             hour_val = int(hour_str)
             if 0 <= hour_val <= 23:
@@ -1619,7 +1809,9 @@ def setup_agent_settings(config: dict):
         except ValueError:
             pass
         print_success(
-            f"Sessions reset daily at {config['session_reset'].get('at_hour', 4)}:00"
+            f"Sessions reset daily at {
+                config['session_reset'].get(
+                    'at_hour', 4)}:00"
         )
     elif reset_idx == 3:  # None
         config["session_reset"]["mode"] = "none"
@@ -1694,12 +1886,19 @@ def _setup_telegram():
         if not prompt_yes_no("Reconfigure Telegram?", False):
             # Check missing allowlist on existing config
             if not get_env_value("TELEGRAM_ALLOWED_USERS"):
-                print_info("⚠️  Telegram has no user allowlist - anyone can use your bot!")
+                print_info(
+                    "⚠️  Telegram has no user allowlist - anyone can use your bot!")
                 if prompt_yes_no("Add allowed users now?", True):
-                    print_info("   To find your Telegram user ID: message @userinfobot")
-                    allowed_users = prompt("Allowed user IDs (comma-separated)")
+                    print_info(
+                        "   To find your Telegram user ID: message @userinfobot")
+                    allowed_users = prompt(
+                        "Allowed user IDs (comma-separated)")
                     if allowed_users:
-                        save_env_value("TELEGRAM_ALLOWED_USERS", allowed_users.replace(" ", ""))
+                        save_env_value(
+                            "TELEGRAM_ALLOWED_USERS",
+                            allowed_users.replace(
+                                " ",
+                                ""))
                         print_success("Telegram allowlist configured")
             return
 
@@ -1722,7 +1921,8 @@ def _setup_telegram():
         if setup_result:
             token = setup_result.token
             if not _is_valid_telegram_bot_token(token):
-                print_error("Automatic setup returned an invalid Telegram bot token.")
+                print_error(
+                    "Automatic setup returned an invalid Telegram bot token.")
                 token = None
                 setup_result = None
         else:
@@ -1752,7 +1952,8 @@ def _setup_telegram():
         detected_id = str(detected_user_id)
         print_success(f"Detected your Telegram user ID: {detected_id}")
         if prompt_yes_no("Allow this Telegram account to use the bot?", True):
-            extra = prompt("Additional allowed user IDs (comma-separated, optional)")
+            extra = prompt(
+                "Additional allowed user IDs (comma-separated, optional)")
             ids = [detected_id]
             for uid in extra.replace(" ", "").split(","):
                 if uid and uid not in ids:
@@ -1770,7 +1971,8 @@ def _setup_telegram():
     if allowed_users:
         allowed_users = allowed_users.replace(" ", "")
         save_env_value("TELEGRAM_ALLOWED_USERS", allowed_users)
-        print_success("Telegram allowlist configured - only listed users can use the bot")
+        print_success(
+            "Telegram allowlist configured - only listed users can use the bot")
     else:
         print_info("⚠️  No allowlist set - anyone who finds your bot can use it!")
 
@@ -1779,17 +1981,21 @@ def _setup_telegram():
     print_info("   cross-platform messages, and notifications.")
     print_info("   For Telegram DMs, this is your user ID (same as above).")
 
-    first_user_id = allowed_users.split(",")[0].strip() if allowed_users else ""
+    first_user_id = allowed_users.split(
+        ",")[0].strip() if allowed_users else ""
     if first_user_id:
-        if prompt_yes_no(f"Use your user ID ({first_user_id}) as the home channel?", True):
+        if prompt_yes_no(
+                f"Use your user ID ({first_user_id}) as the home channel?", True):
             save_env_value("TELEGRAM_HOME_CHANNEL", first_user_id)
             print_success(f"Telegram home channel set to {first_user_id}")
         else:
-            home_channel = prompt("Home channel ID (or leave empty to set later with /set-home in Telegram)")
+            home_channel = prompt(
+                "Home channel ID (or leave empty to set later with /set-home in Telegram)")
             if home_channel:
                 save_env_value("TELEGRAM_HOME_CHANNEL", home_channel)
     else:
-        print_info("   You can also set this later by typing /set-home in your Telegram chat.")
+        print_info(
+            "   You can also set this later by typing /set-home in your Telegram chat.")
         home_channel = prompt("Home channel ID (leave empty to set later)")
         if home_channel:
             save_env_value("TELEGRAM_HOME_CHANNEL", home_channel)
@@ -1814,13 +2020,16 @@ def _setup_slack():
 
     print_info("Steps to create a Slack app:")
     print_info("   1. Go to https://api.slack.com/apps → Create New App")
-    print_info("      Pick 'From an app manifest' — we'll generate one for you below.")
+    print_info(
+        "      Pick 'From an app manifest' — we'll generate one for you below.")
     print_info("   2. Enable Socket Mode: Settings → Socket Mode → Enable")
     print_info("      • Create an App-Level Token with 'connections:write' scope")
     print_info("   3. Install to Workspace: Settings → Install App")
-    print_info("   4. After installing, invite the bot to channels: /invite @YourBot")
+    print_info(
+        "   4. After installing, invite the bot to channels: /invite @YourBot")
     print()
-    print_info("   Full guide: https://nastech-agent.nastechai.com/docs/user-guide/messaging/slack/")
+    print_info(
+        "   Full guide: https://nastech-agent.nastechai.com/docs/user-guide/messaging/slack/")
     print()
 
     # Generate and write manifest up-front so the user can paste it into
@@ -1840,7 +2049,8 @@ def _setup_slack():
 
     print()
     print_info("🔒 Security: Restrict who can use your bot")
-    print_info("   To find a Member ID: click a user's name → View full profile → ⋮ → Copy member ID")
+    print_info(
+        "   To find a Member ID: click a user's name → View full profile → ⋮ → Copy member ID")
     print()
     allowed_users = prompt(
         "Allowed user IDs (comma-separated, leave empty to deny everyone except paired users)"
@@ -1849,16 +2059,22 @@ def _setup_slack():
         save_env_value("SLACK_ALLOWED_USERS", allowed_users.replace(" ", ""))
         print_success("Slack allowlist configured")
     else:
-        print_warning("⚠️  No Slack allowlist set - unpaired users will be denied by default.")
-        print_info("   Set SLACK_ALLOW_ALL_USERS=true or GATEWAY_ALLOW_ALL_USERS=true only if you intentionally want open workspace access.")
+        print_warning(
+            "⚠️  No Slack allowlist set - unpaired users will be denied by default.")
+        print_info(
+            "   Set SLACK_ALLOW_ALL_USERS=true or GATEWAY_ALLOW_ALL_USERS=true only if you intentionally want open workspace access.")
 
     print()
     print_info("📬 Home Channel: where NasTech delivers cron job results,")
     print_info("   cross-platform messages, and notifications.")
-    print_info("   To get a channel ID: open the channel in Slack, then right-click")
-    print_info("   the channel name → Copy link — the ID starts with C (e.g. C01ABC2DE3F).")
-    print_info("   You can also set this later by typing /set-home in a Slack channel.")
-    home_channel = prompt("Home channel ID (leave empty to set later with /set-home)")
+    print_info(
+        "   To get a channel ID: open the channel in Slack, then right-click")
+    print_info(
+        "   the channel name → Copy link — the ID starts with C (e.g. C01ABC2DE3F).")
+    print_info(
+        "   You can also set this later by typing /set-home in a Slack channel.")
+    home_channel = prompt(
+        "Home channel ID (leave empty to set later with /set-home)")
     if home_channel:
         save_env_value("SLACK_HOME_CHANNEL", home_channel.strip())
 
@@ -1909,26 +2125,34 @@ def _write_slack_manifest_and_instruct():
 def _setup_matrix():
     """Configure Matrix credentials."""
     print_header("Matrix")
-    existing = get_env_value("MATRIX_ACCESS_TOKEN") or get_env_value("MATRIX_PASSWORD")
+    existing = get_env_value(
+        "MATRIX_ACCESS_TOKEN") or get_env_value("MATRIX_PASSWORD")
     if existing:
         print_info("Matrix: already configured")
         if not prompt_yes_no("Reconfigure Matrix?", False):
             return
 
-    print_info("Works with any Matrix homeserver (Synapse, Conduit, Dendrite, or matrix.org).")
-    print_info("   1. Create a bot user on your homeserver, or use your own account")
-    print_info("   2. Get an access token from Element, or provide user ID + password")
+    print_info(
+        "Works with any Matrix homeserver (Synapse, Conduit, Dendrite, or matrix.org).")
+    print_info(
+        "   1. Create a bot user on your homeserver, or use your own account")
+    print_info(
+        "   2. Get an access token from Element, or provide user ID + password")
     print()
     homeserver = prompt("Homeserver URL (e.g. https://matrix.example.org)")
     if homeserver:
         save_env_value("MATRIX_HOMESERVER", homeserver.rstrip("/"))
 
     print()
-    print_info("Auth: provide an access token (recommended), or user ID + password.")
-    token = prompt("Access token (leave empty for password login)", password=True)
+    print_info(
+        "Auth: provide an access token (recommended), or user ID + password.")
+    token = prompt(
+        "Access token (leave empty for password login)",
+        password=True)
     if token:
         save_env_value("MATRIX_ACCESS_TOKEN", token)
-        user_id = prompt("User ID (@bot:server — optional, will be auto-detected)")
+        user_id = prompt(
+            "User ID (@bot:server — optional, will be auto-detected)")
         if user_id:
             save_env_value("MATRIX_USER_ID", user_id)
         print_success("Matrix access token saved")
@@ -1943,7 +2167,8 @@ def _setup_matrix():
 
     if token or get_env_value("MATRIX_PASSWORD"):
         print()
-        want_e2ee = prompt_yes_no("Enable end-to-end encryption (E2EE)?", False)
+        want_e2ee = prompt_yes_no(
+            "Enable end-to-end encryption (E2EE)?", False)
         if want_e2ee:
             save_env_value("MATRIX_ENCRYPTION", "true")
             print_success("E2EE enabled")
@@ -1956,11 +2181,13 @@ def _setup_matrix():
         # aiosqlite uninstalled and broke E2EE connect with
         # ``No module named 'asyncpg'`` on every fresh install (#31116).
         try:
-            from tools.lazy_deps import ensure as _lazy_ensure, feature_missing
+            from tools.lazy_deps import ensure as _lazy_ensure
+            from tools.lazy_deps import feature_missing
             _missing_before = feature_missing("platform.matrix")
             if _missing_before:
                 print_info(
-                    f"Installing {matrix_pkg} (+ {len(_missing_before)} runtime deps)..."
+                    f"Installing {matrix_pkg} (+ {
+                        len(_missing_before)} runtime deps)..."
                 )
                 try:
                     _lazy_ensure("platform.matrix", prompt=False)
@@ -1984,7 +2211,8 @@ def _setup_matrix():
                 uv_bin = shutil.which("uv")
                 if uv_bin:
                     result = subprocess.run(
-                        [uv_bin, "pip", "install", "--python", sys.executable, matrix_pkg],
+                        [uv_bin, "pip", "install", "--python",
+                            sys.executable, matrix_pkg],
                         capture_output=True, text=True,
                     )
                 else:
@@ -2000,24 +2228,35 @@ def _setup_matrix():
                         f"'{matrix_pkg}' asyncpg aiosqlite Markdown aiohttp-socks"
                     )
                     if result.stderr:
-                        print_info(f"  Error: {result.stderr.strip().splitlines()[-1]}")
+                        print_info(
+                            f"  Error: {result.stderr.strip().splitlines()[-1]}")
 
         print()
         print_info("🔒 Security: Restrict who can use your bot")
         print_info("   Matrix user IDs look like @username:server")
         print()
-        allowed_users = prompt("Allowed user IDs (comma-separated, leave empty for open access)")
+        allowed_users = prompt(
+            "Allowed user IDs (comma-separated, leave empty for open access)")
         if allowed_users:
-            save_env_value("MATRIX_ALLOWED_USERS", allowed_users.replace(" ", ""))
+            save_env_value(
+                "MATRIX_ALLOWED_USERS",
+                allowed_users.replace(
+                    " ",
+                    ""))
             print_success("Matrix allowlist configured")
         else:
-            print_info("⚠️  No allowlist set - anyone who can message the bot can use it!")
+            print_info(
+                "⚠️  No allowlist set - anyone who can message the bot can use it!")
 
         print()
-        print_info("📬 Home Room: where NasTech delivers cron job results and notifications.")
-        print_info("   Room IDs look like !abc123:server (shown in Element room settings)")
-        print_info("   You can also set this later by typing /set-home in a Matrix room.")
-        home_room = prompt("Home room ID (leave empty to set later with /set-home)")
+        print_info(
+            "📬 Home Room: where NasTech delivers cron job results and notifications.")
+        print_info(
+            "   Room IDs look like !abc123:server (shown in Element room settings)")
+        print_info(
+            "   You can also set this later by typing /set-home in a Matrix room.")
+        home_room = prompt(
+            "Home room ID (leave empty to set later with /set-home)")
         if home_room:
             save_env_value("MATRIX_HOME_ROOM", home_room)
 
@@ -2031,15 +2270,18 @@ def _setup_bluebubbles():
         if not prompt_yes_no("Reconfigure BlueBubbles?", False):
             return
 
-    print_info("Connects NasTech to iMessage via BlueBubbles — a free, open-source")
+    print_info(
+        "Connects NasTech to iMessage via BlueBubbles — a free, open-source")
     print_info("macOS server that bridges iMessage to any device.")
     print_info("   Requires a Mac running BlueBubbles Server v1.0.0+")
     print_info("   Download: https://bluebubbles.app/")
     print()
-    print_info("In BlueBubbles Server → Settings → API, note your Server URL and Password.")
+    print_info(
+        "In BlueBubbles Server → Settings → API, note your Server URL and Password.")
     print()
 
-    server_url = prompt("BlueBubbles server URL (e.g. http://192.168.1.10:1234)")
+    server_url = prompt(
+        "BlueBubbles server URL (e.g. http://192.168.1.10:1234)")
     if not server_url:
         print_warning("Server URL is required — skipping BlueBubbles setup")
         return
@@ -2054,18 +2296,27 @@ def _setup_bluebubbles():
 
     print()
     print_info("🔒 Security: Restrict who can message your bot")
-    print_info("   Use iMessage addresses: email (user@icloud.com) or phone (+15551234567)")
+    print_info(
+        "   Use iMessage addresses: email (user@icloud.com) or phone (+15551234567)")
     print()
-    allowed_users = prompt("Allowed iMessage addresses (comma-separated, leave empty for open access)")
+    allowed_users = prompt(
+        "Allowed iMessage addresses (comma-separated, leave empty for open access)")
     if allowed_users:
-        save_env_value("BLUEBUBBLES_ALLOWED_USERS", allowed_users.replace(" ", ""))
+        save_env_value(
+            "BLUEBUBBLES_ALLOWED_USERS",
+            allowed_users.replace(
+                " ",
+                ""))
         print_success("BlueBubbles allowlist configured")
     else:
-        print_info("⚠️  No allowlist set — anyone who can iMessage you can use the bot!")
+        print_info(
+            "⚠️  No allowlist set — anyone who can iMessage you can use the bot!")
 
     print()
-    print_info("📬 Home Channel: phone or email for cron job delivery and notifications.")
-    print_info("   You can also set this later with /set-home in your iMessage chat.")
+    print_info(
+        "📬 Home Channel: phone or email for cron job delivery and notifications.")
+    print_info(
+        "   You can also set this later with /set-home in your iMessage chat.")
     home_channel = prompt("Home channel address (leave empty to set later)")
     if home_channel:
         save_env_value("BLUEBUBBLES_HOME_CHANNEL", home_channel)
@@ -2076,15 +2327,20 @@ def _setup_bluebubbles():
         webhook_port = prompt("Webhook listener port (default: 8645)")
         if webhook_port:
             try:
-                save_env_value("BLUEBUBBLES_WEBHOOK_PORT", str(int(webhook_port)))
+                save_env_value(
+                    "BLUEBUBBLES_WEBHOOK_PORT", str(
+                        int(webhook_port)))
                 print_success(f"Webhook port set to {webhook_port}")
             except ValueError:
                 print_warning("Invalid port number, using default 8645")
 
     print()
-    print_info("Requires the BlueBubbles Private API helper for typing indicators,")
-    print_info("read receipts, and tapback reactions. Basic messaging works without it.")
-    print_info("   Install: https://docs.bluebubbles.app/helper-bundle/installation")
+    print_info(
+        "Requires the BlueBubbles Private API helper for typing indicators,")
+    print_info(
+        "read receipts, and tapback reactions. Basic messaging works without it.")
+    print_info(
+        "   Install: https://docs.bluebubbles.app/helper-bundle/installation")
 
 
 def _setup_qqbot():
@@ -2103,11 +2359,15 @@ def _setup_webhooks():
             return
 
     print()
-    print_warning("⚠  Webhook and SMS platforms require exposing gateway ports to the")
-    print_warning("   internet. For security, run the gateway in a sandboxed environment")
-    print_warning("   (Docker, VM, etc.) to limit blast radius from prompt injection.")
+    print_warning(
+        "⚠  Webhook and SMS platforms require exposing gateway ports to the")
+    print_warning(
+        "   internet. For security, run the gateway in a sandboxed environment")
+    print_warning(
+        "   (Docker, VM, etc.) to limit blast radius from prompt injection.")
     print()
-    print_info("   Full guide: https://nastech-agent.nastechai.com/docs/user-guide/messaging/webhooks/")
+    print_info(
+        "   Full guide: https://nastech-agent.nastechai.com/docs/user-guide/messaging/webhooks/")
     print()
 
     port = prompt("Webhook port (default 8644)")
@@ -2118,12 +2378,15 @@ def _setup_webhooks():
         except ValueError:
             print_warning("Invalid port number, using default 8644")
 
-    secret = prompt("Global HMAC secret (shared across all routes)", password=True)
+    secret = prompt(
+        "Global HMAC secret (shared across all routes)",
+        password=True)
     if secret:
         save_env_value("WEBHOOK_SECRET", secret)
         print_success("Webhook secret saved")
     else:
-        print_warning("No secret set — you must configure per-route secrets in config.yaml")
+        print_warning(
+            "No secret set — you must configure per-route secrets in config.yaml")
 
     save_env_value("WEBHOOK_ENABLED", "true")
     print()
@@ -2134,7 +2397,8 @@ def _setup_webhooks():
     print_info("      http://your-server:8644/webhooks/<route-name>")
     print()
     print_info("   Route configuration guide:")
-    print_info("   https://nastech-agent.nastechai.com/docs/user-guide/messaging/webhooks/#configuring-routes")
+    print_info(
+        "   https://nastech-agent.nastechai.com/docs/user-guide/messaging/webhooks/#configuring-routes")
     print()
     print_info("   Open config in your editor:  nastech config edit")
     print_info("   Open config in your editor:  nastech config edit")
@@ -2142,10 +2406,15 @@ def _setup_webhooks():
 
 def setup_gateway(config: dict):
     """Configure messaging platform integrations."""
-    from nastech_cli.gateway import _all_platforms, _platform_status, _configure_platform
+    from nastech_cli.gateway import (
+        _all_platforms,
+        _configure_platform,
+        _platform_status,
+    )
 
     print_header("Messaging Platforms")
-    print_info("Connect to messaging platforms to chat with NasTech from anywhere.")
+    print_info(
+        "Connect to messaging platforms to chat with NasTech from anywhere.")
     print_info("Toggle with Space, confirm with Enter.")
     print()
 
@@ -2160,10 +2429,14 @@ def setup_gateway(config: dict):
         if status == "configured":
             pre_selected.append(i)
 
-    selected = prompt_checklist("Select platforms to configure:", items, pre_selected)
+    selected = prompt_checklist(
+        "Select platforms to configure:",
+        items,
+        pre_selected)
 
     if not selected:
-        print_info("No platforms selected. Run 'nastech setup gateway' later to configure.")
+        print_info(
+            "No platforms selected. Run 'nastech setup gateway' later to configure.")
         return
 
     for idx in selected:
@@ -2199,24 +2472,31 @@ def setup_gateway(config: dict):
             "DISCORD_HOME_CHANNEL"
         ):
             missing_home.append("Discord")
-        if get_env_value("SLACK_BOT_TOKEN") and not get_env_value("SLACK_HOME_CHANNEL"):
+        if get_env_value("SLACK_BOT_TOKEN") and not get_env_value(
+                "SLACK_HOME_CHANNEL"):
             missing_home.append("Slack")
-        if get_env_value("BLUEBUBBLES_SERVER_URL") and not get_env_value("BLUEBUBBLES_HOME_CHANNEL"):
+        if get_env_value("BLUEBUBBLES_SERVER_URL") and not get_env_value(
+                "BLUEBUBBLES_HOME_CHANNEL"):
             missing_home.append("BlueBubbles")
         if get_env_value("QQ_APP_ID") and not (
-            get_env_value("QQBOT_HOME_CHANNEL") or get_env_value("QQ_HOME_CHANNEL")
+            get_env_value("QQBOT_HOME_CHANNEL") or get_env_value(
+                "QQ_HOME_CHANNEL")
         ):
             missing_home.append("QQBot")
 
         if missing_home:
             print()
-            print_warning(f"No home channel set for: {', '.join(missing_home)}")
-            print_info("   Without a home channel, cron jobs and cross-platform")
+            print_warning(
+                f"No home channel set for: {
+                    ', '.join(missing_home)}")
+            print_info(
+                "   Without a home channel, cron jobs and cross-platform")
             print_info("   messages can't be delivered to those platforms.")
             print_info("   Set one later with /set-home in your chat, or:")
             for plat in missing_home:
                 print_info(
-                    f"     nastech config set {plat.upper()}_HOME_CHANNEL <channel_id>"
+                    f"     nastech config set {
+                        plat.upper()}_HOME_CHANNEL <channel_id>"
                 )
 
         # Offer to install the gateway as a system service
@@ -2227,23 +2507,23 @@ def setup_gateway(config: dict):
         _is_windows = _platform.system() == "Windows"
 
         from nastech_cli.gateway import (
+            SystemScopeRequiresRootError,
+            UserSystemdUnavailableError,
             _is_service_installed,
             _is_service_running,
-            supports_systemd_services,
+            _print_system_scope_remediation,
+            _system_scope_wizard_would_need_root,
             has_conflicting_systemd_units,
             has_legacy_nastech_units,
             install_linux_gateway_from_setup,
-            print_systemd_scope_conflict_warning,
-            print_legacy_unit_warning,
-            systemd_start,
-            systemd_restart,
             launchd_install,
-            launchd_start,
             launchd_restart,
-            UserSystemdUnavailableError,
-            SystemScopeRequiresRootError,
-            _system_scope_wizard_would_need_root,
-            _print_system_scope_remediation,
+            launchd_start,
+            print_legacy_unit_warning,
+            print_systemd_scope_conflict_warning,
+            supports_systemd_services,
+            systemd_restart,
+            systemd_start,
         )
 
         service_installed = _is_service_installed()
@@ -2273,7 +2553,8 @@ def setup_gateway(config: dict):
                         from nastech_cli import gateway_windows
                         gateway_windows.restart()
                 except UserSystemdUnavailableError as e:
-                    print_error("  Restart failed — user systemd not reachable:")
+                    print_error(
+                        "  Restart failed — user systemd not reachable:")
                     for line in str(e).splitlines():
                         print(f"  {line}")
                 except SystemScopeRequiresRootError as e:
@@ -2322,7 +2603,8 @@ def setup_gateway(config: dict):
                     did_install = False
                     started_inline = False
                     if supports_systemd:
-                        installed_scope, did_install = install_linux_gateway_from_setup(force=False)
+                        installed_scope, did_install = install_linux_gateway_from_setup(
+                            force=False)
                     elif _is_macos:
                         launchd_install(force=False)
                         did_install = True
@@ -2336,14 +2618,17 @@ def setup_gateway(config: dict):
                         did_install = True
                         started_inline = True
                     print()
-                    if did_install and not started_inline and prompt_yes_no("  Start the service now?", True):
+                    if did_install and not started_inline and prompt_yes_no(
+                            "  Start the service now?", True):
                         try:
                             if supports_systemd:
-                                systemd_start(system=installed_scope == "system")
+                                systemd_start(
+                                    system=installed_scope == "system")
                             elif _is_macos:
                                 launchd_start()
                         except UserSystemdUnavailableError as e:
-                            print_error("  Start failed — user systemd not reachable:")
+                            print_error(
+                                "  Start failed — user systemd not reachable:")
                             for line in str(e).splitlines():
                                 print(f"  {line}")
                         except SystemScopeRequiresRootError as e:
@@ -2353,24 +2638,29 @@ def setup_gateway(config: dict):
                             print_error(f"  Start failed: {e}")
                 except Exception as e:
                     print_error(f"  Install failed: {e}")
-                    print_info("  You can try manually: nastech gateway install")
+                    print_info(
+                        "  You can try manually: nastech gateway install")
             else:
                 print_info("  You can install later: nastech gateway install")
                 if supports_systemd:
-                    print_info("  Or as a boot-time service: sudo nastech gateway install --system")
+                    print_info(
+                        "  Or as a boot-time service: sudo nastech gateway install --system")
                 print_info("  Or run in foreground:  nastech gateway")
         else:
             from nastech_constants import is_container
             if is_container():
                 print_info("Start the gateway to bring your bots online:")
-                print_info("   nastech gateway run          # Run as container main process")
+                print_info(
+                    "   nastech gateway run          # Run as container main process")
                 print_info("")
-                print_info("For automatic restarts, use a Docker restart policy:")
+                print_info(
+                    "For automatic restarts, use a Docker restart policy:")
                 print_info("   docker run --restart unless-stopped ...")
                 print_info("   docker restart <container>  # Manual restart")
             else:
                 print_info("Start the gateway to bring your bots online:")
-                print_info("   nastech gateway              # Run in foreground")
+                print_info(
+                    "   nastech gateway              # Run in foreground")
 
         print_info("━" * 50)
 
@@ -2468,7 +2758,8 @@ def _gateway_platform_short_label(label: str) -> str:
     return base or label
 
 
-def _get_section_config_summary(config: dict, section_key: str) -> Optional[str]:
+def _get_section_config_summary(
+        config: dict, section_key: str) -> Optional[str]:
     """Return a short summary if a setup section is already configured, else None.
 
     Used after OpenClaw migration to detect which sections can be skipped.
@@ -2482,7 +2773,8 @@ def _get_section_config_summary(config: dict, section_key: str) -> Optional[str]
         if isinstance(model, str) and model.strip():
             return model.strip()
         if isinstance(model, dict):
-            return str(model.get("default") or model.get("model") or "configured")
+            return str(model.get("default") or model.get(
+                "model") or "configured")
         return "configured"
 
     elif section_key == "terminal":
@@ -2495,10 +2787,12 @@ def _get_section_config_summary(config: dict, section_key: str) -> Optional[str]
 
     elif section_key == "gateway":
         from nastech_cli.gateway import _all_platforms, _platform_status
+
         # Count any non-empty status other than the "not configured" sentinel —
         # platforms like WhatsApp ("enabled, not paired"), Matrix ("configured
         # + E2EE"), and Signal ("partially configured") all indicate the user
-        # has already started setup and we shouldn't force the section to rerun.
+        # has already started setup and we shouldn't force the section to
+        # rerun.
         configured = [
             _gateway_platform_short_label(plat["label"])
             for plat in _all_platforms()
@@ -2633,7 +2927,10 @@ def _print_migration_preview(report: dict):
         print()
 
     if conflict_items:
-        print(color("  Would overwrite (conflicts with existing NasTech config):", Colors.YELLOW))
+        print(
+            color(
+                "  Would overwrite (conflicts with existing NasTech config):",
+                Colors.YELLOW))
         for item in conflict_items:
             kind = item.get("kind", "unknown")
             reason = item.get("reason", "already exists")
@@ -2654,9 +2951,18 @@ def _print_migration_preview(report: dict):
         for warning in sorted(warnings_shown):
             print(color(f"    {warning}", Colors.YELLOW))
         print()
-        print(color("  Note: OpenClaw config values may have different semantics in NasTech.", Colors.YELLOW))
-        print(color("  For example, OpenClaw's tool_call_execution: \"auto\" ≠ NasTech's yolo mode.", Colors.YELLOW))
-        print(color("  Instruction files (.md) from OpenClaw may contain incompatible procedures.", Colors.YELLOW))
+        print(
+            color(
+                "  Note: OpenClaw config values may have different semantics in NasTech.",
+                Colors.YELLOW))
+        print(
+            color(
+                "  For example, OpenClaw's tool_call_execution: \"auto\" ≠ NasTech's yolo mode.",
+                Colors.YELLOW))
+        print(
+            color(
+                "  Instruction files (.md) from OpenClaw may contain incompatible procedures.",
+                Colors.YELLOW))
         print()
 
 
@@ -2678,10 +2984,12 @@ def _offer_openclaw_migration(nastech_home: Path) -> bool:
     print()
     print_header("OpenClaw Installation Detected")
     print_info(f"Found OpenClaw data at {openclaw_dir}")
-    print_info("NasTech can preview what would be imported before making any changes.")
+    print_info(
+        "NasTech can preview what would be imported before making any changes.")
     print()
 
-    if not prompt_yes_no("Would you like to see what can be imported?", default=True):
+    if not prompt_yes_no(
+            "Would you like to see what can be imported?", default=True):
         print_info(
             "Skipping migration. You can run it later with: nastech claw migrate --dry-run"
         )
@@ -2733,7 +3041,8 @@ def _offer_openclaw_migration(nastech_home: Path) -> bool:
         return False
 
     print()
-    print_header(f"Migration Preview — {preview_count} item(s) would be imported")
+    print_header(
+        f"Migration Preview — {preview_count} item(s) would be imported")
     print_info("No changes have been made yet. Review the list below:")
     print()
     _print_migration_preview(preview_report)
@@ -2779,11 +3088,13 @@ def _offer_openclaw_migration(nastech_home: Path) -> bool:
     if migrated:
         print_success(f"Imported {migrated} item(s) from OpenClaw.")
     if conflicts:
-        print_info(f"Skipped {conflicts} item(s) that already exist in NasTech (use nastech claw migrate --overwrite to force).")
+        print_info(
+            f"Skipped {conflicts} item(s) that already exist in NasTech (use nastech claw migrate --overwrite to force).")
     if skipped:
         print_info(f"Skipped {skipped} item(s) (not found or unchanged).")
     if errors:
-        print_warning(f"{errors} item(s) had errors — check the migration report.")
+        print_warning(
+            f"{errors} item(s) had errors — check the migration report.")
 
     output_dir = report.get("output_dir")
     if output_dir:
@@ -2833,7 +3144,10 @@ def _run_portal_one_shot(config: dict) -> None:
             Colors.MAGENTA,
         )
     )
-    print(color("│     ⚕ NasTech Setup — Nous Portal (one-shot)             │", Colors.MAGENTA))
+    print(
+        color(
+            "│     ⚕ NasTech Setup — Nous Portal (one-shot)             │",
+            Colors.MAGENTA))
     print(
         color(
             "└─────────────────────────────────────────────────────────┘",
@@ -2963,7 +3277,11 @@ def run_setup_wizard(args):
                         Colors.MAGENTA,
                     )
                 )
-                print(color(f"│     ⚕ NasTech Setup — {label:<34s} │", Colors.MAGENTA))
+                print(
+                    color(
+                        f"│     ⚕ NasTech Setup — {
+                            label:<34s} │",
+                        Colors.MAGENTA))
                 print(
                     color(
                         "└─────────────────────────────────────────────────────────┘",
@@ -2977,7 +3295,12 @@ def run_setup_wizard(args):
                 return
 
         print_error(f"Unknown setup section: {section}")
-        print_info(f"Available sections: {', '.join(k for k, _, _ in SETUP_SECTIONS)}")
+        print_info(
+            f"Available sections: {
+                ', '.join(
+                    k for k,
+                    _,
+                    _ in SETUP_SECTIONS)}")
         return
 
     # Check if this is an existing installation with a provider configured
@@ -3040,11 +3363,14 @@ def run_setup_wizard(args):
         print()
         print_header("Reconfigure")
         print_success("You already have NasTech configured.")
-        print_info("Running the full wizard — each prompt shows your current value.")
+        print_info(
+            "Running the full wizard — each prompt shows your current value.")
         print_info("Press Enter to keep it, or type a new value to change it.")
         print_info("")
-        print_info("Tip: jump straight to a section with 'nastech setup model|terminal|")
-        print_info("     gateway|tools|agent', or fill only missing items with --quick.")
+        print_info(
+            "Tip: jump straight to a section with 'nastech setup model|terminal|")
+        print_info(
+            "     gateway|tools|agent', or fill only missing items with --quick.")
         # Fall through to the "Full Setup — run all sections" block below.
         # --reconfigure is now the default on existing installs; the flag
         # is preserved for backwards compatibility but is a no-op here.
@@ -3055,7 +3381,8 @@ def run_setup_wizard(args):
         # --reconfigure / --quick on a fresh install are meaningless — fall
         # through to the normal first-time flow.
         if reconfigure_requested or quick_requested:
-            print_info("No existing configuration found — running first-time setup.")
+            print_info(
+                "No existing configuration found — running first-time setup.")
             print()
 
         # Offer OpenClaw migration before configuration begins
@@ -3088,15 +3415,18 @@ def run_setup_wizard(args):
     if migration_ran:
         print()
         print_info("Settings were imported from OpenClaw.")
-        print_info("Each section below will show what was imported — press Enter to keep,")
+        print_info(
+            "Each section below will show what was imported — press Enter to keep,")
         print_info("or choose to reconfigure if needed.")
 
     # Section 1: Model & Provider
-    if not (migration_ran and _skip_configured_section(config, "model", "Model & Provider")):
+    if not (migration_ran and _skip_configured_section(
+            config, "model", "Model & Provider")):
         setup_model_provider(config)
 
     # Section 2: Terminal Backend
-    if not (migration_ran and _skip_configured_section(config, "terminal", "Terminal Backend")):
+    if not (migration_ran and _skip_configured_section(
+            config, "terminal", "Terminal Backend")):
         setup_terminal_backend(config)
 
     # Section 3: Agent Settings — no longer prompted. First installs get the
@@ -3106,11 +3436,13 @@ def run_setup_wizard(args):
         _apply_default_agent_settings(config)
 
     # Section 4: Messaging Platforms
-    if not (migration_ran and _skip_configured_section(config, "gateway", "Messaging Platforms")):
+    if not (migration_ran and _skip_configured_section(
+            config, "gateway", "Messaging Platforms")):
         setup_gateway(config)
 
     # Section 5: Tools
-    if not (migration_ran and _skip_configured_section(config, "tools", "Tools")):
+    if not (migration_ran and _skip_configured_section(
+            config, "tools", "Tools")):
         setup_tools(config, first_install=not is_existing)
 
     # Save and show summary
@@ -3198,9 +3530,9 @@ def _run_first_time_quick_setup(config: dict, nastech_home, is_existing: bool):
 def _run_quick_setup(config: dict, nastech_home):
     """Quick setup — only configure items that are missing."""
     from nastech_cli.config import (
-        get_missing_env_vars,
-        get_missing_config_fields,
         check_config_version,
+        get_missing_config_fields,
+        get_missing_env_vars,
     )
 
     print()
@@ -3246,7 +3578,12 @@ def _run_quick_setup(config: dict, nastech_home):
                 print_info(f"  Get key at: {var['url']}")
 
             if var.get("password"):
-                value = prompt(f"  {var.get('prompt', var['name'])}", password=True)
+                value = prompt(
+                    f"  {
+                        var.get(
+                            'prompt',
+                            var['name'])}",
+                    password=True)
             else:
                 value = prompt(f"  {var.get('prompt', var['name'])}")
 
@@ -3257,7 +3594,8 @@ def _run_quick_setup(config: dict, nastech_home):
                 print_warning(f"  Skipped {var['name']}")
 
     # Split missing optional vars by category
-    missing_tools = [v for v in missing_optional if v.get("category") == "tool"]
+    missing_tools = [
+        v for v in missing_optional if v.get("category") == "tool"]
     missing_messaging = [
         v
         for v in missing_optional
@@ -3273,7 +3611,8 @@ def _run_quick_setup(config: dict, nastech_home):
         for var in missing_tools:
             tools = var.get("tools", [])
             tools_str = f" → {', '.join(tools[:2])}" if tools else ""
-            checklist_labels.append(f"{var.get('description', var['name'])}{tools_str}")
+            checklist_labels.append(
+                f"{var.get('description', var['name'])}{tools_str}")
 
         selected_indices = prompt_checklist(
             "Which tools would you like to configure?",
@@ -3325,7 +3664,12 @@ def _run_quick_setup(config: dict, nastech_home):
         for idx in selected_indices:
             plat = platform_order[idx]
             vars_list = platforms[plat]
-            emoji = {"Telegram": "📱", "Discord": "💬", "Slack": "💼"}.get(plat, "")
+            emoji = {
+                "Telegram": "📱",
+                "Discord": "💬",
+                "Slack": "💼"}.get(
+                plat,
+                "")
             print()
             print(color(f"  ─── {emoji} {plat} ───", Colors.CYAN))
             print()
@@ -3334,7 +3678,12 @@ def _run_quick_setup(config: dict, nastech_home):
                 if var.get("url"):
                     print_info(f"  {var['url']}")
                 if var.get("password"):
-                    value = prompt(f"  {var.get('prompt', var['name'])}", password=True)
+                    value = prompt(
+                        f"  {
+                            var.get(
+                                'prompt',
+                                var['name'])}",
+                        password=True)
                 else:
                     value = prompt(f"  {var.get('prompt', var['name'])}")
                 if value:
@@ -3348,7 +3697,8 @@ def _run_quick_setup(config: dict, nastech_home):
     if missing_config:
         print()
         print_info(
-            f"Adding {len(missing_config)} new config option(s) with defaults..."
+            f"Adding {
+                len(missing_config)} new config option(s) with defaults..."
         )
         for field in missing_config:
             print_success(f"  Added {field['key']} = {field['default']}")

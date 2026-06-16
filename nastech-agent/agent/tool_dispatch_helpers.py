@@ -130,23 +130,27 @@ def _should_parallelize_tool_batch(tool_calls) -> bool:
             return False
 
         if tool_name in _PATH_SCOPED_TOOLS:
-            scoped_path = _extract_parallel_scope_path(tool_name, function_args)
+            scoped_path = _extract_parallel_scope_path(
+                tool_name, function_args)
             if scoped_path is None:
                 return False
-            if any(_paths_overlap(scoped_path, existing) for existing in reserved_paths):
+            if any(_paths_overlap(scoped_path, existing)
+                   for existing in reserved_paths):
                 return False
             reserved_paths.append(scoped_path)
             continue
 
         if tool_name not in _PARALLEL_SAFE_TOOLS:
-            # Check if it's an MCP tool from a server that opted into parallel calls.
+            # Check if it's an MCP tool from a server that opted into parallel
+            # calls.
             if not _is_mcp_tool_parallel_safe(tool_name):
                 return False
 
     return True
 
 
-def _extract_parallel_scope_path(tool_name: str, function_args: dict) -> Optional[Path]:
+def _extract_parallel_scope_path(
+        tool_name: str, function_args: dict) -> Optional[Path]:
     """Return the normalized file target for path-scoped tools."""
     if tool_name not in _PATH_SCOPED_TOOLS:
         return None
@@ -213,7 +217,8 @@ def _multimodal_text_summary(value: Any) -> str:
         return str(value)
 
 
-def _append_subdir_hint_to_multimodal(value: Dict[str, Any], hint: str) -> None:
+def _append_subdir_hint_to_multimodal(
+        value: Dict[str, Any], hint: str) -> None:
     """Mutate a multimodal tool-result envelope to append a subdir hint.
 
     The hint is added to the first text part so the model sees it; image
@@ -234,7 +239,8 @@ def _append_subdir_hint_to_multimodal(value: Dict[str, Any], hint: str) -> None:
         value["text_summary"] = value["text_summary"] + hint
 
 
-def _extract_file_mutation_targets(tool_name: str, args: Dict[str, Any]) -> List[str]:
+def _extract_file_mutation_targets(
+        tool_name: str, args: Dict[str, Any]) -> List[str]:
     """Return the file paths a ``write_file`` or ``patch`` call is targeting.
 
     For ``write_file`` and ``patch`` in replace mode this is just ``args["path"]``.
@@ -309,7 +315,8 @@ def _trajectory_normalize_msg(msg: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(content, list):
         cleaned = []
         for p in content:
-            if isinstance(p, dict) and p.get("type") in {"image", "image_url", "input_image"}:
+            if isinstance(p, dict) and p.get("type") in {
+                    "image", "image_url", "input_image"}:
                 cleaned.append({"type": "text", "text": "[screenshot]"})
             else:
                 cleaned.append(p)
@@ -317,7 +324,8 @@ def _trajectory_normalize_msg(msg: Dict[str, Any]) -> Dict[str, Any]:
     return msg
 
 
-def make_tool_result_message(name: str, content: Any, tool_call_id: str) -> dict:
+def make_tool_result_message(name: str, content: Any,
+                             tool_call_id: str) -> dict:
     """Build a tool-result message dict with both the OpenAI-format ``name``
     field (required by the wire format and provider adapters) and the internal
     ``tool_name`` field (written to the session DB messages table).

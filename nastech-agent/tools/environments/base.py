@@ -221,9 +221,11 @@ class _ThreadedProcessHandle:
         self._returncode: int | None = None
         self._error: Exception | None = None
 
-        # Pipe for stdout — drain thread in _wait_for_process reads the read end.
+        # Pipe for stdout — drain thread in _wait_for_process reads the read
+        # end.
         read_fd, write_fd = os.pipe()
-        self._stdout = os.fdopen(read_fd, "r", encoding="utf-8", errors="replace")
+        self._stdout = os.fdopen(
+            read_fd, "r", encoding="utf-8", errors="replace")
         self._write_fd = write_fd
 
         def _worker():
@@ -232,7 +234,9 @@ class _ThreadedProcessHandle:
                 self._returncode = exit_code
                 # Write output into the pipe so drain thread picks it up.
                 try:
-                    os.write(self._write_fd, output.encode("utf-8", errors="replace"))
+                    os.write(
+                        self._write_fd, output.encode(
+                            "utf-8", errors="replace"))
                 except OSError:
                     pass
             except Exception as exc:
@@ -337,7 +341,8 @@ class BaseEnvironment(ABC):
         Returns a ProcessHandle (subprocess.Popen or _ThreadedProcessHandle).
         Must be overridden by every backend.
         """
-        raise NotImplementedError(f"{type(self).__name__} must implement _run_bash()")
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement _run_bash()")
 
     @abstractmethod
     def cleanup(self):
@@ -378,11 +383,17 @@ class BaseEnvironment(ABC):
             f"echo 'set +u' >> {_quoted_snap}\n"
             f"builtin cd {_quoted_cwd} 2>/dev/null || true\n"
             f"pwd -P > {_quoted_cwd_file} 2>/dev/null || true\n"
-            f"printf '\\n{self._cwd_marker}%s{self._cwd_marker}\\n' \"$(pwd -P)\"\n"
+            f"printf '\\n{
+                self._cwd_marker}%s{
+                self._cwd_marker}\\n' \"$(pwd -P)\"\n"
         )
         try:
-            proc = self._run_bash(bootstrap, login=True, timeout=self._snapshot_timeout)
-            result = self._wait_for_process(proc, timeout=self._snapshot_timeout)
+            proc = self._run_bash(
+                bootstrap,
+                login=True,
+                timeout=self._snapshot_timeout)
+            result = self._wait_for_process(
+                proc, timeout=self._snapshot_timeout)
             self._snapshot_ready = True
             self._update_cwd(result)
             logger.info(
@@ -453,14 +464,17 @@ class BaseEnvironment(ABC):
         if self._snapshot_ready:
             parts.append(f"export -p > {_quoted_snap} 2>/dev/null || true")
 
-        # Write CWD to file (local reads this) and stdout marker (remote parses this)
+        # Write CWD to file (local reads this) and stdout marker (remote parses
+        # this)
         parts.append(f"pwd -P > {_quoted_cwd_file} 2>/dev/null || true")
         # Use a distinct line for the marker. The leading \n ensures
         # the marker starts on its own line even if the command doesn't
         # end with a newline (e.g. printf 'exact'). We'll strip this
         # injected newline in _extract_cwd_from_output.
         parts.append(
-            f"printf '\\n{self._cwd_marker}%s{self._cwd_marker}\\n' \"$(pwd -P)\""
+            f"printf '\\n{
+                self._cwd_marker}%s{
+                self._cwd_marker}\\n' \"$(pwd -P)\""
         )
         parts.append("exit $__nastech_ec")
 
@@ -480,7 +494,8 @@ class BaseEnvironment(ABC):
     # Process lifecycle
     # ------------------------------------------------------------------
 
-    def _wait_for_process(self, proc: ProcessHandle, timeout: int = 120) -> dict:
+    def _wait_for_process(self, proc: ProcessHandle,
+                          timeout: int = 120) -> dict:
         """Poll-based wait with interrupt checking and stdout draining.
 
         Shared across all backends — not overridden.
@@ -607,7 +622,8 @@ class BaseEnvironment(ABC):
                     elif proc.poll() is not None:
                         # bash is gone and the pipe was idle for ~100ms.  Give
                         # it two more cycles to catch any buffered tail, then
-                        # stop — otherwise we wait forever on a grandchild pipe.
+                        # stop — otherwise we wait forever on a grandchild
+                        # pipe.
                         idle_after_exit += 1
                         if idle_after_exit >= 3:
                             break
@@ -631,7 +647,7 @@ class BaseEnvironment(ABC):
             "start": _now,
         }
 
-        # --- Debug tracing (opt-in via NASTECH_DEBUG_INTERRUPT=1) -------------
+        # --- Debug tracing (opt-in via NASTECH_DEBUG_INTERRUPT=1) ------------
         # Captures loop entry/exit, interrupt state changes, and periodic
         # heartbeats so we can diagnose "agent never sees the interrupt"
         # reports without reproducing locally.
@@ -659,7 +675,8 @@ class BaseEnvironment(ABC):
                         logger.info(
                             "[interrupt-debug] _wait_for_process INTERRUPT DETECTED "
                             "tid=%s pid=%s iter=%d elapsed=%.1fs — killing process group",
-                            _tid, _pid, _iter_count, time.monotonic() - _activity_state["start"],
+                            _tid, _pid, _iter_count, time.monotonic() -
+                            _activity_state["start"],
                         )
                     self._kill_process(proc)
                     drain_thread.join(timeout=2)
@@ -685,7 +702,8 @@ class BaseEnvironment(ABC):
                         "returncode": 124,
                     }
                 # Periodic activity touch so the gateway knows we're alive
-                touch_activity_if_due(_activity_state, "terminal command running")
+                touch_activity_if_due(
+                    _activity_state, "terminal command running")
 
                 # Heartbeat every ~30s: proves the loop is alive and reports
                 # the activity-callback state (thread-local, can get clobbered
@@ -757,7 +775,8 @@ class BaseEnvironment(ABC):
                 proc.returncode,
             )
 
-        return {"output": "".join(output_chunks), "returncode": proc.returncode}
+        return {"output": "".join(output_chunks),
+                "returncode": proc.returncode}
 
     def _kill_process(self, proc: ProcessHandle):
         """Terminate a process. Subclasses may override for process-group kill."""
@@ -792,7 +811,7 @@ class BaseEnvironment(ABC):
         if first == -1 or first == last:
             return
 
-        cwd_path = output[first + len(marker) : last].strip()
+        cwd_path = output[first + len(marker): last].strip()
         if cwd_path:
             self.cwd = cwd_path
 
@@ -858,7 +877,8 @@ class BaseEnvironment(ABC):
 
         # Embed stdin as heredoc for backends that need it
         if effective_stdin and self._stdin_mode == "heredoc":
-            exec_command = self._embed_stdin_heredoc(exec_command, effective_stdin)
+            exec_command = self._embed_stdin_heredoc(
+                exec_command, effective_stdin)
             effective_stdin = None
 
         wrapped = self._wrap_command(exec_command, effective_cwd)
@@ -893,4 +913,3 @@ class BaseEnvironment(ABC):
         from tools.terminal_tool import _transform_sudo_command
 
         return _transform_sudo_command(command)
-

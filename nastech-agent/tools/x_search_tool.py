@@ -49,7 +49,6 @@ from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
-
 from tools.registry import registry, tool_error
 from tools.xai_http import nastech_xai_user_agent, resolve_xai_http_credentials
 
@@ -119,7 +118,8 @@ def _resolve_xai_bearer() -> Tuple[str, str, str]:
             "No xAI credentials available. Run `nastech auth add xai-oauth` "
             "to sign in with your SuperGrok subscription, or set XAI_API_KEY."
         )
-    base_url = str(creds.get("base_url") or DEFAULT_XAI_BASE_URL).strip().rstrip("/")
+    base_url = str(creds.get("base_url")
+                   or DEFAULT_XAI_BASE_URL).strip().rstrip("/")
     source = str(creds.get("provider") or "xai")
     return api_key, base_url, source
 
@@ -143,14 +143,16 @@ def check_x_search_requirements() -> bool:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _normalize_handles(handles: Optional[List[str]], field_name: str) -> List[str]:
+def _normalize_handles(
+        handles: Optional[List[str]], field_name: str) -> List[str]:
     cleaned: List[str] = []
     for handle in handles or []:
         normalized = str(handle or "").strip().lstrip("@")
         if normalized:
             cleaned.append(normalized)
     if len(cleaned) > MAX_HANDLES:
-        raise ValueError(f"{field_name} supports at most {MAX_HANDLES} handles")
+        raise ValueError(
+            f"{field_name} supports at most {MAX_HANDLES} handles")
     return cleaned
 
 
@@ -292,7 +294,8 @@ def x_search_tool(
         allowed = _normalize_handles(allowed_x_handles, "allowed_x_handles")
         excluded = _normalize_handles(excluded_x_handles, "excluded_x_handles")
         if allowed and excluded:
-            return tool_error("allowed_x_handles and excluded_x_handles cannot be used together")
+            return tool_error(
+                "allowed_x_handles and excluded_x_handles cannot be used together")
 
         try:
             _validate_date_range(from_date, to_date)
@@ -343,7 +346,13 @@ def x_search_tool(
                 response.raise_for_status()
                 break
             except requests.HTTPError as e:
-                status_code = getattr(getattr(e, "response", None), "status_code", None)
+                status_code = getattr(
+                    getattr(
+                        e,
+                        "response",
+                        None),
+                    "status_code",
+                    None)
                 if status_code is None or status_code < 500 or attempt >= max_retries:
                     raise
                 logger.warning(
@@ -391,9 +400,11 @@ def x_search_tool(
             active_filters.append("from_date")
         if to_date.strip():
             active_filters.append("to_date")
-        degraded = bool(active_filters) and not citations and not inline_citations
+        degraded = bool(
+            active_filters) and not citations and not inline_citations
         degraded_reason = (
-            f"no citations returned despite filters: {', '.join(active_filters)}"
+            f"no citations returned despite filters: {
+                ', '.join(active_filters)}"
             if degraded
             else None
         )
@@ -508,8 +519,10 @@ def _handle_x_search(args, **kw):
         excluded_x_handles=args.get("excluded_x_handles"),
         from_date=args.get("from_date", ""),
         to_date=args.get("to_date", ""),
-        enable_image_understanding=bool(args.get("enable_image_understanding", False)),
-        enable_video_understanding=bool(args.get("enable_video_understanding", False)),
+        enable_image_understanding=bool(
+            args.get("enable_image_understanding", False)),
+        enable_video_understanding=bool(
+            args.get("enable_video_understanding", False)),
     )
 
 

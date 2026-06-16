@@ -104,7 +104,8 @@ def reconcile_profile_gateways(
         container_argv=container_argv,
         dry_run=dry_run,
     )
-    default_prior_state = legacy_default_state or _read_prior_state(nastech_home)
+    default_prior_state = legacy_default_state or _read_prior_state(
+        nastech_home)
     default_should_start = default_prior_state in _AUTOSTART_STATES
     if not dry_run:
         _cleanup_stale_runtime_files(nastech_home)
@@ -177,10 +178,12 @@ def _maybe_migrate_legacy_gateway_run_state(
     if state_file.exists():
         return None
 
-    if os.environ.get("NASTECH_GATEWAY_NO_SUPERVISE", "").lower() in ("1", "true", "yes"):
+    if os.environ.get("NASTECH_GATEWAY_NO_SUPERVISE",
+                      "").lower() in ("1", "true", "yes"):
         return None
 
-    argv = tuple(container_argv) if container_argv is not None else _read_container_argv()
+    argv = tuple(
+        container_argv) if container_argv is not None else _read_container_argv()
     if not _is_legacy_gateway_run_request(argv):
         return None
 
@@ -200,7 +203,8 @@ def _read_container_argv() -> tuple[str, ...]:
         raw = Path("/proc/1/cmdline").read_bytes()
     except OSError:
         return ()
-    return tuple(part.decode("utf-8", "replace") for part in raw.split(b"\0") if part)
+    return tuple(part.decode("utf-8", "replace")
+                 for part in raw.split(b"\0") if part)
 
 
 def _is_legacy_gateway_run_request(argv: Sequence[str]) -> bool:
@@ -285,7 +289,9 @@ def _register_service(scandir: Path, profile: str, *, start: bool) -> None:
         # per-profile env can set it via the profile's config.yaml
         # (which the gateway itself loads).
         run = tmp_dir / "run"
-        run.write_text(S6ServiceManager._render_run_script(profile, extra_env={}))
+        run.write_text(
+            S6ServiceManager._render_run_script(
+                profile, extra_env={}))
         run.chmod(0o755)
 
         # Persistent log rotation (OQ8-C).
@@ -379,7 +385,10 @@ _LOG_ROTATE_BYTES = 256 * 1024
 def main() -> int:
     """Entry point invoked from /etc/cont-init.d/02-reconcile-profiles."""
     nastech_home = Path(os.environ.get("NASTECH_HOME", "/opt/data"))
-    scandir = Path(os.environ.get("S6_PROFILE_GATEWAY_SCANDIR", "/run/service"))
+    scandir = Path(
+        os.environ.get(
+            "S6_PROFILE_GATEWAY_SCANDIR",
+            "/run/service"))
     actions = reconcile_profile_gateways(
         nastech_home=nastech_home, scandir=scandir,
     )

@@ -38,7 +38,8 @@ class ResponsesApiTransport(ProviderTransport):
             base_url=params.get("base_url"),
         )
 
-    def convert_messages(self, messages: List[Dict[str, Any]], **kwargs) -> Any:
+    def convert_messages(
+            self, messages: List[Dict[str, Any]], **kwargs) -> Any:
         """Convert OpenAI chat messages to Responses API input items."""
         from agent.codex_responses_adapter import _chat_messages_to_responses_input
         issuer = self._resolve_issuer_kind(kwargs)
@@ -87,7 +88,6 @@ class ResponsesApiTransport(ProviderTransport):
             _chat_messages_to_responses_input,
             _responses_tools,
         )
-
         from run_agent import DEFAULT_AGENT_IDENTITY
 
         instructions = params.get("instructions", "")
@@ -125,7 +125,8 @@ class ResponsesApiTransport(ProviderTransport):
                 reasoning_effort = reasoning_config["effort"]
 
         _effort_clamp = {"minimal": "low"}
-        reasoning_effort = _effort_clamp.get(reasoning_effort, reasoning_effort)
+        reasoning_effort = _effort_clamp.get(
+            reasoning_effort, reasoning_effort)
 
         response_tools = _responses_tools(tools)
         # ``tools`` MUST be omitted entirely when there are no functions to
@@ -181,7 +182,8 @@ class ResponsesApiTransport(ProviderTransport):
                 if github_reasoning is not None:
                     kwargs["reasoning"] = github_reasoning
             else:
-                kwargs["reasoning"] = {"effort": reasoning_effort, "summary": "auto"}
+                kwargs["reasoning"] = {
+                    "effort": reasoning_effort, "summary": "auto"}
                 kwargs["include"] = (
                     ["reasoning.encrypted_content"] if replay_encrypted_reasoning else []
                 )
@@ -256,7 +258,8 @@ class ResponsesApiTransport(ProviderTransport):
             # xAI Responses cache-routing — body-level field per
             # https://docs.x.ai/developers/advanced-api-usage/prompt-caching/maximizing-cache-hits.
             # Sent via extra_body (not the typed kwarg) so it survives openai
-            # SDK builds whose Responses.stream() signature has dropped the field.
+            # SDK builds whose Responses.stream() signature has dropped the
+            # field.
             existing_extra_body = kwargs.get("extra_body")
             merged_extra_body: Dict[str, Any] = {}
             if isinstance(existing_extra_body, dict):
@@ -266,7 +269,8 @@ class ResponsesApiTransport(ProviderTransport):
 
         return kwargs
 
-    def normalize_response(self, response: Any, **kwargs) -> NormalizedResponse:
+    def normalize_response(self, response: Any, **
+                           kwargs) -> NormalizedResponse:
         """Normalize Codex Responses API response to NormalizedResponse."""
         from agent.codex_responses_adapter import (
             _normalize_codex_response,
@@ -277,8 +281,10 @@ class ResponsesApiTransport(ProviderTransport):
         # call. Either way it gets stamped onto reasoning items so future
         # turns can detect a model swap and drop foreign-issuer blobs.
         issuer_kind = kwargs.get("issuer_kind") or self._last_issuer_kind
-        # _normalize_codex_response returns (SimpleNamespace, finish_reason_str)
-        msg, finish_reason = _normalize_codex_response(response, issuer_kind=issuer_kind)
+        # _normalize_codex_response returns (SimpleNamespace,
+        # finish_reason_str)
+        msg, finish_reason = _normalize_codex_response(
+            response, issuer_kind=issuer_kind)
 
         tool_calls = None
         if msg and msg.tool_calls:
@@ -290,17 +296,26 @@ class ResponsesApiTransport(ProviderTransport):
                 if hasattr(tc, "response_item_id") and tc.response_item_id:
                     provider_data["response_item_id"] = tc.response_item_id
                 tool_calls.append(ToolCall(
-                    id=tc.id if hasattr(tc, "id") else (tc.function.name if hasattr(tc, "function") else None),
-                    name=tc.function.name if hasattr(tc, "function") else getattr(tc, "name", ""),
-                    arguments=tc.function.arguments if hasattr(tc, "function") else getattr(tc, "arguments", "{}"),
+                    id=tc.id if hasattr(
+                        tc, "id") else (
+                        tc.function.name if hasattr(
+                            tc, "function") else None),
+                    name=tc.function.name if hasattr(
+                        tc, "function") else getattr(
+                        tc, "name", ""),
+                    arguments=tc.function.arguments if hasattr(
+                        tc, "function") else getattr(
+                        tc, "arguments", "{}"),
                     provider_data=provider_data or None,
                 ))
 
         # Extract reasoning items for provider_data
         provider_data = {}
-        if msg and hasattr(msg, "codex_reasoning_items") and msg.codex_reasoning_items:
+        if msg and hasattr(
+                msg, "codex_reasoning_items") and msg.codex_reasoning_items:
             provider_data["codex_reasoning_items"] = msg.codex_reasoning_items
-        if msg and hasattr(msg, "codex_message_items") and msg.codex_message_items:
+        if msg and hasattr(
+                msg, "codex_message_items") and msg.codex_message_items:
             provider_data["codex_message_items"] = msg.codex_message_items
         if msg and hasattr(msg, "reasoning_details") and msg.reasoning_details:
             provider_data["reasoning_details"] = msg.reasoning_details
@@ -309,7 +324,8 @@ class ResponsesApiTransport(ProviderTransport):
             content=msg.content if msg else None,
             tool_calls=tool_calls,
             finish_reason=finish_reason or "stop",
-            reasoning=msg.reasoning if msg and hasattr(msg, "reasoning") else None,
+            reasoning=msg.reasoning if msg and hasattr(
+                msg, "reasoning") else None,
             usage=None,  # Codex usage is extracted separately in normalize_usage()
             provider_data=provider_data or None,
         )
@@ -328,13 +344,15 @@ class ResponsesApiTransport(ProviderTransport):
             return False
         return True
 
-    def preflight_kwargs(self, api_kwargs: Any, *, allow_stream: bool = False) -> dict:
+    def preflight_kwargs(self, api_kwargs: Any, *,
+                         allow_stream: bool = False) -> dict:
         """Validate and sanitize Codex API kwargs before the call.
 
         Normalizes input items, strips unsupported fields, validates structure.
         """
         from agent.codex_responses_adapter import _preflight_codex_api_kwargs
-        return _preflight_codex_api_kwargs(api_kwargs, allow_stream=allow_stream)
+        return _preflight_codex_api_kwargs(
+            api_kwargs, allow_stream=allow_stream)
 
     def map_finish_reason(self, raw_reason: str) -> str:
         """Map Codex response.status to OpenAI finish_reason.

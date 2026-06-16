@@ -44,6 +44,50 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
+from gateway.platforms.qqbot.chunked_upload import (
+    ChunkedUploader,
+    UploadDailyLimitExceededError,
+    UploadFileTooLargeError,
+)
+from gateway.platforms.qqbot.constants import (
+    API_BASE,
+    CONNECT_TIMEOUT_SECONDS,
+    DEDUP_MAX_SIZE,
+    DEDUP_WINDOW_SECONDS,
+    DEFAULT_API_TIMEOUT,
+    FILE_UPLOAD_TIMEOUT,
+    GATEWAY_URL_PATH,
+    MAX_MESSAGE_LENGTH,
+    MAX_QUICK_DISCONNECT_COUNT,
+    MAX_RECONNECT_ATTEMPTS,
+    MEDIA_TYPE_FILE,
+    MEDIA_TYPE_IMAGE,
+    MEDIA_TYPE_VIDEO,
+    MEDIA_TYPE_VOICE,
+    MSG_TYPE_INPUT_NOTIFY,
+    MSG_TYPE_MARKDOWN,
+    MSG_TYPE_MEDIA,
+    MSG_TYPE_TEXT,
+    QUICK_DISCONNECT_THRESHOLD,
+    RATE_LIMIT_DELAY,
+    RECONNECT_BACKOFF,
+    TOKEN_URL,
+)
+from gateway.platforms.qqbot.keyboards import (
+    ApprovalRequest,
+    InlineKeyboard,
+    InteractionEvent,
+    build_approval_keyboard,
+    build_update_prompt_keyboard,
+    parse_approval_button_data,
+    parse_interaction_event,
+    parse_update_prompt_button_data,
+)
+from gateway.platforms.qqbot.utils import (
+    build_user_agent,
+)
+from gateway.platforms.qqbot.utils import coerce_list as _coerce_list_impl
+
 try:
     import aiohttp
 
@@ -84,56 +128,15 @@ class QQCloseError(Exception):
     def __init__(self, code, reason=""):
         self.code = int(code) if code else None
         self.reason = str(reason) if reason else ""
-        super().__init__(f"WebSocket closed (code={self.code}, reason={self.reason})")
+        super().__init__(
+            f"WebSocket closed (code={
+                self.code}, reason={
+                self.reason})")
 
 
 # ---------------------------------------------------------------------------
 # Constants — imported from the shared constants module.
 # ---------------------------------------------------------------------------
-
-from gateway.platforms.qqbot.constants import (
-    API_BASE,
-    TOKEN_URL,
-    GATEWAY_URL_PATH,
-    DEFAULT_API_TIMEOUT,
-    FILE_UPLOAD_TIMEOUT,
-    CONNECT_TIMEOUT_SECONDS,
-    RECONNECT_BACKOFF,
-    MAX_RECONNECT_ATTEMPTS,
-    RATE_LIMIT_DELAY,
-    QUICK_DISCONNECT_THRESHOLD,
-    MAX_QUICK_DISCONNECT_COUNT,
-    MAX_MESSAGE_LENGTH,
-    DEDUP_WINDOW_SECONDS,
-    DEDUP_MAX_SIZE,
-    MSG_TYPE_TEXT,
-    MSG_TYPE_MARKDOWN,
-    MSG_TYPE_MEDIA,
-    MSG_TYPE_INPUT_NOTIFY,
-    MEDIA_TYPE_IMAGE,
-    MEDIA_TYPE_VIDEO,
-    MEDIA_TYPE_VOICE,
-    MEDIA_TYPE_FILE,
-)
-from gateway.platforms.qqbot.utils import (
-    coerce_list as _coerce_list_impl,
-    build_user_agent,
-)
-from gateway.platforms.qqbot.chunked_upload import (
-    ChunkedUploader,
-    UploadDailyLimitExceededError,
-    UploadFileTooLargeError,
-)
-from gateway.platforms.qqbot.keyboards import (
-    ApprovalRequest,
-    InlineKeyboard,
-    InteractionEvent,
-    build_approval_keyboard,
-    build_update_prompt_keyboard,
-    parse_approval_button_data,
-    parse_interaction_event,
-    parse_update_prompt_button_data,
-)
 
 
 def check_qq_requirements() -> bool:
@@ -201,7 +204,9 @@ class QQAdapter(BasePlatformAdapter):
         super().__init__(config, Platform.QQBOT)
 
         extra = config.extra or {}
-        self._app_id = str(extra.get("app_id") or os.getenv("QQ_APP_ID", "")).strip()
+        self._app_id = str(
+            extra.get("app_id") or os.getenv(
+                "QQ_APP_ID", "")).strip()
         self._client_secret = str(
             extra.get("client_secret") or os.getenv("QQ_CLIENT_SECRET", "")
         ).strip()
@@ -212,7 +217,10 @@ class QQAdapter(BasePlatformAdapter):
         self._allow_from = _coerce_list(
             extra.get("allow_from") or extra.get("allowFrom")
         )
-        self._group_policy = str(extra.get("group_policy", "open")).strip().lower()
+        self._group_policy = str(
+            extra.get(
+                "group_policy",
+                "open")).strip().lower()
         self._group_allow_from = _coerce_list(
             extra.get("group_allow_from") or extra.get("groupAllowFrom")
         )
@@ -226,7 +234,8 @@ class QQAdapter(BasePlatformAdapter):
         self._heartbeat_interval: float = 30.0  # seconds, updated by Hello
         self._session_id: Optional[str] = None
         self._last_seq: Optional[int] = None
-        self._chat_type_map: Dict[str, str] = {}  # chat_id → "c2c"|"group"|"guild"|"dm"
+        # chat_id → "c2c"|"group"|"guild"|"dm"
+        self._chat_type_map: Dict[str, str] = {}
 
         # Request/response correlation
         self._pending_responses: Dict[str, asyncio.Future] = {}
@@ -282,22 +291,38 @@ class QQAdapter(BasePlatformAdapter):
         """Authenticate, obtain gateway URL, and open the WebSocket."""
         if not AIOHTTP_AVAILABLE:
             message = "QQ startup failed: aiohttp not installed"
-            self._set_fatal_error("qq_missing_dependency", message, retryable=True)
-            logger.warning("[%s] %s. Run: pip install aiohttp", self._log_tag, message)
+            self._set_fatal_error(
+                "qq_missing_dependency",
+                message,
+                retryable=True)
+            logger.warning(
+                "[%s] %s. Run: pip install aiohttp",
+                self._log_tag,
+                message)
             return False
         if not HTTPX_AVAILABLE:
             message = "QQ startup failed: httpx not installed"
-            self._set_fatal_error("qq_missing_dependency", message, retryable=True)
-            logger.warning("[%s] %s. Run: pip install httpx", self._log_tag, message)
+            self._set_fatal_error(
+                "qq_missing_dependency",
+                message,
+                retryable=True)
+            logger.warning(
+                "[%s] %s. Run: pip install httpx",
+                self._log_tag,
+                message)
             return False
         if not self._app_id or not self._client_secret:
             message = "QQ startup failed: QQ_APP_ID and QQ_CLIENT_SECRET are required"
-            self._set_fatal_error("qq_missing_credentials", message, retryable=True)
+            self._set_fatal_error(
+                "qq_missing_credentials",
+                message,
+                retryable=True)
             logger.warning("[%s] %s", self._log_tag, message)
             return False
 
         # Prevent duplicate connections with the same credentials
-        if not self._acquire_platform_lock("qqbot-appid", self._app_id, "QQBot app ID"):
+        if not self._acquire_platform_lock(
+                "qqbot-appid", self._app_id, "QQBot app ID"):
             return False
 
         try:
@@ -397,13 +422,16 @@ class QQAdapter(BasePlatformAdapter):
             try:
                 resp = await self._http_client.post(
                     TOKEN_URL,
-                    json={"appId": self._app_id, "clientSecret": self._client_secret},
+                    json={
+                        "appId": self._app_id,
+                        "clientSecret": self._client_secret},
                     timeout=DEFAULT_API_TIMEOUT,
                 )
                 resp.raise_for_status()
                 data = resp.json()
             except Exception as exc:
-                raise RuntimeError(f"Failed to get QQ Bot access token: {exc}") from exc
+                raise RuntimeError(
+                    f"Failed to get QQ Bot access token: {exc}") from exc
 
             token = data.get("access_token")
             if not token:
@@ -434,7 +462,8 @@ class QQAdapter(BasePlatformAdapter):
             resp.raise_for_status()
             data = resp.json()
         except Exception as exc:
-            raise RuntimeError(f"Failed to get QQ Bot gateway URL: {exc}") from exc
+            raise RuntimeError(
+                f"Failed to get QQ Bot gateway URL: {exc}") from exc
 
         url = data.get("url")
         if not url:
@@ -447,7 +476,8 @@ class QQAdapter(BasePlatformAdapter):
 
     async def _open_ws(self, gateway_url: str) -> None:
         """Open a WebSocket connection to the QQ Bot gateway."""
-        # Only clean up WebSocket resources — keep _http_client alive for REST API calls.
+        # Only clean up WebSocket resources — keep _http_client alive for REST
+        # API calls.
         if self._ws and not self._ws.closed:
             await self._ws.close()
         self._ws = None
@@ -456,7 +486,8 @@ class QQAdapter(BasePlatformAdapter):
         self._session = None
 
         # Honor WSL proxy env for QQ WebSocket. NasTech upgrades overwrite this
-        # local patch, so QQ can regress to direct-connect timeouts after update.
+        # local patch, so QQ can regress to direct-connect timeouts after
+        # update.
         self._session = aiohttp.ClientSession(trust_env=True)
         ws_proxy = (
             os.getenv("WSS_PROXY")
@@ -474,7 +505,10 @@ class QQAdapter(BasePlatformAdapter):
             timeout=CONNECT_TIMEOUT_SECONDS,
             proxy=ws_proxy,
         )
-        logger.info("[%s] WebSocket connected to %s", self._log_tag, gateway_url)
+        logger.info(
+            "[%s] WebSocket connected to %s",
+            self._log_tag,
+            gateway_url)
 
     async def _listen_loop(self) -> None:
         """Read WebSocket events and reconnect on errors.
@@ -510,7 +544,8 @@ class QQAdapter(BasePlatformAdapter):
                     exc.reason,
                 )
 
-                # Quick disconnect detection (permission issues, misconfiguration)
+                # Quick disconnect detection (permission issues,
+                # misconfiguration)
                 duration = time.monotonic() - connect_time
                 if duration < QUICK_DISCONNECT_THRESHOLD and connect_time > 0:
                     quick_disconnect_count += 1
@@ -561,7 +596,8 @@ class QQAdapter(BasePlatformAdapter):
                         4914: "offline/sandbox-only",
                         4915: "banned",
                     }
-                    desc = fatal_descriptions.get(code, f"fatal error (code={code})")
+                    desc = fatal_descriptions.get(
+                        code, f"fatal error (code={code})")
                     logger.error(
                         "[%s] Bot is %s. Check QQ Open Platform.", self._log_tag, desc
                     )
@@ -588,7 +624,8 @@ class QQAdapter(BasePlatformAdapter):
                         backoff_idx += 1
                     continue
 
-                # Token invalid → clear cached token so _ensure_token() refreshes
+                # Token invalid → clear cached token so _ensure_token()
+                # refreshes
                 if code == 4004:
                     logger.info(
                         "[%s] Invalid token (4004), will refresh and reconnect",
@@ -599,7 +636,8 @@ class QQAdapter(BasePlatformAdapter):
 
                 # Session invalid → clear session, will re-identify on next Hello
                 # Note: 4009 (connection timeout) is NOT included here — it is
-                # resumable per the QQ protocol and should preserve session state.
+                # resumable per the QQ protocol and should preserve session
+                # state.
                 if code in {
                         4006,
                         4007,
@@ -632,7 +670,9 @@ class QQAdapter(BasePlatformAdapter):
                 else:
                     backoff_idx += 1
                     if backoff_idx >= MAX_RECONNECT_ATTEMPTS:
-                        logger.error("[%s] Max reconnect attempts reached (QQCloseError)", self._log_tag)
+                        logger.error(
+                            "[%s] Max reconnect attempts reached (QQCloseError)",
+                            self._log_tag)
                         self._mark_disconnected()
                         return
 
@@ -644,7 +684,9 @@ class QQAdapter(BasePlatformAdapter):
                 self._fail_pending("Connection interrupted")
 
                 if backoff_idx >= MAX_RECONNECT_ATTEMPTS:
-                    logger.error("[%s] Max reconnect attempts reached", self._log_tag)
+                    logger.error(
+                        "[%s] Max reconnect attempts reached",
+                        self._log_tag)
                     self._mark_disconnected()
                     return
 
@@ -688,7 +730,7 @@ class QQAdapter(BasePlatformAdapter):
                 payload = self._parse_json(msg.data)
                 if payload:
                     self._dispatch_payload(payload)
-            elif msg.type in {aiohttp.WSMsgType.PING,}:
+            elif msg.type in {aiohttp.WSMsgType.PING, }:
                 # aiohttp auto-replies with PONG
                 pass
             elif msg.type == aiohttp.WSMsgType.CLOSE:
@@ -711,7 +753,8 @@ class QQAdapter(BasePlatformAdapter):
                     # d should be the latest sequence number received, or null
                     await self._ws.send_json({"op": 1, "d": self._last_seq})
                 except Exception as exc:
-                    logger.debug("[%s] Heartbeat failed: %s", self._log_tag, exc)
+                    logger.debug(
+                        "[%s] Heartbeat failed: %s", self._log_tag, exc)
         except asyncio.CancelledError:
             pass
 
@@ -730,9 +773,10 @@ class QQAdapter(BasePlatformAdapter):
             "d": {
                 "token": f"QQBot {token}",
                 "intents": (1 << 25)
-                           | (1 << 30)
-                           | (1 << 12)
-                           | (1 << 26),  # C2C_GROUP_AT_MESSAGES + PUBLIC_GUILD_MESSAGES + DIRECT_MESSAGE + INTERACTION
+                | (1 << 30)
+                | (1 << 12)
+                # C2C_GROUP_AT_MESSAGES + PUBLIC_GUILD_MESSAGES + DIRECT_MESSAGE + INTERACTION
+                | (1 << 26),
                 "shard": [0, 1],
                 "properties": {
                     "$os": "macOS",
@@ -750,7 +794,10 @@ class QQAdapter(BasePlatformAdapter):
                     "[%s] Cannot send Identify: WebSocket not connected", self._log_tag
                 )
         except Exception as exc:
-            logger.error("[%s] Failed to send Identify: %s", self._log_tag, exc)
+            logger.error(
+                "[%s] Failed to send Identify: %s",
+                self._log_tag,
+                exc)
 
     async def _send_resume(self) -> None:
         """Send op 6 Resume to re-authenticate after a reconnection.
@@ -781,7 +828,8 @@ class QQAdapter(BasePlatformAdapter):
                 )
         except Exception as exc:
             logger.error("[%s] Failed to send Resume: %s", self._log_tag, exc)
-            # If resume fails, clear session and fall back to identify on next Hello
+            # If resume fails, clear session and fall back to identify on next
+            # Hello
             self._session_id = None
             self._last_seq = None
 
@@ -804,7 +852,8 @@ class QQAdapter(BasePlatformAdapter):
         t = payload.get("t")
         s = payload.get("s")
         d = payload.get("d")
-        if isinstance(s, int) and (self._last_seq is None or s > self._last_seq):
+        if isinstance(s, int) and (
+                self._last_seq is None or s > self._last_seq):
             self._last_seq = s
 
         # op 10 = Hello (heartbeat interval) — must reply with Identify/Resume
@@ -820,7 +869,8 @@ class QQAdapter(BasePlatformAdapter):
                 self._heartbeat_interval,
             )
             # Authenticate: send Resume if we have a session, else Identify.
-            # Use _create_task which is safe when no event loop is running (tests).
+            # Use _create_task which is safe when no event loop is running
+            # (tests).
             if self._session_id and self._last_seq is not None:
                 self._create_task(self._send_resume())
             else:
@@ -855,7 +905,9 @@ class QQAdapter(BasePlatformAdapter):
         # load-balancing, maintenance).  Close the WS so _read_events raises
         # and the outer loop triggers a reconnect with Resume.
         if op == 7:
-            logger.info("[%s] Server requested reconnect (op 7)", self._log_tag)
+            logger.info(
+                "[%s] Server requested reconnect (op 7)",
+                self._log_tag)
             if self._ws and not self._ws.closed:
                 self._create_task(self._ws.close())
             return
@@ -872,7 +924,9 @@ class QQAdapter(BasePlatformAdapter):
                 self._session_id = None
                 self._last_seq = None
             else:
-                logger.info("[%s] Invalid session (op 9, resumable)", self._log_tag)
+                logger.info(
+                    "[%s] Invalid session (op 9, resumable)",
+                    self._log_tag)
             if self._ws and not self._ws.closed:
                 self._create_task(self._ws.close())
             return
@@ -883,7 +937,10 @@ class QQAdapter(BasePlatformAdapter):
         """Handle the READY event — store session_id for resume."""
         if isinstance(d, dict):
             self._session_id = d.get("session_id")
-            logger.info("[%s] Ready, session_id=%s", self._log_tag, self._session_id)
+            logger.info(
+                "[%s] Ready, session_id=%s",
+                self._log_tag,
+                self._session_id)
 
     # ------------------------------------------------------------------
     # JSON helpers
@@ -935,7 +992,7 @@ class QQAdapter(BasePlatformAdapter):
         # Route by event type
         if event_type == "C2C_MESSAGE_CREATE":
             await self._handle_c2c_message(d, msg_id, content, author, timestamp)
-        elif event_type in {"GROUP_AT_MESSAGE_CREATE",}:
+        elif event_type in {"GROUP_AT_MESSAGE_CREATE", }:
             await self._handle_group_message(d, msg_id, content, author, timestamp)
         elif event_type in {"GUILD_MESSAGE_CREATE", "GUILD_AT_MESSAGE_CREATE"}:
             await self._handle_guild_message(d, msg_id, content, author, timestamp)
@@ -1059,7 +1116,8 @@ class QQAdapter(BasePlatformAdapter):
     }
 
     @staticmethod
-    def _parse_gateway_session_key(session_key: str) -> Optional[Dict[str, str]]:
+    def _parse_gateway_session_key(
+            session_key: str) -> Optional[Dict[str, str]]:
         """Parse ``agent:main:<platform>:<chat_type>:<chat_id>[:<user_id>]``."""
         parts = str(session_key or "").split(":")
         if len(parts) < 5 or parts[0] != "agent" or parts[1] != "main":
@@ -1090,7 +1148,8 @@ class QQAdapter(BasePlatformAdapter):
             return bool(chat_id) and operator == chat_id
 
         if chat_type in {"group", "guild"}:
-            event_chat = str(event.group_openid or event.guild_id or "").strip()
+            event_chat = str(
+                event.group_openid or event.guild_id or "").strip()
             if not event_chat or event_chat != chat_id:
                 return False
             session_user = str(parsed.get("user_id", "")).strip()
@@ -1131,7 +1190,8 @@ class QQAdapter(BasePlatformAdapter):
                     self._log_tag, decision, session_key,
                 )
                 return
-            if not self._is_authorized_interaction_for_session(event, session_key):
+            if not self._is_authorized_interaction_for_session(
+                    event, session_key):
                 logger.warning(
                     "[%s] Rejected unauthorized approval click for session %s "
                     "(operator=%s)",
@@ -1158,8 +1218,11 @@ class QQAdapter(BasePlatformAdapter):
 
         update_answer = parse_update_prompt_button_data(button_data)
         if update_answer is not None:
-            update_session_key = f"agent:main:qqbot:{event.scene}:{event.group_openid or event.guild_id or event.user_openid}"
-            if not self._is_authorized_interaction_for_session(event, update_session_key):
+            update_session_key = f"agent:main:qqbot:{
+                event.scene}:{
+                event.group_openid or event.guild_id or event.user_openid}"
+            if not self._is_authorized_interaction_for_session(
+                    event, update_session_key):
                 logger.warning(
                     "[%s] Rejected unauthorized update prompt click (operator=%s)",
                     self._log_tag, event.operator_openid,
@@ -1264,7 +1327,8 @@ class QQAdapter(BasePlatformAdapter):
             len(voice_transcripts),
         )
 
-        # Merge any quoted-message context (message_type=103 → msg_elements[0]).
+        # Merge any quoted-message context (message_type=103 →
+        # msg_elements[0]).
         quoted = await self._process_quoted_context(d)
         text = self._merge_quote_into(text, quoted["quote_block"])
         if quoted["image_urls"]:
@@ -1282,7 +1346,8 @@ class QQAdapter(BasePlatformAdapter):
                 chat_type="dm",
             ),
             text=text,
-            message_type=self._detect_message_type(image_urls, image_media_types),
+            message_type=self._detect_message_type(
+                image_urls, image_media_types),
             raw_message=d,
             message_id=msg_id,
             media_urls=image_urls,
@@ -1329,7 +1394,8 @@ class QQAdapter(BasePlatformAdapter):
                 else attachment_info
             )
 
-        # Merge any quoted-message context (message_type=103 → msg_elements[0]).
+        # Merge any quoted-message context (message_type=103 →
+        # msg_elements[0]).
         quoted = await self._process_quoted_context(d)
         text = self._merge_quote_into(text, quoted["quote_block"])
         if quoted["image_urls"]:
@@ -1347,7 +1413,8 @@ class QQAdapter(BasePlatformAdapter):
                 chat_type="group",
             ),
             text=text,
-            message_type=self._detect_message_type(image_urls, image_media_types),
+            message_type=self._detect_message_type(
+                image_urls, image_media_types),
             raw_message=d,
             message_id=msg_id,
             media_urls=image_urls,
@@ -1403,7 +1470,8 @@ class QQAdapter(BasePlatformAdapter):
                 else attachment_info
             )
 
-        # Merge any quoted-message context (message_type=103 → msg_elements[0]).
+        # Merge any quoted-message context (message_type=103 →
+        # msg_elements[0]).
         quoted = await self._process_quoted_context(d)
         text = self._merge_quote_into(text, quoted["quote_block"])
         if quoted["image_urls"]:
@@ -1422,7 +1490,8 @@ class QQAdapter(BasePlatformAdapter):
                 chat_type="group",
             ),
             text=text,
-            message_type=self._detect_message_type(image_urls, image_media_types),
+            message_type=self._detect_message_type(
+                image_urls, image_media_types),
             raw_message=d,
             message_id=msg_id,
             media_urls=image_urls,
@@ -1474,7 +1543,8 @@ class QQAdapter(BasePlatformAdapter):
                 else attachment_info
             )
 
-        # Merge any quoted-message context (message_type=103 → msg_elements[0]).
+        # Merge any quoted-message context (message_type=103 →
+        # msg_elements[0]).
         quoted = await self._process_quoted_context(d)
         text = self._merge_quote_into(text, quoted["quote_block"])
         if quoted["image_urls"]:
@@ -1492,7 +1562,8 @@ class QQAdapter(BasePlatformAdapter):
                 chat_type="dm",
             ),
             text=text,
-            message_type=self._detect_message_type(image_urls, image_media_types),
+            message_type=self._detect_message_type(
+                image_urls, image_media_types),
             raw_message=d,
             message_id=msg_id,
             media_urls=image_urls,
@@ -1684,7 +1755,8 @@ class QQAdapter(BasePlatformAdapter):
             )
 
             if self._is_voice_content_type(ct, filename):
-                # Voice: use QQ's asr_refer_text first, then voice_wav_url, then STT.
+                # Voice: use QQ's asr_refer_text first, then voice_wav_url,
+                # then STT.
                 asr_refer = (
                     str(att.get("asr_refer_text", "")).strip()
                     if isinstance(att.get("asr_refer_text"), str)
@@ -1705,9 +1777,13 @@ class QQAdapter(BasePlatformAdapter):
                 )
                 if transcript:
                     voice_transcripts.append(f"[Voice] {transcript}")
-                    logger.debug("[%s] Voice transcript: %s", self._log_tag, transcript)
+                    logger.debug(
+                        "[%s] Voice transcript: %s",
+                        self._log_tag,
+                        transcript)
                 else:
-                    logger.warning("[%s] Voice STT failed for %s", self._log_tag, url[:60])
+                    logger.warning("[%s] Voice STT failed for %s",
+                                   self._log_tag, url[:60])
                     voice_transcripts.append("[Voice] [语音识别失败]")
             elif ct.startswith("image/"):
                 # Image: download and cache locally.
@@ -1723,21 +1799,29 @@ class QQAdapter(BasePlatformAdapter):
                             cached_path,
                         )
                 except Exception as exc:
-                    logger.debug("[%s] Failed to cache image: %s", self._log_tag, exc)
+                    logger.debug(
+                        "[%s] Failed to cache image: %s", self._log_tag, exc)
             else:
-                # Other attachments (video, file, etc.): download and record with path.
+                # Other attachments (video, file, etc.): download and record
+                # with path.
                 try:
                     cached_path = await self._download_and_cache(url, ct, filename)
                     if cached_path:
                         name = filename or ct
                         if ct.startswith("video/"):
-                            other_attachments.append(f"[video: {name} ({cached_path})]")
+                            other_attachments.append(
+                                f"[video: {name} ({cached_path})]")
                         else:
-                            other_attachments.append(f"[file: {name} ({cached_path})]")
+                            other_attachments.append(
+                                f"[file: {name} ({cached_path})]")
                 except Exception as exc:
-                    logger.debug("[%s] Failed to cache attachment: %s", self._log_tag, exc)
+                    logger.debug(
+                        "[%s] Failed to cache attachment: %s",
+                        self._log_tag,
+                        exc)
 
-        attachment_info = "\n".join(other_attachments) if other_attachments else ""
+        attachment_info = "\n".join(
+            other_attachments) if other_attachments else ""
         return {
             "image_urls": image_urls,
             "image_media_types": image_media_types,
@@ -1856,11 +1940,14 @@ class QQAdapter(BasePlatformAdapter):
                 voice_wav_url = f"https:{voice_wav_url}"
             download_url = voice_wav_url
             is_pre_wav = True
-            logger.debug("[%s] STT: using voice_wav_url (pre-converted WAV)", self._log_tag)
+            logger.debug(
+                "[%s] STT: using voice_wav_url (pre-converted WAV)",
+                self._log_tag)
 
         from tools.url_safety import is_safe_url
         if not is_safe_url(download_url):
-            logger.warning("[QQ] STT blocked unsafe URL: %s", download_url[:80])
+            logger.warning("[QQ] STT blocked unsafe URL: %s",
+                           download_url[:80])
             return None
 
         try:
@@ -1924,7 +2011,10 @@ class QQAdapter(BasePlatformAdapter):
                     return None
 
             # 4. Call STT API
-            logger.debug("[%s] STT: calling ASR on %s", self._log_tag, wav_path)
+            logger.debug(
+                "[%s] STT: calling ASR on %s",
+                self._log_tag,
+                wav_path)
             transcript = await self._call_stt(wav_path)
 
             # 5. Cleanup temp file
@@ -1934,9 +2024,12 @@ class QQAdapter(BasePlatformAdapter):
                 pass
 
             if transcript:
-                logger.debug("[%s] STT success: %r", self._log_tag, transcript[:100])
+                logger.debug("[%s] STT success: %r",
+                             self._log_tag, transcript[:100])
             else:
-                logger.warning("[%s] STT: ASR returned empty transcript", self._log_tag)
+                logger.warning(
+                    "[%s] STT: ASR returned empty transcript",
+                    self._log_tag)
             return transcript
         except (httpx.HTTPStatusError, httpx.TransportError, IOError) as exc:
             logger.warning(
@@ -2022,7 +2115,8 @@ class QQAdapter(BasePlatformAdapter):
         """Check if bytes look like a SILK audio file."""
         return data[:6] == b"#!SILK" or data[:2] == b"\x02!" or data[:9] == b"#!SILK_V3"
 
-    async def _convert_silk_to_wav(self, src_path: str, wav_path: str) -> Optional[str]:
+    async def _convert_silk_to_wav(
+            self, src_path: str, wav_path: str) -> Optional[str]:
         """Convert audio file to WAV using the pilk library.
 
         Tries the file as-is first, then as .silk if the extension differs.
@@ -2049,7 +2143,10 @@ class QQAdapter(BasePlatformAdapter):
                 )
                 return wav_path
         except Exception as exc:
-            logger.debug("[%s] pilk direct conversion failed: %s", self._log_tag, exc)
+            logger.debug(
+                "[%s] pilk direct conversion failed: %s",
+                self._log_tag,
+                exc)
 
         # Try renaming to .silk and converting (pilk checks the extension)
         silk_path = src_path.rsplit(".", 1)[0] + ".silk"
@@ -2067,7 +2164,10 @@ class QQAdapter(BasePlatformAdapter):
                 )
                 return wav_path
         except Exception as exc:
-            logger.debug("[%s] pilk .silk conversion failed: %s", self._log_tag, exc)
+            logger.debug(
+                "[%s] pilk .silk conversion failed: %s",
+                self._log_tag,
+                exc)
         finally:
             try:
                 os.unlink(silk_path)
@@ -2076,7 +2176,8 @@ class QQAdapter(BasePlatformAdapter):
 
         return None
 
-    async def _convert_raw_to_wav(self, audio_data: bytes, wav_path: str) -> Optional[str]:
+    async def _convert_raw_to_wav(
+            self, audio_data: bytes, wav_path: str) -> Optional[str]:
         """Last resort: try writing audio data as raw PCM 16-bit mono 16kHz WAV.
 
         This will produce garbage if the data isn't raw PCM, but at least
@@ -2092,10 +2193,14 @@ class QQAdapter(BasePlatformAdapter):
                 wf.writeframes(audio_data)
             return wav_path
         except Exception as exc:
-            logger.debug("[%s] raw PCM fallback failed: %s", self._log_tag, exc)
+            logger.debug(
+                "[%s] raw PCM fallback failed: %s",
+                self._log_tag,
+                exc)
             return None
 
-    async def _convert_ffmpeg_to_wav(self, src_path: str, wav_path: str) -> Optional[str]:
+    async def _convert_ffmpeg_to_wav(
+            self, src_path: str, wav_path: str) -> Optional[str]:
         """Convert audio file to WAV using ffmpeg."""
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -2122,7 +2227,10 @@ class QQAdapter(BasePlatformAdapter):
                 )
                 return None
         except (asyncio.TimeoutError, FileNotFoundError) as exc:
-            logger.warning("[%s] ffmpeg conversion error: %s", self._log_tag, exc)
+            logger.warning(
+                "[%s] ffmpeg conversion error: %s",
+                self._log_tag,
+                exc)
             return None
 
         if not Path(wav_path).exists() or Path(wav_path).stat().st_size <= 44:
@@ -2177,10 +2285,11 @@ class QQAdapter(BasePlatformAdapter):
                         "base_url": base_url,
                         "api_key": api_key,
                         "model": model
-                                 or ("glm-asr" if provider in {"zai", "glm"} else "whisper-1"),
+                        or ("glm-asr" if provider in {"zai", "glm"} else "whisper-1"),
                     }
 
-        # 2. QQ-specific env vars (set by `nastech setup gateway` / `nastech gateway`)
+        # 2. QQ-specific env vars (set by `nastech setup gateway` / `nastech
+        # gateway`)
         qq_stt_key = os.getenv("QQ_STT_API_KEY", "")
         if qq_stt_key:
             base_url = os.getenv(
@@ -2226,7 +2335,8 @@ class QQAdapter(BasePlatformAdapter):
                 )
             resp.raise_for_status()
             result = resp.json()
-            # Zhipu/GLM format: {"choices": [{"message": {"content": "transcript text"}}]}
+            # Zhipu/GLM format: {"choices": [{"message": {"content":
+            # "transcript text"}}]}
             choices = result.get("choices", [])
             if choices:
                 content = choices[0].get("message", {}).get("content", "")
@@ -2305,7 +2415,10 @@ class QQAdapter(BasePlatformAdapter):
             os.unlink(wav_path)
             return cache_document_from_bytes(wav_data, "qq_voice.wav")
         except Exception as exc:
-            logger.debug("[%s] Failed to read converted wav: %s", self._log_tag, exc)
+            logger.debug(
+                "[%s] Failed to read converted wav: %s",
+                self._log_tag,
+                exc)
             return None
 
     # ------------------------------------------------------------------
@@ -2416,9 +2529,15 @@ class QQAdapter(BasePlatformAdapter):
             await asyncio.sleep(self._RECONNECT_POLL_INTERVAL)
             waited += self._RECONNECT_POLL_INTERVAL
             if self.is_connected:
-                logger.info("[%s] Reconnected after %.1fs", self._log_tag, waited)
+                logger.info(
+                    "[%s] Reconnected after %.1fs",
+                    self._log_tag,
+                    waited)
                 return True
-        logger.warning("[%s] Still not connected after %.0fs", self._log_tag, self._RECONNECT_WAIT_SECONDS)
+        logger.warning(
+            "[%s] Still not connected after %.0fs",
+            self._log_tag,
+            self._RECONNECT_WAIT_SECONDS)
         return False
 
     async def send(
@@ -2437,7 +2556,8 @@ class QQAdapter(BasePlatformAdapter):
 
         if not self.is_connected:
             if not await self._wait_for_reconnection():
-                return SendResult(success=False, error="Not connected", retryable=True)
+                return SendResult(
+                    success=False, error="Not connected", retryable=True)
 
         if not content or not content.strip():
             return SendResult(success=True)
@@ -2854,7 +2974,8 @@ class QQAdapter(BasePlatformAdapter):
         """
         if not self.is_connected:
             if not await self._wait_for_reconnection():
-                return SendResult(success=False, error="Not connected", retryable=True)
+                return SendResult(
+                    success=False, error="Not connected", retryable=True)
 
         chat_type = self._guess_chat_type(chat_id)
         if chat_type == "guild":
@@ -2986,7 +3107,8 @@ class QQAdapter(BasePlatformAdapter):
         if not local_path.exists() or not local_path.is_file():
             if media_source.startswith("<") or len(media_source) < 3:
                 raise ValueError(
-                    f"Invalid media source (looks like a placeholder): {media_source!r}"
+                    f"Invalid media source (looks like a placeholder): {
+                        media_source!r}"
                 )
             raise FileNotFoundError(f"Media file not found: {local_path}")
 
@@ -3016,7 +3138,8 @@ class QQAdapter(BasePlatformAdapter):
         parsed = urlparse(source)
         if parsed.scheme in {"http", "https"}:
             # For URLs, pass through directly to the upload API
-            content_type = mimetypes.guess_type(source)[0] or "application/octet-stream"
+            content_type = mimetypes.guess_type(
+                source)[0] or "application/octet-stream"
             resolved_name = file_name or Path(parsed.path).name or "media"
             return source, content_type, resolved_name
 
@@ -3031,14 +3154,16 @@ class QQAdapter(BasePlatformAdapter):
             # sometimes emits instead of real file paths.
             if source.startswith("<") or len(source) < 3:
                 raise ValueError(
-                    f"Invalid media source (looks like a placeholder): {source!r}"
+                    f"Invalid media source (looks like a placeholder): {
+                        source!r}"
                 )
             raise FileNotFoundError(f"Media file not found: {local_path}")
 
         raw = local_path.read_bytes()
         resolved_name = file_name or local_path.name
         content_type = (
-                mimetypes.guess_type(str(local_path))[0] or "application/octet-stream"
+            mimetypes.guess_type(str(local_path))[
+                0] or "application/octet-stream"
         )
         b64 = base64.b64encode(raw).decode("ascii")
         return b64, content_type, resolved_name

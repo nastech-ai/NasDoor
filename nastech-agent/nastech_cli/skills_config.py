@@ -13,18 +13,21 @@ Config stored in ~/.nastech/config.yaml under:
 """
 from typing import List, Optional, Set
 
-from nastech_cli.config import cfg_get, load_config, save_config
 from nastech_cli.colors import Colors, color
+from nastech_cli.config import cfg_get, load_config, save_config
 from nastech_cli.platforms import PLATFORMS as _PLATFORMS
 
 # Backward-compatible view: {key: label_string} so existing code that
 # iterates ``PLATFORMS.items()`` or calls ``PLATFORMS.get(key)`` keeps
 # working without changes to every call site.
-PLATFORMS = {k: info.label for k, info in _PLATFORMS.items() if k != "api_server"}
+PLATFORMS = {k: info.label for k, info in _PLATFORMS.items() if k !=
+             "api_server"}
 
-# ─── Config Helpers ───────────────────────────────────────────────────────────
+# ─── Config Helpers ─────────────────────────────────────────────────────
 
-def get_disabled_skills(config: dict, platform: Optional[str] = None) -> Set[str]:
+
+def get_disabled_skills(
+        config: dict, platform: Optional[str] = None) -> Set[str]:
     """Return disabled skill names. Platform-specific list falls back to global."""
     skills_cfg = config.get("skills", {})
     global_disabled = set(skills_cfg.get("disabled", []))
@@ -36,7 +39,8 @@ def get_disabled_skills(config: dict, platform: Optional[str] = None) -> Set[str
     return set(platform_disabled)
 
 
-def save_disabled_skills(config: dict, disabled: Set[str], platform: Optional[str] = None):
+def save_disabled_skills(
+        config: dict, disabled: Set[str], platform: Optional[str] = None):
     """Persist disabled skill names to config."""
     config.setdefault("skills", {})
     if platform is None:
@@ -67,7 +71,8 @@ def _get_categories(skills: List[dict]) -> List[str]:
 
 def _select_platform() -> Optional[str]:
     """Ask user which platform to configure, or global."""
-    options = [("global", "All platforms (global default)")] + list(PLATFORMS.items())
+    options = [("global", "All platforms (global default)")] + \
+        list(PLATFORMS.items())
     print()
     print(color("  Configure skills for:", Colors.BOLD))
     for i, (key, label) in enumerate(options, 1):
@@ -100,7 +105,8 @@ def _toggle_by_category(skills: List[dict], disabled: Set[str]) -> Set[str]:
     # A category is "enabled" (checked) when NOT all its skills are disabled
     pre_selected = set()
     for i, cat in enumerate(categories):
-        cat_skills = [s["name"] for s in skills if (s["category"] or "uncategorized") == cat]
+        cat_skills = [s["name"] for s in skills if (
+            s["category"] or "uncategorized") == cat]
         cat_labels.append(f"{cat} ({len(cat_skills)} skills)")
         if not all(s in disabled for s in cat_skills):
             pre_selected.add(i)
@@ -112,7 +118,8 @@ def _toggle_by_category(skills: List[dict], disabled: Set[str]) -> Set[str]:
 
     new_disabled = set(disabled)
     for i, cat in enumerate(categories):
-        cat_skills = {s["name"] for s in skills if (s["category"] or "uncategorized") == cat}
+        cat_skills = {s["name"] for s in skills if (
+            s["category"] or "uncategorized") == cat}
         if i in chosen:
             new_disabled -= cat_skills  # category enabled → remove from disabled
         else:
@@ -120,7 +127,7 @@ def _toggle_by_category(skills: List[dict], disabled: Set[str]) -> Set[str]:
     return new_disabled
 
 
-# ─── Entry Point ──────────────────────────────────────────────────────────────
+# ─── Entry Point ────────────────────────────────────────────────────────
 
 def skills_command(args=None):
     """Entry point for `nastech skills`."""
@@ -135,7 +142,8 @@ def skills_command(args=None):
 
     # Step 1: Select platform
     platform = _select_platform()
-    platform_label = PLATFORMS.get(platform, "All platforms") if platform else "All platforms"
+    platform_label = PLATFORMS.get(
+        platform, "All platforms") if platform else "All platforms"
 
     # Step 2: Select mode — individual or by category
     print()
@@ -160,13 +168,15 @@ def skills_command(args=None):
             for s in skills
         ]
         # "selected" = enabled (not disabled) — matches the [✓] convention
-        pre_selected = {i for i, s in enumerate(skills) if s["name"] not in disabled}
+        pre_selected = {i for i, s in enumerate(
+            skills) if s["name"] not in disabled}
         chosen = curses_checklist(
             f"Skills for {platform_label}",
             labels, pre_selected, cancel_returns=pre_selected,
         )
         # Anything NOT chosen is disabled
-        new_disabled = {skills[i]["name"] for i in range(len(skills)) if i not in chosen}
+        new_disabled = {skills[i]["name"]
+                        for i in range(len(skills)) if i not in chosen}
 
     if new_disabled == disabled:
         print(color("  No changes.", Colors.DIM))
@@ -174,4 +184,8 @@ def skills_command(args=None):
 
     save_disabled_skills(config, new_disabled, platform)
     enabled_count = len(skills) - len(new_disabled)
-    print(color(f"✓ Saved: {enabled_count} enabled, {len(new_disabled)} disabled ({platform_label}).", Colors.GREEN))
+    print(
+        color(
+            f"✓ Saved: {enabled_count} enabled, {
+                len(new_disabled)} disabled ({platform_label}).",
+            Colors.GREEN))

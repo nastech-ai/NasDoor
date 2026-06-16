@@ -57,7 +57,89 @@ Usage:
 # ``nastech update`` to recover.  Missing the bootstrap means UTF-8 stdio
 # setup is skipped on Windows — degraded, not broken.  POSIX is unaffected.
 try:
-    import nastech_bootstrap  # noqa: F401
+import argparse
+import hashlib
+import json
+import logging
+import shutil
+import stat
+import subprocess
+import threading
+import time as _time
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+import nastech_bootstrap  # noqa: F401
+from nastech_cli import __release_date__, __version__
+from nastech_cli.config import get_nastech_home
+from nastech_cli.env_loader import load_nastech_dotenv
+from nastech_cli.model_setup_flows import (
+    _model_flow_anthropic,
+    _model_flow_api_key_provider,
+    _model_flow_azure_foundry,
+    _model_flow_bedrock,
+    _model_flow_bedrock_api_key,
+    _model_flow_copilot,
+    _model_flow_copilot_acp,
+    _model_flow_custom,
+    _model_flow_google_gemini_cli,
+    _model_flow_kimi,
+    _model_flow_minimax_oauth,
+    _model_flow_named_custom,
+    _model_flow_nous,
+    _model_flow_openai_codex,
+    _model_flow_openrouter,
+    _model_flow_qwen_oauth,
+    _model_flow_stepfun,
+    _model_flow_xai_oauth,
+)
+from nastech_cli.platform_detect import ensure_node as _ensure_node
+from nastech_cli.platform_detect import get_platform as _get_platform
+from nastech_cli.platform_detect import (
+    npm_install_web_with_fallbacks as _npm_install_web_fallbacks,
+)
+from nastech_cli.subcommands._shared import (
+    add_accept_hooks_flag as _add_accept_hooks_flag,
+)
+from nastech_cli.subcommands.acp import build_acp_parser
+from nastech_cli.subcommands.auth import build_auth_parser
+from nastech_cli.subcommands.backup import build_backup_parser
+from nastech_cli.subcommands.claw import build_claw_parser
+from nastech_cli.subcommands.config import build_config_parser
+from nastech_cli.subcommands.cron import build_cron_parser
+from nastech_cli.subcommands.dashboard import build_dashboard_parser
+from nastech_cli.subcommands.debug import build_debug_parser
+from nastech_cli.subcommands.doctor import build_doctor_parser
+from nastech_cli.subcommands.dump import build_dump_parser
+from nastech_cli.subcommands.gateway import build_gateway_parser
+from nastech_cli.subcommands.gui import build_gui_parser
+from nastech_cli.subcommands.hooks import build_hooks_parser
+from nastech_cli.subcommands.import_cmd import build_import_cmd_parser
+from nastech_cli.subcommands.insights import build_insights_parser
+from nastech_cli.subcommands.login import build_login_parser
+from nastech_cli.subcommands.logout import build_logout_parser
+from nastech_cli.subcommands.logs import build_logs_parser
+from nastech_cli.subcommands.mcp import build_mcp_parser
+from nastech_cli.subcommands.memory import build_memory_parser
+from nastech_cli.subcommands.model import build_model_parser
+from nastech_cli.subcommands.pairing import build_pairing_parser
+from nastech_cli.subcommands.plugins import build_plugins_parser
+from nastech_cli.subcommands.postinstall import build_postinstall_parser
+from nastech_cli.subcommands.profile import build_profile_parser
+from nastech_cli.subcommands.prompt_size import build_prompt_size_parser
+from nastech_cli.subcommands.security import build_security_parser
+from nastech_cli.subcommands.setup import build_setup_parser
+from nastech_cli.subcommands.skills import build_skills_parser
+from nastech_cli.subcommands.slack import build_slack_parser
+from nastech_cli.subcommands.status import build_status_parser
+from nastech_cli.subcommands.tools import build_tools_parser
+from nastech_cli.subcommands.uninstall import build_uninstall_parser
+from nastech_cli.subcommands.update import build_update_parser
+from nastech_cli.subcommands.version import build_version_parser
+from nastech_cli.subcommands.webhook import build_webhook_parser
+from nastech_cli.subcommands.whatsapp import build_whatsapp_parser
+
 except ModuleNotFoundError:
     pass
 
@@ -125,7 +207,10 @@ def _config_default_interface_early() -> str:
         if home:
             cfg_path = os.path.join(home, "config.yaml")
         else:
-            cfg_path = os.path.join(os.path.expanduser("~"), ".nastech", "config.yaml")
+            cfg_path = os.path.join(
+                os.path.expanduser("~"),
+                ".nastech",
+                "config.yaml")
         if os.path.exists(cfg_path):
             import yaml as _yaml_iface
 
@@ -227,13 +312,17 @@ def _read_openai_version_fast() -> str | None:
 def _print_fast_version_info() -> None:
     from nastech_cli import __release_date__, __version__
 
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+    project_root = os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            os.pardir))
     print(f"NasTech Agent v{__version__} ({__release_date__})")
     print(f"Project: {project_root}")
     print(f"Python: {sys.version.split()[0]}")
 
     openai_version = _read_openai_version_fast()
-    print(f"OpenAI SDK: {openai_version}" if openai_version else "OpenAI SDK: Not installed")
+    print(
+        f"OpenAI SDK: {openai_version}" if openai_version else "OpenAI SDK: Not installed")
 
 
 def _try_termux_ultrafast_version() -> bool:
@@ -251,60 +340,6 @@ def _try_termux_ultrafast_version() -> bool:
 
 if _try_termux_ultrafast_version():
     raise SystemExit(0)
-
-import argparse
-import hashlib
-import json
-import shutil
-import stat
-import subprocess
-from pathlib import Path
-from typing import Optional
-
-from nastech_cli.platform_detect import (
-    ensure_node as _ensure_node,
-    npm_install_web_with_fallbacks as _npm_install_web_fallbacks,
-    get_platform as _get_platform,
-)
-
-from nastech_cli.subcommands._shared import add_accept_hooks_flag as _add_accept_hooks_flag
-from nastech_cli.subcommands.cron import build_cron_parser
-from nastech_cli.subcommands.gateway import build_gateway_parser
-from nastech_cli.subcommands.profile import build_profile_parser
-from nastech_cli.subcommands.model import build_model_parser
-from nastech_cli.subcommands.setup import build_setup_parser
-from nastech_cli.subcommands.postinstall import build_postinstall_parser
-from nastech_cli.subcommands.whatsapp import build_whatsapp_parser
-from nastech_cli.subcommands.slack import build_slack_parser
-from nastech_cli.subcommands.login import build_login_parser
-from nastech_cli.subcommands.logout import build_logout_parser
-from nastech_cli.subcommands.auth import build_auth_parser
-from nastech_cli.subcommands.status import build_status_parser
-from nastech_cli.subcommands.webhook import build_webhook_parser
-from nastech_cli.subcommands.hooks import build_hooks_parser
-from nastech_cli.subcommands.doctor import build_doctor_parser
-from nastech_cli.subcommands.security import build_security_parser
-from nastech_cli.subcommands.dump import build_dump_parser
-from nastech_cli.subcommands.debug import build_debug_parser
-from nastech_cli.subcommands.backup import build_backup_parser
-from nastech_cli.subcommands.import_cmd import build_import_cmd_parser
-from nastech_cli.subcommands.config import build_config_parser
-from nastech_cli.subcommands.version import build_version_parser
-from nastech_cli.subcommands.update import build_update_parser
-from nastech_cli.subcommands.uninstall import build_uninstall_parser
-from nastech_cli.subcommands.dashboard import build_dashboard_parser
-from nastech_cli.subcommands.gui import build_gui_parser
-from nastech_cli.subcommands.logs import build_logs_parser
-from nastech_cli.subcommands.prompt_size import build_prompt_size_parser
-from nastech_cli.subcommands.memory import build_memory_parser
-from nastech_cli.subcommands.acp import build_acp_parser
-from nastech_cli.subcommands.tools import build_tools_parser
-from nastech_cli.subcommands.insights import build_insights_parser
-from nastech_cli.subcommands.skills import build_skills_parser
-from nastech_cli.subcommands.pairing import build_pairing_parser
-from nastech_cli.subcommands.plugins import build_plugins_parser
-from nastech_cli.subcommands.mcp import build_mcp_parser
-from nastech_cli.subcommands.claw import build_claw_parser
 
 
 def _require_tty(command_name: str) -> None:
@@ -416,11 +451,11 @@ def _apply_profile_override() -> None:
             for i, arg in enumerate(argv):
                 if arg in {"--profile", "-p"}:
                     start = i + 1  # +1 because argv is sys.argv[1:]
-                    sys.argv = sys.argv[:start] + sys.argv[start + consume :]
+                    sys.argv = sys.argv[:start] + sys.argv[start + consume:]
                     break
                 elif arg.startswith("--profile="):
                     start = i + 1
-                    sys.argv = sys.argv[:start] + sys.argv[start + 1 :]
+                    sys.argv = sys.argv[:start] + sys.argv[start + 1:]
                     break
 
 
@@ -428,8 +463,6 @@ _apply_profile_override()
 
 # Load .env from ~/.nastech/.env first, then project root as dev fallback.
 # User-managed env files should override stale shell exports on restart.
-from nastech_cli.config import get_nastech_home
-from nastech_cli.env_loader import load_nastech_dotenv
 
 load_nastech_dotenv(project_env=PROJECT_ROOT / ".env")
 
@@ -455,9 +488,11 @@ try:
             if isinstance(_early_sec_cfg, dict):
                 _early_redact = _early_sec_cfg.get("redact_secrets")
                 if _early_redact is not None:
-                    os.environ["NASTECH_REDACT_SECRETS"] = str(_early_redact).lower()
+                    os.environ["NASTECH_REDACT_SECRETS"] = str(
+                        _early_redact).lower()
         _early_net_cfg = _early_cfg_raw.get("network", {})
-        if isinstance(_early_net_cfg, dict) and _early_net_cfg.get("force_ipv4"):
+        if isinstance(_early_net_cfg, dict) and _early_net_cfg.get(
+                "force_ipv4"):
             _FORCE_IPV4_EARLY = True
         del _early_cfg_raw
     del _cfg_path
@@ -493,36 +528,11 @@ if _FORCE_IPV4_EARLY:
     except Exception:
         pass  # best-effort — don't crash if nastech_constants not importable yet
 
-import logging
-import threading
-import time as _time
-from datetime import datetime
-
-from nastech_cli import __version__, __release_date__
 
 # Provider model-selection wizard flows extracted to nastech_cli/model_setup_flows.py
 # (god-file decomposition Phase 2). Re-imported here so select_provider_and_model and
-# existing test monkeypatches (nastech_cli.main._model_flow_*) keep resolving unchanged.
-from nastech_cli.model_setup_flows import (
-    _model_flow_openrouter,
-    _model_flow_nous,
-    _model_flow_openai_codex,
-    _model_flow_xai_oauth,
-    _model_flow_qwen_oauth,
-    _model_flow_minimax_oauth,
-    _model_flow_google_gemini_cli,
-    _model_flow_custom,
-    _model_flow_azure_foundry,
-    _model_flow_named_custom,
-    _model_flow_copilot,
-    _model_flow_copilot_acp,
-    _model_flow_kimi,
-    _model_flow_stepfun,
-    _model_flow_bedrock_api_key,
-    _model_flow_bedrock,
-    _model_flow_api_key_provider,
-    _model_flow_anthropic,
-)
+# existing test monkeypatches (nastech_cli.main._model_flow_*) keep
+# resolving unchanged.
 logger = logging.getLogger(__name__)
 
 # Alias — tests patch nastech_cli.main._model_flow_nastech
@@ -547,7 +557,8 @@ def _read_packed_ref(common_dir: Path, ref: str) -> str | None:
     peel lines and ``#``-prefixed comments / ``# pack-refs with:`` header.
     """
     try:
-        text = (common_dir / "packed-refs").read_text(encoding="utf-8", errors="replace")
+        text = (common_dir /
+                "packed-refs").read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
     for line in text.splitlines():
@@ -564,7 +575,8 @@ def _read_git_revision_fingerprint(repo_root: Path) -> str | None:
     git_dir = repo_root / ".git"
     try:
         if git_dir.is_file():
-            for line in git_dir.read_text(encoding="utf-8", errors="replace").splitlines():
+            for line in git_dir.read_text(
+                    encoding="utf-8", errors="replace").splitlines():
                 key, _, value = line.partition(":")
                 if key.strip() == "gitdir" and value.strip():
                     git_dir = (repo_root / value.strip()).resolve()
@@ -576,7 +588,8 @@ def _read_git_revision_fingerprint(repo_root: Path) -> str | None:
         commondir_file = git_dir / "commondir"
         if commondir_file.exists():
             try:
-                rel = commondir_file.read_text(encoding="utf-8", errors="replace").strip()
+                rel = commondir_file.read_text(
+                    encoding="utf-8", errors="replace").strip()
                 if rel:
                     common_dir = (git_dir / rel).resolve()
             except OSError:
@@ -628,7 +641,8 @@ def _termux_bundled_skills_sync_needed() -> bool:
         return True
     try:
         stamp = _termux_bundled_skills_stamp_path()
-        return stamp.read_text(encoding="utf-8").strip() != _termux_bundled_skills_fingerprint()
+        return stamp.read_text(
+            encoding="utf-8").strip() != _termux_bundled_skills_fingerprint()
     except OSError:
         return True
 
@@ -639,7 +653,9 @@ def _mark_termux_bundled_skills_synced() -> None:
     try:
         stamp = _termux_bundled_skills_stamp_path()
         stamp.parent.mkdir(parents=True, exist_ok=True)
-        stamp.write_text(_termux_bundled_skills_fingerprint() + "\n", encoding="utf-8")
+        stamp.write_text(
+            _termux_bundled_skills_fingerprint() + "\n",
+            encoding="utf-8")
     except OSError:
         pass
 
@@ -687,14 +703,18 @@ def _relative_time(ts) -> str:
 
 def _has_any_provider_configured() -> bool:
     """Check if at least one inference provider is usable."""
-    from nastech_cli.config import get_env_path, get_nastech_home, load_config
     from nastech_cli.auth import get_auth_status
 
     # Determine whether NasTech itself has been explicitly configured (model
     # in config that isn't the hardcoded default). Used below to gate external
     # tool credentials (Claude Code, Codex CLI) that shouldn't silently skip
     # the setup wizard on a fresh install.
-    from nastech_cli.config import DEFAULT_CONFIG
+    from nastech_cli.config import (
+        DEFAULT_CONFIG,
+        get_env_path,
+        get_nastech_home,
+        load_config,
+    )
 
     _DEFAULT_MODEL = DEFAULT_CONFIG.get("model", "")
     cfg = load_config()
@@ -741,7 +761,8 @@ def _has_any_provider_configured() -> bool:
         except Exception:
             pass
 
-    # Check provider-specific auth fallbacks (for example, Copilot via gh auth).
+    # Check provider-specific auth fallbacks (for example, Copilot via gh
+    # auth).
     try:
         for provider_id, pconfig in PROVIDER_REGISTRY.items():
             if pconfig.auth_type != "api_key":
@@ -784,8 +805,8 @@ def _has_any_provider_configured() -> bool:
     if _has_nastech_config:
         try:
             from agent.anthropic_adapter import (
-                read_claude_code_credentials,
                 is_claude_code_token_valid,
+                read_claude_code_credentials,
             )
 
             creds = read_claude_code_credentials()
@@ -825,7 +846,8 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
             sid = s["id"][:18]
 
             # Adaptive column widths based on terminal width
-            # Layout: [arrow 3] [title/preview flexible] [active 12] [src 6] [id 18]
+            # Layout: [arrow 3] [title/preview flexible] [active 12] [src 6]
+            # [id 18]
             fixed_cols = 3 + 12 + 6 + 18 + 6  # arrow + active + src + id + padding
             name_width = max(20, max_x - fixed_cols)
 
@@ -856,7 +878,8 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                 curses.init_pair(1, curses.COLOR_GREEN, -1)  # selected
                 curses.init_pair(2, curses.COLOR_YELLOW, -1)  # header
                 curses.init_pair(3, curses.COLOR_CYAN, -1)  # search
-                curses.init_pair(4, 8 if curses.COLORS > 8 else curses.COLOR_WHITE, -1)  # dim
+                curses.init_pair(
+                    4, 8 if curses.COLORS > 8 else curses.COLOR_WHITE, -1)  # dim
 
             cursor = 0
             scroll_offset = 0
@@ -895,10 +918,14 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                 # Column header line
                 fixed_cols = 3 + 12 + 6 + 18 + 6
                 name_width = max(20, max_x - fixed_cols)
-                col_header = f"   {'Title / Preview':<{name_width}}  {'Active':<10}  {'Src':<5} {'ID'}"
+                col_header = f"   {
+                    'Title / Preview':<{name_width}}  {
+                    'Active':<10}  {
+                    'Src':<5} {'ID'}"
                 try:
                     dim_attr = (
-                        curses.color_pair(4) if curses.has_colors() else curses.A_DIM
+                        curses.color_pair(
+                            4) if curses.has_colors() else curses.A_DIM
                     )
                     stdscr.addnstr(1, 0, col_header, max_x - 1, dim_attr)
                 except curses.error:
@@ -960,7 +987,8 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                         0,
                         footer,
                         max_x - 1,
-                        curses.color_pair(4) if curses.has_colors() else curses.A_DIM,
+                        curses.color_pair(
+                            4) if curses.has_colors() else curses.A_DIM,
                     )
                 except curses.error:
                     pass
@@ -968,10 +996,10 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                 stdscr.refresh()
                 key = stdscr.getch()
 
-                if key in {curses.KEY_UP,}:
+                if key in {curses.KEY_UP, }:
                     if filtered:
                         cursor = (cursor - 1) % len(filtered)
-                elif key in {curses.KEY_DOWN,}:
+                elif key in {curses.KEY_DOWN, }:
                     if filtered:
                         cursor = (cursor + 1) % len(filtered)
                 elif key in {curses.KEY_ENTER, 10, 13}:
@@ -992,7 +1020,9 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
                     if search_text:
                         search_text = search_text[:-1]
                         if search_text:
-                            filtered = [s for s in sessions if _match(s, search_text)]
+                            filtered = [
+                                s for s in sessions if _match(
+                                    s, search_text)]
                         else:
                             filtered = list(sessions)
                         cursor = 0
@@ -1032,7 +1062,8 @@ def _session_browse_picker(sessions: list) -> Optional[str]:
             idx = int(val) - 1
             if 0 <= idx < len(sessions):
                 return sessions[idx]["id"]
-            print(f"  Invalid selection. Enter 1-{len(sessions)} or q to cancel.")
+            print(
+                f"  Invalid selection. Enter 1-{len(sessions)} or q to cancel.")
         except ValueError:
             print("  Invalid input. Enter a number or q to cancel.")
         except (KeyboardInterrupt, EOFError):
@@ -1116,7 +1147,8 @@ def _exec_in_container(container_info: dict, cli_args: list):
         sudo_path = shutil.which("sudo")
         if sudo_path:
             probe2 = _probe_container(
-                [sudo_path, "-n", runtime, "inspect", "--format", "ok", container_name],
+                [sudo_path, "-n", runtime, "inspect",
+                    "--format", "ok", container_name],
                 backend,
                 via_sudo=True,
             )
@@ -1143,7 +1175,8 @@ def _exec_in_container(container_info: dict, cli_args: list):
         else:
             print(
                 f"Error: container '{container_name}' not found via {backend}.\n"
-                f"The container may be running under root. Try: sudo nastech {' '.join(cli_args)}",
+                f"The container may be running under root. Try: sudo nastech {
+                    ' '.join(cli_args)}",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -1200,7 +1233,8 @@ def _resolve_session_by_name_or_id(name_or_id: str) -> Optional[str]:
             # Project forward through compression chain so resumes land on
             # the live tip instead of a dead compressed parent.
             try:
-                resolved_id = db.get_compression_tip(resolved_id) or resolved_id
+                resolved_id = db.get_compression_tip(
+                    resolved_id) or resolved_id
             except Exception:
                 pass
 
@@ -1278,7 +1312,9 @@ def _print_tui_exit_summary(
     print(
         "Tokens:         "
         f"{total_tokens} (in {input_tokens}, out {output_tokens}, "
-        f"cache {cache_read_tokens + cache_write_tokens}, reasoning {reasoning_tokens})"
+        f"cache {
+            cache_read_tokens +
+            cache_write_tokens}, reasoning {reasoning_tokens})"
     )
 
 
@@ -1401,8 +1437,12 @@ def _tui_need_npm_install(root: Path) -> bool:
     # can bump the root lockfile timestamp even when installed deps already
     # match. Fall back to mtime when either file is unparseable.
     try:
-        wanted = json.loads(lock.read_text(encoding="utf-8")).get("packages") or {}
-        installed = json.loads(marker.read_text(encoding="utf-8")).get("packages") or {}
+        wanted = json.loads(
+            lock.read_text(
+                encoding="utf-8")).get("packages") or {}
+        installed = json.loads(
+            marker.read_text(
+                encoding="utf-8")).get("packages") or {}
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return lock.stat().st_mtime > marker.stat().st_mtime
 
@@ -1516,7 +1556,8 @@ def _ensure_tui_node() -> None:
     if not helper.is_file():
         return
 
-    nastech_home = os.environ.get("NASTECH_HOME") or str(Path.home() / ".nastech")
+    nastech_home = os.environ.get(
+        "NASTECH_HOME") or str(Path.home() / ".nastech")
     try:
         # Helper writes logs to stderr; we ask bash to print `command -v node`
         # on stdout once ensure_node succeeds. Subshell PATH edits don't leak
@@ -1542,7 +1583,8 @@ def _ensure_tui_node() -> None:
     if resolved:
         extras.append(Path(resolved).resolve().parent)
 
-    extras.extend([Path(nastech_home) / "node" / "bin", Path.home() / ".local" / "bin"])
+    extras.extend([Path(nastech_home) / "node" / "bin",
+                  Path.home() / ".local" / "bin"])
 
     for extra in extras:
         s = str(extra)
@@ -1566,7 +1608,8 @@ def _make_tui_argv(tui_dir: Path, tui_dev: bool) -> tuple[list[str], Path]:
     def _node_bin(bin: str) -> str:
         if bin == "node":
             env_node = os.environ.get("NASTECH_NODE")
-            if env_node and os.path.isfile(env_node) and os.access(env_node, os.X_OK):
+            if env_node and os.path.isfile(
+                    env_node) and os.access(env_node, os.X_OK):
                 return env_node
         path = shutil.which(bin)
         if not path and bin == "node":
@@ -1837,7 +1880,9 @@ def _launch_tui(
         from nastech_cli.config import apply_terminal_config_to_env
         apply_terminal_config_to_env(env=env)
     except Exception:
-        logger.debug("Failed to apply terminal config bridge for TUI launch", exc_info=True)
+        logger.debug(
+            "Failed to apply terminal config bridge for TUI launch",
+            exc_info=True)
     active_session_fd, active_session_file = tempfile.mkstemp(
         prefix="nastech-tui-active-session-", suffix=".json"
     )
@@ -2035,7 +2080,12 @@ def _resolve_use_tui(args) -> bool:
     try:
         from nastech_cli.config import load_config
 
-        iface = (load_config().get("display", {}) or {}).get("interface", "cli")
+        iface = (
+            load_config().get(
+                "display",
+                {}) or {}).get(
+            "interface",
+            "cli")
         return isinstance(iface, str) and iface.strip().lower() == "tui"
     except Exception:
         return False
@@ -2081,13 +2131,13 @@ def cmd_chat(args):
 
     # xAI retirement warning — one-shot, non-blocking, never fails startup
     try:
+        from nastech_cli.config import load_config as _load_config_for_xai_check
         from nastech_cli.xai_retirement import (
             MIGRATION_GUIDE_URL,
             RETIREMENT_DATE,
             find_retired_xai_refs,
             format_issue,
         )
-        from nastech_cli.config import load_config as _load_config_for_xai_check
 
         _retired_xai_refs = find_retired_xai_refs(_load_config_for_xai_check())
         if _retired_xai_refs:
@@ -2097,8 +2147,10 @@ def cmd_chat(args):
             )
             for _ref in _retired_xai_refs:
                 sys.stderr.write(f"  \033[33m⚠\033[0m {format_issue(_ref)}\n")
-            sys.stderr.write(f"  \033[2mMigration guide: {MIGRATION_GUIDE_URL}\033[0m\n")
-            sys.stderr.write("  \033[2mRun 'nastech doctor' for details.\033[0m\n\n")
+            sys.stderr.write(
+                f"  \033[2mMigration guide: {MIGRATION_GUIDE_URL}\033[0m\n")
+            sys.stderr.write(
+                "  \033[2mRun 'nastech doctor' for details.\033[0m\n\n")
     except Exception:
         pass
 
@@ -2332,9 +2384,14 @@ def cmd_whatsapp(args):
                     "  Phone numbers that can message the bot (comma-separated): "
                 ).strip()
             else:
-                phone = input("  Your phone number (e.g. 15551234567): ").strip()
+                phone = input(
+                    "  Your phone number (e.g. 15551234567): ").strip()
             if phone:
-                save_env_value("WHATSAPP_ALLOWED_USERS", phone.replace(" ", ""))
+                save_env_value(
+                    "WHATSAPP_ALLOWED_USERS",
+                    phone.replace(
+                        " ",
+                        ""))
                 print(f"  ✓ Updated to: {phone}")
     else:
         print()
@@ -2381,7 +2438,8 @@ def cmd_whatsapp(args):
             return
         if result.returncode != 0:
             err = (result.stderr or "").strip()
-            preview = "\n".join(err.splitlines()[-30:]) if err else "(no output)"
+            preview = "\n".join(
+                err.splitlines()[-30:]) if err else "(no output)"
             print("  ✗ npm install failed:")
             print(preview)
             return
@@ -2431,7 +2489,8 @@ def cmd_whatsapp(args):
 
     try:
         subprocess.run(
-            ["node", str(bridge_script), "--pair-only", "--session", str(session_dir)],
+            ["node", str(bridge_script), "--pair-only",
+             "--session", str(session_dir)],
             cwd=str(bridge_dir),
         )
     except KeyboardInterrupt:
@@ -2533,14 +2592,14 @@ def select_provider_and_model(args=None):
     persistence.
     """
     from nastech_cli.auth import (
-        resolve_provider,
         AuthError,
         format_auth_error,
+        resolve_provider,
     )
     from nastech_cli.config import (
         get_compatible_custom_providers,
-        load_config,
         get_env_value,
+        load_config,
     )
     from nastech_cli.providers import resolve_provider_full
 
@@ -2561,6 +2620,7 @@ def select_provider_and_model(args=None):
         config_provider or os.getenv("NASTECH_INFERENCE_PROVIDER") or "auto"
     )
     compatible_custom_providers = get_compatible_custom_providers(config)
+
     def _named_custom_provider_map(cfg) -> dict[str, dict[str, str]]:
         from nastech_cli.config import read_raw_config
 
@@ -2614,7 +2674,9 @@ def select_provider_and_model(args=None):
                 _record_raw(
                     raw_entry.get("name", ""),
                     "",
-                    raw_entry.get("model", "") or raw_entry.get("default_model", ""),
+                    raw_entry.get(
+                        "model", "") or raw_entry.get(
+                        "default_model", ""),
                     raw_entry.get("api_key", ""),
                     raw_entry.get("base_url", "")
                     or raw_entry.get("url", "")
@@ -2628,7 +2690,9 @@ def select_provider_and_model(args=None):
                 _record_raw(
                     raw_entry.get("name", "") or raw_key,
                     raw_key,
-                    raw_entry.get("model", "") or raw_entry.get("default_model", ""),
+                    raw_entry.get(
+                        "model", "") or raw_entry.get(
+                        "default_model", ""),
                     raw_entry.get("api_key", ""),
                     raw_entry.get("base_url", "")
                     or raw_entry.get("url", "")
@@ -2680,10 +2744,12 @@ def select_provider_and_model(args=None):
                 "api_mode": entry.get("api_mode", ""),
                 "provider_key": provider_key,
                 "api_key_ref": _lookup_ref(
-                    raw_api_key_refs, name, provider_key, entry.get("model", "")
+                    raw_api_key_refs, name, provider_key, entry.get(
+                        "model", "")
                 ),
                 "base_url_ref": _lookup_ref(
-                    raw_base_url_refs, name, provider_key, entry.get("model", "")
+                    raw_base_url_refs, name, provider_key, entry.get(
+                        "model", "")
                 ),
             }
         return custom_provider_map
@@ -2703,7 +2769,8 @@ def select_provider_and_model(args=None):
         if not current_base:
             return ""
         for key, provider_info in _custom_provider_map.items():
-            if _norm_base_url(provider_info.get("base_url", "")) == current_base:
+            if _norm_base_url(provider_info.get(
+                    "base_url", "")) == current_base:
                 return key
         return ""
 
@@ -2724,14 +2791,16 @@ def select_provider_and_model(args=None):
                 "available providers, or run 'nastech doctor' to diagnose config "
                 "issues."
             )
-            print(f"Warning: {warning} Falling back to auto provider detection.")
+            print(
+                f"Warning: {warning} Falling back to auto provider detection.")
     if not active:
         try:
             active = resolve_provider("auto")
         except AuthError as exc:
             if effective_provider == "auto":
                 warning = format_auth_error(exc)
-                print(f"Warning: {warning} Falling back to auto provider detection.")
+                print(
+                    f"Warning: {warning} Falling back to auto provider detection.")
             active = None  # no provider yet; default to first in list
 
     # Detect custom endpoint
@@ -2739,8 +2808,8 @@ def select_provider_and_model(args=None):
         active = "custom"
 
     from nastech_cli.models import (
-        CANONICAL_PROVIDERS,
         _PROVIDER_LABELS,
+        CANONICAL_PROVIDERS,
         group_providers,
         provider_group_for_slug,
     )
@@ -2749,7 +2818,8 @@ def select_provider_and_model(args=None):
     if active and active in _custom_provider_map:
         active_label = _custom_provider_map[active]["name"]
     else:
-        active_label = provider_labels.get(active, active) if active else "none"
+        active_label = provider_labels.get(
+            active, active) if active else "none"
 
     print()
     print(f"  Current model:    {current_model}")
@@ -2779,7 +2849,9 @@ def select_provider_and_model(args=None):
         if row["kind"] == "group":
             gid = row["group_id"]
             group_desc = row.get("description", "")
-            label = f"{row['label']} ▸ ({group_desc})" if group_desc else f"{row['label']} ▸"
+            label = f"{
+                row['label']} ▸ ({group_desc})" if group_desc else f"{
+                row['label']} ▸"
             key = f"group:{gid}"
             is_active = bool(active_group) and gid == active_group
             members = row["members"]
@@ -2798,7 +2870,11 @@ def select_provider_and_model(args=None):
     for key, provider_info in _custom_provider_map.items():
         name = provider_info["name"]
         base_url = provider_info["base_url"]
-        short_url = base_url.replace("https://", "").replace("http://", "").rstrip("/")
+        short_url = base_url.replace(
+            "https://",
+            "").replace(
+            "http://",
+            "").rstrip("/")
         saved_model = provider_info.get("model", "")
         model_hint = f" — {saved_model}" if saved_model else ""
         label = f"{name} ({short_url}){model_hint}"
@@ -2838,7 +2914,8 @@ def select_provider_and_model(args=None):
         member_labels = [
             provider_labels.get(m, m) for m in selected_members
         ]
-        member_idx = _prompt_provider_choice(member_labels, default=member_default)
+        member_idx = _prompt_provider_choice(
+            member_labels, default=member_default)
         if member_idx is None:
             print("No change.")
             return
@@ -2875,7 +2952,8 @@ def select_provider_and_model(args=None):
         selected_provider.startswith("custom:")
         or selected_provider in _custom_provider_map
     ):
-        provider_info = _named_custom_provider_map(load_config()).get(selected_provider)
+        provider_info = _named_custom_provider_map(
+            load_config()).get(selected_provider)
         if provider_info is None:
             print(
                 "Warning: the selected saved custom provider is no longer available. "
@@ -2939,7 +3017,7 @@ def _clear_stale_openai_base_url():
     requests to the old custom endpoint instead of the newly selected
     provider.  See issue #5161.
     """
-    from nastech_cli.config import get_env_value, save_env_value, load_config
+    from nastech_cli.config import get_env_value, load_config, save_env_value
 
     cfg = load_config()
     model_cfg = cfg.get("model", {})
@@ -3003,7 +3081,10 @@ def _all_aux_tasks() -> list[tuple[str, str, str]]:
     try:
         from nastech_cli.plugins import get_plugin_auxiliary_tasks
         for entry in get_plugin_auxiliary_tasks():
-            tasks.append((entry["key"], entry["display_name"], entry["description"]))
+            tasks.append(
+                (entry["key"],
+                 entry["display_name"],
+                    entry["description"]))
     except Exception:
         # Plugin discovery failure must not break the aux config UI.
         # Built-in tasks remain available.
@@ -3019,7 +3100,11 @@ def _format_aux_current(task_cfg: dict) -> str:
     provider = str(task_cfg.get("provider") or "auto").strip() or "auto"
     model = str(task_cfg.get("model") or "").strip()
     if base_url:
-        short = base_url.replace("https://", "").replace("http://", "").rstrip("/")
+        short = base_url.replace(
+            "https://",
+            "").replace(
+            "http://",
+            "").rstrip("/")
         return f"custom ({short})" + (f" · {model}" if model else "")
     if provider == "auto":
         return "auto" + (f" · {model}" if model else "")
@@ -3104,7 +3189,11 @@ def _aux_config_menu() -> None:
 
     while True:
         cfg = load_config()
-        aux = cfg.get("auxiliary", {}) if isinstance(cfg.get("auxiliary"), dict) else {}
+        aux = cfg.get(
+            "auxiliary",
+            {}) if isinstance(
+            cfg.get("auxiliary"),
+            dict) else {}
 
         print()
         print("  Auxiliary models — side-task routing")
@@ -3123,7 +3212,11 @@ def _aux_config_menu() -> None:
         entries: list[tuple[str, str]] = []
         for task_key, name, desc in all_tasks:
             task_cfg = (
-                aux.get(task_key, {}) if isinstance(aux.get(task_key), dict) else {}
+                aux.get(
+                    task_key,
+                    {}) if isinstance(
+                    aux.get(task_key),
+                    dict) else {}
             )
             current = _format_aux_current(task_cfg)
             label = (
@@ -3166,13 +3259,19 @@ def _aux_select_for_task(task: str) -> None:
     from nastech_cli.model_switch import list_authenticated_providers
 
     cfg = load_config()
-    aux = cfg.get("auxiliary", {}) if isinstance(cfg.get("auxiliary"), dict) else {}
+    aux = cfg.get(
+        "auxiliary",
+        {}) if isinstance(
+        cfg.get("auxiliary"),
+        dict) else {}
     task_cfg = aux.get(task, {}) if isinstance(aux.get(task), dict) else {}
-    current_provider = str(task_cfg.get("provider") or "auto").strip() or "auto"
+    current_provider = str(task_cfg.get("provider")
+                           or "auto").strip() or "auto"
     current_model = str(task_cfg.get("model") or "").strip()
     current_base_url = str(task_cfg.get("base_url") or "").strip()
 
-    display_name = next((name for key, name, _ in _all_aux_tasks() if key == task), task)
+    display_name = next(
+        (name for key, name, _ in _all_aux_tasks() if key == task), task)
 
     # Gather authenticated providers (has credentials + curated model list)
     try:
@@ -3205,14 +3304,18 @@ def _aux_select_for_task(task: str) -> None:
 
     # Custom endpoint (raw base_url)
     custom_marker = "  ← current" if current_base_url else ""
-    entries.append(("__custom__", f"Custom endpoint (direct URL){custom_marker}", []))
+    entries.append(
+        ("__custom__", f"Custom endpoint (direct URL){custom_marker}", []))
     entries.append(("__back__", "Back", []))
 
     print()
-    print(f"  Configure {display_name} — current: {_format_aux_current(task_cfg)}")
+    print(
+        f"  Configure {display_name} — current: {
+            _format_aux_current(task_cfg)}")
     print()
 
-    idx = _prompt_provider_choice([label for _, label, _ in entries], default=0)
+    idx = _prompt_provider_choice(
+        [label for _, label, _ in entries], default=0)
     if idx is None:
         return
     slug, _label, models = entries[idx]
@@ -3221,7 +3324,12 @@ def _aux_select_for_task(task: str) -> None:
         return
 
     if slug == "__auto__":
-        _save_aux_choice(task, provider="auto", model="", base_url="", api_key="")
+        _save_aux_choice(
+            task,
+            provider="auto",
+            model="",
+            base_url="",
+            api_key="")
         print(f"{display_name}: reset to auto.")
         return
 
@@ -3243,7 +3351,8 @@ def _aux_flow_provider_model(
     from nastech_cli.auth import _prompt_model_selection
     from nastech_cli.models import get_pricing_for_provider
 
-    display_name = next((name for key, name, _ in _all_aux_tasks() if key == task), task)
+    display_name = next(
+        (name for key, name, _ in _all_aux_tasks() if key == task), task)
 
     # Fetch live pricing for this provider (non-blocking)
     pricing: dict = {}
@@ -3289,7 +3398,8 @@ def _aux_flow_custom_endpoint(task: str, task_cfg: dict) -> None:
     """Prompt for a direct OpenAI-compatible base_url + optional api_key/model."""
     from nastech_cli.secret_prompt import masked_secret_prompt
 
-    display_name = next((name for key, name, _ in _all_aux_tasks() if key == task), task)
+    display_name = next(
+        (name for key, name, _ in _all_aux_tasks() if key == task), task)
     current_base_url = str(task_cfg.get("base_url") or "").strip()
     current_model = str(task_cfg.get("model") or "").strip()
 
@@ -3336,7 +3446,8 @@ def _aux_flow_custom_endpoint(task: str, task_cfg: dict) -> None:
         api_key=api_key,
     )
     short_url = url.replace("https://", "").replace("http://", "").rstrip("/")
-    print(f"{display_name}: custom ({short_url})" + (f" · {model}" if model else ""))
+    print(f"{display_name}: custom ({short_url})" +
+          (f" · {model}" if model else ""))
 
 
 def _prompt_provider_choice(choices, *, default=0):
@@ -3378,29 +3489,14 @@ def _prompt_provider_choice(choices, *, default=0):
             return None
 
 
-
-
-
-
-
-
-
-
 _DEFAULT_QWEN_PORTAL_MODELS = [
     "qwen3-coder-plus",
     "qwen3-coder",
 ]
 
 
-
-
-
-
-
-
-
-
-def _prompt_custom_api_mode_selection(base_url: str, current_api_mode: str = "") -> Optional[str]:
+def _prompt_custom_api_mode_selection(
+        base_url: str, current_api_mode: str = "") -> Optional[str]:
     """Prompt for a custom provider API mode.
 
     Returns an explicit mode string, or None to keep auto-detect behavior.
@@ -3504,7 +3600,8 @@ def _custom_provider_api_key_config_value(provider_info, resolved_api_key=""):
     return str(resolved_api_key or "").strip()
 
 
-def _custom_provider_base_url_config_value(provider_info, resolved_base_url=""):
+def _custom_provider_base_url_config_value(
+        provider_info, resolved_base_url=""):
     """Return the value that should be persisted for a custom provider URL."""
     base_url_ref = str(provider_info.get("base_url_ref", "") or "").strip()
     if base_url_ref:
@@ -3576,8 +3673,6 @@ def _save_custom_provider(
     print(f'  💾 Saved to custom providers as "{name}" (edit in config.yaml)')
 
 
-
-
 def _remove_custom_provider(config):
     """Let the user remove a saved custom provider from config.yaml."""
     from nastech_cli.config import load_config, save_config
@@ -3595,7 +3690,11 @@ def _remove_custom_provider(config):
         if isinstance(entry, dict):
             name = entry.get("name", "unnamed")
             url = entry.get("base_url", "")
-            short_url = url.replace("https://", "").replace("http://", "").rstrip("/")
+            short_url = url.replace(
+                "https://",
+                "").replace(
+                "http://",
+                "").rstrip("/")
             choices.append(f"{name} ({short_url})")
         else:
             choices.append(str(entry))
@@ -3631,11 +3730,11 @@ def _remove_custom_provider(config):
     cfg["custom_providers"] = providers
     save_config(cfg)
     removed_name = (
-        removed.get("name", "unnamed") if isinstance(removed, dict) else str(removed)
+        removed.get(
+            "name", "unnamed") if isinstance(
+            removed, dict) else str(removed)
     )
     print(f'✅ Removed "{removed_name}" from custom providers.')
-
-
 
 
 # Lazy-export the model catalog at module level. Tests and a handful of
@@ -3655,6 +3754,7 @@ def __getattr__(name):
     """Defer the model-catalog import until something actually reads it."""
     if name in _LAZY_MODEL_EXPORTS:
         from nastech_cli.models import _PROVIDER_MODELS
+
         # Cache on the module so subsequent accesses skip the import machinery.
         globals()[name] = _PROVIDER_MODELS
         return _PROVIDER_MODELS
@@ -3685,7 +3785,8 @@ def _prompt_reasoning_effort_selection(efforts, current_effort=""):
     )
     canonical_order = ("minimal", "low", "medium", "high", "xhigh")
     ordered = [effort for effort in canonical_order if effort in deduped]
-    ordered.extend(effort for effort in deduped if effort not in canonical_order)
+    ordered.extend(
+        effort for effort in deduped if effort not in canonical_order)
     if not ordered:
         return None
 
@@ -3739,7 +3840,8 @@ def _prompt_reasoning_effort_selection(efforts, current_effort=""):
 
     while True:
         try:
-            choice = input(f"Choice [1-{n + 2}] (default: keep current): ").strip()
+            choice = input(
+                f"Choice [1-{n + 2}] (default: keep current): ").strip()
             if not choice:
                 return None
             idx = int(choice)
@@ -3756,11 +3858,8 @@ def _prompt_reasoning_effort_selection(efforts, current_effort=""):
             return None
 
 
-
-
-
-
-def _prompt_api_key(pconfig, existing_key: str, provider_id: str = "") -> tuple:
+def _prompt_api_key(pconfig, existing_key: str,
+                    provider_id: str = "") -> tuple:
     """Shared API-key entry point for ``nastech setup`` / ``nastech model``.
 
     Handles both first-time entry and the already-configured case.  When a key
@@ -3779,7 +3878,8 @@ def _prompt_api_key(pconfig, existing_key: str, provider_id: str = "") -> tuple:
 
     def _prompt_new_key(*, allow_lmstudio_default: bool) -> str:
         if provider_id == "lmstudio" and allow_lmstudio_default:
-            prompt = f"{key_env} (Enter for no-auth default {LMSTUDIO_NOAUTH_PLACEHOLDER!r}): "
+            prompt = f"{key_env} (Enter for no-auth default {
+                LMSTUDIO_NOAUTH_PLACEHOLDER!r}): "
         else:
             prompt = f"{key_env} (or Enter to cancel): "
         try:
@@ -3815,7 +3915,8 @@ def _prompt_api_key(pconfig, existing_key: str, provider_id: str = "") -> tuple:
         print()
         return existing_key, False
     try:
-        choice = input("  [K]eep / [R]eplace / [C]lear (default K): ").strip().lower()
+        choice = input(
+            "  [K]eep / [R]eplace / [C]lear (default K): ").strip().lower()
     except (KeyboardInterrupt, EOFError):
         print()
         choice = "k"
@@ -3834,15 +3935,14 @@ def _prompt_api_key(pconfig, existing_key: str, provider_id: str = "") -> tuple:
     if choice.startswith("c"):
         save_env_value(key_env, "")
         print(
-            f"  API key cleared.  Re-run `nastech setup` to configure {pconfig.name} again."
+            f"  API key cleared.  Re-run `nastech setup` to configure {
+                pconfig.name} again."
         )
         return "", True
 
     # Keep (default, or any other input)
     print()
     return existing_key, False
-
-
 
 
 def _infer_stepfun_region(base_url: str) -> str:
@@ -3866,20 +3966,12 @@ def _stepfun_base_url_for_region(region: str) -> str:
     )
 
 
-
-
-
-
-
-
-
-
 def _run_anthropic_oauth_flow(save_env_value):
     """Run the Claude OAuth setup-token flow. Returns True if credentials were saved."""
     from agent.anthropic_adapter import (
-        run_oauth_setup_token,
-        read_claude_code_credentials,
         is_claude_code_token_valid,
+        read_claude_code_credentials,
+        run_oauth_setup_token,
     )
     from nastech_cli.config import (
         save_anthropic_oauth_token,
@@ -3892,14 +3984,16 @@ def _run_anthropic_oauth_flow(save_env_value):
         except Exception:
             creds = None
         if creds and (
-            is_claude_code_token_valid(creds) or bool(creds.get("refreshToken"))
+            is_claude_code_token_valid(creds) or bool(
+                creds.get("refreshToken"))
         ):
             use_anthropic_claude_code_credentials(save_fn=save_env_value)
             print("  ✓ Claude Code credentials linked.")
             from nastech_constants import display_nastech_home as _dhh_fn
 
             print(
-                f"    NasTech will use Claude's credential store directly instead of copying a setup-token into {_dhh_fn()}/.env."
+                f"    NasTech will use Claude's credential store directly instead of copying a setup-token into {
+                    _dhh_fn()}/.env."
             )
             return True
         return False
@@ -3955,7 +4049,8 @@ def _run_anthropic_oauth_flow(save_env_value):
         from nastech_cli.secret_prompt import masked_secret_prompt
 
         try:
-            token = masked_secret_prompt("  Setup-token (or Enter to cancel): ").strip()
+            token = masked_secret_prompt(
+                "  Setup-token (or Enter to cancel): ").strip()
         except (KeyboardInterrupt, EOFError):
             print()
             return False
@@ -3965,8 +4060,6 @@ def _run_anthropic_oauth_flow(save_env_value):
             return True
         print("  Cancelled — install Claude Code and try again.")
         return False
-
-
 
 
 def cmd_login(args):
@@ -4129,7 +4222,8 @@ def _print_version_info(*, check_updates: bool = True) -> None:
     # ``import openai`` — the SDK drags in ~800ms of pydantic-backed type
     # modules just to expose ``__version__``.  Metadata lookup is ~2ms.
     try:
-        from importlib.metadata import version as _pkg_version, PackageNotFoundError
+        from importlib.metadata import PackageNotFoundError
+        from importlib.metadata import version as _pkg_version
 
         try:
             print(f"OpenAI SDK: {_pkg_version('openai')}")
@@ -4141,7 +4235,8 @@ def _print_version_info(*, check_updates: bool = True) -> None:
     if not check_updates:
         return
 
-    # Show update status (synchronous — acceptable since user asked for version info)
+    # Show update status (synchronous — acceptable since user asked for
+    # version info)
     try:
         from nastech_cli.banner import check_for_updates
         from nastech_cli.config import recommended_update_command
@@ -4253,7 +4348,8 @@ def _capture_head_sha(git_cmd, cwd) -> str | None:
         return None
 
 
-def _validate_critical_files_syntax(root) -> tuple[bool, str | None, str | None]:
+def _validate_critical_files_syntax(
+        root) -> tuple[bool, str | None, str | None]:
     """Compile each file in ``_UPDATE_CRITICAL_FILES`` to catch SyntaxErrors.
 
     These are the files imported on every ``nastech`` startup; if any of them
@@ -4281,7 +4377,8 @@ def _validate_critical_files_syntax(root) -> tuple[bool, str | None, str | None]
             path = root / relpath
             if not path.exists():
                 # Missing file is suspicious but not necessarily fatal — a future
-                # refactor may legitimately remove one of these. Skip and move on.
+                # refactor may legitimately remove one of these. Skip and move
+                # on.
                 continue
             # Mirror the relative path under the tmpdir so two different
             # files with the same basename don't collide on the cfile name.
@@ -4295,7 +4392,8 @@ def _validate_critical_files_syntax(root) -> tuple[bool, str | None, str | None]
     return True, None, None
 
 
-def _gateway_prompt(prompt_text: str, default: str = "", timeout: float = 300.0) -> str:
+def _gateway_prompt(prompt_text: str, default: str = "",
+                    timeout: float = 300.0) -> str:
     """File-based IPC prompt for gateway mode.
 
     Writes a prompt marker file so the gateway can forward the question to the
@@ -4307,6 +4405,7 @@ def _gateway_prompt(prompt_text: str, default: str = "", timeout: float = 300.0)
     """
     import json as _json
     import uuid as _uuid
+
     from nastech_constants import get_nastech_home
 
     home = get_nastech_home()
@@ -4368,7 +4467,8 @@ def _web_ui_build_needed(web_dir: Path) -> bool:
     for dirpath, dirnames, filenames in os.walk(web_dir, topdown=True):
         dirnames[:] = [d for d in dirnames if d not in skip]
         for fn in filenames:
-            if fn.endswith((".ts", ".tsx", ".js", ".jsx", ".css", ".html", ".vue")):
+            if fn.endswith((".ts", ".tsx", ".js", ".jsx",
+                           ".css", ".html", ".vue")):
                 if os.path.getmtime(os.path.join(dirpath, fn)) > dist_mtime:
                     return True
     for meta in (
@@ -4431,7 +4531,8 @@ def _run_with_idle_timeout(
         )
     except OSError as exc:
         # E.g. npm not on PATH between the which() check and now.
-        return subprocess.CompletedProcess(cmd, 127, stdout="", stderr=str(exc))
+        return subprocess.CompletedProcess(
+            cmd, 127, stdout="", stderr=str(exc))
 
     def _reader() -> None:
         nonlocal last_output_ts
@@ -4442,7 +4543,9 @@ def _run_with_idle_timeout(
             except UnicodeEncodeError:
                 # Windows cp1252 fallback — same pattern as _say().
                 enc = getattr(sys.stdout, "encoding", None) or "ascii"
-                safe = line.rstrip().encode(enc, errors="replace").decode(enc, errors="replace")
+                safe = line.rstrip().encode(
+                    enc, errors="replace").decode(
+                    enc, errors="replace")
                 print(f"{indent}{safe}", flush=True)
             with lock:
                 merged_chunks.append(line)
@@ -4539,6 +4642,8 @@ def _nixos_build_env() -> dict[str, str] | None:
         pass  # nix-shell not available — caller will get None
 
     return None
+
+
 def _run_npm_install_deterministic(
     npm: str,
     cwd: Path,
@@ -4614,7 +4719,12 @@ def _build_web_ui(web_dir: Path, *, fatal: bool = False) -> bool:
             print(text)
         except UnicodeEncodeError:
             encoding = getattr(sys.stdout, "encoding", None) or "ascii"
-            print(text.encode(encoding, errors="replace").decode(encoding, errors="replace"))
+            print(
+                text.encode(
+                    encoding,
+                    errors="replace").decode(
+                    encoding,
+                    errors="replace"))
 
     # --- 1. Auto-ensure Node.js / npm are available --------------------------
     npm = shutil.which("npm")
@@ -4673,7 +4783,8 @@ def _build_web_ui(web_dir: Path, *, fatal: bool = False) -> bool:
     if r2.returncode != 0:
         build_output = (r2.stderr or "") + (r2.stdout or "")
         stderr_preview = build_output.strip()
-        stderr_tail = "\n  ".join(stderr_preview.splitlines()[-10:]) if stderr_preview else ""
+        stderr_tail = "\n  ".join(
+            stderr_preview.splitlines()[-10:]) if stderr_preview else ""
 
         project_root = web_dir.parent.parent if web_dir.parent.name == "apps" else web_dir.parent
         dist_dir = project_root / "nastech_cli" / "web_dist"
@@ -4751,7 +4862,6 @@ def _compute_desktop_content_hash(project_root: Path) -> str:
             pass
         h.update(b"\0")
 
-
     from pathspec import PathSpec
 
     gitignore = project_root / ".gitignore"
@@ -4792,7 +4902,8 @@ def _desktop_stamp_path() -> Path:
     return get_nastech_home() / "desktop-build-stamp.json"
 
 
-def _desktop_build_needed(desktop_dir: Path, project_root: Path, *, source_mode: bool) -> bool:
+def _desktop_build_needed(
+        desktop_dir: Path, project_root: Path, *, source_mode: bool) -> bool:
     """Return True when the desktop build output is stale or missing.
 
     Compares the current content hash against the saved stamp. Also returns
@@ -4828,7 +4939,8 @@ def _desktop_build_needed(desktop_dir: Path, project_root: Path, *, source_mode:
     return current_hash != saved_hash
 
 
-def _write_desktop_build_stamp(project_root: Path, *, source_mode: bool) -> None:
+def _write_desktop_build_stamp(
+        project_root: Path, *, source_mode: bool) -> None:
     """Write the desktop build stamp after a successful build."""
     stamp_file = _desktop_stamp_path()
     try:
@@ -4840,7 +4952,11 @@ def _write_desktop_build_stamp(project_root: Path, *, source_mode: bool) -> None
             "sourceMode": source_mode,
             "builtAt": datetime.now(timezone.utc).isoformat(),
         }
-        stamp_file.write_text(json.dumps(stamp_data, indent=2) + "\n", encoding="utf-8")
+        stamp_file.write_text(
+            json.dumps(
+                stamp_data,
+                indent=2) + "\n",
+            encoding="utf-8")
     except Exception as exc:
         # Never let stamp-writing block or fail a build
         logger.debug("Failed to write desktop build stamp: %s", exc)
@@ -4850,7 +4966,8 @@ def _desktop_packaged_executable(desktop_dir: Path) -> Optional[Path]:
     """Return the current platform's unpacked Electron app executable."""
     release_dir = desktop_dir / "release"
     if sys.platform == "darwin":
-        candidates = list(release_dir.glob("mac*/NasTech.app/Contents/MacOS/NasTech"))
+        candidates = list(release_dir.glob(
+            "mac*/NasTech.app/Contents/MacOS/NasTech"))
     elif sys.platform == "win32":
         candidates = [
             release_dir / "win-unpacked" / "NasTech.exe",
@@ -4882,7 +4999,8 @@ def _electron_download_cache_dirs() -> list[Path]:
     """
     home = Path.home()
     candidates: list[Path] = []
-    override = os.environ.get("electron_config_cache") or os.environ.get("ELECTRON_CACHE")
+    override = os.environ.get(
+        "electron_config_cache") or os.environ.get("ELECTRON_CACHE")
     if override:
         candidates.append(Path(override))
     if sys.platform == "darwin":
@@ -5063,7 +5181,8 @@ def _desktop_macos_relaunchable_fixup(desktop_dir: Path) -> None:
     exe = _desktop_packaged_executable(desktop_dir)
     if exe is None:
         return
-    # exe = .../NasTech.app/Contents/MacOS/NasTech  ->  app bundle = .../NasTech.app
+    # exe = .../NasTech.app/Contents/MacOS/NasTech  ->  app bundle =
+    # .../NasTech.app
     app = exe.parents[2]
     if not str(app).endswith(".app") or not app.is_dir():
         return
@@ -5072,7 +5191,8 @@ def _desktop_macos_relaunchable_fixup(desktop_dir: Path) -> None:
         return
     try:
         subprocess.run(["xattr", "-cr", str(app)], check=False)
-        subprocess.run([codesign, "--force", "--deep", "--sign", "-", str(app)], check=False)
+        subprocess.run([codesign, "--force", "--deep",
+                       "--sign", "-", str(app)], check=False)
     except Exception as exc:
         print(f"  (warning: macOS relaunch fixup skipped: {exc})")
 
@@ -5084,7 +5204,8 @@ def _desktop_linux_sandbox_fixup(packaged_executable: Path) -> bool:
 
     sandbox = packaged_executable.parent / "chrome-sandbox"
     if not sandbox.exists():
-        print(f"✗ NasTech Desktop is missing Electron's Linux sandbox helper: {sandbox}")
+        print(
+            f"✗ NasTech Desktop is missing Electron's Linux sandbox helper: {sandbox}")
         return False
 
     # Reject symlinks — chown/chmod must not follow an attacker-controlled
@@ -5096,21 +5217,26 @@ def _desktop_linux_sandbox_fixup(packaged_executable: Path) -> bool:
         print(f"✗ Cannot stat Electron's Linux sandbox helper: {sandbox}")
         return False
     if not stat.S_ISREG(sandbox_lstat.st_mode):
-        print(f"✗ Electron's Linux sandbox helper is not a regular file: {sandbox}")
+        print(
+            f"✗ Electron's Linux sandbox helper is not a regular file: {sandbox}")
         return False
 
-    if sandbox_lstat.st_uid == 0 and stat.S_IMODE(sandbox_lstat.st_mode) == 0o4755:
+    if sandbox_lstat.st_uid == 0 and stat.S_IMODE(
+            sandbox_lstat.st_mode) == 0o4755:
         return True
 
     sudo = shutil.which("sudo")
     if not sudo:
-        print("✗ NasTech Desktop requires sudo to configure Electron's Linux sandbox helper.")
+        print(
+            "✗ NasTech Desktop requires sudo to configure Electron's Linux sandbox helper.")
         return False
 
     print("→ Configuring Electron Linux sandbox helper (sudo required)...")
-    for command in ([sudo, "chown", "root:root", str(sandbox)], [sudo, "chmod", "4755", str(sandbox)]):
+    for command in ([sudo, "chown", "root:root", str(sandbox)], [
+                    sudo, "chmod", "4755", str(sandbox)]):
         if subprocess.run(command, check=False).returncode != 0:
-            print(f"✗ Failed to configure Electron's Linux sandbox helper: {sandbox}")
+            print(
+                f"✗ Failed to configure Electron's Linux sandbox helper: {sandbox}")
             return False
     return True
 
@@ -5134,7 +5260,8 @@ def cmd_gui(args: argparse.Namespace):
     if getattr(args, "ignore_existing", False):
         env["NASTECH_DESKTOP_IGNORE_EXISTING"] = "1"
     if getattr(args, "nastech_root", None):
-        env["NASTECH_DESKTOP_NASTECH_ROOT"] = str(Path(args.nastech_root).expanduser().resolve())
+        env["NASTECH_DESKTOP_NASTECH_ROOT"] = str(
+            Path(args.nastech_root).expanduser().resolve())
     if getattr(args, "cwd", None):
         env["NASTECH_DESKTOP_CWD"] = str(Path(args.cwd).expanduser().resolve())
 
@@ -5156,23 +5283,33 @@ def cmd_gui(args: argparse.Namespace):
     if skip_build:
         if source_mode:
             if not _desktop_dist_exists(desktop_dir):
-                print(f"✗ --skip-build --source was passed but no desktop dist found at: {desktop_dir / 'dist'}")
+                print(
+                    f"✗ --skip-build --source was passed but no desktop dist found at: {desktop_dir / 'dist'}")
                 print("  Pre-build first:  cd apps/desktop && npm run build")
-                print("  Or drop --skip-build to install dependencies and build automatically.")
+                print(
+                    "  Or drop --skip-build to install dependencies and build automatically.")
                 sys.exit(1)
-            if not (PROJECT_ROOT / "node_modules" / "electron" / "package.json").exists():
-                print("✗ --skip-build --source requires existing workspace dependencies.")
+            if not (PROJECT_ROOT / "node_modules" /
+                    "electron" / "package.json").exists():
+                print(
+                    "✗ --skip-build --source requires existing workspace dependencies.")
                 print(f"  Install first:  cd {PROJECT_ROOT} && npm ci")
-                print("  Or drop --skip-build to install dependencies and build automatically.")
+                print(
+                    "  Or drop --skip-build to install dependencies and build automatically.")
                 sys.exit(1)
-            print(f"→ Skipping desktop source build (--skip-build --source); using dist at {desktop_dir / 'dist'}")
+            print(
+                f"→ Skipping desktop source build (--skip-build --source); using dist at {
+                    desktop_dir / 'dist'}")
         elif packaged_executable is None:
-            print(f"✗ --skip-build was passed but no packaged desktop app was found at: {desktop_dir / 'release'}")
+            print(
+                f"✗ --skip-build was passed but no packaged desktop app was found at: {
+                    desktop_dir / 'release'}")
             print("  Pre-build first:  cd apps/desktop && npm run pack")
             print("  Or drop --skip-build to package automatically.")
             sys.exit(1)
         else:
-            print(f"→ Skipping desktop package build (--skip-build); using {packaged_executable}")
+            print(
+                f"→ Skipping desktop package build (--skip-build); using {packaged_executable}")
     else:
         # Check the content-hash stamp before doing any build work.
         # If the source tree hasn't changed since the last successful build,
@@ -5183,11 +5320,13 @@ def cmd_gui(args: argparse.Namespace):
         )
         if not build_needed:
             build_label = "source build" if source_mode else "packaged app"
-            print(f"✓ Desktop {build_label} is up to date (content stamp matches)")
+            print(
+                f"✓ Desktop {build_label} is up to date (content stamp matches)")
         else:
             print("→ Installing desktop workspace dependencies...")
             nixos_env = _nixos_build_env()
-            install_result = _run_npm_install_deterministic(npm, PROJECT_ROOT, capture_output=False, env=nixos_env)
+            install_result = _run_npm_install_deterministic(
+                npm, PROJECT_ROOT, capture_output=False, env=nixos_env)
             if install_result.returncode != 0:
                 print("✗ Desktop dependency install failed")
                 print(f"  Run manually:  cd {PROJECT_ROOT} && npm ci")
@@ -5201,11 +5340,18 @@ def cmd_gui(args: argparse.Namespace):
                 # holds NasTech.exe locked on Windows, so the pack can't replace
                 # it ("Access is denied" / ERR_ELECTRON_BUILDER_CANNOT_EXECUTE).
                 # Stop it first so the rebuild — including the installer's
-                # headless --update rebuild — succeeds instead of failing cryptically.
+                # headless --update rebuild — succeeds instead of failing
+                # cryptically.
                 stopped = _stop_desktop_processes_locking_build(desktop_dir)
                 if stopped:
-                    print(f"  ⚠ Stopped running desktop app to free the build output (pid {', '.join(map(str, stopped))})")
-            build_result = subprocess.run([npm, "run", build_script], cwd=desktop_dir, env=env, check=False)
+                    print(
+                        f"  ⚠ Stopped running desktop app to free the build output (pid {
+                            ', '.join(
+                                map(
+                                    str,
+                                    stopped))})")
+            build_result = subprocess.run(
+                [npm, "run", build_script], cwd=desktop_dir, env=env, check=False)
             if build_result.returncode != 0 and not source_mode:
                 # A corrupt cached Electron zip makes `pack` fail with an ENOENT
                 # on the final `electron` -> `NasTech` rename: unpack-electron
@@ -5222,18 +5368,23 @@ def cmd_gui(args: argparse.Namespace):
                 # and the retry fails the same way.
                 purged = _purge_electron_build_cache(desktop_dir)
                 if purged:
-                    print("  ⚠ Desktop build failed; cleared cached Electron download and retrying once...")
+                    print(
+                        "  ⚠ Desktop build failed; cleared cached Electron download and retrying once...")
                     for p in purged:
                         print(f"    - {p}")
                     # The purge can't remove a win-unpacked tree whose NasTech.exe
-                    # is still locked by a running instance; stop it before retry.
+                    # is still locked by a running instance; stop it before
+                    # retry.
                     _stop_desktop_processes_locking_build(desktop_dir)
-                    build_result = subprocess.run([npm, "run", build_script], cwd=desktop_dir, env=env, check=False)
+                    build_result = subprocess.run(
+                        [npm, "run", build_script], cwd=desktop_dir, env=env, check=False)
             if build_result.returncode != 0:
                 print("✗ Desktop GUI build failed")
-                print(f"  Run manually:  cd apps/desktop && npm run {build_script}")
+                print(
+                    f"  Run manually:  cd apps/desktop && npm run {build_script}")
                 if sys.platform == "win32":
-                    print("  If this says \"Access is denied\" on NasTech.exe, close any")
+                    print(
+                        "  If this says \"Access is denied\" on NasTech.exe, close any")
                     print("  running NasTech desktop window and retry.")
                 sys.exit(build_result.returncode or 1)
             packaged_executable = _desktop_packaged_executable(desktop_dir)
@@ -5255,24 +5406,34 @@ def cmd_gui(args: argparse.Namespace):
     if getattr(args, "build_only", False):
         if source_mode:
             if not _desktop_dist_exists(desktop_dir):
-                print(f"✗ --build-only --source produced no dist at: {desktop_dir / 'dist'}")
+                print(
+                    f"✗ --build-only --source produced no dist at: {desktop_dir / 'dist'}")
                 sys.exit(1)
-            print(f"✓ Desktop source build ready at {desktop_dir / 'dist'} (not launching; --build-only)")
+            print(
+                f"✓ Desktop source build ready at {
+                    desktop_dir /
+                    'dist'} (not launching; --build-only)")
         elif packaged_executable is None:
-            print(f"✗ --build-only produced no launchable app at: {desktop_dir / 'release'}")
+            print(
+                f"✗ --build-only produced no launchable app at: {desktop_dir / 'release'}")
             print("  Expected an unpacked Electron app for the current OS.")
             sys.exit(1)
         else:
-            print(f"✓ Desktop packaged app ready: {packaged_executable} (not launching; --build-only)")
+            print(
+                f"✓ Desktop packaged app ready: {packaged_executable} (not launching; --build-only)")
         return
 
     if source_mode:
         print("→ Launching NasTech Desktop from source build...")
-        launch_result = subprocess.run([npm, "exec", "--", "electron", "."], cwd=desktop_dir, env=env, check=False)
+        launch_result = subprocess.run(
+            [npm, "exec", "--", "electron", "."], cwd=desktop_dir, env=env, check=False)
         sys.exit(launch_result.returncode)
 
     if packaged_executable is None:
-        print(f"✗ Desktop package build completed but no launchable app was found at: {desktop_dir / 'release'}")
+        print(
+            f"✗ Desktop package build completed but no launchable app was found at: {
+                desktop_dir /
+                'release'}")
         print("  Expected an unpacked Electron app for the current OS.")
         sys.exit(1)
 
@@ -5280,7 +5441,8 @@ def cmd_gui(args: argparse.Namespace):
         sys.exit(1)
 
     print(f"→ Launching packaged NasTech Desktop: {packaged_executable}")
-    launch_result = subprocess.run([str(packaged_executable)], cwd=desktop_dir, env=env, check=False)
+    launch_result = subprocess.run(
+        [str(packaged_executable)], cwd=desktop_dir, env=env, check=False)
     sys.exit(launch_result.returncode)
 
 
@@ -5344,9 +5506,9 @@ def _find_stale_dashboard_pids(
             for line in result.stdout.split("\n"):
                 line = line.strip()
                 if line.startswith("CommandLine="):
-                    current_cmd = line[len("CommandLine=") :]
+                    current_cmd = line[len("CommandLine="):]
                 elif line.startswith("ProcessId="):
-                    pid_str = line[len("ProcessId=") :]
+                    pid_str = line[len("ProcessId="):]
                     if (
                         any(p in current_cmd for p in patterns)
                         and int(pid_str) != self_pid
@@ -5581,7 +5743,8 @@ def _kill_stale_dashboard_processes(
                 if result.returncode == 0:
                     killed.append(pid)
                 else:
-                    failed.append((pid, (result.stderr or result.stdout or "").strip()))
+                    failed.append(
+                        (pid, (result.stderr or result.stdout or "").strip()))
             except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
                 failed.append((pid, str(e)))
     else:
@@ -5691,20 +5854,23 @@ def _update_via_zip(args):
             # update mirror plant arbitrary files via the update path.
             tmp_dir_real = os.path.realpath(tmp_dir)
             for member in zf.infolist():
-                member_path = os.path.realpath(os.path.join(tmp_dir, member.filename))
+                member_path = os.path.realpath(
+                    os.path.join(tmp_dir, member.filename))
                 if (
                     not member_path.startswith(tmp_dir_real + os.sep)
                     and member_path != tmp_dir_real
                 ):
                     raise ValueError(
-                        f"Zip-slip detected: {member.filename} escapes extraction directory"
+                        f"Zip-slip detected: {
+                            member.filename} escapes extraction directory"
                     )
                 # Unix mode lives in the upper 16 bits of external_attr;
                 # mask to the file-type bits.
                 mode = (member.external_attr >> 16) & 0o170000
                 if _stat.S_ISLNK(mode):
                     raise ValueError(
-                        f"ZIP contains unsupported symlink member: {member.filename}"
+                        f"ZIP contains unsupported symlink member: {
+                            member.filename}"
                     )
             zf.extractall(tmp_dir)
 
@@ -5718,7 +5884,8 @@ def _update_via_zip(args):
                     extracted = candidate
                     break
 
-        # Copy updated files over existing installation, preserving venv/node_modules/.git
+        # Copy updated files over existing installation, preserving
+        # venv/node_modules/.git
         preserve = {"venv", "node_modules", ".git", ".env"}
         update_count = 0
         for item in os.listdir(extracted):
@@ -5746,7 +5913,8 @@ def _update_via_zip(args):
     removed = _clear_bytecode_cache(PROJECT_ROOT)
     if removed:
         print(
-            f"  ✓ Cleared {removed} stale __pycache__ director{'y' if removed == 1 else 'ies'}"
+            f"  ✓ Cleared {removed} stale __pycache__ director{
+                'y' if removed == 1 else 'ies'}"
         )
 
     # Reinstall Python dependencies. Prefer .[all], but if one optional extra
@@ -5769,7 +5937,8 @@ def _update_via_zip(args):
         if _is_termux_env(uv_env):
             uv_env.pop("PYTHONPATH", None)
             uv_env.pop("PYTHONHOME", None)
-        _install_python_dependencies_with_optional_fallback([uv_bin, "pip"], env=uv_env)
+        _install_python_dependencies_with_optional_fallback(
+            [uv_bin, "pip"], env=uv_env)
     else:
         # Use sys.executable to explicitly call the venv's pip module,
         # avoiding PEP 668 'externally-managed-environment' errors on Debian/Ubuntu.
@@ -5800,7 +5969,8 @@ def _update_via_zip(args):
         print("→ Syncing bundled skills...")
         result = sync_skills(quiet=True)
         if result["copied"]:
-            print(f"  + {len(result['copied'])} new: {', '.join(result['copied'])}")
+            print(
+                f"  + {len(result['copied'])} new: {', '.join(result['copied'])}")
         if result.get("updated"):
             print(
                 f"  ↑ {len(result['updated'])} updated: {', '.join(result['updated'])}"
@@ -5837,7 +6007,8 @@ def _update_via_zip(args):
     _kill_stale_dashboard_processes()
 
 
-def _stash_local_changes_if_needed(git_cmd: list[str], cwd: Path) -> Optional[str]:
+def _stash_local_changes_if_needed(
+        git_cmd: list[str], cwd: Path) -> Optional[str]:
     status = subprocess.run(
         git_cmd + ["status", "--porcelain"],
         cwd=cwd,
@@ -5948,7 +6119,8 @@ def _restore_stashed_changes(
         text=True,
     )
 
-    # Check for unmerged (conflicted) files — can happen even when returncode is 0
+    # Check for unmerged (conflicted) files — can happen even when returncode
+    # is 0
     unmerged = subprocess.run(
         git_cmd + ["diff", "--name-only", "--diff-filter=U"],
         cwd=cwd,
@@ -6146,7 +6318,8 @@ def _add_upstream_remote(git_cmd: list[str], cwd: Path) -> bool:
         return False
 
 
-def _count_commits_between(git_cmd: list[str], cwd: Path, base: str, head: str) -> int:
+def _count_commits_between(
+        git_cmd: list[str], cwd: Path, base: str, head: str) -> int:
     """Count commits on `head` that are not on `base`. Returns -1 on error."""
     try:
         result = subprocess.run(
@@ -6219,7 +6392,8 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
         print()
         try:
             response = (
-                input("Add official repo as 'upstream' remote? [Y/n]: ").strip().lower()
+                input(
+                    "Add official repo as 'upstream' remote? [Y/n]: ").strip().lower()
             )
         except (EOFError, KeyboardInterrupt):
             print()
@@ -6259,7 +6433,8 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path) -> None:
         return
 
     # Compare origin/main with upstream/main
-    origin_ahead = _count_commits_between(git_cmd, cwd, "upstream/main", "origin/main")
+    origin_ahead = _count_commits_between(
+        git_cmd, cwd, "upstream/main", "origin/main")
     upstream_ahead = _count_commits_between(
         git_cmd, cwd, "origin/main", "upstream/main"
     )
@@ -6566,12 +6741,15 @@ def _format_concurrent_instances_message(
     lines.append("  Windows blocks REPLACE on a running executable.")
     lines.append("")
     lines.append("  Close NasTech Desktop, exit any open `nastech` REPLs, and")
-    lines.append("  stop the gateway (`nastech gateway stop`) before retrying.")
+    lines.append(
+        "  stop the gateway (`nastech gateway stop`) before retrying.")
     lines.append("")
     if matches:
         pid_args = " ".join(f"/PID {pid}" for pid, _ in matches)
-        lines.append("  If you've already closed everything and these PIDs are")
-        lines.append("  stale, terminate them directly, then retry the update:")
+        lines.append(
+            "  If you've already closed everything and these PIDs are")
+        lines.append(
+            "  stale, terminate them directly, then retry the update:")
         lines.append(f"      taskkill {pid_args} /F")
         lines.append("")
     lines.append("  Override with `nastech update --force` if you've already")
@@ -6671,7 +6849,9 @@ def _quarantine_running_nastech_exe(
         # Truly couldn't budge the .exe. Print an actionable warning and let
         # uv try its luck — sometimes uv's own retry handling pulls through.
         print(
-            f"  ⚠ Could not quarantine {shim.name} ({last_exc.__class__.__name__}: "
+            f"  ⚠ Could not quarantine {
+                shim.name} ({
+                last_exc.__class__.__name__}: "
             f"another process is holding it open)."
         )
         print(
@@ -6704,7 +6884,10 @@ def _schedule_replace_on_reboot(shim: Path, quarantine_target: Path) -> bool:
         MOVEFILE_DELAY_UNTIL_REBOOT = 0x4
 
         MoveFileExW = ctypes.windll.kernel32.MoveFileExW
-        MoveFileExW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD]
+        MoveFileExW.argtypes = [
+            wintypes.LPCWSTR,
+            wintypes.LPCWSTR,
+            wintypes.DWORD]
         MoveFileExW.restype = wintypes.BOOL
 
         ok = MoveFileExW(
@@ -6896,11 +7079,13 @@ def _install_python_dependencies_with_optional_fallback(
 
     if installed_extras:
         print(
-            f"  ✓ Reinstalled optional extras individually: {', '.join(installed_extras)}"
+            f"  ✓ Reinstalled optional extras individually: {
+                ', '.join(installed_extras)}"
         )
     if failed_extras:
         print(
-            f"  ⚠ Skipped optional extras that still failed: {', '.join(failed_extras)}"
+            f"  ⚠ Skipped optional extras that still failed: {
+                ', '.join(failed_extras)}"
         )
 
     # Belt-and-suspenders: verify every declared core dependency from
@@ -6913,7 +7098,8 @@ def _install_python_dependencies_with_optional_fallback(
     # stage. Reinstall with --reinstall to force resolution if anything is
     # missing, then re-verify so the failure surfaces here instead of
     # downstream.
-    _verify_core_dependencies_installed(install_cmd_prefix, env=env, group=group)
+    _verify_core_dependencies_installed(
+        install_cmd_prefix, env=env, group=group)
 
 
 def _verify_core_dependencies_installed(
@@ -6978,7 +7164,8 @@ def _verify_core_dependencies_installed(
 
     # Apply environment markers to drop deps that don't apply on this platform
     # (e.g. ``ptyprocess ; sys_platform != 'win32'`` is correctly skipped on
-    # Windows). Without markers we'd false-positive every cross-platform exclusion.
+    # Windows). Without markers we'd false-positive every cross-platform
+    # exclusion.
     applicable: list[str] = []
     for name, marker in deps:
         if marker is None:
@@ -7023,14 +7210,16 @@ def _verify_core_dependencies_installed(
         except Exception as e:
             logger.debug("dep verification: subprocess failed: %s", e)
             return []
-        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        return [line.strip()
+                for line in result.stdout.splitlines() if line.strip()]
 
     missing = _missing_deps()
     if not missing:
         return
 
     print(
-        f"  ⚠ Verification: {len(missing)} declared dep(s) missing after install: "
+        f"  ⚠ Verification: {
+            len(missing)} declared dep(s) missing after install: "
         f"{', '.join(missing[:8])}{'...' if len(missing) > 8 else ''}"
     )
     print("  → Reinstalling base group with --reinstall to repair...")
@@ -7157,6 +7346,7 @@ def _install_psutil_android_compat(
     """
     import tempfile
     import urllib.request
+
     from nastech_cli.psutil_android import PSUTIL_URL, prepare_patched_psutil_sdist
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -7166,7 +7356,8 @@ def _install_psutil_android_compat(
         src_root = prepare_patched_psutil_sdist(archive, tmp_path)
 
         _run_install_with_heartbeat(
-            install_cmd_prefix + ["install", "--no-build-isolation", str(src_root)],
+            install_cmd_prefix + ["install",
+                                  "--no-build-isolation", str(src_root)],
             env=env,
         )
 
@@ -7188,7 +7379,8 @@ def _ensure_uv_for_termux(pip_cmd: list[str]) -> str | None:
         return None
     try:
         print("  → Termux detected: trying to install uv for faster dependency updates...")
-        subprocess.run(pip_cmd + ["install", "uv"], cwd=PROJECT_ROOT, check=False)
+        subprocess.run(pip_cmd + ["install", "uv"],
+                       cwd=PROJECT_ROOT, check=False)
     except Exception:
         pass
     # After pip install, check managed path first, then PATH
@@ -7226,7 +7418,8 @@ def _update_node_dependencies() -> None:
     )
     if root_result.returncode != 0:
         print("  ⚠ npm install failed in repo root")
-        stderr = (root_result.stderr or "").strip() if root_result.stderr else ""
+        stderr = (root_result.stderr or "").strip(
+        ) if root_result.stderr else ""
         if stderr:
             print(f"    {stderr.splitlines()[-1]}")
         return
@@ -7460,10 +7653,11 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
         print(format_docker_update_message())
         sys.exit(1)
     if method == "pip":
-        from nastech_cli.config import recommended_update_command
         from nastech_cli.banner import check_via_pypi
+        from nastech_cli.config import recommended_update_command
         if branch_explicit and branch != "main":
-            print(f"⚠ --branch is ignored for PyPI installs (would have checked '{branch}').")
+            print(
+                f"⚠ --branch is ignored for PyPI installs (would have checked '{branch}').")
         result = check_via_pypi()
         if result is None:
             print("✗ Could not reach PyPI to check for updates.")
@@ -7547,7 +7741,10 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
         text=True,
     )
     if verify_result.returncode != 0:
-        print(f"✗ Branch '{branch}' not found on {compare_branch.split('/', 1)[0]}.")
+        print(
+            f"✗ Branch '{branch}' not found on {
+                compare_branch.split(
+                    '/', 1)[0]}.")
         sys.exit(1)
 
     rev_result = subprocess.run(
@@ -7563,7 +7760,8 @@ def _cmd_update_check(branch: str = "main", *, branch_explicit: bool = False):
         print("✓ Already up to date.")
     else:
         commits_word = "commit" if behind == 1 else "commits"
-        print(f"⚕ Update available: {behind} {commits_word} behind {compare_branch}.")
+        print(
+            f"⚕ Update available: {behind} {commits_word} behind {compare_branch}.")
         from nastech_cli.config import recommended_update_command
 
         print(f"  Run '{recommended_update_command()}' to install.")
@@ -7737,7 +7935,7 @@ def _run_pre_update_backup(args) -> None:
 
     # Render path using display_nastech_home so the user sees ~/.nastech/...
     try:
-        from nastech_constants import get_nastech_home, display_nastech_home
+        from nastech_constants import display_nastech_home, get_nastech_home
 
         home = get_nastech_home()
         try:
@@ -7870,7 +8068,8 @@ def _cmd_update_pip(args):
     if is_uv_tool_install():
         if not uv:
             print("✗ Detected a uv-tool install but managed uv install failed.")
-            print("  Install uv manually: https://docs.astral.sh/uv/getting-started/installation/")
+            print(
+                "  Install uv manually: https://docs.astral.sh/uv/getting-started/installation/")
             sys.exit(1)
         cmd = [uv, "tool", "upgrade", "nastech-agent"]
     elif pipx_managed and pipx:
@@ -7888,7 +8087,13 @@ def _cmd_update_pip(args):
             # interpreter, matching pip's default behaviour.
             cmd.insert(3, "--system")
     else:
-        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "nastech-agent"]
+        cmd = [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "nastech-agent"]
 
     print(f"→ Running: {' '.join(cmd)}")
     run_kwargs = {}
@@ -7930,11 +8135,15 @@ def _cmd_update_impl(args, gateway_mode: bool):
 
             _update_cfg = (load_config() or {}).get("updates", {})
             if isinstance(_update_cfg, dict):
-                _mode = str(_update_cfg.get("non_interactive_local_changes", "stash")).lower()
+                _mode = str(
+                    _update_cfg.get(
+                        "non_interactive_local_changes",
+                        "stash")).lower()
                 discard_local_changes = _mode == "discard"
         except Exception as exc:
             # Never let a config read failure change the safe default.
-            logger.debug("Could not read updates.non_interactive_local_changes: %s", exc)
+            logger.debug(
+                "Could not read updates.non_interactive_local_changes: %s", exc)
             discard_local_changes = False
 
     print("⚕ Updating NasTech Agent...")
@@ -7949,7 +8158,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
         if scripts_dir is not None:
             concurrent = _detect_concurrent_nastech_instances(scripts_dir)
             if concurrent:
-                print(_format_concurrent_instances_message(concurrent, scripts_dir))
+                print(
+                    _format_concurrent_instances_message(
+                        concurrent, scripts_dir))
                 sys.exit(2)
 
     # Pre-update backup — runs before any git/file mutation so users can
@@ -8076,9 +8287,11 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 if current_branch == "HEAD"
                 else f"branch '{current_branch}'"
             )
-            print(f"  ⚠ Currently on {label} — switching to {branch} for update...")
+            print(
+                f"  ⚠ Currently on {label} — switching to {branch} for update...")
             # Stash before checkout so uncommitted work isn't lost
-            auto_stash_ref = _stash_local_changes_if_needed(git_cmd, PROJECT_ROOT)
+            auto_stash_ref = _stash_local_changes_if_needed(
+                git_cmd, PROJECT_ROOT)
             checkout_result = subprocess.run(
                 git_cmd + ["checkout", branch],
                 cwd=PROJECT_ROOT,
@@ -8107,12 +8320,16 @@ def _cmd_update_impl(args, gateway_mode: bool):
                             prompt_user=False,
                             input_fn=gw_input_fn,
                         )
-                    print(f"✗ Branch '{branch}' does not exist locally or on origin.")
+                    print(
+                        f"✗ Branch '{branch}' does not exist locally or on origin.")
                     if track_result.stderr.strip():
-                        print(f"  {track_result.stderr.strip().splitlines()[0]}")
+                        print(
+                            f"  {
+                                track_result.stderr.strip().splitlines()[0]}")
                     sys.exit(1)
         else:
-            auto_stash_ref = _stash_local_changes_if_needed(git_cmd, PROJECT_ROOT)
+            auto_stash_ref = _stash_local_changes_if_needed(
+                git_cmd, PROJECT_ROOT)
 
         prompt_for_restore = (
             auto_stash_ref is not None
@@ -8169,7 +8386,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
         try:
             from nastech_cli.backup import create_quick_snapshot
 
-            pre_update_snapshot_id = create_quick_snapshot(label="pre-update", keep=1)
+            pre_update_snapshot_id = create_quick_snapshot(
+                label="pre-update", keep=1)
             if pre_update_snapshot_id:
                 print(f"  ✓ Pre-update snapshot: {pre_update_snapshot_id}")
         except Exception as exc:
@@ -8242,16 +8460,20 @@ def _cmd_update_impl(args, gateway_mode: bool):
                     )
                     if rollback_result.returncode == 0:
                         print("  ✓ Rollback complete — your install is unchanged.")
-                        print("  Try ``nastech update`` again later once a fix lands.")
+                        print(
+                            "  Try ``nastech update`` again later once a fix lands.")
                     else:
                         print("  ✗ Rollback failed. Recover manually with:")
-                        print(f"    cd {PROJECT_ROOT} && git reset --hard {pre_pull_sha}")
+                        print(
+                            f"    cd {PROJECT_ROOT} && git reset --hard {pre_pull_sha}")
                         if rollback_result.stderr.strip():
-                            print(f"    ({rollback_result.stderr.strip().splitlines()[0]})")
+                            print(
+                                f"    ({rollback_result.stderr.strip().splitlines()[0]})")
                 else:
                     print()
                     print("  Could not capture pre-pull SHA — recover manually with:")
-                    print(f"    cd {PROJECT_ROOT} && git reflog && git reset --hard <prev-sha>")
+                    print(
+                        f"    cd {PROJECT_ROOT} && git reflog && git reset --hard <prev-sha>")
                 sys.exit(1)
 
             update_succeeded = True
@@ -8290,7 +8512,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
         removed = _clear_bytecode_cache(PROJECT_ROOT)
         if removed:
             print(
-                f"  ✓ Cleared {removed} stale __pycache__ director{'y' if removed == 1 else 'ies'}"
+                f"  ✓ Cleared {removed} stale __pycache__ director{
+                    'y' if removed == 1 else 'ies'}"
             )
 
         # Fork upstream sync logic (only for main branch on forks)
@@ -8303,7 +8526,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
         print("→ Updating Python dependencies...")
         from nastech_cli.managed_uv import ensure_uv, update_managed_uv
 
-        # Keep managed uv current — runs `uv self update` if we already have one.
+        # Keep managed uv current — runs `uv self update` if we already have
+        # one.
         update_managed_uv()
 
         uv_bin = ensure_uv()
@@ -8319,9 +8543,11 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 uv_env.pop("PYTHONPATH", None)
                 uv_env.pop("PYTHONHOME", None)
                 install_group = "termux-all"
-                print("  → Termux detected: using uv + curated termux-all optional profile...")
+                print(
+                    "  → Termux detected: using uv + curated termux-all optional profile...")
             if _is_termux_env(uv_env) and _is_android_python():
-                print("  → Termux/Android detected: prebuilding psutil with Linux source path compatibility...")
+                print(
+                    "  → Termux/Android detected: prebuilding psutil with Linux source path compatibility...")
                 _install_psutil_android_compat([uv_bin, "pip"], env=uv_env)
             _install_python_dependencies_with_optional_fallback(
                 [uv_bin, "pip"], env=uv_env, group=install_group
@@ -8341,17 +8567,21 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 )
             except subprocess.CalledProcessError:
                 subprocess.run(
-                    [sys.executable, "-m", "ensurepip", "--upgrade", "--default-pip"],
+                    [sys.executable, "-m", "ensurepip",
+                        "--upgrade", "--default-pip"],
                     cwd=PROJECT_ROOT,
                     check=True,
                 )
             if _is_termux_env():
                 install_group = "termux-all"
-                print("  → Termux detected: using curated termux-all optional profile...")
+                print(
+                    "  → Termux detected: using curated termux-all optional profile...")
             if _is_termux_env() and _is_android_python():
-                print("  → Termux/Android detected: prebuilding psutil with Linux source path compatibility...")
+                print(
+                    "  → Termux/Android detected: prebuilding psutil with Linux source path compatibility...")
                 _install_psutil_android_compat(pip_cmd)
-            _install_python_dependencies_with_optional_fallback(pip_cmd, group=install_group)
+            _install_python_dependencies_with_optional_fallback(
+                pip_cmd, group=install_group)
 
         _refresh_active_lazy_features()
 
@@ -8366,19 +8596,28 @@ def _cmd_update_impl(args, gateway_mode: bool):
         # never run ``nastech desktop`` shouldn't be forced into a full
         # Electron build by ``nastech update``.
         desktop_dir = PROJECT_ROOT / "apps" / "desktop"
-        has_desktop_app = _desktop_packaged_executable(desktop_dir) is not None or _desktop_dist_exists(desktop_dir)
+        has_desktop_app = _desktop_packaged_executable(
+            desktop_dir) is not None or _desktop_dist_exists(desktop_dir)
         if (desktop_dir / "package.json").exists() and shutil.which("npm") and has_desktop_app:
             print("→ Checking if desktop app needs rebuilding...")
-            _desktop_build_cmd = [sys.executable, "-m", "nastech_cli.main", "desktop", "--build-only"]
+            _desktop_build_cmd = [
+                sys.executable,
+                "-m",
+                "nastech_cli.main",
+                "desktop",
+                "--build-only"]
             # Stream the build output live (long Electron builds otherwise
             # look hung). On the rare nonzero exit, retry once after waiting
             # again for the venv — this covers a still-settling rebuild window
             # the first wait didn't fully catch.
-            build_result = subprocess.run(_desktop_build_cmd, cwd=PROJECT_ROOT, check=False)
+            build_result = subprocess.run(
+                _desktop_build_cmd, cwd=PROJECT_ROOT, check=False)
             if build_result.returncode != 0:
-                build_result = subprocess.run(_desktop_build_cmd, cwd=PROJECT_ROOT, check=False)
+                build_result = subprocess.run(
+                    _desktop_build_cmd, cwd=PROJECT_ROOT, check=False)
             if build_result.returncode != 0:
-                print("  ⚠ Desktop build failed (non-fatal; run `nastech desktop` to retry)")
+                print(
+                    "  ⚠ Desktop build failed (non-fatal; run `nastech desktop` to retry)")
 
         print()
         print("✓ Code updated!")
@@ -8405,13 +8644,15 @@ def _cmd_update_impl(args, gateway_mode: bool):
         # attributes like display_nastech_home() added since the last release.
         try:
             import importlib
+
             import nastech_constants as _hc
 
             importlib.reload(_hc)
         except Exception:
             pass  # non-fatal — worst case a lazy import fails gracefully
 
-        # Sync bundled skills (copies new, updates changed, respects user deletions)
+        # Sync bundled skills (copies new, updates changed, respects user
+        # deletions)
         try:
             from tools.skills_sync import sync_skills
 
@@ -8419,13 +8660,19 @@ def _cmd_update_impl(args, gateway_mode: bool):
             print("→ Syncing bundled skills...")
             result = sync_skills(quiet=True)
             if result["copied"]:
-                print(f"  + {len(result['copied'])} new: {', '.join(result['copied'])}")
+                print(
+                    f"  + {len(result['copied'])} new: {', '.join(result['copied'])}")
             if result.get("updated"):
                 print(
-                    f"  ↑ {len(result['updated'])} updated: {', '.join(result['updated'])}"
+                    f"  ↑ {
+                        len(
+                            result['updated'])} updated: {
+                        ', '.join(
+                            result['updated'])}"
                 )
             if result.get("user_modified"):
-                print(f"  ~ {len(result['user_modified'])} user-modified (kept)")
+                print(
+                    f"  ~ {len(result['user_modified'])} user-modified (kept)")
             if result.get("cleaned"):
                 print(f"  − {len(result['cleaned'])} removed from manifest")
             if not result["copied"] and not result.get("updated"):
@@ -8437,7 +8684,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
         # seed_profile_skills() uses subprocess with an explicit NASTECH_HOME so
         # it is not affected by sync_skills()'s module-level NASTECH_HOME cache,
         # which means the active profile is reliably synced regardless of whether
-        # the caller's NASTECH_HOME env var points at the default or a named profile.
+        # the caller's NASTECH_HOME env var points at the default or a named
+        # profile.
         try:
             from nastech_cli.profiles import (
                 list_profiles,
@@ -8464,7 +8712,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                 parts.append(f"↑{updated} updated")
                             if modified:
                                 parts.append(f"~{modified} user-modified")
-                            status = ", ".join(parts) if parts else "up to date"
+                            status = ", ".join(
+                                parts) if parts else "up to date"
                         else:
                             status = "sync failed"
                         print(f"  {p.name}: {status}")
@@ -8488,9 +8737,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
         print("→ Checking configuration for new options...")
 
         from nastech_cli.config import (
-            get_missing_env_vars,
-            get_missing_config_fields,
             check_config_version,
+            get_missing_config_fields,
+            get_missing_env_vars,
             migrate_config,
         )
 
@@ -8524,6 +8773,7 @@ def _cmd_update_impl(args, gateway_mode: bool):
             print()
             # Show WHAT changed, not just a count, so the user can make an
             # informed yes/no decision (previously the prompt named nothing).
+
             def _print_items(items, label, key, fallback_key=None):
                 if not items:
                     return
@@ -8531,7 +8781,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 shown = items[:8]
                 for it in shown:
                     if isinstance(it, dict):
-                        name = it.get(key) or (fallback_key and it.get(fallback_key)) or "?"
+                        name = it.get(key) or (
+                            fallback_key and it.get(fallback_key)) or "?"
                         desc = (it.get("description") or "").strip()
                     else:
                         # Defensive: some callers/mocks pass bare name strings.
@@ -8547,11 +8798,14 @@ def _cmd_update_impl(args, gateway_mode: bool):
 
             if missing_env:
                 print(
-                    f"  ⚠️  {len(missing_env)} new required setting(s) need configuration"
+                    f"  ⚠️  {
+                        len(missing_env)} new required setting(s) need configuration"
                 )
                 _print_items(missing_env, "New settings", "name")
             if missing_config:
-                print(f"  ℹ️  {len(missing_config)} new config option(s) available")
+                print(
+                    f"  ℹ️  {
+                        len(missing_config)} new config option(s) available")
                 _print_items(missing_config, "New options", "key")
 
             print()
@@ -8587,16 +8841,19 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 # (dashboard / web server actions) cannot prompt for API keys.
                 # Still run the non-interactive migration pass before restarting
                 # so new default config fields and version bumps are written
-                # before the freshly updated gateway validates config at startup.
+                # before the freshly updated gateway validates config at
+                # startup.
                 interactive_migration = not (
                     gateway_mode or assume_yes or response == "auto"
                 )
-                results = migrate_config(interactive=interactive_migration, quiet=False)
+                results = migrate_config(
+                    interactive=interactive_migration, quiet=False)
 
                 if results["env_added"] or results["config_added"]:
                     print()
                     print("✓ Configuration updated!")
-                if (gateway_mode or assume_yes or response == "auto") and missing_env:
+                if (gateway_mode or assume_yes or response ==
+                        "auto") and missing_env:
                     print("  ℹ API keys require manual entry: nastech config migrate")
             else:
                 print()
@@ -8695,18 +8952,19 @@ def _cmd_update_impl(args, gateway_mode: bool):
         # The code update (git pull) is shared across all profiles, so every
         # running gateway needs restarting to pick up the new code.
         try:
+            import signal as _signal
+
             from nastech_cli.gateway import (
-                is_macos,
-                supports_systemd_services,
                 _ensure_user_systemd_env,
-                find_gateway_pids,
-                find_profile_gateway_processes,
-                launch_detached_profile_gateway_restart,
                 _get_service_pids,
                 _graceful_restart_via_sigusr1,
                 _wait_for_gateway_exit,
+                find_gateway_pids,
+                find_profile_gateway_processes,
+                is_macos,
+                launch_detached_profile_gateway_restart,
+                supports_systemd_services,
             )
-            import signal as _signal
 
             def _wait_for_service_active(
                 scope_cmd_: list,
@@ -8889,7 +9147,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                     text=True,
                                     timeout=5,
                                 )
-                                _main_pid = int((_show.stdout or "").strip() or 0)
+                                _main_pid = int(
+                                    (_show.stdout or "").strip() or 0)
                             except (
                                 ValueError,
                                 subprocess.TimeoutExpired,
@@ -8900,7 +9159,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
                             _graceful_ok = False
                             if _main_pid > 0:
                                 print(
-                                    f"  → {svc_name}: draining (up to {int(_drain_budget)}s)..."
+                                    f"  → {svc_name}: draining (up to {
+                                        int(_drain_budget)}s)..."
                                 )
                                 _graceful_ok = _graceful_restart_via_sigusr1(
                                     _main_pid,
@@ -9048,7 +9308,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                         timeout=10.0,
                                     ):
                                         restarted_services.append(svc_name)
-                                        print(f"  ✓ {svc_name} recovered on retry")
+                                        print(
+                                            f"  ✓ {svc_name} recovered on retry")
                                     else:
                                         _scope_flag = "--user " if scope == "user" else ""
                                         print(
@@ -9060,7 +9321,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                         )
                             else:
                                 print(
-                                    f"  ⚠ Failed to restart {svc_name}: {restart.stderr.strip()}"
+                                    f"  ⚠ Failed to restart {svc_name}: {
+                                        restart.stderr.strip()}"
                                 )
                     except (FileNotFoundError, subprocess.TimeoutExpired):
                         pass
@@ -9069,9 +9331,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
             if is_macos():
                 try:
                     from nastech_cli.gateway import (
-                        launchd_restart,
                         get_launchd_label,
                         get_launchd_plist_path,
+                        launchd_restart,
                     )
 
                     plist_path = get_launchd_plist_path()
@@ -9087,7 +9349,11 @@ def _cmd_update_impl(args, gateway_mode: bool):
                                 launchd_restart()
                                 restarted_services.append(get_launchd_label())
                             except subprocess.CalledProcessError as e:
-                                stderr = (getattr(e, "stderr", "") or "").strip()
+                                stderr = (
+                                    getattr(
+                                        e,
+                                        "stderr",
+                                        "") or "").strip()
                                 print(f"  ⚠ Gateway restart failed: {stderr}")
                 except (FileNotFoundError, subprocess.TimeoutExpired, ImportError):
                     pass
@@ -9106,7 +9372,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 if proc.pid in manual_pids
             }
             for pid, proc in profile_processes.items():
-                if not launch_detached_profile_gateway_restart(proc.profile, pid):
+                if not launch_detached_profile_gateway_restart(
+                        proc.profile, pid):
                     continue
                 # Prefer a graceful SIGUSR1 drain so in-flight agent runs
                 # finish before the watcher respawns the gateway.  If the
@@ -9158,7 +9425,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
                     print(f"  ✓ Restarting manual gateway profile(s): {names}")
                 unmapped_count = len(killed_pids) - len(relaunched_profiles)
                 if unmapped_count:
-                    print(f"  → Stopped {unmapped_count} manual gateway process(es)")
+                    print(
+                        f"  → Stopped {unmapped_count} manual gateway process(es)")
                     print("    Restart manually: nastech gateway run")
                     if unmapped_count > 1:
                         print(
@@ -9193,7 +9461,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
                 if _stuck:
                     print()
                     print(
-                        f"  ⚠ {len(_stuck)} gateway process(es) ignored SIGTERM — force-killing"
+                        f"  ⚠ {
+                            len(_stuck)} gateway process(es) ignored SIGTERM — force-killing"
                     )
                     from gateway.status import terminate_pid as _terminate_pid
                     for pid in _stuck:
@@ -9209,7 +9478,9 @@ def _cmd_update_impl(args, gateway_mode: bool):
                     # watchers see them exit and respawn.
                     _time.sleep(1.5)
             except Exception as _sweep_exc:
-                logger.debug("Post-restart survivor sweep failed: %s", _sweep_exc)
+                logger.debug(
+                    "Post-restart survivor sweep failed: %s",
+                    _sweep_exc)
 
         except Exception as e:
             logger.debug("Gateway restart during update failed: %s", e)
@@ -9221,8 +9492,8 @@ def _cmd_update_impl(args, gateway_mode: bool):
         # every `nastech update` surfaces the issue until the user migrates.
         try:
             from nastech_cli.gateway import (
-                has_legacy_nastech_units,
                 _find_legacy_nastech_units,
+                has_legacy_nastech_units,
                 supports_systemd_services,
             )
 
@@ -9345,17 +9616,17 @@ def _coalesce_session_name_args(argv: list) -> list:
 def cmd_profile(args):
     """Profile management — create, delete, list, switch, alias."""
     from nastech_cli.profiles import (
-        list_profiles,
+        _get_wrapper_dir,
+        _is_wrapper_dir_in_path,
+        check_alias_collision,
         create_profile,
+        create_wrapper_script,
         delete_profile,
+        get_active_profile_name,
+        list_profiles,
+        remove_wrapper_script,
         seed_profile_skills,
         set_active_profile,
-        get_active_profile_name,
-        check_alias_collision,
-        create_wrapper_script,
-        remove_wrapper_script,
-        _is_wrapper_dir_in_path,
-        _get_wrapper_dir,
     )
     from nastech_constants import display_nastech_home
 
@@ -9370,19 +9641,22 @@ def cmd_profile(args):
 
         profiles = list_profiles()
         for p in profiles:
-            if p.name == profile_name or (profile_name == "default" and p.is_default):
+            if p.name == profile_name or (
+                    profile_name == "default" and p.is_default):
                 if p.model:
                     print(
                         f"Model:          {p.model}"
                         + (f" ({p.provider})" if p.provider else "")
                     )
                 print(
-                    f"Gateway:        {'running' if p.gateway_running else 'stopped'}"
+                    f"Gateway:        {
+                        'running' if p.gateway_running else 'stopped'}"
                 )
                 print(f"Skills:         {p.skill_count} installed")
                 if p.alias_path:
                     alias_display = p.alias_name or p.name
-                    print(f"Alias:          {alias_display} → nastech -p {p.name}")
+                    print(
+                        f"Alias:          {alias_display} → nastech -p {p.name}")
                 break
         print()
         return
@@ -9422,7 +9696,12 @@ def cmd_profile(args):
                 dist = dist[:30]
             else:
                 dist = "—"
-            print(f"{marker}{name:<15} {model:<28} {gw:<12} {alias:<12} {dist}")
+            print(
+                f"{marker}{
+                    name:<15} {
+                    model:<28} {
+                    gw:<12} {
+                    alias:<12} {dist}")
         print()
 
     elif action == "use":
@@ -9460,7 +9739,10 @@ def cmd_profile(args):
 
             if clone or clone_all:
                 source_label = (
-                    getattr(args, "clone_from", None) or get_active_profile_name()
+                    getattr(
+                        args,
+                        "clone_from",
+                        None) or get_active_profile_name()
                 )
                 if clone_all:
                     print(f"Full copy from {source_label}.")
@@ -9469,7 +9751,8 @@ def cmd_profile(args):
                         f"Cloned config, .env, SOUL.md, and skills from {source_label}."
                     )
 
-            # Auto-clone Honcho config for the new profile (only with --clone/--clone-all)
+            # Auto-clone Honcho config for the new profile (only with
+            # --clone/--clone-all)
             if clone or clone_all:
                 try:
                     from plugins.memory.honcho.cli import clone_honcho_for_profile
@@ -9513,7 +9796,9 @@ def cmd_profile(args):
                     if wrapper_path:
                         print(f"Wrapper created: {wrapper_path}")
                         if not _is_wrapper_dir_in_path():
-                            print(f"\n⚠ {_get_wrapper_dir()} is not in your PATH.")
+                            print(
+                                f"\n⚠ {
+                                    _get_wrapper_dir()} is not in your PATH.")
                             print(
                                 f"  Add to your shell config (~/.bashrc or ~/.zshrc):"
                             )
@@ -9521,7 +9806,8 @@ def cmd_profile(args):
 
             # Profile dir for display
             try:
-                profile_dir_display = "~/" + str(profile_dir.relative_to(Path.home()))
+                profile_dir_display = "~/" + \
+                    str(profile_dir.relative_to(Path.home()))
             except ValueError:
                 profile_dir_display = str(profile_dir)
 
@@ -9531,14 +9817,17 @@ def cmd_profile(args):
             print(f"  {name} chat               Start chatting")
             print(f"  {name} gateway start      Start the messaging gateway")
             if clone or clone_all:
-                print(f"\n  Edit {profile_dir_display}/.env for different API keys")
-                print(f"  Edit {profile_dir_display}/SOUL.md for different personality")
+                print(
+                    f"\n  Edit {profile_dir_display}/.env for different API keys")
+                print(
+                    f"  Edit {profile_dir_display}/SOUL.md for different personality")
             else:
                 print(
                     f"\n  ⚠ This profile has no API keys yet. Run '{name} setup' first,"
                 )
                 print(f"    or it will inherit keys from your shell environment.")
-                print(f"  Edit {profile_dir_display}/SOUL.md to customize personality")
+                print(
+                    f"  Edit {profile_dir_display}/SOUL.md to customize personality")
             print()
 
         except (ValueError, FileExistsError, FileNotFoundError) as e:
@@ -9576,7 +9865,9 @@ def cmd_profile(args):
             )
             sys.exit(2)
         if not all_flag and not name:
-            print("profile describe: profile name is required (or --all --auto)", file=sys.stderr)
+            print(
+                "profile describe: profile name is required (or --all --auto)",
+                file=sys.stderr)
             sys.exit(2)
         if text_value and auto_flag:
             print(
@@ -9644,11 +9935,16 @@ def cmd_profile(args):
             outcome = _pd.describe_profile(tgt, overwrite=overwrite_flag)
             if outcome.ok:
                 ok_count += 1
-                print(f"Described '{outcome.profile_name}': {outcome.description}")
+                print(
+                    f"Described '{
+                        outcome.profile_name}': {
+                        outcome.description}")
             else:
                 fail_count += 1
                 print(
-                    f"profile describe {outcome.profile_name}: {outcome.reason}",
+                    f"profile describe {
+                        outcome.profile_name}: {
+                        outcome.reason}",
                     file=sys.stderr,
                 )
         if not all_flag:
@@ -9658,14 +9954,14 @@ def cmd_profile(args):
     elif action == "show":
         name = args.profile_name
         from nastech_cli.profiles import (
-            get_profile_dir,
-            profile_exists,
-            _read_config_model,
             _check_gateway_running,
             _count_skills,
-            _read_distribution_meta,
             _get_wrapper_dir,
+            _read_config_model,
+            _read_distribution_meta,
             find_alias_for_profile,
+            get_profile_dir,
+            profile_exists,
         )
 
         if not profile_exists(name):
@@ -9675,7 +9971,8 @@ def cmd_profile(args):
         model, provider = _read_config_model(profile_dir)
         gw = _check_gateway_running(profile_dir)
         skills = _count_skills(profile_dir)
-        dist_name, dist_version, dist_source = _read_distribution_meta(profile_dir)
+        dist_name, dist_version, dist_source = _read_distribution_meta(
+            profile_dir)
         alias_name = find_alias_for_profile(name)
 
         print(f"\nProfile: {name}")
@@ -9685,10 +9982,16 @@ def cmd_profile(args):
         print(f"Gateway: {'running' if gw else 'stopped'}")
         print(f"Skills:  {skills}")
         print(
-            f".env:    {'exists' if (profile_dir / '.env').exists() else 'not configured'}"
+            f".env:    {
+                'exists' if (
+                    profile_dir /
+                    '.env').exists() else 'not configured'}"
         )
         print(
-            f"SOUL.md: {'exists' if (profile_dir / 'SOUL.md').exists() else 'not configured'}"
+            f"SOUL.md: {
+                'exists' if (
+                    profile_dir /
+                    'SOUL.md').exists() else 'not configured'}"
         )
         if dist_name:
             print(f"Distribution: {dist_name}@{dist_version or '?'}")
@@ -9697,7 +10000,8 @@ def cmd_profile(args):
             print(f"  (run `nastech profile info {name}` for full manifest)")
         if alias_name:
             is_windows = sys.platform == "win32"
-            wrapper = _get_wrapper_dir() / (f"{alias_name}.bat" if is_windows else alias_name)
+            wrapper = _get_wrapper_dir() / \
+                (f"{alias_name}.bat" if is_windows else alias_name)
             print(f"Alias:   {alias_name} → nastech -p {name}  ({wrapper})")
         print()
 
@@ -9778,10 +10082,11 @@ def cmd_profile(args):
 
     elif action == "install":
         import tempfile
+
         from nastech_cli.profile_distribution import (
-            plan_install,
-            install_distribution,
             DistributionError,
+            install_distribution,
+            plan_install,
         )
 
         try:
@@ -9798,7 +10103,8 @@ def cmd_profile(args):
 
                 if not getattr(args, "yes", False):
                     try:
-                        answer = input("\nProceed with install? [y/N] ").strip().lower()
+                        answer = input(
+                            "\nProceed with install? [y/N] ").strip().lower()
                     except (EOFError, KeyboardInterrupt):
                         answer = ""
                     if answer not in {"y", "yes"}:
@@ -9811,7 +10117,10 @@ def cmd_profile(args):
                 force=getattr(args, "force", False),
                 create_alias=getattr(args, "alias", False),
             )
-            print(f"\n✓ Installed '{plan.manifest.name}' v{plan.manifest.version}")
+            print(
+                f"\n✓ Installed '{
+                    plan.manifest.name}' v{
+                    plan.manifest.version}")
             print(f"  Profile path: {plan.target_dir}")
             if plan.manifest.env_requires:
                 print(
@@ -9821,7 +10130,8 @@ def cmd_profile(args):
             if plan.has_cron:
                 print(
                     "  Cron jobs were included but are NOT scheduled automatically.\n"
-                    f"  Review them with:  nastech -p {plan.manifest.name} cron list"
+                    f"  Review them with:  nastech -p {
+                        plan.manifest.name} cron list"
                 )
             print(f"\n  Use with:      nastech -p {plan.manifest.name} chat")
         except (DistributionError, ValueError) as e:
@@ -9830,9 +10140,9 @@ def cmd_profile(args):
 
     elif action == "update":
         from nastech_cli.profile_distribution import (
-            update_distribution,
-            read_manifest,
             DistributionError,
+            read_manifest,
+            update_distribution,
         )
         from nastech_cli.profiles import get_profile_dir, normalize_profile_name
 
@@ -9849,13 +10159,17 @@ def cmd_profile(args):
 
             force_config = getattr(args, "force_config", False)
             if not getattr(args, "yes", False):
-                print(f"\nUpdate '{canon}' from: {current.source or '(no source)'}")
+                print(
+                    f"\nUpdate '{canon}' from: {
+                        current.source or '(no source)'}")
                 print(f"  Currently at version {current.version}")
                 if force_config:
                     print("  --force-config set: config.yaml WILL be overwritten.")
                 else:
-                    print("  config.yaml will be preserved (pass --force-config to overwrite).")
-                print("  User data (memories, sessions, auth, .env) will NOT be touched.")
+                    print(
+                        "  config.yaml will be preserved (pass --force-config to overwrite).")
+                print(
+                    "  User data (memories, sessions, auth, .env) will NOT be touched.")
                 try:
                     answer = input("\nProceed? [y/N] ").strip().lower()
                 except (EOFError, KeyboardInterrupt):
@@ -9865,7 +10179,10 @@ def cmd_profile(args):
                     return
 
             plan = update_distribution(canon, force_config=force_config)
-            print(f"\n✓ Updated '{plan.manifest.name}' → v{plan.manifest.version}")
+            print(
+                f"\n✓ Updated '{
+                    plan.manifest.name}' → v{
+                    plan.manifest.version}")
             if plan.has_cron:
                 print(
                     "  Cron files were refreshed.  Review with:  "
@@ -9876,7 +10193,10 @@ def cmd_profile(args):
             sys.exit(1)
 
     elif action == "info":
-        from nastech_cli.profile_distribution import describe_distribution, DistributionError
+        from nastech_cli.profile_distribution import (
+            DistributionError,
+            describe_distribution,
+        )
 
         try:
             data = describe_distribution(args.profile_name)
@@ -9936,7 +10256,9 @@ def _render_distribution_plan(plan) -> None:
         # untouched) from "overwriting a hand-built plain profile" (same
         # mechanics but the user didn't sign up for this when they created
         # the profile manually).
-        existing_is_distribution = (plan.target_dir / MANIFEST_FILENAME).is_file()
+        existing_is_distribution = (
+            plan.target_dir /
+            MANIFEST_FILENAME).is_file()
         if existing_is_distribution:
             print("  (profile exists — will overwrite distribution-owned files only)")
         else:
@@ -9967,7 +10289,8 @@ def _render_distribution_plan(plan) -> None:
                                 break
                     except OSError:
                         pass
-            status = "✓ set" if already else ("needs setting" if er.required else "—")
+            status = "✓ set" if already else (
+                "needs setting" if er.required else "—")
             line = f"    • {er.name} ({tag}, {status})"
             if er.description:
                 line += f" — {er.description}"
@@ -10029,7 +10352,8 @@ def cmd_dashboard(args):
         if not pids:
             print("No nastech dashboard processes running.")
             sys.exit(0)
-        # Reuse the same SIGTERM-grace-SIGKILL path used after `nastech update`.
+        # Reuse the same SIGTERM-grace-SIGKILL path used after `nastech
+        # update`.
         _kill_stale_dashboard_processes(reason="requested via --stop")
         # _kill_stale_dashboard_processes prints outcomes itself.  Exit 0 if
         # we killed at least one, 1 if they were all unkillable.
@@ -10081,7 +10405,8 @@ def cmd_dashboard(args):
     # backend is the desktop's primary entrypoint and needs the same.
     _sync_bundled_skills_quietly()
 
-    if "NASTECH_WEB_DIST" not in os.environ and not getattr(args, "skip_build", False):
+    if "NASTECH_WEB_DIST" not in os.environ and not getattr(
+            args, "skip_build", False):
         if not _build_web_ui(PROJECT_ROOT / "web", fatal=True):
             sys.exit(1)
     elif getattr(args, "skip_build", False):
@@ -10094,11 +10419,14 @@ def cmd_dashboard(args):
             else PROJECT_ROOT / "nastech_cli" / "web_dist"
         )
         if not (_dist_root / "index.html").exists():
-            print(f"✗ --skip-build was passed but no web dist found at: {_dist_root}")
-            print("  Pre-build first:  npm install --workspace web && npm run build -w web")
+            print(
+                f"✗ --skip-build was passed but no web dist found at: {_dist_root}")
+            print(
+                "  Pre-build first:  npm install --workspace web && npm run build -w web")
             print("  Or drop --skip-build to build automatically.")
             sys.exit(1)
-        print(f"→ Skipping web UI build (--skip-build); using dist at {_dist_root}")
+        print(
+            f"→ Skipping web UI build (--skip-build); using dist at {_dist_root}")
 
     # Discover and load plugins so any DashboardAuthProvider plugin
     # (e.g. plugins/dashboard_auth/nous) registers BEFORE start_server's
@@ -10138,7 +10466,7 @@ def cmd_dashboard_register(args):
 
 def cmd_completion(args, parser=None):
     """Print shell completion script."""
-    from nastech_cli.completion import generate_bash, generate_zsh, generate_fish
+    from nastech_cli.completion import generate_bash, generate_fish, generate_zsh
 
     shell = getattr(args, "shell", "bash")
     if shell == "zsh":
@@ -10158,7 +10486,7 @@ def cmd_prompt_size(args):
 
 def cmd_logs(args):
     """View and filter NasTech log files."""
-    from nastech_cli.logs import tail_log, list_logs
+    from nastech_cli.logs import list_logs, tail_log
 
     log_name = getattr(args, "log_name", "agent") or "agent"
 
@@ -10175,6 +10503,8 @@ def cmd_logs(args):
         since=getattr(args, "since", None),
         component=getattr(args, "component", None),
     )
+
+
 # Top-level subcommands that argparse knows about WITHOUT running plugin
 # discovery.  Used to short-circuit eager plugin imports (which can take
 # 500ms+ pulling in google.cloud.pubsub_v1, aiohttp, grpc, etc.) when the
@@ -10294,15 +10624,18 @@ _AGENT_SUBCOMMANDS = {
 
 
 def _is_tui_chat_launch(args) -> bool:
-    return bool(getattr(args, "tui", False) or os.environ.get("NASTECH_TUI") == "1")
+    return bool(getattr(args, "tui", False)
+                or os.environ.get("NASTECH_TUI") == "1")
 
 
 def _command_has_dedicated_mcp_startup(args) -> bool:
     if args.command == "acp":
         return True
-    if args.command == "gateway" and getattr(args, "gateway_command", None) == "run":
+    if args.command == "gateway" and getattr(
+            args, "gateway_command", None) == "run":
         return True
-    if args.command == "cron" and getattr(args, "cron_command", None) in {"run", "tick"}:
+    if args.command == "cron" and getattr(
+            args, "cron_command", None) in {"run", "tick"}:
         return True
     return False
 
@@ -10369,8 +10702,8 @@ def _prepare_agent_startup(args) -> None:
                 exc_info=True,
             )
     try:
-        from nastech_cli.config import load_config
         from agent.shell_hooks import register_from_config
+        from nastech_cli.config import load_config
 
         register_from_config(load_config(), accept_hooks=_accept_hooks)
     except Exception:
@@ -10451,7 +10784,9 @@ def _try_termux_fast_cli_launch() -> bool:
 
     if args.command in {None, "chat"}:
         _set_chat_arg_defaults(args)
-        interactive_prompt = not getattr(args, "query", None) and not getattr(args, "image", None)
+        interactive_prompt = not getattr(
+            args, "query", None) and not getattr(
+            args, "image", None)
         if interactive_prompt:
             # Bare Termux CLI should reach the prompt first and do agent-only
             # discovery on the first submitted turn instead of before input.
@@ -10522,7 +10857,7 @@ def cmd_memory(args):
         print("\n  ✓ Memory provider: built-in only")
         print("  Saved to config.yaml\n")
     elif sub == "reset":
-        from nastech_constants import get_nastech_home, display_nastech_home
+        from nastech_constants import display_nastech_home, get_nastech_home
 
         mem_dir = get_nastech_home() / "memories"
         target = getattr(args, "target", "all")
@@ -10538,7 +10873,8 @@ def cmd_memory(args):
         ]
         if not existing:
             print(
-                f"\n  Nothing to reset — no memory files found in {display_nastech_home()}/memories/\n"
+                f"\n  Nothing to reset — no memory files found in {
+                    display_nastech_home()}/memories/\n"
             )
             return
 
@@ -10614,8 +10950,8 @@ def cmd_tools(args):
 
 def cmd_insights(args):
     try:
-        from nastech_state import SessionDB
         from agent.insights import InsightsEngine
+        from nastech_state import SessionDB
 
         db = SessionDB()
         engine = InsightsEngine(db)
@@ -10714,7 +11050,8 @@ def main():
             "https://nastech-agent.nastechai.com/docs/user-guide/features/fallback-providers"
         ),
     )
-    fallback_subparsers = fallback_parser.add_subparsers(dest="fallback_command")
+    fallback_subparsers = fallback_parser.add_subparsers(
+        dest="fallback_command")
     fallback_subparsers.add_parser(
         "list",
         aliases=["ls"],
@@ -10812,7 +11149,10 @@ def main():
     # =========================================================================
     # gateway + proxy commands  (parsers built in nastech_cli/subcommands/gateway.py)
     # =========================================================================
-    build_gateway_parser(subparsers, cmd_gateway=cmd_gateway, cmd_proxy=cmd_proxy)
+    build_gateway_parser(
+        subparsers,
+        cmd_gateway=cmd_gateway,
+        cmd_proxy=cmd_proxy)
 
     # =========================================================================
     # lsp command
@@ -10975,7 +11315,8 @@ def main():
             "referenced skill at once."
         ),
     )
-    from nastech_cli.bundles import register_cli as _bundles_register, bundles_command
+    from nastech_cli.bundles import bundles_command
+    from nastech_cli.bundles import register_cli as _bundles_register
     _bundles_register(bundles_parser)
     bundles_parser.set_defaults(func=bundles_command)
 
@@ -10997,8 +11338,8 @@ def main():
     # =========================================================================
     if _plugin_cli_discovery_needed():
         try:
-            from plugins.memory import discover_plugin_cli_commands
             from nastech_cli.plugins import discover_plugins, get_plugin_manager
+            from plugins.memory import discover_plugin_cli_commands
 
             seen_plugin_commands = set()
             for cmd_info in discover_plugin_cli_commands():
@@ -11006,7 +11347,8 @@ def main():
                     cmd_info["name"],
                     help=cmd_info["help"],
                     description=cmd_info.get("description", ""),
-                    formatter_class=__import__("argparse").RawDescriptionHelpFormatter,
+                    formatter_class=__import__(
+                        "argparse").RawDescriptionHelpFormatter,
                 )
                 cmd_info["setup_fn"](plugin_parser)
                 if cmd_info.get("handler_fn") is not None:
@@ -11021,13 +11363,15 @@ def main():
                     cmd_info["name"],
                     help=cmd_info["help"],
                     description=cmd_info.get("description", ""),
-                    formatter_class=__import__("argparse").RawDescriptionHelpFormatter,
+                    formatter_class=__import__(
+                        "argparse").RawDescriptionHelpFormatter,
                 )
                 cmd_info["setup_fn"](plugin_parser)
                 if cmd_info.get("handler_fn") is not None:
                     plugin_parser.set_defaults(func=cmd_info["handler_fn"])
         except Exception as _exc:
-            logging.getLogger(__name__).debug("Plugin CLI discovery failed: %s", _exc)
+            logging.getLogger(__name__).debug(
+                "Plugin CLI discovery failed: %s", _exc)
 
     # =========================================================================
     # curator command — background skill maintenance
@@ -11048,7 +11392,8 @@ def main():
 
         _register_curator_cli(curator_parser)
     except Exception as _exc:
-        logging.getLogger(__name__).debug("curator CLI wiring failed: %s", _exc)
+        logging.getLogger(__name__).debug(
+            "curator CLI wiring failed: %s", _exc)
 
     # =========================================================================
     # memory command  (parser built in nastech_cli/subcommands/memory.py)
@@ -11077,7 +11422,8 @@ def main():
             "toggling the toolset on a returning-user setup)."
         ),
     )
-    computer_use_sub = computer_use_parser.add_subparsers(dest="computer_use_action")
+    computer_use_sub = computer_use_parser.add_subparsers(
+        dest="computer_use_action")
 
     computer_use_install = computer_use_sub.add_parser(
         "install",
@@ -11142,9 +11488,11 @@ def main():
         help="Manage session history (list, rename, export, prune, delete)",
         description="View and manage the SQLite session store",
     )
-    sessions_subparsers = sessions_parser.add_subparsers(dest="sessions_action")
+    sessions_subparsers = sessions_parser.add_subparsers(
+        dest="sessions_action")
 
-    sessions_list = sessions_subparsers.add_parser("list", help="List recent sessions")
+    sessions_list = sessions_subparsers.add_parser(
+        "list", help="List recent sessions")
     sessions_list.add_argument(
         "--source", help="Filter by source (cli, telegram, discord, etc.)"
     )
@@ -11159,7 +11507,9 @@ def main():
         "output", help="Output JSONL file path (use - for stdout)"
     )
     sessions_export.add_argument("--source", help="Filter by source")
-    sessions_export.add_argument("--session-id", help="Export a specific session")
+    sessions_export.add_argument(
+        "--session-id",
+        help="Export a specific session")
 
     sessions_delete = sessions_subparsers.add_parser(
         "delete", help="Delete a specific session"
@@ -11169,14 +11519,16 @@ def main():
         "--yes", "-y", action="store_true", help="Skip confirmation"
     )
 
-    sessions_prune = sessions_subparsers.add_parser("prune", help="Delete old sessions")
+    sessions_prune = sessions_subparsers.add_parser(
+        "prune", help="Delete old sessions")
     sessions_prune.add_argument(
         "--older-than",
         type=int,
         default=90,
         help="Delete sessions older than N days (default: 90)",
     )
-    sessions_prune.add_argument("--source", help="Only prune sessions from this source")
+    sessions_prune.add_argument("--source",
+                                help="Only prune sessions from this source")
     sessions_prune.add_argument(
         "--yes", "-y", action="store_true", help="Skip confirmation"
     )
@@ -11186,13 +11538,15 @@ def main():
         help="Reclaim disk space: merge FTS5 segments + VACUUM (no data change)",
     )
 
-    sessions_subparsers.add_parser("stats", help="Show session store statistics")
+    sessions_subparsers.add_parser(
+        "stats", help="Show session store statistics")
 
     sessions_rename = sessions_subparsers.add_parser(
         "rename", help="Set or change a session's title"
     )
     sessions_rename.add_argument("session_id", help="Session ID to rename")
-    sessions_rename.add_argument("title", nargs="+", help="New title for the session")
+    sessions_rename.add_argument(
+        "title", nargs="+", help="New title for the session")
 
     sessions_browse = sessions_subparsers.add_parser(
         "browse",
@@ -11225,7 +11579,8 @@ def main():
 
         action = args.sessions_action
 
-        # Hide third-party tool sessions by default, but honour explicit --source
+        # Hide third-party tool sessions by default, but honour explicit
+        # --source
         _source = getattr(args, "source", None)
         _exclude = None if _source else ["tool"]
 
@@ -11256,7 +11611,8 @@ def main():
                     print(f"{title:<32} {preview:<40} {last_active:<13} {sid}")
                 else:
                     sid = s["id"]
-                    print(f"{preview:<50} {last_active:<13} {s['source']:<6} {sid}")
+                    print(
+                        f"{preview:<50} {last_active:<13} {s['source']:<6} {sid}")
 
         elif action == "export":
             if args.session_id:
@@ -11281,12 +11637,17 @@ def main():
                 if args.output == "-":
 
                     for s in sessions:
-                        sys.stdout.write(_json.dumps(s, ensure_ascii=False) + "\n")
+                        sys.stdout.write(
+                            _json.dumps(
+                                s, ensure_ascii=False) + "\n")
                 else:
                     with open(args.output, "w", encoding="utf-8") as f:
                         for s in sessions:
                             f.write(_json.dumps(s, ensure_ascii=False) + "\n")
-                    print(f"Exported {len(sessions)} sessions to {args.output}")
+                    print(
+                        f"Exported {
+                            len(sessions)} sessions to {
+                            args.output}")
 
         elif action == "delete":
             resolved_session_id = db.resolve_session_id(args.session_id)
@@ -11300,7 +11661,8 @@ def main():
                     print("Cancelled.")
                     return
             sessions_dir = get_nastech_home() / "sessions"
-            if db.delete_session(resolved_session_id, sessions_dir=sessions_dir):
+            if db.delete_session(resolved_session_id,
+                                 sessions_dir=sessions_dir):
                 print(f"Deleted session '{resolved_session_id}'.")
             else:
                 print(f"Session '{args.session_id}' not found.")
@@ -11328,7 +11690,8 @@ def main():
             title = " ".join(args.title)
             try:
                 if db.set_session_title(resolved_session_id, title):
-                    print(f"Session '{resolved_session_id}' renamed to: {title}")
+                    print(
+                        f"Session '{resolved_session_id}' renamed to: {title}")
                 else:
                     print(f"Session '{args.session_id}' not found.")
             except ValueError as e:
@@ -11456,7 +11819,9 @@ def main():
         choices=["bash", "zsh", "fish"],
         help="Shell type (default: bash)",
     )
-    completion_parser.set_defaults(func=lambda args: cmd_completion(args, parser))
+    completion_parser.set_defaults(
+        func=lambda args: cmd_completion(
+            args, parser))
 
     # =========================================================================
     # dashboard command  (parser built in nastech_cli/subcommands/dashboard.py)
@@ -11466,7 +11831,6 @@ def main():
         cmd_dashboard=cmd_dashboard,
         cmd_dashboard_register=cmd_dashboard_register,
     )
-
 
     # =========================================================================
     # desktop (a.k.a. gui) command
@@ -11526,7 +11890,8 @@ def main():
     import io as _io
 
     _known_cmds = (
-        set(subparsers.choices.keys()) if hasattr(subparsers, "choices") else set()
+        set(subparsers.choices.keys()) if hasattr(
+            subparsers, "choices") else set()
     )
     _has_cmd_token = any(
         t in _known_cmds for t in _processed_argv if not t.startswith("-")

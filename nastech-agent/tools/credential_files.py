@@ -26,13 +26,16 @@ import posixpath
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Dict, List, Optional
+
 from nastech_cli.config import cfg_get
 
 logger = logging.getLogger(__name__)
 
 # Session-scoped list of credential files to mount.
-# Backed by ContextVar to prevent cross-session data bleed in the gateway pipeline.
-_registered_files_var: ContextVar[Dict[str, str]] = ContextVar("_registered_files")
+# Backed by ContextVar to prevent cross-session data bleed in the gateway
+# pipeline.
+_registered_files_var: ContextVar[Dict[str, str]] = ContextVar(
+    "_registered_files")
 
 
 def _get_registered() -> Dict[str, str]:
@@ -100,7 +103,10 @@ def register_credential_file(
 
     container_path = f"{container_base.rstrip('/')}/{relative_path}"
     _get_registered()[container_path] = str(resolved)
-    logger.debug("credential_files: registered %s -> %s", resolved, container_path)
+    logger.debug(
+        "credential_files: registered %s -> %s",
+        resolved,
+        container_path)
     return True
 
 
@@ -153,7 +159,8 @@ def _load_config_files() -> List[Dict[str, str]]:
                         )
                         continue
                     host_path = nastech_home / rel
-                    containment_error = validate_within_dir(host_path, nastech_home)
+                    containment_error = validate_within_dir(
+                        host_path, nastech_home)
                     if containment_error:
                         logger.warning(
                             "credential_files: rejected config path traversal %r (%s)",
@@ -168,7 +175,8 @@ def _load_config_files() -> List[Dict[str, str]]:
                             "container_path": container_path,
                         })
     except Exception as e:
-        logger.warning("Could not read terminal.credential_files from config: %s", e)
+        logger.warning(
+            "Could not read terminal.credential_files from config: %s", e)
 
     _config_files = result
     return _config_files
@@ -287,7 +295,9 @@ def _safe_skills_path(skills_dir: Path) -> str:
             shutil.rmtree(safe_dir, ignore_errors=True)
 
     atexit.register(_cleanup)
-    logger.info("credential_files: created symlink-safe skills copy at %s", safe_dir)
+    logger.info(
+        "credential_files: created symlink-safe skills copy at %s",
+        safe_dir)
     return str(safe_dir)
 
 
@@ -322,7 +332,8 @@ def iter_skills_files(
         for idx, ext_dir in enumerate(get_external_skills_dirs()):
             if not ext_dir.is_dir():
                 continue
-            container_root = f"{container_base.rstrip('/')}/external_skills/{idx}"
+            container_root = f"{
+                container_base.rstrip('/')}/external_skills/{idx}"
             for item in ext_dir.rglob("*"):
                 if item.is_symlink() or not item.is_file():
                     continue
@@ -342,7 +353,8 @@ def iter_skills_files(
 # ---------------------------------------------------------------------------
 
 # The four cache subdirectories that should be mirrored into remote backends.
-# Each tuple is (new_subpath, old_name) matching nastech_constants.get_nastech_dir().
+# Each tuple is (new_subpath, old_name) matching
+# nastech_constants.get_nastech_dir().
 _CACHE_DIRS: list[tuple[str, str]] = [
     ("cache/documents", "document_cache"),
     ("cache/images", "image_cache"),
@@ -366,7 +378,8 @@ def get_cache_directory_mounts(
     for new_subpath, old_name in _CACHE_DIRS:
         host_dir = get_nastech_dir(new_subpath, old_name)
         if host_dir.is_dir():
-            # Always map to the *new* container layout regardless of host layout.
+            # Always map to the *new* container layout regardless of host
+            # layout.
             container_path = f"{container_base.rstrip('/')}/{new_subpath}"
             mounts.append({
                 "host_path": str(host_dir),
@@ -416,7 +429,8 @@ def to_agent_visible_cache_path(
     if os.environ.get("TERMINAL_ENV", "local") != "docker":
         return host_path
 
-    mapped = map_cache_path_to_container(host_path, container_base=container_base)
+    mapped = map_cache_path_to_container(
+        host_path, container_base=container_base)
     return mapped if mapped is not None else host_path
 
 
@@ -450,5 +464,3 @@ def iter_cache_files(
 def clear_credential_files() -> None:
     """Reset the skill-scoped registry (e.g. on session reset)."""
     _get_registered().clear()
-
-

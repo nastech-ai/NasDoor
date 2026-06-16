@@ -72,6 +72,7 @@ class ServiceManager(Protocol):
 
     # Runtime registration (s6 only).
     def supports_runtime_registration(self) -> bool: ...
+
     def register_profile_gateway(
         self,
         profile: str,
@@ -100,12 +101,12 @@ def detect_service_manager() -> ServiceManagerKind:
     # Imports deferred so importing this module doesn't drag in the
     # whole gateway dependency graph for callers that only need the
     # Protocol type or validate_profile_name().
-    from nastech_constants import is_container
     from nastech_cli.gateway import (
         is_macos,
         is_windows,
         supports_systemd_services,
     )
+    from nastech_constants import is_container
 
     if is_container() and _s6_running():
         return "s6"

@@ -66,7 +66,8 @@ def _flip_console_code_page_to_utf8() -> None:
         pass
 
 
-def _reconfigure_stream(stream, *, encoding: str = "utf-8", errors: str = "replace") -> None:
+def _reconfigure_stream(stream, *, encoding: str = "utf-8",
+                        errors: str = "replace") -> None:
     """Reconfigure a text stream to UTF-8 in place.
 
     Uses ``TextIOWrapper.reconfigure`` (Python 3.7+).  If the stream isn't
@@ -105,7 +106,8 @@ def configure_windows_stdio() -> bool:
         _CONFIGURED = True
         return False
 
-    if os.environ.get("NASTECH_DISABLE_WINDOWS_UTF8") in {"1", "true", "True", "yes"}:
+    if os.environ.get("NASTECH_DISABLE_WINDOWS_UTF8") in {
+            "1", "true", "True", "yes"}:
         _CONFIGURED = True
         return False
 
@@ -124,7 +126,8 @@ def configure_windows_stdio() -> bool:
     # otherwise.  This happens even with full Git for Windows installed,
     # so it's not a MinGit-specific issue.
     _default_editor = _default_windows_editor()
-    if _default_editor and not os.environ.get("EDITOR") and not os.environ.get("VISUAL"):
+    if _default_editor and not os.environ.get(
+            "EDITOR") and not os.environ.get("VISUAL"):
         os.environ["EDITOR"] = _default_editor
 
     # Augment PATH with the NasTech-managed Git install directories so
@@ -191,7 +194,6 @@ def _default_windows_editor() -> str:
     return ""
 
 
-
 def _augment_path_with_known_tools() -> None:
     """Prepend well-known NasTech-managed tool directories to os.environ['PATH'].
 
@@ -216,7 +218,6 @@ def _augment_path_with_known_tools() -> None:
     if not is_windows():
         return
 
-
     local_appdata = os.environ.get("LOCALAPPDATA", "")
     if not local_appdata:
         return
@@ -232,7 +233,12 @@ def _augment_path_with_known_tools() -> None:
         # NasTech venv Scripts directory — host of the nastech.exe shim itself,
         # also where any pip-installed console scripts land.  Usually already
         # on PATH when the user invokes nastech, but harmless to include.
-        os.path.join(local_appdata, "nastech", "nastech-agent", "venv", "Scripts"),
+        os.path.join(
+            local_appdata,
+            "nastech",
+            "nastech-agent",
+            "venv",
+            "Scripts"),
         # WinGet packages directory — where ``winget install`` drops CLI
         # shims by default (ripgrep lands here as rg.exe).  Covers the case
         # of a system-Git install + ripgrep-via-winget that isn't yet on

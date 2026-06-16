@@ -24,14 +24,19 @@ def build_webhook_parser(subparsers, *, cmd_webhook: Callable) -> None:
     wh_sub = webhook_subparsers.add_parser(
         "subscribe", aliases=["add"], help="Create a webhook subscription"
     )
-    wh_sub.add_argument("name", help="Route name (used in URL: /webhooks/<name>)")
+    wh_sub.add_argument(
+        "name",
+        help="Route name (used in URL: /webhooks/<name>)")
     wh_sub.add_argument(
         "--prompt", default="", help="Prompt template with {dot.notation} payload refs"
     )
     wh_sub.add_argument(
         "--events", default="", help="Comma-separated event types to accept"
     )
-    wh_sub.add_argument("--description", default="", help="What this subscription does")
+    wh_sub.add_argument(
+        "--description",
+        default="",
+        help="What this subscription does")
     wh_sub.add_argument(
         "--skills", default="", help="Comma-separated skill names to load"
     )

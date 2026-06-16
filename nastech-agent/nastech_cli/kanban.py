@@ -26,20 +26,23 @@ from typing import Any, Optional
 
 from nastech_cli import kanban_db as kb
 from nastech_cli import kanban_swarm as ks
-from nastech_cli.profiles import get_active_profile_name, get_profile_dir, seed_profile_skills
-
+from nastech_cli.profiles import (
+    get_active_profile_name,
+    get_profile_dir,
+    seed_profile_skills,
+)
 
 # ---------------------------------------------------------------------------
 # Small formatting helpers
 # ---------------------------------------------------------------------------
 
 _STATUS_ICONS = {
-    "todo":     "◻",
-    "ready":    "▶",
-    "running":  "●",
-    "scheduled":"⏱",
-    "blocked":  "⊘",
-    "done":     "✓",
+    "todo": "◻",
+    "ready": "▶",
+    "running": "●",
+    "scheduled": "⏱",
+    "blocked": "⊘",
+    "done": "✓",
     "archived": "—",
 }
 
@@ -127,7 +130,8 @@ def _parse_branch_flag(value: Optional[str]) -> Optional[str]:
     if branch.startswith("-"):
         raise argparse.ArgumentTypeError("--branch must not start with '-'")
     if any(ch.isspace() for ch in branch):
-        raise argparse.ArgumentTypeError("--branch must not contain whitespace")
+        raise argparse.ArgumentTypeError(
+            "--branch must not contain whitespace")
     return branch
 
 
@@ -160,7 +164,12 @@ def _check_dispatcher_presence() -> tuple[bool, str]:
     try:
         from nastech_cli.config import load_config
         cfg = load_config()
-        dispatch_on = bool(cfg.get("kanban", {}).get("dispatch_in_gateway", True))
+        dispatch_on = bool(
+            cfg.get(
+                "kanban",
+                {}).get(
+                "dispatch_in_gateway",
+                True))
     except Exception:
         dispatch_on = True  # can't tell — assume default
 
@@ -189,7 +198,8 @@ def _check_dispatcher_presence() -> tuple[bool, str]:
 # Argparse builder
 # ---------------------------------------------------------------------------
 
-def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
+def build_parser(
+        parent_subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     """Attach the ``kanban`` subcommand tree under an existing subparsers.
 
     Returns the top-level ``kanban`` parser so caller can ``set_defaults``.
@@ -306,7 +316,10 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
     p_create = sub.add_parser("create", help="Create a new task")
     p_create.add_argument("title", help="Task title")
     p_create.add_argument("--body", default=None, help="Optional opening post")
-    p_create.add_argument("--assignee", default=None, help="Profile name to assign")
+    p_create.add_argument(
+        "--assignee",
+        default=None,
+        help="Profile name to assign")
     p_create.add_argument("--parent", action="append", default=[],
                           help="Parent task id (repeatable)")
     p_create.add_argument("--workspace", default="scratch",
@@ -315,7 +328,11 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
     p_create.add_argument("--branch", default=None,
                           help="Branch name for worktree tasks, e.g. wt/t6-wire")
     p_create.add_argument("--tenant", default=None, help="Tenant namespace")
-    p_create.add_argument("--priority", type=int, default=0, help="Priority tiebreaker")
+    p_create.add_argument(
+        "--priority",
+        type=int,
+        default=0,
+        help="Priority tiebreaker")
     p_create.add_argument("--triage", action="store_true",
                           help="Park in triage — a specifier will flesh out the spec and promote to todo")
     p_create.add_argument("--idempotency-key", default=None,
@@ -361,7 +378,10 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
                           help="Initial card status. Use 'blocked' for cards "
                                "that require immediate human ops (R3 gate) "
                                "to skip the brief running-to-blocked transition.")
-    p_create.add_argument("--json", action="store_true", help="Emit JSON output")
+    p_create.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON output")
 
     # --- swarm ---
     p_swarm = sub.add_parser(
@@ -377,12 +397,28 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
         help="Parallel worker card (repeatable)",
     )
     p_swarm.add_argument("--verifier", required=True, help="Verifier profile")
-    p_swarm.add_argument("--synthesizer", required=True, help="Synthesizer/writer profile")
+    p_swarm.add_argument(
+        "--synthesizer",
+        required=True,
+        help="Synthesizer/writer profile")
     p_swarm.add_argument("--tenant", default=None, help="Tenant namespace")
-    p_swarm.add_argument("--priority", type=int, default=0, help="Priority tiebreaker")
-    p_swarm.add_argument("--created-by", default=None, help="Creator/anchor profile")
-    p_swarm.add_argument("--idempotency-key", default=None, help="Dedup key for the root card")
-    p_swarm.add_argument("--json", action="store_true", help="Emit JSON output")
+    p_swarm.add_argument(
+        "--priority",
+        type=int,
+        default=0,
+        help="Priority tiebreaker")
+    p_swarm.add_argument(
+        "--created-by",
+        default=None,
+        help="Creator/anchor profile")
+    p_swarm.add_argument(
+        "--idempotency-key",
+        default=None,
+        help="Dedup key for the root card")
+    p_swarm.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON output")
 
     # --- list ---
     p_list = sub.add_parser("list", aliases=["ls"], help="List tasks")
@@ -438,7 +474,9 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
     # --- assign ---
     p_assign = sub.add_parser("assign", help="Assign or reassign a task")
     p_assign.add_argument("task_id")
-    p_assign.add_argument("profile", help="Profile name (or 'none' to unassign)")
+    p_assign.add_argument(
+        "profile",
+        help="Profile name (or 'none' to unassign)")
 
     # --- reclaim / reassign (recovery) ---
     p_reclaim = sub.add_parser(
@@ -495,7 +533,8 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
     p_link = sub.add_parser("link", help="Add a parent->child dependency")
     p_link.add_argument("parent_id")
     p_link.add_argument("child_id")
-    p_unlink = sub.add_parser("unlink", help="Remove a parent->child dependency")
+    p_unlink = sub.add_parser(
+        "unlink", help="Remove a parent->child dependency")
     p_unlink.add_argument("parent_id")
     p_unlink.add_argument("child_id")
 
@@ -551,17 +590,27 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
 
     p_block = sub.add_parser("block", help="Mark one or more tasks blocked")
     p_block.add_argument("task_id")
-    p_block.add_argument("reason", nargs="*", help="Reason (also appended as a comment)")
+    p_block.add_argument(
+        "reason",
+        nargs="*",
+        help="Reason (also appended as a comment)")
     p_block.add_argument("--ids", nargs="+", default=None,
                          help="Additional task ids to block with the same reason (bulk mode)")
 
-    p_schedule = sub.add_parser("schedule", help="Park one or more tasks in Scheduled (waiting on time, not human input)")
+    p_schedule = sub.add_parser(
+        "schedule",
+        help="Park one or more tasks in Scheduled (waiting on time, not human input)")
     p_schedule.add_argument("task_id")
-    p_schedule.add_argument("reason", nargs="*", help="Reason/timing note (also appended as a comment)")
+    p_schedule.add_argument(
+        "reason",
+        nargs="*",
+        help="Reason/timing note (also appended as a comment)")
     p_schedule.add_argument("--ids", nargs="+", default=None,
                             help="Additional task ids to schedule with the same reason (bulk mode)")
 
-    p_unblock = sub.add_parser("unblock", help="Return one or more blocked/scheduled tasks to ready")
+    p_unblock = sub.add_parser(
+        "unblock",
+        help="Return one or more blocked/scheduled tasks to ready")
     p_unblock.add_argument(
         "--reason",
         default=None,
@@ -630,7 +679,7 @@ def build_parser(parent_subparsers: argparse._SubParsersAction) -> argparse.Argu
     p_disp.add_argument("--failure-limit", type=int,
                         default=kb.DEFAULT_SPAWN_FAILURE_LIMIT,
                         help=f"Auto-block a task after this many consecutive non-success attempts "
-                             f"(spawn_failed, timed_out, or crashed; default: {kb.DEFAULT_SPAWN_FAILURE_LIMIT})")
+                        f"(spawn_failed, timed_out, or crashed; default: {kb.DEFAULT_SPAWN_FAILURE_LIMIT})")
     p_disp.add_argument("--json", action="store_true")
 
     # --- daemon (deprecated) ---
@@ -917,48 +966,50 @@ def kanban_command(args: argparse.Namespace) -> int:
         try:
             kb.init_db()
         except Exception as exc:
-            print(f"kanban: could not initialize database: {exc}", file=sys.stderr)
+            print(
+                f"kanban: could not initialize database: {exc}",
+                file=sys.stderr)
             return 1
 
         handlers = {
-            "init":     _cmd_init,
-            "create":   _cmd_create,
-            "swarm":    _cmd_swarm,
-            "list":     _cmd_list,
-            "ls":       _cmd_list,
-            "show":     _cmd_show,
-            "assign":   _cmd_assign,
-            "reclaim":  _cmd_reclaim,
+            "init": _cmd_init,
+            "create": _cmd_create,
+            "swarm": _cmd_swarm,
+            "list": _cmd_list,
+            "ls": _cmd_list,
+            "show": _cmd_show,
+            "assign": _cmd_assign,
+            "reclaim": _cmd_reclaim,
             "reassign": _cmd_reassign,
             "diagnostics": _cmd_diagnostics,
-            "diag":     _cmd_diagnostics,
-            "link":     _cmd_link,
-            "unlink":   _cmd_unlink,
-            "claim":    _cmd_claim,
-            "comment":  _cmd_comment,
+            "diag": _cmd_diagnostics,
+            "link": _cmd_link,
+            "unlink": _cmd_unlink,
+            "claim": _cmd_claim,
+            "comment": _cmd_comment,
             "complete": _cmd_complete,
-            "edit":     _cmd_edit,
-            "block":    _cmd_block,
+            "edit": _cmd_edit,
+            "block": _cmd_block,
             "schedule": _cmd_schedule,
-            "unblock":  _cmd_unblock,
-            "promote":  _cmd_promote,
-            "archive":  _cmd_archive,
-            "tail":     _cmd_tail,
+            "unblock": _cmd_unblock,
+            "promote": _cmd_promote,
+            "archive": _cmd_archive,
+            "tail": _cmd_tail,
             "dispatch": _cmd_dispatch,
-            "daemon":   _cmd_daemon,
-            "watch":    _cmd_watch,
-            "stats":    _cmd_stats,
-            "log":      _cmd_log,
-            "runs":     _cmd_runs,
+            "daemon": _cmd_daemon,
+            "watch": _cmd_watch,
+            "stats": _cmd_stats,
+            "log": _cmd_log,
+            "runs": _cmd_runs,
             "heartbeat": _cmd_heartbeat,
             "assignees": _cmd_assignees,
-            "notify-subscribe":   _cmd_notify_subscribe,
-            "notify-list":        _cmd_notify_list,
+            "notify-subscribe": _cmd_notify_subscribe,
+            "notify-list": _cmd_notify_list,
             "notify-unsubscribe": _cmd_notify_unsubscribe,
-            "context":  _cmd_context,
-            "specify":  _cmd_specify,
-            "decompose":  _cmd_decompose,
-            "gc":       _cmd_gc,
+            "context": _cmd_context,
+            "specify": _cmd_specify,
+            "decompose": _cmd_decompose,
+            "gc": _cmd_gc,
         }
         handler = handlers.get(action)
         if not handler:
@@ -1096,7 +1147,9 @@ def _cmd_boards_create(args: argparse.Namespace) -> int:
         kb.set_current_board(meta["slug"])
         print(f"  Switched to {meta['slug']!r}.")
     else:
-        print(f"  Use `nastech kanban boards switch {meta['slug']}` to make it current.")
+        print(
+            f"  Use `nastech kanban boards switch {
+                meta['slug']}` to make it current.")
     return 0
 
 
@@ -1105,7 +1158,13 @@ def _cmd_boards_rm(args: argparse.Namespace) -> int:
     # boards_action is 'delete' but args.delete is never set to True because
     # the --delete flag belongs to the 'rm' subparser only.  Detect the alias
     # and treat it identically to `boards rm --delete` (fixes #23139).
-    force_delete = getattr(args, "delete", False) or getattr(args, "boards_action", "") == "delete"
+    force_delete = getattr(
+        args,
+        "delete",
+        False) or getattr(
+        args,
+        "boards_action",
+        "") == "delete"
     try:
         res = kb.remove_board(args.slug, archive=not force_delete)
     except ValueError as exc:
@@ -1216,7 +1275,9 @@ def _parse_duration(val) -> Optional[int]:
         except ValueError as exc:
             raise ValueError(f"malformed duration {val!r}") from exc
         return int(n * units[s[-1]])
-    raise ValueError(f"malformed duration {val!r} (expected 30s, 5m, 2h, 1d, or a number)")
+    raise ValueError(
+        f"malformed duration {
+            val!r} (expected 30s, 5m, 2h, 1d, or a number)")
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
@@ -1234,7 +1295,9 @@ def _cmd_init(args: argparse.Namespace) -> int:
         if result:
             copied = result.get("copied", [])
             if copied:
-                print(f"Seeded skill(s) into profile {profile_name}: {', '.join(copied)}")
+                print(
+                    f"Seeded skill(s) into profile {profile_name}: {
+                        ', '.join(copied)}")
     except Exception:
         pass  # best-effort
 
@@ -1277,7 +1340,10 @@ def _cmd_heartbeat(args: argparse.Namespace) -> int:
             expected_run_id=_worker_run_id_for(args.task_id),
         )
     if not ok:
-        print(f"cannot heartbeat {args.task_id} (not running?)", file=sys.stderr)
+        print(
+            f"cannot heartbeat {
+                args.task_id} (not running?)",
+            file=sys.stderr)
         return 1
     print(f"Heartbeat recorded for {args.task_id}")
     return 0
@@ -1297,7 +1363,9 @@ def _cmd_assignees(args: argparse.Namespace) -> int:
     for entry in data:
         on_disk = "yes" if entry["on_disk"] else "no"
         counts = entry["counts"] or {}
-        count_str = ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "(idle)"
+        count_str = ", ".join(
+            f"{k}={v}" for k, v in sorted(
+                counts.items())) or "(idle)"
         print(f"{entry['name']:20s}  {on_disk:8s}  {count_str}")
     return 0
 
@@ -1310,7 +1378,9 @@ def _cmd_create(args: argparse.Namespace) -> int:
         print(f"kanban: {exc}", file=sys.stderr)
         return 2
     if branch_name and ws_kind != "worktree":
-        print("kanban: --branch is only valid with --workspace worktree", file=sys.stderr)
+        print(
+            "kanban: --branch is only valid with --workspace worktree",
+            file=sys.stderr)
         return 2
     try:
         max_runtime = _parse_duration(getattr(args, "max_runtime", None))
@@ -1351,7 +1421,10 @@ def _cmd_create(args: argparse.Namespace) -> int:
     if getattr(args, "json", False):
         print(json.dumps(_task_to_dict(task), indent=2, ensure_ascii=False))
     else:
-        print(f"Created {task_id}  ({task.status}, assignee={task.assignee or '-'})")
+        print(
+            f"Created {task_id}  ({
+                task.status}, assignee={
+                task.assignee or '-'})")
 
         # Warn when the task would sit in `ready` because no dispatcher is
         # present. Only warn on ready+assigned tasks — triage/todo are
@@ -1418,7 +1491,8 @@ def _cmd_list(args: argparse.Namespace) -> int:
             current_step_key=args.current_step_key,
         )
     if getattr(args, "json", False):
-        print(json.dumps([_task_to_dict(t) for t in tasks], indent=2, ensure_ascii=False))
+        print(json.dumps([_task_to_dict(t)
+              for t in tasks], indent=2, ensure_ascii=False))
         return 0
     # Passive discoverability: when the user has multiple boards, surface
     # which one they're looking at in the list header. Single-board users
@@ -1533,10 +1607,15 @@ def _cmd_show(args: argparse.Namespace) -> int:
         except Exception:
             cfg_val = None
         if cfg_val is not None and int(cfg_val) != kb.DEFAULT_FAILURE_LIMIT:
-            print(f"  max-retries: {int(cfg_val)} (config kanban.failure_limit)")
+            print(
+                f"  max-retries: {int(cfg_val)} (config kanban.failure_limit)")
         else:
             print(f"  max-retries: {kb.DEFAULT_FAILURE_LIMIT} (default)")
-    print(f"  created:   {_fmt_ts(task.created_at)} by {task.created_by or '-'}")
+    print(
+        f"  created:   {
+            _fmt_ts(
+                task.created_at)} by {
+            task.created_by or '-'}")
 
     # Diagnostics section — surface active distress signals at the top
     # of show output so CLI users see them before scrolling through
@@ -1547,7 +1626,13 @@ def _cmd_show(args: argparse.Namespace) -> int:
         sev_marker = {"warning": "⚠", "error": "!!", "critical": "!!!"}
         print(f"\n  Diagnostics ({len(diags)}):")
         for d in diags:
-            print(f"    {sev_marker.get(d.severity, '?')} [{d.severity}] {d.title}")
+            print(
+                f"    {
+                    sev_marker.get(
+                        d.severity,
+                        '?')} [{
+                    d.severity}] {
+                    d.title}")
             if d.data:
                 bits = []
                 for k, v in d.data.items():
@@ -1616,7 +1701,8 @@ def _cmd_show(args: argparse.Namespace) -> int:
 
 
 def _cmd_assign(args: argparse.Namespace) -> int:
-    profile = None if args.profile.lower() in {"none", "-", "null"} else args.profile
+    profile = None if args.profile.lower() in {
+        "none", "-", "null"} else args.profile
     with kb.connect_closing() as conn:
         ok = kb.assign_task(conn, args.task_id, profile)
     if not ok:
@@ -1643,7 +1729,8 @@ def _cmd_reclaim(args: argparse.Namespace) -> int:
 
 
 def _cmd_reassign(args: argparse.Namespace) -> int:
-    profile = None if args.profile.lower() in {"none", "-", "null"} else args.profile
+    profile = None if args.profile.lower() in {
+        "none", "-", "null"} else args.profile
     with kb.connect_closing() as conn:
         ok = kb.reassign_task(
             conn, args.task_id, profile,
@@ -1727,7 +1814,9 @@ def _cmd_diagnostics(args: argparse.Namespace) -> int:
         sev = getattr(args, "severity", None)
         if sev:
             for tid in list(diags_by_task.keys()):
-                kept = [d for d in diags_by_task[tid] if kd.SEVERITY_ORDER.index(d.severity) >= kd.SEVERITY_ORDER.index(sev)]
+                kept = [
+                    d for d in diags_by_task[tid] if kd.SEVERITY_ORDER.index(
+                        d.severity) >= kd.SEVERITY_ORDER.index(sev)]
                 if kept:
                     diags_by_task[tid] = kept
                 else:
@@ -1777,7 +1866,14 @@ def _cmd_diagnostics(args: argparse.Namespace) -> int:
         assignee = m.get("assignee") or "(unassigned)"
         print(f"  {tid}  {status:8s}  @{assignee:18s}  {title}")
         for d in dl:
-            print(f"    {sev_marker.get(d.severity, '?')} [{d.severity}] {d.kind}: {d.title}")
+            print(
+                f"    {
+                    sev_marker.get(
+                        d.severity,
+                        '?')} [{
+                    d.severity}] {
+                    d.kind}: {
+                        d.title}")
             if d.data:
                 # Compact key:value pairs on one line.
                 bits = []
@@ -1807,7 +1903,8 @@ def _cmd_unlink(args: argparse.Namespace) -> int:
     with kb.connect_closing() as conn:
         ok = kb.unlink_tasks(conn, args.parent_id, args.child_id)
     if not ok:
-        print(f"No such link: {args.parent_id} -> {args.child_id}", file=sys.stderr)
+        print(
+            f"No such link: {args.parent_id} -> {args.child_id}", file=sys.stderr)
         return 1
     print(f"Unlinked {args.parent_id} -> {args.child_id}")
     return 0
@@ -1902,7 +1999,9 @@ def _cmd_complete(args: argparse.Namespace) -> int:
                 expected_run_id=_worker_run_id_for(tid),
             ):
                 failed.append(tid)
-                print(f"cannot complete {tid} (unknown id or terminal state)", file=sys.stderr)
+                print(
+                    f"cannot complete {tid} (unknown id or terminal state)",
+                    file=sys.stderr)
             else:
                 print(f"Completed {tid}")
     return 0 if not failed else 1
@@ -1996,7 +2095,9 @@ def _cmd_unblock(args: argparse.Namespace) -> int:
                 kb.add_comment(conn, tid, author, f"UNBLOCK: {reason}")
             if not kb.unblock_task(conn, tid):
                 failed.append(tid)
-                print(f"cannot unblock {tid} (not blocked/scheduled?)", file=sys.stderr)
+                print(
+                    f"cannot unblock {tid} (not blocked/scheduled?)",
+                    file=sys.stderr)
             else:
                 print(f"Unblocked {tid}" + (f": {reason}" if reason else ""))
     return 0 if not failed else 1
@@ -2049,7 +2150,11 @@ def _cmd_promote(args: argparse.Namespace) -> int:
             suffix = f": {reason}" if reason else ""
             print(f"{label} {r['task_id']} -> ready{tag}{suffix}")
         else:
-            print(f"cannot promote {r['task_id']}: {r['error']}", file=sys.stderr)
+            print(
+                f"cannot promote {
+                    r['task_id']}: {
+                    r['error']}",
+                file=sys.stderr)
     return 0 if not failed else 1
 
 
@@ -2057,7 +2162,9 @@ def _cmd_archive(args: argparse.Namespace) -> int:
     ids = list(args.task_ids or [])
     purge_ids = list(getattr(args, "purge_ids", None) or [])
     if ids and purge_ids:
-        print("choose either task_ids to archive or --rm archived task_ids", file=sys.stderr)
+        print(
+            "choose either task_ids to archive or --rm archived task_ids",
+            file=sys.stderr)
         return 1
     if not ids and not purge_ids:
         print("at least one task_id is required", file=sys.stderr)
@@ -2068,7 +2175,9 @@ def _cmd_archive(args: argparse.Namespace) -> int:
             for tid in purge_ids:
                 if not kb.delete_archived_task(conn, tid):
                     failed.append(tid)
-                    print(f"cannot delete {tid} (must already be archived)", file=sys.stderr)
+                    print(
+                        f"cannot delete {tid} (must already be archived)",
+                        file=sys.stderr)
                 else:
                     print(f"Deleted {tid}")
             return 0 if not failed else 1
@@ -2111,7 +2220,8 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
         from nastech_cli.config import load_config
         _cfg = load_config()
         _kanban_cfg = _cfg.get("kanban", {}) if isinstance(_cfg, dict) else {}
-        default_assignee = (_kanban_cfg.get("default_assignee") or "").strip() or None
+        default_assignee = (_kanban_cfg.get(
+            "default_assignee") or "").strip() or None
 
         def _coerce_positive_int(value):
             if value is None:
@@ -2125,7 +2235,8 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
         max_in_progress_per_profile = _coerce_positive_int(
             _kanban_cfg.get("max_in_progress_per_profile")
         )
-        max_in_progress = _coerce_positive_int(_kanban_cfg.get("max_in_progress"))
+        max_in_progress = _coerce_positive_int(
+            _kanban_cfg.get("max_in_progress"))
         # CLI --max overrides config kanban.max_spawn when both are present;
         # CLI is the more explicit signal so it wins.
         cli_max = getattr(args, "max", None)
@@ -2143,7 +2254,10 @@ def _cmd_dispatch(args: argparse.Namespace) -> int:
             dry_run=args.dry_run,
             max_spawn=max_spawn,
             max_in_progress=max_in_progress,
-            failure_limit=getattr(args, "failure_limit", kb.DEFAULT_SPAWN_FAILURE_LIMIT),
+            failure_limit=getattr(
+                args,
+                "failure_limit",
+                kb.DEFAULT_SPAWN_FAILURE_LIMIT),
             default_assignee=default_assignee,
             max_in_progress_per_profile=max_in_progress_per_profile,
         )
@@ -2254,7 +2368,9 @@ def _cmd_daemon(args: argparse.Namespace) -> int:
             Path(pidfile).parent.mkdir(parents=True, exist_ok=True)
             Path(pidfile).write_text(str(os.getpid()), encoding="utf-8")
         except OSError as exc:
-            print(f"warning: could not write pidfile {pidfile}: {exc}", file=sys.stderr)
+            print(
+                f"warning: could not write pidfile {pidfile}: {exc}",
+                file=sys.stderr)
 
     verbose = bool(getattr(args, "verbose", False))
     print(
@@ -2334,7 +2450,10 @@ def _cmd_daemon(args: argparse.Namespace) -> int:
         kb.run_daemon(
             interval=args.interval,
             max_spawn=args.max,
-            failure_limit=getattr(args, "failure_limit", kb.DEFAULT_SPAWN_FAILURE_LIMIT),
+            failure_limit=getattr(
+                args,
+                "failure_limit",
+                kb.DEFAULT_SPAWN_FAILURE_LIMIT),
             on_tick=_on_tick,
         )
     finally:
@@ -2381,7 +2500,8 @@ def _cmd_watch(args: argparse.Namespace) -> int:
                 if args.tenant and r["tenant"] != args.tenant:
                     continue
                 try:
-                    payload = json.loads(r["payload"]) if r["payload"] else None
+                    payload = json.loads(
+                        r["payload"]) if r["payload"] else None
                 except Exception:
                     payload = None
                 pl = f" {payload}" if payload else ""
@@ -2403,7 +2523,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         print(json.dumps(stats, indent=2, ensure_ascii=False))
         return 0
     print("By status:")
-    for k in ("triage", "todo", "scheduled", "ready", "running", "blocked", "done"):
+    for k in ("triage", "todo", "scheduled",
+              "ready", "running", "blocked", "done"):
         print(f"  {k:8s}  {stats['by_status'].get(k, 0)}")
     if stats["by_assignee"]:
         print("\nBy assignee:")
@@ -2444,7 +2565,8 @@ def _cmd_notify_list(args: argparse.Namespace) -> int:
         return 0
     for s in subs:
         thr = f":{s['thread_id']}" if s.get("thread_id") else ""
-        owner = f"  owner={s['notifier_profile']}" if s.get("notifier_profile") else ""
+        owner = f"  owner={s['notifier_profile']}" if s.get(
+            "notifier_profile") else ""
         print(f"  {s['task_id']:10s}  {s['platform']}:{s['chat_id']}{thr}"
               f"  (since event {s['last_event_id']}){owner}")
     return 0
@@ -2513,7 +2635,8 @@ def _cmd_runs(args: argparse.Namespace) -> int:
         else:
             el = f"{elapsed / 3600:.1f}h"
         outcome = r.outcome or ("(running)" if not r.ended_at else r.status)
-        print(f"{i:3d}  {outcome:12s}  {(r.profile or '-'):16s}  {el:>8s}  {_fmt_ts(r.started_at)}")
+        print(
+            f"{i:3d}  {outcome:12s}  {(r.profile or '-'):16s}  {el:>8s}  {_fmt_ts(r.started_at)}")
         if r.summary:
             # Indent and truncate long summaries to keep the table readable.
             summary = r.summary.splitlines()[0][:100]
@@ -2759,8 +2882,8 @@ def run_slash(rest: str) -> str:
     both the interactive CLI (``self._handle_kanban_command``) and the
     gateway (``_handle_kanban_command``) so formatting is identical.
     """
-    import io
     import contextlib
+    import io
 
     tokens = shlex.split(rest) if rest and rest.strip() else []
 

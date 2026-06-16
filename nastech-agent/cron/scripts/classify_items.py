@@ -123,7 +123,7 @@ def _parse_scores(content: str, n_items: int) -> Dict[int, Dict[str, Any]]:
         end = text.rfind("]")
         if start >= 0 and end > start:
             try:
-                arr = json.loads(text[start : end + 1])
+                arr = json.loads(text[start: end + 1])
             except json.JSONDecodeError:
                 _eprint("classify_items: could not parse classifier output")
                 return {}
@@ -142,16 +142,34 @@ def _parse_scores(content: str, n_items: int) -> Dict[int, Dict[str, Any]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Classify items by urgency; emit only urgent ones.")
-    parser.add_argument("--criteria", required=True, help="Plain-language importance criteria.")
-    parser.add_argument("--threshold", type=int, default=7, help="Minimum score (0-10) to surface. Default 7.")
-    parser.add_argument("--input-file", default=None, help="Read items JSON from this file instead of stdin.")
-    parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format for surfaced items.")
+    parser = argparse.ArgumentParser(
+        description="Classify items by urgency; emit only urgent ones.")
+    parser.add_argument(
+        "--criteria",
+        required=True,
+        help="Plain-language importance criteria.")
+    parser.add_argument(
+        "--threshold",
+        type=int,
+        default=7,
+        help="Minimum score (0-10) to surface. Default 7.")
+    parser.add_argument(
+        "--input-file",
+        default=None,
+        help="Read items JSON from this file instead of stdin.")
+    parser.add_argument(
+        "--format",
+        choices=[
+            "text",
+            "json"],
+        default="text",
+        help="Output format for surfaced items.")
     args = parser.parse_args()
 
     items = _load_items(args.input_file)
     if not items:
-        # Nothing to classify -> silent. This is the common quiet-interval case.
+        # Nothing to classify -> silent. This is the common quiet-interval
+        # case.
         return 0
 
     # Import here so --help works without the package importable.
@@ -174,7 +192,8 @@ def main() -> int:
             content = str(content) if content else ""
     except Exception as e:
         # Classification failure is NOT silent -- surface it so a broken monitor
-        # doesn't quietly swallow important items. Non-zero exit -> cron alerts.
+        # doesn't quietly swallow important items. Non-zero exit -> cron
+        # alerts.
         _eprint(f"classify_items: classifier call failed: {e}")
         return 4
 

@@ -40,7 +40,6 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
-
 # ── Public stamp type ────────────────────────────────────────────────
 # (mtime, read_ts, partial).  partial=True when read_file returned a
 # windowed view (offset > 1 or limit < total_lines) — writes that happen
@@ -268,7 +267,8 @@ def get_registry() -> FileStateRegistry:
 
 def _disabled() -> bool:
     # Re-read each call so tests can toggle via monkeypatch.setenv.
-    return os.environ.get("NASTECH_DISABLE_FILE_STATE_GUARD", "").strip() == "1"
+    return os.environ.get(
+        "NASTECH_DISABLE_FILE_STATE_GUARD", "").strip() == "1"
 
 
 def _fmt_ts(ts: float) -> str:
@@ -292,7 +292,8 @@ def _cap_dict(d: dict, limit: int) -> None:
 
 
 # ── Convenience wrappers (short names used at call sites) ────────────
-def record_read(task_id: str, resolved_or_path: str | Path, *, partial: bool = False) -> None:
+def record_read(task_id: str, resolved_or_path: str |
+                Path, *, partial: bool = False) -> None:
     _registry.record_read(task_id, str(resolved_or_path), partial=partial)
 
 
@@ -313,7 +314,8 @@ def writes_since(
     since_ts: float,
     paths: Iterable[str | Path],
 ) -> Dict[str, List[str]]:
-    return _registry.writes_since(exclude_task_id, since_ts, [str(p) for p in paths])
+    return _registry.writes_since(
+        exclude_task_id, since_ts, [str(p) for p in paths])
 
 
 def known_reads(task_id: str) -> List[str]:

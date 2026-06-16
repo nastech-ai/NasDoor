@@ -74,7 +74,8 @@ def get_service() -> Optional[LSPService]:
             # stdout buffers drain.
             atexit.register(_atexit_shutdown)
             _atexit_registered = True
-    return _service if (_service is not None and _service.is_active()) else None
+    return _service if (
+        _service is not None and _service.is_active()) else None
 
 
 def shutdown_service() -> None:

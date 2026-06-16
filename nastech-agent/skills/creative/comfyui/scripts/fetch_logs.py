@@ -20,12 +20,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (  # noqa: E402
-    DEFAULT_LOCAL_HOST, ENV_API_KEY, emit_json, http_get, is_cloud_host,
-    resolve_api_key, resolve_url,
+    DEFAULT_LOCAL_HOST,
+    ENV_API_KEY,
+    emit_json,
+    http_get,
+    is_cloud_host,
+    resolve_api_key,
+    resolve_url,
 )
 
 
-def fetch_history_entry(host: str, headers: dict, prompt_id: str, *, is_cloud: bool) -> dict:
+def fetch_history_entry(host: str, headers: dict,
+                        prompt_id: str, *, is_cloud: bool) -> dict:
     if is_cloud:
         # Try /jobs/{id} first
         url = resolve_url(host, f"/jobs/{prompt_id}", is_cloud=True)
@@ -89,7 +95,8 @@ def extract_diagnostics(entry: dict) -> dict:
     # Look for execution_error inside messages
     errors = []
     for msg in messages:
-        if isinstance(msg, list) and len(msg) >= 2 and msg[0] == "execution_error":
+        if isinstance(msg, list) and len(
+                msg) >= 2 and msg[0] == "execution_error":
             errors.append(msg[1])
     if errors:
         diag["errors"] = errors
@@ -115,7 +122,8 @@ def extract_diagnostics(entry: dict) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Fetch workflow execution diagnostics")
+    p = argparse.ArgumentParser(
+        description="Fetch workflow execution diagnostics")
     p.add_argument("prompt_id", nargs="?", help="prompt_id to look up")
     p.add_argument("--host", default=DEFAULT_LOCAL_HOST)
     p.add_argument("--api-key", help=f"or set ${ENV_API_KEY}")
@@ -134,10 +142,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if not args.prompt_id:
-        print("Error: prompt_id is required (or use --tail-queue)", file=sys.stderr)
+        print(
+            "Error: prompt_id is required (or use --tail-queue)",
+            file=sys.stderr)
         return 1
 
-    res = fetch_history_entry(args.host, headers, args.prompt_id, is_cloud=is_cloud)
+    res = fetch_history_entry(
+        args.host,
+        headers,
+        args.prompt_id,
+        is_cloud=is_cloud)
     if not res.get("ok"):
         emit_json(res)
         return 1
@@ -150,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
     diag["source"] = res.get("source")
     diag["prompt_id"] = args.prompt_id
     emit_json(diag)
-    return 0 if diag.get("status_str") not in {"error",} else 1
+    return 0 if diag.get("status_str") not in {"error", } else 1
 
 
 if __name__ == "__main__":

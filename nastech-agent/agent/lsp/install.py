@@ -175,7 +175,7 @@ def try_install(pkg: str, strategy: str = "auto") -> Optional[str]:
     same path (or ``None``) without reinstalling.  Concurrent calls
     are serialized.
     """
-    if strategy not in {"auto",}:
+    if strategy not in {"auto", }:
         # Only ``auto`` triggers an actual install.  In manual/off,
         # we still check whether the binary already exists.
         recipe = INSTALL_RECIPES.get(pkg, {})
@@ -210,7 +210,10 @@ def _do_install(pkg: str) -> Optional[str]:
         return existing
 
     if strategy == "manual":
-        logger.debug("[install] %s requires manual install (recipe=%s)", pkg, recipe)
+        logger.debug(
+            "[install] %s requires manual install (recipe=%s)",
+            pkg,
+            recipe)
         return None
 
     if strategy == "npm":
@@ -257,7 +260,14 @@ def _install_npm(
             " ".join(install_targets),
         )
         proc = subprocess.run(
-            [npm, "install", "--prefix", str(staging), "--silent", "--no-fund", "--no-audit", *install_targets],
+            [npm,
+             "install",
+             "--prefix",
+             str(staging),
+                "--silent",
+                "--no-fund",
+                "--no-audit",
+                *install_targets],
             check=False,
             capture_output=True,
             text=True,
@@ -265,7 +275,8 @@ def _install_npm(
         )
         if proc.returncode != 0:
             logger.warning(
-                "[install] npm install failed for %s: %s", pkg, proc.stderr.strip()[:500]
+                "[install] npm install failed for %s: %s", pkg, proc.stderr.strip()[
+                    :500]
             )
             return None
     except (subprocess.TimeoutExpired, OSError) as e:
@@ -288,7 +299,10 @@ def _install_npm(
                     except OSError:
                         return str(c)
             return str(link if link.exists() else c)
-    logger.warning("[install] npm install for %s succeeded but bin %s not found", pkg, bin_name)
+    logger.warning(
+        "[install] npm install for %s succeeded but bin %s not found",
+        pkg,
+        bin_name)
     return None
 
 
@@ -313,7 +327,8 @@ def _install_go(pkg: str, bin_name: str) -> Optional[str]:
         )
         if proc.returncode != 0:
             logger.warning(
-                "[install] go install failed for %s: %s", pkg, proc.stderr.strip()[:500]
+                "[install] go install failed for %s: %s", pkg, proc.stderr.strip()[
+                    :500]
             )
             return None
     except (subprocess.TimeoutExpired, OSError) as e:
@@ -324,7 +339,10 @@ def _install_go(pkg: str, bin_name: str) -> Optional[str]:
         bin_path = bin_path.with_suffix(".exe")
     if bin_path.exists():
         return str(bin_path)
-    logger.warning("[install] go install for %s succeeded but bin %s not found", pkg, bin_name)
+    logger.warning(
+        "[install] go install for %s succeeded but bin %s not found",
+        pkg,
+        bin_name)
     return None
 
 
@@ -342,7 +360,8 @@ def _install_pip(pkg: str, bin_name: str) -> Optional[str]:
     try:
         logger.info("[install] pip install --target %s %s", pip_target, pkg)
         proc = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--target", str(pip_target), "--quiet", pkg],
+            [sys.executable, "-m", "pip", "install",
+                "--target", str(pip_target), "--quiet", pkg],
             check=False,
             capture_output=True,
             text=True,
@@ -350,7 +369,8 @@ def _install_pip(pkg: str, bin_name: str) -> Optional[str]:
         )
         if proc.returncode != 0:
             logger.warning(
-                "[install] pip install failed for %s: %s", pkg, proc.stderr.strip()[:500]
+                "[install] pip install failed for %s: %s", pkg, proc.stderr.strip()[
+                    :500]
             )
             return None
     except (subprocess.TimeoutExpired, OSError) as e:

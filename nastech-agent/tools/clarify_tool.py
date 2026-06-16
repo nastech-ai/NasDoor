@@ -12,8 +12,9 @@ a thin dispatcher that delegates to a platform-provided callback.
 """
 
 import json
-from typing import List, Optional, Callable
+from typing import Callable, List, Optional
 
+from tools.registry import registry, tool_error
 
 # Maximum number of predefined choices the agent can offer.
 # A 5th "Other (type your answer)" option is always appended by the UI.
@@ -126,7 +127,6 @@ CLARIFY_SCHEMA = {
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
 
 registry.register(
     name="clarify",

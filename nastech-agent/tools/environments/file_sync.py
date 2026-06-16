@@ -39,14 +39,19 @@ _SYNC_INTERVAL_SECONDS = 5.0
 _FORCE_SYNC_ENV = "NASTECH_FORCE_FILE_SYNC"
 
 # Transport callbacks provided by each backend
-UploadFn = Callable[[str, str], None]  # (host_path, remote_path) -> raises on failure
-BulkUploadFn = Callable[[list[tuple[str, str]]], None]  # [(host_path, remote_path), ...] -> raises on failure
-BulkDownloadFn = Callable[[Path], None]  # (dest_tar_path) -> writes tar archive, raises on failure
+# (host_path, remote_path) -> raises on failure
+UploadFn = Callable[[str, str], None]
+# [(host_path, remote_path), ...] -> raises on failure
+BulkUploadFn = Callable[[list[tuple[str, str]]], None]
+# (dest_tar_path) -> writes tar archive, raises on failure
+BulkDownloadFn = Callable[[Path], None]
 DeleteFn = Callable[[list[str]], None]  # (remote_paths) -> raises on failure
-GetFilesFn = Callable[[], list[tuple[str, str]]]  # () -> [(host_path, remote_path), ...]
+# () -> [(host_path, remote_path), ...]
+GetFilesFn = Callable[[], list[tuple[str, str]]]
 
 
-def iter_sync_files(container_base: str = "/root/.nastech") -> list[tuple[str, str]]:
+def iter_sync_files(
+        container_base: str = "/root/.nastech") -> list[tuple[str, str]]:
     """Enumerate all files that should be synced to a remote environment.
 
     Combines credentials, skills, and cache into a single flat list of
@@ -101,7 +106,8 @@ def _sha256_file(path: str) -> str:
 
 _SYNC_BACK_MAX_RETRIES = 3
 _SYNC_BACK_BACKOFF = (2, 4, 8)  # seconds between retries
-_SYNC_BACK_MAX_BYTES = 2 * 1024 * 1024 * 1024  # 2 GiB — refuse to extract larger tars
+# 2 GiB — refuse to extract larger tars
+_SYNC_BACK_MAX_BYTES = 2 * 1024 * 1024 * 1024
 
 
 class FileSyncManager:
@@ -129,8 +135,10 @@ class FileSyncManager:
         self._bulk_upload_fn = bulk_upload_fn
         self._bulk_download_fn = bulk_download_fn
         self._delete_fn = delete_fn
-        self._synced_files: dict[str, tuple[float, int]] = {}  # remote_path -> (mtime, size)
-        self._pushed_hashes: dict[str, str] = {}  # remote_path -> sha256 hex digest
+        # remote_path -> (mtime, size)
+        self._synced_files: dict[str, tuple[float, int]] = {}
+        # remote_path -> sha256 hex digest
+        self._pushed_hashes: dict[str, str] = {}
         self._last_sync_time: float = 0.0  # monotonic; 0 ensures first sync runs
         self._sync_interval = sync_interval
 
@@ -164,7 +172,8 @@ class FileSyncManager:
             new_files[remote_path] = file_key
 
         # --- Deletes: synced paths no longer in current set ---
-        to_delete = [p for p in self._synced_files if p not in current_remote_paths]
+        to_delete = [
+            p for p in self._synced_files if p not in current_remote_paths]
 
         if not to_upload and not to_delete:
             self._last_sync_time = time.monotonic()
@@ -177,16 +186,23 @@ class FileSyncManager:
         if to_upload:
             logger.debug("file_sync: uploading %d file(s)", len(to_upload))
         if to_delete:
-            logger.debug("file_sync: deleting %d stale remote file(s)", len(to_delete))
+            logger.debug(
+                "file_sync: deleting %d stale remote file(s)",
+                len(to_delete))
 
         try:
             if to_upload and self._bulk_upload_fn is not None:
                 self._bulk_upload_fn(to_upload)
-                logger.debug("file_sync: bulk-uploaded %d file(s)", len(to_upload))
+                logger.debug(
+                    "file_sync: bulk-uploaded %d file(s)",
+                    len(to_upload))
             else:
                 for host_path, remote_path in to_upload:
                     self._upload_fn(host_path, remote_path)
-                    logger.debug("file_sync: uploaded %s -> %s", host_path, remote_path)
+                    logger.debug(
+                        "file_sync: uploaded %s -> %s",
+                        host_path,
+                        remote_path)
 
             if to_delete:
                 self._delete_fn(to_delete)
@@ -207,7 +223,8 @@ class FileSyncManager:
             self._synced_files = prev_files
             self._pushed_hashes = prev_hashes
             self._last_sync_time = time.monotonic()
-            logger.warning("file_sync: sync failed, rolled back state: %s", exc)
+            logger.warning(
+                "file_sync: sync failed, rolled back state: %s", exc)
 
     # ------------------------------------------------------------------
     # Sync-back: pull remote changes to host on teardown
@@ -251,7 +268,10 @@ class FileSyncManager:
                     )
                     _sleep(delay)
 
-        logger.warning("sync_back: all %d attempts failed: %s", _SYNC_BACK_MAX_RETRIES, last_exc)
+        logger.warning(
+            "sync_back: all %d attempts failed: %s",
+            _SYNC_BACK_MAX_RETRIES,
+            last_exc)
 
     def _sync_back_once(self, lock_path: Path) -> None:
         """Single sync-back attempt with SIGINT protection and file lock."""
@@ -298,7 +318,8 @@ class FileSyncManager:
     def _sync_back_impl(self) -> None:
         """Download, diff, and apply remote changes to host."""
         if self._bulk_download_fn is None:
-            raise RuntimeError("_sync_back_impl called without bulk_download_fn")
+            raise RuntimeError(
+                "_sync_back_impl called without bulk_download_fn")
 
         # Cache file mapping once to avoid O(n*m) from repeated iteration
         try:
@@ -344,9 +365,11 @@ class FileSyncManager:
                             remote_hash = None  # new remote file
 
                         # Resolve host path from cached mapping
-                        host_path = self._resolve_host_path(remote_path, file_mapping)
+                        host_path = self._resolve_host_path(
+                            remote_path, file_mapping)
                         if host_path is None:
-                            host_path = self._infer_host_path(remote_path, file_mapping)
+                            host_path = self._infer_host_path(
+                                remote_path, file_mapping)
                             if host_path is None:
                                 logger.debug(
                                     "sync_back: skipping %s (no host mapping)",
@@ -354,7 +377,8 @@ class FileSyncManager:
                                 )
                                 continue
 
-                        if os.path.exists(host_path) and pushed_hash is not None:
+                        if os.path.exists(
+                                host_path) and pushed_hash is not None:
                             host_hash = _sha256_file(host_path)
                             if host_hash != pushed_hash:
                                 logger.warning(
@@ -369,7 +393,8 @@ class FileSyncManager:
                         applied += 1
 
                 if applied:
-                    logger.info("sync_back: applied %d changed file(s)", applied)
+                    logger.info(
+                        "sync_back: applied %d changed file(s)", applied)
                 else:
                     logger.debug("sync_back: no remote changes detected")
 

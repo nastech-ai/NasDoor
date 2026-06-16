@@ -28,7 +28,8 @@ def build_pairing_parser(subparsers, *, cmd_pairing: Callable) -> None:
     )
     pairing_approve_parser.add_argument("code", help="Pairing code to approve")
 
-    pairing_revoke_parser = pairing_sub.add_parser("revoke", help="Revoke user access")
+    pairing_revoke_parser = pairing_sub.add_parser(
+        "revoke", help="Revoke user access")
     pairing_revoke_parser.add_argument("platform", help="Platform name")
     pairing_revoke_parser.add_argument("user_id", help="User ID to revoke")
 

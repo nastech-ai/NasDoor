@@ -30,7 +30,8 @@ import difflib
 from typing import Any, Callable, Dict, List, Optional
 
 
-def build_line_shift(pre_text: str, post_text: str) -> Callable[[int], Optional[int]]:
+def build_line_shift(
+        pre_text: str, post_text: str) -> Callable[[int], Optional[int]]:
     """Build a function mapping pre-edit line numbers to post-edit line numbers.
 
     Lines are 0-indexed to match the LSP wire format

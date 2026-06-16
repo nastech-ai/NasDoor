@@ -115,7 +115,10 @@ def slack_manifest_command(args) -> int:
                       merging into an existing manifest manually)
     """
     name = getattr(args, "name", None) or "NasTech"
-    description = getattr(args, "description", None) or "Your NasTech agent on Slack"
+    description = getattr(
+        args,
+        "description",
+        None) or "Your NasTech agent on Slack"
 
     if getattr(args, "slashes_only", False):
         from nastech_cli.commands import slack_app_manifest
@@ -135,7 +138,8 @@ def slack_manifest_command(args) -> int:
 
                 target = Path(get_nastech_home()) / "slack-manifest.json"
             except Exception:
-                target = Path(os.environ.get("NASTECH_HOME") or str(Path.home() / ".nastech")) / "slack-manifest.json"
+                target = Path(os.environ.get("NASTECH_HOME") or str(
+                    Path.home() / ".nastech")) / "slack-manifest.json"
         else:
             target = Path(write_target).expanduser()
         target.parent.mkdir(parents=True, exist_ok=True)

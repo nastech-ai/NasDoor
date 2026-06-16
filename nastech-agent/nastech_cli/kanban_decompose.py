@@ -150,7 +150,7 @@ def _extract_json_blob(raw: str) -> Optional[dict]:
     last = stripped.rfind("}")
     if first == -1 or last == -1 or last <= first:
         return None
-    candidate = stripped[first : last + 1]
+    candidate = stripped[first: last + 1]
     try:
         val = json.loads(candidate)
     except (ValueError, json.JSONDecodeError):
@@ -313,7 +313,8 @@ def decompose_task(
         return DecomposeOutcome(task_id, False, "auxiliary client unavailable")
 
     if client is None or not model:
-        return DecomposeOutcome(task_id, False, "no auxiliary client configured")
+        return DecomposeOutcome(
+            task_id, False, "no auxiliary client configured")
 
     user_msg = _USER_TEMPLATE.format(
         task_id=task.id,
@@ -339,7 +340,8 @@ def decompose_task(
         logger.info(
             "decompose: API call failed for %s (%s)", task_id, exc,
         )
-        return DecomposeOutcome(task_id, False, f"LLM error: {type(exc).__name__}")
+        return DecomposeOutcome(
+            task_id, False, f"LLM error: {type(exc).__name__}")
 
     try:
         raw = resp.choices[0].message.content or ""
@@ -357,8 +359,10 @@ def decompose_task(
         # Fall back to single-task spec promotion (same effect as specify).
         new_title = parsed.get("title")
         new_body = parsed.get("body")
-        title_val = new_title.strip() if isinstance(new_title, str) and new_title.strip() else None
-        body_val = new_body if isinstance(new_body, str) and new_body.strip() else None
+        title_val = new_title.strip() if isinstance(
+            new_title, str) and new_title.strip() else None
+        body_val = new_body if isinstance(
+            new_body, str) and new_body.strip() else None
         assignee_val = None
         if not task.assignee:
             assignee_val = _normalize_assignee_choice(
@@ -430,7 +434,8 @@ def decompose_task(
         if not isinstance(parents, list):
             parents = []
         # Clean parent indices: drop non-int and out-of-range.
-        clean_parents = [p for p in parents if isinstance(p, int) and 0 <= p < len(raw_tasks) and p != idx]
+        clean_parents = [p for p in parents if isinstance(
+            p, int) and 0 <= p < len(raw_tasks) and p != idx]
         children.append({
             "title": title.strip()[:200],
             "body": body.strip(),
@@ -452,7 +457,8 @@ def decompose_task(
         return DecomposeOutcome(task_id, False, f"DB rejected graph: {exc}")
     except Exception as exc:
         logger.exception("decompose: DB error on task %s", task_id)
-        return DecomposeOutcome(task_id, False, f"DB error: {type(exc).__name__}")
+        return DecomposeOutcome(
+            task_id, False, f"DB error: {type(exc).__name__}")
 
     if child_ids is None:
         return DecomposeOutcome(

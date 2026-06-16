@@ -290,7 +290,13 @@ def generate_fish(parser: argparse.ArgumentParser) -> str:
     lines.append("")
     lines.append("# Subcommand completions")
 
-    profile_name_actions = {"use", "delete", "show", "alias", "rename", "export"}
+    profile_name_actions = {
+        "use",
+        "delete",
+        "show",
+        "alias",
+        "rename",
+        "export"}
 
     for cmd in top_cmds:
         info = tree["subcommands"][cmd]

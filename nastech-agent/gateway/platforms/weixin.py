@@ -31,6 +31,20 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import quote, urlparse
 
+from gateway.config import Platform, PlatformConfig
+from gateway.platforms.base import (
+    BasePlatformAdapter,
+    MessageEvent,
+    MessageType,
+    SendResult,
+    cache_audio_from_bytes,
+    cache_document_from_bytes,
+    cache_image_from_bytes,
+)
+from gateway.platforms.helpers import MessageDeduplicator
+from nastech_constants import get_nastech_home
+from utils import atomic_json_write
+
 logger = logging.getLogger(__name__)
 
 WEIXIN_COPY_LINE_WIDTH = 120
@@ -55,19 +69,6 @@ except ImportError:  # pragma: no cover - dependency gate
     modes = None  # type: ignore[assignment]
     CRYPTO_AVAILABLE = False
 
-from gateway.config import Platform, PlatformConfig
-from gateway.platforms.helpers import MessageDeduplicator
-from gateway.platforms.base import (
-    BasePlatformAdapter,
-    MessageEvent,
-    MessageType,
-    SendResult,
-    cache_audio_from_bytes,
-    cache_document_from_bytes,
-    cache_image_from_bytes,
-)
-from nastech_constants import get_nastech_home
-from utils import atomic_json_write
 
 ILINK_BASE_URL = "https://ilinkai.weixin.qq.com"
 WEIXIN_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c"
@@ -126,6 +127,7 @@ def _make_ssl_connector() -> Optional["aiohttp.TCPConnector"]:
     """
     try:
         import ssl
+
         import certifi
     except ImportError:
         return None
@@ -133,6 +135,7 @@ def _make_ssl_connector() -> Optional["aiohttp.TCPConnector"]:
         return None
     ssl_ctx = ssl.create_default_context(cafile=certifi.where())
     return aiohttp.TCPConnector(ssl=ssl_ctx)
+
 
 ITEM_TEXT = 1
 ITEM_IMAGE = 2
@@ -148,7 +151,8 @@ TYPING_START = 1
 TYPING_STOP = 2
 
 _HEADER_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
-_TABLE_RULE_RE = re.compile(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$")
+_TABLE_RULE_RE = re.compile(
+    r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$")
 _FENCE_RE = re.compile(r"^```([^\n`]*)\s*$")
 _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 
@@ -177,13 +181,19 @@ def _pkcs7_pad(data: bytes, block_size: int = 16) -> bytes:
 
 
 def _aes128_ecb_encrypt(plaintext: bytes, key: bytes) -> bytes:
-    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
+    cipher = Cipher(
+        algorithms.AES(key),
+        modes.ECB(),
+        backend=default_backend())
     encryptor = cipher.encryptor()
     return encryptor.update(_pkcs7_pad(plaintext)) + encryptor.finalize()
 
 
 def _aes128_ecb_decrypt(ciphertext: bytes, key: bytes) -> bytes:
-    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
+    cipher = Cipher(
+        algorithms.AES(key),
+        modes.ECB(),
+        backend=default_backend())
     decryptor = cipher.decryptor()
     padded = decryptor.update(ciphertext) + decryptor.finalize()
     if not padded:
@@ -254,7 +264,8 @@ def save_weixin_account(
         pass
 
 
-def load_weixin_account(nastech_home: str, account_id: str) -> Optional[Dict[str, Any]]:
+def load_weixin_account(
+        nastech_home: str, account_id: str) -> Optional[Dict[str, Any]]:
     """Load persisted account credentials."""
     path = _account_file(nastech_home, account_id)
     if not path.exists():
@@ -285,7 +296,10 @@ class ContextTokenStore:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:
-            logger.warning("weixin: failed to restore context tokens for %s: %s", _safe_id(account_id), exc)
+            logger.warning(
+                "weixin: failed to restore context tokens for %s: %s",
+                _safe_id(account_id),
+                exc)
             return
         restored = 0
         for user_id, token in data.items():
@@ -293,7 +307,10 @@ class ContextTokenStore:
                 self._cache[self._key(account_id, user_id)] = token
                 restored += 1
         if restored:
-            logger.info("weixin: restored %d context token(s) for %s", restored, _safe_id(account_id))
+            logger.info(
+                "weixin: restored %d context token(s) for %s",
+                restored,
+                _safe_id(account_id))
 
     def get(self, account_id: str, user_id: str) -> Optional[str]:
         return self._cache.get(self._key(account_id, user_id))
@@ -305,14 +322,17 @@ class ContextTokenStore:
     def _persist(self, account_id: str) -> None:
         prefix = f"{account_id}:"
         payload = {
-            key[len(prefix) :]: value
+            key[len(prefix):]: value
             for key, value in self._cache.items()
             if key.startswith(prefix)
         }
         try:
             atomic_json_write(self._path(account_id), payload)
         except Exception as exc:
-            logger.warning("weixin: failed to persist context tokens for %s: %s", _safe_id(account_id), exc)
+            logger.warning(
+                "weixin: failed to persist context tokens for %s: %s",
+                _safe_id(account_id),
+                exc)
 
 
 class TypingTicketCache:
@@ -355,15 +375,21 @@ def _parse_aes_key(aes_key_b64: str) -> bytes:
         text = decoded.decode("ascii", errors="ignore")
         if text and all(ch in "0123456789abcdefABCDEF" for ch in text):
             return bytes.fromhex(text)
-    raise ValueError(f"unexpected aes_key format ({len(decoded)} decoded bytes)")
+    raise ValueError(
+        f"unexpected aes_key format ({
+            len(decoded)} decoded bytes)")
 
 
-def _guess_chat_type(message: Dict[str, Any], account_id: str) -> Tuple[str, str]:
-    room_id = str(message.get("room_id") or message.get("chat_room_id") or "").strip()
+def _guess_chat_type(message: Dict[str, Any],
+                     account_id: str) -> Tuple[str, str]:
+    room_id = str(message.get("room_id") or message.get(
+        "chat_room_id") or "").strip()
     to_user_id = str(message.get("to_user_id") or "").strip()
-    is_group = bool(room_id) or (to_user_id and account_id and to_user_id != account_id and message.get("msg_type") == 1)
+    is_group = bool(room_id) or (to_user_id and account_id and to_user_id !=
+                                 account_id and message.get("msg_type") == 1)
     if is_group:
-        return "group", room_id or to_user_id or str(message.get("from_user_id") or "")
+        return "group", room_id or to_user_id or str(
+            message.get("from_user_id") or "")
     return "dm", str(message.get("from_user_id") or "")
 
 
@@ -382,7 +408,8 @@ async def _api_post(
     async with session.post(url, data=body, headers=_headers(token, body), timeout=timeout) as response:
         raw = await response.text()
         if not response.ok:
-            raise RuntimeError(f"iLink POST {endpoint} HTTP {response.status}: {raw[:200]}")
+            raise RuntimeError(
+                f"iLink POST {endpoint} HTTP {response.status}: {raw[:200]}")
         return json.loads(raw)
 
 
@@ -402,7 +429,8 @@ async def _api_get(
     async with session.get(url, headers=headers, timeout=timeout) as response:
         raw = await response.text()
         if not response.ok:
-            raise RuntimeError(f"iLink GET {endpoint} HTTP {response.status}: {raw[:200]}")
+            raise RuntimeError(
+                f"iLink GET {endpoint} HTTP {response.status}: {raw[:200]}")
         return json.loads(raw)
 
 
@@ -562,9 +590,11 @@ async def _upload_ciphertext(
                     await response.read()
                     return encrypted_param
                 raw = await response.text()
-                raise RuntimeError(f"CDN upload missing x-encrypted-param header: {raw[:200]}")
+                raise RuntimeError(
+                    f"CDN upload missing x-encrypted-param header: {raw[:200]}")
             raw = await response.text()
-            raise RuntimeError(f"CDN upload HTTP {response.status}: {raw[:200]}")
+            raise RuntimeError(
+                f"CDN upload HTTP {response.status}: {raw[:200]}")
     return await asyncio.wait_for(_do_upload(), timeout=120)
 
 
@@ -607,7 +637,8 @@ def _assert_weixin_cdn_url(url: str) -> None:
 
     if scheme not in {"http", "https"}:
         raise ValueError(
-            f"Media URL has disallowed scheme {scheme!r}; only http/https are permitted."
+            f"Media URL has disallowed scheme {
+                scheme!r}; only http/https are permitted."
         )
     if host not in _WEIXIN_CDN_ALLOWLIST:
         raise ValueError(
@@ -639,7 +670,8 @@ async def _download_and_decrypt_media(
         _assert_weixin_cdn_url(full_url)
         raw = await _download_bytes(session, url=full_url, timeout_seconds=timeout_seconds)
     else:
-        raise RuntimeError("media item had neither encrypt_query_param nor full_url")
+        raise RuntimeError(
+            "media item had neither encrypt_query_param nor full_url")
     if aes_key_b64:
         raw = _aes128_ecb_decrypt(raw, _parse_aes_key(aes_key_b64))
     return raw
@@ -790,7 +822,8 @@ def _split_delivery_units_for_weixin(content: str) -> List[str]:
                     current = []
                 continue
 
-            is_continuation = bool(current) and raw_line.startswith((" ", "\t"))
+            is_continuation = bool(
+                current) and raw_line.startswith((" ", "\t"))
             if is_continuation:
                 current.append(line)
                 continue
@@ -845,7 +878,8 @@ def _should_split_short_chat_block_for_weixin(block: str) -> bool:
     return all(_looks_like_chatty_line_for_weixin(line) for line in lines)
 
 
-def _pack_markdown_blocks_for_weixin(content: str, max_length: int) -> List[str]:
+def _pack_markdown_blocks_for_weixin(
+        content: str, max_length: int) -> List[str]:
     if len(content) <= max_length:
         return [content]
 
@@ -982,7 +1016,8 @@ def _load_sync_buf(nastech_home: str, account_id: str) -> str:
     if not path.exists():
         return ""
     try:
-        return json.loads(path.read_text(encoding="utf-8")).get("get_updates_buf", "")
+        return json.loads(path.read_text(encoding="utf-8")
+                          ).get("get_updates_buf", "")
     except Exception:
         return ""
 
@@ -1105,7 +1140,8 @@ async def qr_login(
                 base_url = str(status_resp.get("baseurl") or ILINK_BASE_URL)
                 user_id = str(status_resp.get("ilink_user_id") or "")
                 if not account_id or not token:
-                    logger.error("weixin: QR confirmed but credential payload was incomplete")
+                    logger.error(
+                        "weixin: QR confirmed but credential payload was incomplete")
                     return None
                 save_weixin_account(
                     nastech_home,
@@ -1146,26 +1182,43 @@ class WeixinAdapter(BasePlatformAdapter):
         self._poll_session: Optional[aiohttp.ClientSession] = None
         self._send_session: Optional[aiohttp.ClientSession] = None
         self._poll_task: Optional[asyncio.Task] = None
-        self._dedup = MessageDeduplicator(ttl_seconds=MESSAGE_DEDUP_TTL_SECONDS)
+        self._dedup = MessageDeduplicator(
+            ttl_seconds=MESSAGE_DEDUP_TTL_SECONDS)
 
-        self._account_id = str(extra.get("account_id") or os.getenv("WEIXIN_ACCOUNT_ID", "")).strip()
-        self._token = str(config.token or extra.get("token") or os.getenv("WEIXIN_TOKEN", "")).strip()
-        self._base_url = str(extra.get("base_url") or os.getenv("WEIXIN_BASE_URL", ILINK_BASE_URL)).strip().rstrip("/")
+        self._account_id = str(
+            extra.get("account_id") or os.getenv(
+                "WEIXIN_ACCOUNT_ID", "")).strip()
+        self._token = str(
+            config.token or extra.get("token") or os.getenv(
+                "WEIXIN_TOKEN", "")).strip()
+        self._base_url = str(
+            extra.get("base_url") or os.getenv(
+                "WEIXIN_BASE_URL",
+                ILINK_BASE_URL)).strip().rstrip("/")
         self._cdn_base_url = str(
-            extra.get("cdn_base_url") or os.getenv("WEIXIN_CDN_BASE_URL", WEIXIN_CDN_BASE_URL)
+            extra.get("cdn_base_url") or os.getenv(
+                "WEIXIN_CDN_BASE_URL", WEIXIN_CDN_BASE_URL)
         ).strip().rstrip("/")
         self._send_chunk_delay_seconds = float(
-            extra.get("send_chunk_delay_seconds") or os.getenv("WEIXIN_SEND_CHUNK_DELAY_SECONDS", "1.5")
+            extra.get("send_chunk_delay_seconds") or os.getenv(
+                "WEIXIN_SEND_CHUNK_DELAY_SECONDS", "1.5")
         )
         self._send_chunk_retries = int(
-            extra.get("send_chunk_retries") or os.getenv("WEIXIN_SEND_CHUNK_RETRIES", "4")
+            extra.get("send_chunk_retries") or os.getenv(
+                "WEIXIN_SEND_CHUNK_RETRIES", "4")
         )
         self._send_chunk_retry_delay_seconds = float(
             extra.get("send_chunk_retry_delay_seconds")
             or os.getenv("WEIXIN_SEND_CHUNK_RETRY_DELAY_SECONDS", "1.0")
         )
-        self._dm_policy = str(extra.get("dm_policy") or os.getenv("WEIXIN_DM_POLICY", "open")).strip().lower()
-        self._group_policy = str(extra.get("group_policy") or os.getenv("WEIXIN_GROUP_POLICY", "disabled")).strip().lower()
+        self._dm_policy = str(
+            extra.get("dm_policy") or os.getenv(
+                "WEIXIN_DM_POLICY",
+                "open")).strip().lower()
+        self._group_policy = str(
+            extra.get("group_policy") or os.getenv(
+                "WEIXIN_GROUP_POLICY",
+                "disabled")).strip().lower()
         allow_from = extra.get("allow_from")
         if allow_from is None:
             allow_from = os.getenv("WEIXIN_ALLOWED_USERS", "")
@@ -1184,7 +1237,8 @@ class WeixinAdapter(BasePlatformAdapter):
             persisted = load_weixin_account(nastech_home, self._account_id)
             if persisted:
                 self._token = str(persisted.get("token") or "").strip()
-                self._base_url = str(persisted.get("base_url") or self._base_url).strip().rstrip("/")
+                self._base_url = str(
+                    persisted.get("base_url") or self._base_url).strip().rstrip("/")
 
     @staticmethod
     def _coerce_list(value: Any) -> List[str]:
@@ -1199,38 +1253,63 @@ class WeixinAdapter(BasePlatformAdapter):
     async def connect(self) -> bool:
         if not check_weixin_requirements():
             message = "Weixin startup failed: aiohttp and cryptography are required"
-            self._set_fatal_error("weixin_missing_dependency", message, retryable=False)
+            self._set_fatal_error(
+                "weixin_missing_dependency",
+                message,
+                retryable=False)
             logger.warning("[%s] %s", self.name, message)
             return False
         if not self._token:
             message = "Weixin startup failed: WEIXIN_TOKEN is required"
-            self._set_fatal_error("weixin_missing_token", message, retryable=False)
+            self._set_fatal_error(
+                "weixin_missing_token",
+                message,
+                retryable=False)
             logger.warning("[%s] %s", self.name, message)
             return False
         if not self._account_id:
             message = "Weixin startup failed: WEIXIN_ACCOUNT_ID is required"
-            self._set_fatal_error("weixin_missing_account", message, retryable=False)
+            self._set_fatal_error(
+                "weixin_missing_account",
+                message,
+                retryable=False)
             logger.warning("[%s] %s", self.name, message)
             return False
 
         try:
-            if not self._acquire_platform_lock('weixin-bot-token', self._token, 'Weixin bot token'):
+            if not self._acquire_platform_lock(
+                    'weixin-bot-token', self._token, 'Weixin bot token'):
                 return False
         except Exception as exc:
-            logger.debug("[%s] Token lock unavailable (non-fatal): %s", self.name, exc)
+            logger.debug(
+                "[%s] Token lock unavailable (non-fatal): %s",
+                self.name,
+                exc)
 
-        self._poll_session = aiohttp.ClientSession(trust_env=True, connector=_make_ssl_connector())
+        self._poll_session = aiohttp.ClientSession(
+            trust_env=True, connector=_make_ssl_connector())
         # Disable aiohttp's built-in ClientTimeout (total=None) to prevent
         # "Timeout context manager should be used inside a task" errors when
         # send() is invoked via asyncio.run_coroutine_threadsafe() from cron.
-        # Timeout is managed externally via asyncio.wait_for() in _api_post/_api_get.
-        _no_aiohttp_timeout = aiohttp.ClientTimeout(total=None, connect=None, sock_connect=None, sock_read=None)
-        self._send_session = aiohttp.ClientSession(trust_env=True, connector=_make_ssl_connector(), timeout=_no_aiohttp_timeout)
+        # Timeout is managed externally via asyncio.wait_for() in
+        # _api_post/_api_get.
+        _no_aiohttp_timeout = aiohttp.ClientTimeout(
+            total=None, connect=None, sock_connect=None, sock_read=None)
+        self._send_session = aiohttp.ClientSession(
+            trust_env=True,
+            connector=_make_ssl_connector(),
+            timeout=_no_aiohttp_timeout)
         self._token_store.restore(self._account_id)
-        self._poll_task = asyncio.create_task(self._poll_loop(), name="weixin-poll")
+        self._poll_task = asyncio.create_task(
+            self._poll_loop(), name="weixin-poll")
         self._mark_connected()
         _LIVE_ADAPTERS[self._token] = self
-        logger.info("[%s] Connected account=%s base=%s", self.name, _safe_id(self._account_id), self._base_url)
+        logger.info(
+            "[%s] Connected account=%s base=%s",
+            self.name,
+            _safe_id(
+                self._account_id),
+            self._base_url)
         if self._group_policy != "disabled":
             logger.warning(
                 "[%s] WEIXIN_GROUP_POLICY=%s is set, but QR-login connects an iLink bot "
@@ -1280,7 +1359,8 @@ class WeixinAdapter(BasePlatformAdapter):
                     timeout_ms=timeout_ms,
                 )
                 suggested_timeout = response.get("longpolling_timeout_ms")
-                if isinstance(suggested_timeout, int) and suggested_timeout > 0:
+                if isinstance(suggested_timeout,
+                              int) and suggested_timeout > 0:
                     timeout_ms = suggested_timeout
 
                 ret = response.get("ret", 0)
@@ -1288,7 +1368,8 @@ class WeixinAdapter(BasePlatformAdapter):
                 if ret not in {0, None} or errcode not in {0, None}:
                     if (ret == SESSION_EXPIRED_ERRCODE or errcode == SESSION_EXPIRED_ERRCODE
                             or _is_stale_session_ret(ret, errcode, response.get("errmsg"))):
-                        logger.error("[%s] Session expired; pausing for 10 minutes", self.name)
+                        logger.error(
+                            "[%s] Session expired; pausing for 10 minutes", self.name)
                         await asyncio.sleep(600)
                         consecutive_failures = 0
                         continue
@@ -1311,7 +1392,8 @@ class WeixinAdapter(BasePlatformAdapter):
                 new_sync_buf = str(response.get("get_updates_buf") or "")
                 if new_sync_buf:
                     sync_buf = new_sync_buf
-                    _save_sync_buf(self._nastech_home, self._account_id, sync_buf)
+                    _save_sync_buf(
+                        self._nastech_home, self._account_id, sync_buf)
 
                 for message in response.get("msgs") or []:
                     asyncio.create_task(self._process_message_safe(message))
@@ -1319,7 +1401,12 @@ class WeixinAdapter(BasePlatformAdapter):
                 break
             except Exception as exc:
                 consecutive_failures += 1
-                logger.error("[%s] poll error (%d/%d): %s", self.name, consecutive_failures, MAX_CONSECUTIVE_FAILURES, exc)
+                logger.error(
+                    "[%s] poll error (%d/%d): %s",
+                    self.name,
+                    consecutive_failures,
+                    MAX_CONSECUTIVE_FAILURES,
+                    exc)
                 await asyncio.sleep(BACKOFF_DELAY_SECONDS if consecutive_failures >= MAX_CONSECUTIVE_FAILURES else RETRY_DELAY_SECONDS)
                 if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
                     consecutive_failures = 0
@@ -1328,7 +1415,13 @@ class WeixinAdapter(BasePlatformAdapter):
         try:
             await self._process_message(message)
         except Exception as exc:
-            logger.error("[%s] unhandled inbound error from=%s: %s", self.name, _safe_id(message.get("from_user_id")), exc, exc_info=True)
+            logger.error(
+                "[%s] unhandled inbound error from=%s: %s",
+                self.name,
+                _safe_id(
+                    message.get("from_user_id")),
+                exc,
+                exc_info=True)
 
     async def _process_message(self, message: Dict[str, Any]) -> None:
         assert self._poll_session is not None
@@ -1346,12 +1439,18 @@ class WeixinAdapter(BasePlatformAdapter):
         item_list = message.get("item_list") or []
         text = _extract_text(item_list)
         if text:
-            content_key = f"content:{sender_id}:{hashlib.md5(text.encode()).hexdigest()}"
+            content_key = f"content:{sender_id}:{
+                hashlib.md5(
+                    text.encode()).hexdigest()}"
             if self._dedup.is_duplicate(content_key):
-                logger.debug("[%s] Content-dedup: skipping duplicate message from %s", self.name, sender_id)
+                logger.debug(
+                    "[%s] Content-dedup: skipping duplicate message from %s",
+                    self.name,
+                    sender_id)
                 return
 
-        chat_type, effective_chat_id = _guess_chat_type(message, self._account_id)
+        chat_type, effective_chat_id = _guess_chat_type(
+            message, self._account_id)
         if chat_type == "group":
             if self._group_policy == "disabled":
                 return
@@ -1363,7 +1462,9 @@ class WeixinAdapter(BasePlatformAdapter):
         context_token = str(message.get("context_token") or "").strip()
         if context_token:
             self._token_store.set(self._account_id, sender_id, context_token)
-        asyncio.create_task(self._maybe_fetch_typing_ticket(sender_id, context_token or None))
+        asyncio.create_task(
+            self._maybe_fetch_typing_ticket(
+                sender_id, context_token or None))
 
         media_paths: List[str] = []
         media_types: List[str] = []
@@ -1394,7 +1495,12 @@ class WeixinAdapter(BasePlatformAdapter):
             media_types=media_types,
             timestamp=datetime.now(),
         )
-        logger.info("[%s] inbound from=%s type=%s media=%d", self.name, _safe_id(sender_id), source.chat_type, len(media_paths))
+        logger.info(
+            "[%s] inbound from=%s type=%s media=%d",
+            self.name,
+            _safe_id(sender_id),
+            source.chat_type,
+            len(media_paths))
         await self.handle_message(event)
 
     @property
@@ -1409,7 +1515,8 @@ class WeixinAdapter(BasePlatformAdapter):
             return sender_id in self._allow_from
         return True
 
-    async def _collect_media(self, item: Dict[str, Any], media_paths: List[str], media_types: List[str]) -> None:
+    async def _collect_media(
+            self, item: Dict[str, Any], media_paths: List[str], media_types: List[str]) -> None:
         item_type = item.get("type")
         if item_type == ITEM_IMAGE:
             path = await self._download_image(item)
@@ -1466,7 +1573,8 @@ class WeixinAdapter(BasePlatformAdapter):
             logger.warning("[%s] video download failed: %s", self.name, exc)
             return None
 
-    async def _download_file(self, item: Dict[str, Any]) -> Tuple[Optional[str], str]:
+    async def _download_file(
+            self, item: Dict[str, Any]) -> Tuple[Optional[str], str]:
         file_item = item.get("file_item") or {}
         media = file_item.get("media") or {}
         filename = str(file_item.get("file_name") or "document.bin")
@@ -1504,7 +1612,8 @@ class WeixinAdapter(BasePlatformAdapter):
             logger.warning("[%s] voice download failed: %s", self.name, exc)
             return None
 
-    async def _maybe_fetch_typing_ticket(self, user_id: str, context_token: Optional[str]) -> None:
+    async def _maybe_fetch_typing_ticket(
+            self, user_id: str, context_token: Optional[str]) -> None:
         if not self._poll_session or not self._token:
             return
         if self._typing_cache.get(user_id):
@@ -1521,7 +1630,8 @@ class WeixinAdapter(BasePlatformAdapter):
             if typing_ticket:
                 self._typing_cache.set(user_id, typing_ticket)
         except Exception as exc:
-            logger.debug("[%s] getConfig failed for %s: %s", self.name, _safe_id(user_id), exc)
+            logger.debug("[%s] getConfig failed for %s: %s",
+                         self.name, _safe_id(user_id), exc)
 
     def _split_text(self, content: str) -> List[str]:
         return _split_text_for_weixin_delivery(
@@ -1560,7 +1670,8 @@ class WeixinAdapter(BasePlatformAdapter):
                 if resp and isinstance(resp, dict):
                     ret = resp.get("ret")
                     errcode = resp.get("errcode")
-                    if (ret is not None and ret not in {0,}) or (errcode is not None and errcode not in {0,}):
+                    if (ret is not None and ret not in {0, }) or (
+                            errcode is not None and errcode not in {0, }):
                         is_session_expired = (
                             ret == SESSION_EXPIRED_ERRCODE
                             or errcode == SESSION_EXPIRED_ERRCODE
@@ -1571,7 +1682,8 @@ class WeixinAdapter(BasePlatformAdapter):
                             retried_without_token = True
                             context_token = None
                             self._token_store._cache.pop(
-                                self._token_store._key(self._account_id, chat_id), None
+                                self._token_store._key(
+                                    self._account_id, chat_id), None
                             )
                             logger.warning(
                                 "[%s] session expired for %s; retrying without context_token",
@@ -1584,10 +1696,12 @@ class WeixinAdapter(BasePlatformAdapter):
                             or errcode == RATE_LIMIT_ERRCODE
                         )
                         if is_rate_limited:
-                            errmsg = resp.get("errmsg") or resp.get("msg") or "rate limited"
+                            errmsg = resp.get("errmsg") or resp.get(
+                                "msg") or "rate limited"
                             # Record the error so we raise a descriptive
                             # RuntimeError (instead of AssertionError) if the
-                            # loop exhausts with the server still rate-limiting.
+                            # loop exhausts with the server still
+                            # rate-limiting.
                             last_error = RuntimeError(
                                 f"iLink sendmessage rate limited: ret={ret} errcode={errcode} errmsg={errmsg}"
                             )
@@ -1600,7 +1714,8 @@ class WeixinAdapter(BasePlatformAdapter):
                             )
                             await asyncio.sleep(wait)
                             continue
-                        errmsg = resp.get("errmsg") or resp.get("msg") or "unknown error"
+                        errmsg = resp.get("errmsg") or resp.get(
+                            "msg") or "unknown error"
                         raise RuntimeError(
                             f"iLink sendmessage error: ret={ret} errcode={errcode} errmsg={errmsg}"
                         )
@@ -1664,17 +1779,27 @@ class WeixinAdapter(BasePlatformAdapter):
                 try:
                     await _deliver_media(media_path, is_voice)
                 except Exception as exc:
-                    logger.warning("[%s] media delivery failed for %s: %s", self.name, media_path, exc)
+                    logger.warning(
+                        "[%s] media delivery failed for %s: %s",
+                        self.name,
+                        media_path,
+                        exc)
 
             # Deliver bare local file paths.
             for file_path in local_files:
                 try:
                     await _deliver_media(file_path, is_voice=False)
                 except Exception as exc:
-                    logger.warning("[%s] local file delivery failed for %s: %s", self.name, file_path, exc)
+                    logger.warning(
+                        "[%s] local file delivery failed for %s: %s",
+                        self.name,
+                        file_path,
+                        exc)
 
             # Deliver text content.
-            chunks = [c for c in self._split_text(self.format_message(final_content)) if c and c.strip()]
+            chunks = [
+                c for c in self._split_text(
+                    self.format_message(final_content)) if c and c.strip()]
             for idx, chunk in enumerate(chunks):
                 client_id = f"nastech-weixin-{uuid.uuid4().hex}"
                 await self._send_text_chunk(
@@ -1684,14 +1809,20 @@ class WeixinAdapter(BasePlatformAdapter):
                     client_id=client_id,
                 )
                 last_message_id = client_id
-                if idx < len(chunks) - 1 and self._send_chunk_delay_seconds > 0:
+                if idx < len(chunks) - \
+                        1 and self._send_chunk_delay_seconds > 0:
                     await asyncio.sleep(self._send_chunk_delay_seconds)
             return SendResult(success=True, message_id=last_message_id)
         except Exception as exc:
-            logger.error("[%s] send failed to=%s: %s", self.name, _safe_id(chat_id), exc)
+            logger.error(
+                "[%s] send failed to=%s: %s",
+                self.name,
+                _safe_id(chat_id),
+                exc)
             return SendResult(success=False, error=str(exc))
 
-    async def send_typing(self, chat_id: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+    async def send_typing(self, chat_id: str,
+                          metadata: Optional[Dict[str, Any]] = None) -> None:
         if not self._send_session or not self._token:
             return
         typing_ticket = self._typing_cache.get(chat_id)
@@ -1707,7 +1838,8 @@ class WeixinAdapter(BasePlatformAdapter):
                 status=TYPING_START,
             )
         except Exception as exc:
-            logger.debug("[%s] typing start failed for %s: %s", self.name, _safe_id(chat_id), exc)
+            logger.debug("[%s] typing start failed for %s: %s",
+                         self.name, _safe_id(chat_id), exc)
 
     async def stop_typing(self, chat_id: str) -> None:
         if not self._send_session or not self._token:
@@ -1725,7 +1857,8 @@ class WeixinAdapter(BasePlatformAdapter):
                 status=TYPING_STOP,
             )
         except Exception as exc:
-            logger.debug("[%s] typing stop failed for %s: %s", self.name, _safe_id(chat_id), exc)
+            logger.debug("[%s] typing stop failed for %s: %s",
+                         self.name, _safe_id(chat_id), exc)
 
     async def send_image(
         self,
@@ -1786,7 +1919,8 @@ class WeixinAdapter(BasePlatformAdapter):
             message_id = await self._send_file(chat_id, file_path, caption or "")
             return SendResult(success=True, message_id=message_id)
         except Exception as exc:
-            logger.error("[%s] send_document failed to=%s: %s", self.name, _safe_id(chat_id), exc)
+            logger.error("[%s] send_document failed to=%s: %s",
+                         self.name, _safe_id(chat_id), exc)
             return SendResult(success=False, error=str(exc))
 
     async def send_video(
@@ -1803,7 +1937,8 @@ class WeixinAdapter(BasePlatformAdapter):
             message_id = await self._send_file(chat_id, video_path, caption or "")
             return SendResult(success=True, message_id=message_id)
         except Exception as exc:
-            logger.error("[%s] send_video failed to=%s: %s", self.name, _safe_id(chat_id), exc)
+            logger.error("[%s] send_video failed to=%s: %s",
+                         self.name, _safe_id(chat_id), exc)
             return SendResult(success=False, error=str(exc))
 
     async def send_voice(
@@ -1830,7 +1965,8 @@ class WeixinAdapter(BasePlatformAdapter):
             )
             return SendResult(success=True, message_id=message_id)
         except Exception as exc:
-            logger.error("[%s] send_voice failed to=%s: %s", self.name, _safe_id(chat_id), exc)
+            logger.error("[%s] send_voice failed to=%s: %s",
+                         self.name, _safe_id(chat_id), exc)
             return SendResult(success=False, error=str(exc))
 
     async def _download_remote_media(self, url: str) -> str:
@@ -1842,6 +1978,7 @@ class WeixinAdapter(BasePlatformAdapter):
         assert self._send_session is not None
         # Use asyncio.wait_for() instead of aiohttp ClientTimeout to avoid
         # "Timeout context manager should be used inside a task" errors.
+
         async def _do_fetch():
             async with self._send_session.get(url) as response:
                 response.raise_for_status()
@@ -1861,7 +1998,8 @@ class WeixinAdapter(BasePlatformAdapter):
     ) -> str:
         assert self._send_session is not None and self._token is not None
         plaintext = Path(path).read_bytes()
-        media_type, item_builder = self._outbound_media_builder(path, force_file_attachment=force_file_attachment)
+        media_type, item_builder = self._outbound_media_builder(
+            path, force_file_attachment=force_file_attachment)
         filekey = secrets.token_hex(16)
         aes_key = secrets.token_bytes(16)
         rawsize = len(plaintext)
@@ -1888,9 +2026,11 @@ class WeixinAdapter(BasePlatformAdapter):
         if upload_full_url:
             upload_url = upload_full_url
         elif upload_param:
-            upload_url = _cdn_upload_url(self._cdn_base_url, upload_param, filekey)
+            upload_url = _cdn_upload_url(
+                self._cdn_base_url, upload_param, filekey)
         else:
-            raise RuntimeError(f"getUploadUrl returned neither upload_param nor upload_full_url: {upload_response}")
+            raise RuntimeError(
+                f"getUploadUrl returned neither upload_param nor upload_full_url: {upload_response}")
 
         encrypted_query_param = await _upload_ciphertext(
             self._send_session,
@@ -1901,7 +2041,8 @@ class WeixinAdapter(BasePlatformAdapter):
         # The iLink API expects aes_key as base64(hex_string), not base64(raw_bytes).
         # Sending base64(raw_bytes) causes images to show as grey boxes on the
         # receiver side because the decryption key doesn't match.
-        aes_key_for_api = base64.b64encode(aes_key.hex().encode("ascii")).decode("ascii")
+        aes_key_for_api = base64.b64encode(
+            aes_key.hex().encode("ascii")).decode("ascii")
         item_kwargs = {
             "encrypt_query_param": encrypted_query_param,
             "aes_key_for_api": aes_key_for_api,
@@ -1950,7 +2091,8 @@ class WeixinAdapter(BasePlatformAdapter):
         )
         return last_message_id
 
-    def _outbound_media_builder(self, path: str, force_file_attachment: bool = False):
+    def _outbound_media_builder(
+            self, path: str, force_file_attachment: bool = False):
         mime = mimetypes.guess_type(path)[0] or "application/octet-stream"
         if mime.startswith("image/"):
             return MEDIA_IMAGE, lambda **kw: {
@@ -2026,7 +2168,8 @@ class WeixinAdapter(BasePlatformAdapter):
     def format_message(self, content: Optional[str]) -> str:
         if content is None:
             return ""
-        return _wrap_copy_friendly_lines_for_weixin(_normalize_markdown_blocks(content))
+        return _wrap_copy_friendly_lines_for_weixin(
+            _normalize_markdown_blocks(content))
 
 
 async def send_weixin_direct(
@@ -2042,12 +2185,24 @@ async def send_weixin_direct(
 
     This bypasses the long-poll adapter lifecycle and uses the raw API directly.
     """
-    account_id = str(extra.get("account_id") or os.getenv("WEIXIN_ACCOUNT_ID", "")).strip()
-    base_url = str(extra.get("base_url") or os.getenv("WEIXIN_BASE_URL", ILINK_BASE_URL)).strip().rstrip("/")
-    cdn_base_url = str(extra.get("cdn_base_url") or os.getenv("WEIXIN_CDN_BASE_URL", WEIXIN_CDN_BASE_URL)).strip().rstrip("/")
-    resolved_token = str(token or extra.get("token") or os.getenv("WEIXIN_TOKEN", "")).strip()
+    account_id = str(
+        extra.get("account_id") or os.getenv(
+            "WEIXIN_ACCOUNT_ID",
+            "")).strip()
+    base_url = str(
+        extra.get("base_url") or os.getenv(
+            "WEIXIN_BASE_URL",
+            ILINK_BASE_URL)).strip().rstrip("/")
+    cdn_base_url = str(
+        extra.get("cdn_base_url") or os.getenv(
+            "WEIXIN_CDN_BASE_URL",
+            WEIXIN_CDN_BASE_URL)).strip().rstrip("/")
+    resolved_token = str(
+        token or extra.get("token") or os.getenv(
+            "WEIXIN_TOKEN", "")).strip()
     if not resolved_token:
-        return {"error": "Weixin token missing. Configure WEIXIN_TOKEN or platforms.weixin.token."}
+        return {
+            "error": "Weixin token missing. Configure WEIXIN_TOKEN or platforms.weixin.token."}
     if not account_id:
         return {"error": "Weixin account ID missing. Configure WEIXIN_ACCOUNT_ID or platforms.weixin.extra.account_id."}
 

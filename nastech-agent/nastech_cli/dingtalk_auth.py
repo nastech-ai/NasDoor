@@ -13,10 +13,10 @@ automatically.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import time
-import logging
 from typing import Optional, Tuple
 
 import requests
@@ -29,7 +29,8 @@ REGISTRATION_BASE_URL = os.environ.get(
     "DINGTALK_REGISTRATION_BASE_URL", "https://oapi.dingtalk.com"
 ).rstrip("/")
 
-REGISTRATION_SOURCE = os.environ.get("DINGTALK_REGISTRATION_SOURCE", "openClaw")
+REGISTRATION_SOURCE = os.environ.get(
+    "DINGTALK_REGISTRATION_SOURCE", "openClaw")
 
 
 # ── API helpers ────────────────────────────────────────────────────────────
@@ -51,7 +52,8 @@ def _api_post(path: str, payload: dict) -> dict:
     errcode = data.get("errcode", -1)
     if errcode != 0:
         errmsg = data.get("errmsg", "unknown error")
-        raise RegistrationError(f"API error [{path}]: {errmsg} (errcode={errcode})")
+        raise RegistrationError(
+            f"API error [{path}]: {errmsg} (errcode={errcode})")
     return data
 
 
@@ -64,7 +66,8 @@ def begin_registration() -> dict:
         device_code, verification_uri_complete, expires_in, interval
     """
     # Step 1: init → nonce
-    init_data = _api_post("/app/registration/init", {"source": REGISTRATION_SOURCE})
+    init_data = _api_post("/app/registration/init",
+                          {"source": REGISTRATION_SOURCE})
     nonce = str(init_data.get("nonce", "")).strip()
     if not nonce:
         raise RegistrationError("init response missing nonce")
@@ -72,11 +75,15 @@ def begin_registration() -> dict:
     # Step 2: begin → device_code, verification_uri_complete
     begin_data = _api_post("/app/registration/begin", {"nonce": nonce})
     device_code = str(begin_data.get("device_code", "")).strip()
-    verification_uri_complete = str(begin_data.get("verification_uri_complete", "")).strip()
+    verification_uri_complete = str(
+        begin_data.get(
+            "verification_uri_complete",
+            "")).strip()
     if not device_code:
         raise RegistrationError("begin response missing device_code")
     if not verification_uri_complete:
-        raise RegistrationError("begin response missing verification_uri_complete")
+        raise RegistrationError(
+            "begin response missing verification_uri_complete")
 
     return {
         "device_code": device_code,
@@ -138,7 +145,8 @@ def wait_for_registration_success(
             cid = result["client_id"]
             csecret = result["client_secret"]
             if not cid or not csecret:
-                raise RegistrationError("authorization succeeded but credentials are missing")
+                raise RegistrationError(
+                    "authorization succeeded but credentials are missing")
             return cid, csecret
         # FAIL / EXPIRED / UNKNOWN
         if retry_start == 0:
@@ -169,7 +177,10 @@ def _ensure_qrcode_installed() -> bool:
         [sys.executable, "-m", "pip", "install", "-q", "qrcode"],
     ):
         try:
-            subprocess.check_call(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.check_call(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL)
             import qrcode  # noqa: F401,F811
             return True
         except (subprocess.CalledProcessError, ImportError, FileNotFoundError):
@@ -233,7 +244,7 @@ def dingtalk_qr_auth() -> Optional[Tuple[str, str]]:
     Returns (client_id, client_secret) on success, or None if the user
     cancelled or the flow failed.
     """
-    from nastech_cli.setup import print_info, print_success, print_warning, print_error
+    from nastech_cli.setup import print_error, print_info, print_success, print_warning
 
     print()
     print_info("  Initializing DingTalk device authorization...")
@@ -257,7 +268,8 @@ def dingtalk_qr_auth() -> Optional[Tuple[str, str]]:
     print()
 
     if not render_qr_to_terminal(url):
-        print_warning(f"  QR code render failed, please open the link below to authorize:")
+        print_warning(
+            f"  QR code render failed, please open the link below to authorize:")
 
     print()
     print_info(f"  Or open this link manually: {url}")
@@ -288,6 +300,7 @@ def dingtalk_qr_auth() -> Optional[Tuple[str, str]]:
     print()
     print_success("  QR scan authorization successful!")
     print_success(f"  Client ID:     {client_id}")
-    print_success(f"  Client Secret: {client_secret[:8]}{'*' * (len(client_secret) - 8)}")
+    print_success(
+        f"  Client Secret: {client_secret[:8]}{'*' * (len(client_secret) - 8)}")
 
     return client_id, client_secret

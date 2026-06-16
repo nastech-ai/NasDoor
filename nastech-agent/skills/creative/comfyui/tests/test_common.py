@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-
 import pytest
-
 from _common import (
     EMBEDDING_REGEX,
     cloud_endpoint,
@@ -23,7 +21,6 @@ from _common import (
     safe_path_join,
     unwrap_workflow,
 )
-
 
 # =============================================================================
 # Cloud detection / URL routing
@@ -59,7 +56,8 @@ class TestCloudEndpointRename:
 
     def test_models_renamed(self):
         assert cloud_endpoint("/models") == "/experiment/models"
-        assert cloud_endpoint("/models/checkpoints") == "/experiment/models/checkpoints"
+        assert cloud_endpoint(
+            "/models/checkpoints") == "/experiment/models/checkpoints"
         assert cloud_endpoint("/models/loras") == "/experiment/models/loras"
 
     def test_other_paths_unchanged(self):
@@ -69,23 +67,34 @@ class TestCloudEndpointRename:
 
 class TestResolveURL:
     def test_local_no_prefix(self):
-        assert resolve_url("http://127.0.0.1:8188", "/prompt") == "http://127.0.0.1:8188/prompt"
+        assert resolve_url(
+            "http://127.0.0.1:8188",
+            "/prompt") == "http://127.0.0.1:8188/prompt"
 
     def test_cloud_adds_api_prefix(self):
-        assert resolve_url("https://cloud.comfy.org", "/prompt") == "https://cloud.comfy.org/api/prompt"
+        assert resolve_url("https://cloud.comfy.org",
+                           "/prompt") == "https://cloud.comfy.org/api/prompt"
 
     def test_cloud_history_renamed(self):
-        assert resolve_url("https://cloud.comfy.org", "/history/abc") == "https://cloud.comfy.org/api/history_v2/abc"
+        assert resolve_url(
+            "https://cloud.comfy.org",
+            "/history/abc") == "https://cloud.comfy.org/api/history_v2/abc"
 
     def test_cloud_models_renamed(self):
-        assert resolve_url("https://cloud.comfy.org", "/models/loras") == "https://cloud.comfy.org/api/experiment/models/loras"
+        assert resolve_url(
+            "https://cloud.comfy.org",
+            "/models/loras") == "https://cloud.comfy.org/api/experiment/models/loras"
 
     def test_cloud_already_has_api(self):
         # Don't double-prefix
-        assert resolve_url("https://cloud.comfy.org", "/api/prompt") == "https://cloud.comfy.org/api/prompt"
+        assert resolve_url(
+            "https://cloud.comfy.org",
+            "/api/prompt") == "https://cloud.comfy.org/api/prompt"
 
     def test_trailing_slash_stripped(self):
-        assert resolve_url("http://127.0.0.1:8188/", "/prompt") == "http://127.0.0.1:8188/prompt"
+        assert resolve_url(
+            "http://127.0.0.1:8188/",
+            "/prompt") == "http://127.0.0.1:8188/prompt"
 
 
 # =============================================================================
@@ -379,7 +388,7 @@ class TestRedirectHeaderStripping:
     """
 
     def _build_session(self):
-        from _common import _StripSensitiveOnRedirectSession, HAS_REQUESTS
+        from _common import HAS_REQUESTS, _StripSensitiveOnRedirectSession
         if not HAS_REQUESTS:
             import pytest
             pytest.skip("requests not installed")
@@ -393,7 +402,10 @@ class TestRedirectHeaderStripping:
                      headers={"X-API-Key": "leak", "Authorization": "Bearer x"})
         resp = requests.Response()
         orig = requests.PreparedRequest()
-        orig.prepare(method="GET", url="https://cloud.comfy.org/api/view", headers={})
+        orig.prepare(
+            method="GET",
+            url="https://cloud.comfy.org/api/view",
+            headers={})
         resp.request = orig
         s.rebuild_auth(prep, resp)
         assert "X-API-Key" not in prep.headers
@@ -407,7 +419,10 @@ class TestRedirectHeaderStripping:
                      headers={"X-API-Key": "keep"})
         resp = requests.Response()
         orig = requests.PreparedRequest()
-        orig.prepare(method="GET", url="https://cloud.comfy.org/bar", headers={})
+        orig.prepare(
+            method="GET",
+            url="https://cloud.comfy.org/bar",
+            headers={})
         resp.request = orig
         s.rebuild_auth(prep, resp)
         assert prep.headers.get("X-API-Key") == "keep"
@@ -420,7 +435,10 @@ class TestRedirectHeaderStripping:
                      headers={"Cookie": "session=secret"})
         resp = requests.Response()
         orig = requests.PreparedRequest()
-        orig.prepare(method="GET", url="https://cloud.comfy.org/foo", headers={})
+        orig.prepare(
+            method="GET",
+            url="https://cloud.comfy.org/foo",
+            headers={})
         resp.request = orig
         s.rebuild_auth(prep, resp)
         assert "Cookie" not in prep.headers

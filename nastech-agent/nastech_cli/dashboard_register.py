@@ -32,7 +32,6 @@ import urllib.error
 import urllib.request
 from typing import Optional
 
-
 # Docker-style name generator. Same vibe as Docker's adjective_surname, but
 # adjective_noun with a space-free underscore join so it drops cleanly into a
 # label field. There is NO uniqueness constraint on the portal side (the row
@@ -141,7 +140,8 @@ def _register_self_hosted_client(
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             payload = json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
-        # The endpoint returns structured JSON errors ({error, error_description}).
+        # The endpoint returns structured JSON errors ({error,
+        # error_description}).
         detail = ""
         try:
             err_body = json.loads(exc.read().decode())
@@ -172,7 +172,8 @@ def _register_self_hosted_client(
         ) from exc
 
     if not isinstance(payload, dict) or not payload.get("client_id"):
-        raise RuntimeError("Portal returned an unexpected response (no client_id).")
+        raise RuntimeError(
+            "Portal returned an unexpected response (no client_id).")
     return payload
 
 
@@ -212,7 +213,8 @@ def _print_post_register_hint(
         except Exception:
             host = "your-host"
         print("  To require Nous login on your registered host, run the dashboard")
-        print(f"  bound publicly (it must be reachable at https://{host}) and log in")
+        print(
+            f"  bound publicly (it must be reachable at https://{host}) and log in")
         print("  at its /login page.")
     else:
         print("  To require Nous login (e.g. exposing on your LAN or a public host):")
@@ -251,7 +253,8 @@ def cmd_dashboard_register(args) -> None:
     except AuthError as exc:
         if getattr(exc, "relogin_required", False):
             print("✗ You're not logged into Nous Portal.")
-            print("  Run `nastech setup` (or `nastech auth login nous`) first, then retry.")
+            print(
+                "  Run `nastech setup` (or `nastech auth login nous`) first, then retry.")
         else:
             print(f"✗ Could not resolve a Nous Portal access token: {exc}")
         sys.exit(1)
@@ -335,8 +338,10 @@ def cmd_dashboard_register(args) -> None:
     try:
         save_env_value("NASTECH_DASHBOARD_OAUTH_CLIENT_ID", client_id)
     except Exception as exc:
-        print(f"✗ Failed to write NASTECH_DASHBOARD_OAUTH_CLIENT_ID to .env: {exc}")
-        print(f"  Set it manually:  NASTECH_DASHBOARD_OAUTH_CLIENT_ID={client_id}")
+        print(
+            f"✗ Failed to write NASTECH_DASHBOARD_OAUTH_CLIENT_ID to .env: {exc}")
+        print(
+            f"  Set it manually:  NASTECH_DASHBOARD_OAUTH_CLIENT_ID={client_id}")
         sys.exit(1)
 
     # Persist the portal URL. Two cases:
@@ -363,7 +368,8 @@ def cmd_dashboard_register(args) -> None:
         should_write_portal = existing_portal != portal_base_url
     else:
         should_write_portal = (
-            not existing_portal and portal_base_url.rstrip("/") != default_portal
+            not existing_portal and portal_base_url.rstrip(
+                "/") != default_portal
         )
 
     if should_write_portal:

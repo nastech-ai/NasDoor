@@ -33,7 +33,7 @@ import json
 import logging
 import re
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -151,8 +151,10 @@ class GoalState:
     last_turn_at: float = 0.0
     last_verdict: Optional[str] = None        # "done" | "continue" | "skipped"
     last_reason: Optional[str] = None
-    paused_reason: Optional[str] = None       # why we auto-paused (budget, etc.)
-    consecutive_parse_failures: int = 0       # judge-output parse failures in a row
+    # why we auto-paused (budget, etc.)
+    paused_reason: Optional[str] = None
+    # judge-output parse failures in a row
+    consecutive_parse_failures: int = 0
     # User-added criteria appended mid-loop via the /subgoal command.
     # When non-empty the judge prompt and continuation prompt both
     # include them so the agent works toward them and the judge factors
@@ -174,13 +176,17 @@ class GoalState:
             goal=data.get("goal", ""),
             status=data.get("status", "active"),
             turns_used=int(data.get("turns_used", 0) or 0),
-            max_turns=int(data.get("max_turns", DEFAULT_MAX_TURNS) or DEFAULT_MAX_TURNS),
+            max_turns=int(
+                data.get(
+                    "max_turns",
+                    DEFAULT_MAX_TURNS) or DEFAULT_MAX_TURNS),
             created_at=float(data.get("created_at", 0.0) or 0.0),
             last_turn_at=float(data.get("last_turn_at", 0.0) or 0.0),
             last_verdict=data.get("last_verdict"),
             last_reason=data.get("last_reason"),
             paused_reason=data.get("paused_reason"),
-            consecutive_parse_failures=int(data.get("consecutive_parse_failures", 0) or 0),
+            consecutive_parse_failures=int(
+                data.get("consecutive_parse_failures", 0) or 0),
             subgoals=subgoals,
         )
 
@@ -191,7 +197,8 @@ class GoalState:
         when no subgoals exist."""
         if not self.subgoals:
             return ""
-        return "\n".join(f"- {i}. {text}" for i, text in enumerate(self.subgoals, start=1))
+        return "\n".join(f"- {i}. {text}" for i,
+                         text in enumerate(self.subgoals, start=1))
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -253,7 +260,10 @@ def load_goal(session_id: str) -> Optional[GoalState]:
     try:
         return GoalState.from_json(raw)
     except Exception as exc:
-        logger.warning("GoalManager: could not parse stored goal for %s: %s", session_id, exc)
+        logger.warning(
+            "GoalManager: could not parse stored goal for %s: %s",
+            session_id,
+            exc)
         return None
 
 
@@ -402,7 +412,10 @@ def judge_goal(
         return "continue", "empty response (nothing to evaluate)", False
 
     try:
-        from agent.auxiliary_client import get_auxiliary_extra_body, get_text_auxiliary_client
+        from agent.auxiliary_client import (
+            get_auxiliary_extra_body,
+            get_text_auxiliary_client,
+        )
     except Exception as exc:
         logger.debug("goal judge: auxiliary client import failed: %s", exc)
         return "continue", "auxiliary client unavailable", False
@@ -418,7 +431,8 @@ def judge_goal(
 
     # Build the prompt — pick the with-subgoals variant when applicable.
     clean_subgoals = [s.strip() for s in (subgoals or []) if s and s.strip()]
-    current_time = datetime.now(tz=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+    current_time = datetime.now(
+        tz=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     if clean_subgoals:
         subgoals_block = "\n".join(
             f"- {i}. {text}" for i, text in enumerate(clean_subgoals, start=1)
@@ -449,7 +463,9 @@ def judge_goal(
             extra_body=get_auxiliary_extra_body() or None,
         )
     except Exception as exc:
-        logger.info("goal judge: API call failed (%s) — falling through to continue", exc)
+        logger.info(
+            "goal judge: API call failed (%s) — falling through to continue",
+            exc)
         return "continue", f"judge error: {type(exc).__name__}", False
 
     try:
@@ -459,7 +475,12 @@ def judge_goal(
 
     done, reason, parse_failed = _parse_judge_response(raw)
     verdict = "done" if done else "continue"
-    logger.info("goal judge: verdict=%s reason=%s", verdict, _truncate(reason, 120))
+    logger.info(
+        "goal judge: verdict=%s reason=%s",
+        verdict,
+        _truncate(
+            reason,
+            120))
     return verdict, reason, parse_failed
 
 
@@ -485,7 +506,8 @@ class GoalManager:
       feed back into ``run_conversation``.
     """
 
-    def __init__(self, session_id: str, *, default_max_turns: int = DEFAULT_MAX_TURNS):
+    def __init__(self, session_id: str, *,
+                 default_max_turns: int = DEFAULT_MAX_TURNS):
         self.session_id = session_id
         self.default_max_turns = int(default_max_turns or DEFAULT_MAX_TURNS)
         self._state: Optional[GoalState] = load_goal(session_id)
@@ -500,14 +522,19 @@ class GoalManager:
         return self._state is not None and self._state.status == "active"
 
     def has_goal(self) -> bool:
-        return self._state is not None and self._state.status in {"active", "paused"}
+        return self._state is not None and self._state.status in {
+            "active", "paused"}
 
     def status_line(self) -> str:
         s = self._state
-        if s is None or s.status in {"cleared",}:
+        if s is None or s.status in {"cleared", }:
             return "No active goal. Set one with /goal <text>."
         turns = f"{s.turns_used}/{s.max_turns} turns"
-        sub = f", {len(s.subgoals)} subgoal{'s' if len(s.subgoals) != 1 else ''}" if s.subgoals else ""
+        sub = f", {
+            len(
+                s.subgoals)} subgoal{
+            's' if len(
+                s.subgoals) != 1 else ''}" if s.subgoals else ""
         if s.status == "active":
             return f"⊙ Goal (active, {turns}{sub}): {s.goal}"
         if s.status == "paused":
@@ -687,7 +714,8 @@ class GoalManager:
         if state.consecutive_parse_failures >= DEFAULT_MAX_CONSECUTIVE_PARSE_FAILURES:
             state.status = "paused"
             state.paused_reason = (
-                f"judge model returned unparseable output {state.consecutive_parse_failures} turns in a row"
+                f"judge model returned unparseable output {
+                    state.consecutive_parse_failures} turns in a row"
             )
             save_goal(self.session_id, state)
             return {
@@ -697,7 +725,8 @@ class GoalManager:
                 "verdict": "continue",
                 "reason": reason,
                 "message": (
-                    f"⏸ Goal paused — the judge model ({state.consecutive_parse_failures} turns) "
+                    f"⏸ Goal paused — the judge model ({
+                        state.consecutive_parse_failures} turns) "
                     "isn't returning the required JSON verdict. Route the judge to a stricter "
                     "model in ~/.nastech/config.yaml:\n"
                     "  auxiliary:\n"
@@ -710,7 +739,9 @@ class GoalManager:
 
         if state.turns_used >= state.max_turns:
             state.status = "paused"
-            state.paused_reason = f"turn budget exhausted ({state.turns_used}/{state.max_turns})"
+            state.paused_reason = f"turn budget exhausted ({
+                state.turns_used}/{
+                state.max_turns})"
             save_goal(self.session_id, state)
             return {
                 "status": "paused",
@@ -719,7 +750,9 @@ class GoalManager:
                 "verdict": "continue",
                 "reason": reason,
                 "message": (
-                    f"⏸ Goal paused — {state.turns_used}/{state.max_turns} turns used. "
+                    f"⏸ Goal paused — {
+                        state.turns_used}/{
+                        state.max_turns} turns used. "
                     "Use /goal resume to keep going, or /goal clear to stop."
                 ),
             }
@@ -732,7 +765,9 @@ class GoalManager:
             "verdict": "continue",
             "reason": reason,
             "message": (
-                f"↻ Continuing toward goal ({state.turns_used}/{state.max_turns}): {reason}"
+                f"↻ Continuing toward goal ({
+                    state.turns_used}/{
+                    state.max_turns}): {reason}"
             ),
         }
 
@@ -837,28 +872,41 @@ def run_kanban_goal_loop(
             status = task_status_fn()
         except Exception as exc:
             _log(f"kanban goal loop: status check failed ({exc}); stopping")
-            return {"outcome": "stopped", "turns_used": turns_used, "reason": "status check failed"}
+            return {"outcome": "stopped", "turns_used": turns_used,
+                    "reason": "status check failed"}
 
         if status == "done":
-            _log(f"kanban goal loop: task {task_id} completed by worker after {turns_used} turn(s)")
-            return {"outcome": "completed_by_worker", "turns_used": turns_used, "reason": "worker completed the task"}
+            _log(
+                f"kanban goal loop: task {task_id} completed by worker after {turns_used} turn(s)")
+            return {"outcome": "completed_by_worker",
+                    "turns_used": turns_used, "reason": "worker completed the task"}
         if status == "blocked":
-            _log(f"kanban goal loop: task {task_id} blocked by worker after {turns_used} turn(s)")
-            return {"outcome": "blocked_by_worker", "turns_used": turns_used, "reason": "worker blocked the task"}
+            _log(
+                f"kanban goal loop: task {task_id} blocked by worker after {turns_used} turn(s)")
+            return {"outcome": "blocked_by_worker",
+                    "turns_used": turns_used, "reason": "worker blocked the task"}
         if status not in ("running", "ready"):
             # Reclaimed / archived / unexpected — let the dispatcher own it.
-            _log(f"kanban goal loop: task {task_id} status={status!r}; stopping")
-            return {"outcome": "stopped", "turns_used": turns_used, "reason": f"status={status}"}
+            _log(
+                f"kanban goal loop: task {task_id} status={
+                    status!r}; stopping")
+            return {"outcome": "stopped", "turns_used": turns_used,
+                    "reason": f"status={status}"}
 
         # Still open — judge whether the latest response satisfies the card.
         verdict, reason, _parse_failed = judge_goal(goal_text, last_response)
-        _log(f"kanban goal loop: turn {turns_used}/{max_turns} verdict={verdict} reason={_truncate(reason, 120)}")
+        _log(
+            f"kanban goal loop: turn {turns_used}/{max_turns} verdict={verdict} reason={
+                _truncate(
+                    reason,
+                    120)}")
 
         if verdict == "done":
             if nudged_to_finalize:
                 # Already asked once to call kanban_complete and it still
                 # didn't — block for review rather than spin.
-                _log(f"kanban goal loop: task {task_id} judged done but worker won't finalize; blocking")
+                _log(
+                    f"kanban goal loop: task {task_id} judged done but worker won't finalize; blocking")
                 try:
                     block_fn(
                         f"Goal-mode worker's output looked complete but it never "
@@ -866,15 +914,19 @@ def run_kanban_goal_loop(
                     )
                 except Exception as exc:
                     _log(f"kanban goal loop: block_fn failed ({exc})")
-                return {"outcome": "blocked_budget", "turns_used": turns_used, "reason": "judged done, never finalized"}
-            prompt = KANBAN_GOAL_FINALIZE_TEMPLATE.format(reason=_truncate(reason, 400))
+                return {"outcome": "blocked_budget", "turns_used": turns_used,
+                        "reason": "judged done, never finalized"}
+            prompt = KANBAN_GOAL_FINALIZE_TEMPLATE.format(
+                reason=_truncate(reason, 400))
             nudged_to_finalize = True
         else:
-            prompt = KANBAN_GOAL_CONTINUATION_TEMPLATE.format(reason=_truncate(reason, 400))
+            prompt = KANBAN_GOAL_CONTINUATION_TEMPLATE.format(
+                reason=_truncate(reason, 400))
 
         # Budget check BEFORE spending another turn.
         if turns_used >= max_turns:
-            _log(f"kanban goal loop: task {task_id} exhausted {turns_used}/{max_turns} turns; blocking")
+            _log(
+                f"kanban goal loop: task {task_id} exhausted {turns_used}/{max_turns} turns; blocking")
             try:
                 block_fn(
                     f"Goal-mode worker exhausted its turn budget "
@@ -883,14 +935,16 @@ def run_kanban_goal_loop(
                 )
             except Exception as exc:
                 _log(f"kanban goal loop: block_fn failed ({exc})")
-            return {"outcome": "blocked_budget", "turns_used": turns_used, "reason": "turn budget exhausted"}
+            return {"outcome": "blocked_budget",
+                    "turns_used": turns_used, "reason": "turn budget exhausted"}
 
         # Run another turn in the same session.
         try:
             last_response = run_turn(prompt) or ""
         except Exception as exc:
             _log(f"kanban goal loop: run_turn failed ({exc}); stopping")
-            return {"outcome": "stopped", "turns_used": turns_used, "reason": f"run_turn error: {type(exc).__name__}"}
+            return {"outcome": "stopped", "turns_used": turns_used,
+                    "reason": f"run_turn error: {type(exc).__name__}"}
         turns_used += 1
 
 

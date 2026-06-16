@@ -52,16 +52,21 @@ class GatewayKanbanWatchersMixin:
         try:
             from nastech_cli.config import load_config as _load_config
         except Exception:
-            logger.warning("kanban notifier: config loader unavailable; disabled")
+            logger.warning(
+                "kanban notifier: config loader unavailable; disabled")
             return
-        env_override = os.environ.get("NASTECH_KANBAN_DISPATCH_IN_GATEWAY", "").strip().lower()
+        env_override = os.environ.get(
+            "NASTECH_KANBAN_DISPATCH_IN_GATEWAY",
+            "").strip().lower()
         if env_override in {"0", "false", "no", "off"}:
-            logger.info("kanban notifier: disabled via NASTECH_KANBAN_DISPATCH_IN_GATEWAY env")
+            logger.info(
+                "kanban notifier: disabled via NASTECH_KANBAN_DISPATCH_IN_GATEWAY env")
             return
         try:
             cfg = _load_config()
         except Exception as exc:
-            logger.warning("kanban notifier: cannot load config (%s); disabled", exc)
+            logger.warning(
+                "kanban notifier: cannot load config (%s); disabled", exc)
             return
         kanban_cfg = cfg.get("kanban", {}) if isinstance(cfg, dict) else {}
         if not kanban_cfg.get("dispatch_in_gateway", True):
@@ -73,10 +78,16 @@ class GatewayKanbanWatchersMixin:
         try:
             from nastech_cli import kanban_db as _kb
         except Exception:
-            logger.warning("kanban notifier: kanban_db not importable; notifier disabled")
+            logger.warning(
+                "kanban notifier: kanban_db not importable; notifier disabled")
             return
 
-        TERMINAL_KINDS = ("completed", "blocked", "gave_up", "crashed", "timed_out")
+        TERMINAL_KINDS = (
+            "completed",
+            "blocked",
+            "gave_up",
+            "crashed",
+            "timed_out")
         # Subscriptions are removed only when the task reaches a truly final
         # status (done / archived). We used to also unsub on any terminal
         # event kind (gave_up / crashed / timed_out / blocked), but that
@@ -115,7 +126,8 @@ class GatewayKanbanWatchersMixin:
                         for platform in self.adapters.keys()
                     }
                     if not active_platforms:
-                        logger.debug("kanban notifier: no connected adapters; skipping tick")
+                        logger.debug(
+                            "kanban notifier: no connected adapters; skipping tick")
                         return deliveries
 
                     # Enumerate every board on disk, but poll each resolved DB
@@ -132,7 +144,9 @@ class GatewayKanbanWatchersMixin:
                         slug = board_meta.get("slug") or _kb.DEFAULT_BOARD
                         db_path = board_meta.get("db_path")
                         try:
-                            resolved_db_path = str(Path(db_path).expanduser().resolve()) if db_path else str(_kb.kanban_db_path(slug).resolve())
+                            resolved_db_path = str(
+                                Path(db_path).expanduser().resolve()) if db_path else str(
+                                _kb.kanban_db_path(slug).resolve())
                         except Exception:
                             resolved_db_path = f"slug:{slug}"
                         if resolved_db_path in seen_db_paths:
@@ -145,7 +159,8 @@ class GatewayKanbanWatchersMixin:
                         try:
                             conn = _kb.connect(board=slug)
                         except Exception as exc:
-                            logger.debug("kanban notifier: cannot open board %s: %s", slug, exc)
+                            logger.debug(
+                                "kanban notifier: cannot open board %s: %s", slug, exc)
                             continue
                         try:
                             # `connect()` runs the schema + idempotent migration
@@ -162,20 +177,24 @@ class GatewayKanbanWatchersMixin:
                             # redundant call to avoid the wasted work.
                             subs = _kb.list_notify_subs(conn)
                             if not subs:
-                                logger.debug("kanban notifier: board %s has no subscriptions", slug)
+                                logger.debug(
+                                    "kanban notifier: board %s has no subscriptions", slug)
                             for sub in subs:
-                                owner_profile = sub.get("notifier_profile") or None
+                                owner_profile = sub.get(
+                                    "notifier_profile") or None
                                 if owner_profile and owner_profile != notifier_profile:
                                     logger.debug(
                                         "kanban notifier: subscription for %s owned by profile %s; current profile %s skipping",
-                                        sub.get("task_id"), owner_profile, notifier_profile,
+                                        sub.get(
+                                            "task_id"), owner_profile, notifier_profile,
                                     )
                                     continue
                                 platform = (sub.get("platform") or "").lower()
                                 if platform not in active_platforms:
                                     logger.debug(
                                         "kanban notifier: subscription for %s on %s skipped; adapter not connected",
-                                        sub.get("task_id"), platform or "<missing>",
+                                        sub.get(
+                                            "task_id"), platform or "<missing>",
                                     )
                                     continue
                                 old_cursor, cursor, events = _kb.claim_unseen_events_for_sub(
@@ -240,7 +259,8 @@ class GatewayKanbanWatchersMixin:
                         # Identity prefix: attribute terminal pings to the
                         # worker that did the work. Makes fleets (where one
                         # chat subscribes to many tasks) legible at a glance.
-                        who = (task.assignee if task and task.assignee else None)
+                        who = (
+                            task.assignee if task and task.assignee else None)
                         tag = f"@{who} " if who else ""
                         if kind == "completed":
                             # Prefer the run's summary (the worker's
@@ -268,7 +288,8 @@ class GatewayKanbanWatchersMixin:
                             reason = ""
                             if ev.payload and ev.payload.get("reason"):
                                 reason = f": {str(ev.payload['reason'])[:160]}"
-                            msg = f"⏸ {tag}Kanban {sub['task_id']} blocked{reason}"
+                            msg = f"⏸ {tag}Kanban {
+                                sub['task_id']} blocked{reason}"
                         elif kind == "gave_up":
                             err = ""
                             if ev.payload and ev.payload.get("error"):
@@ -279,7 +300,8 @@ class GatewayKanbanWatchersMixin:
                             )
                         elif kind == "crashed":
                             msg = (
-                                f"✖ {tag}Kanban {sub['task_id']} worker crashed "
+                                f"✖ {tag}Kanban {
+                                    sub['task_id']} worker crashed "
                                 f"(pid gone); dispatcher will retry"
                             )
                         elif kind == "timed_out":
@@ -322,7 +344,8 @@ class GatewayKanbanWatchersMixin:
                                         adapter=adapter,
                                         chat_id=sub["chat_id"],
                                         metadata=metadata,
-                                        event_payload=getattr(ev, "payload", None),
+                                        event_payload=getattr(
+                                            ev, "payload", None),
                                         task=task,
                                     )
                                 except Exception as art_exc:
@@ -375,7 +398,8 @@ class GatewayKanbanWatchersMixin:
                         # dispatcher respawns the task and it cycles into the
                         # same state. See the longer comment on TERMINAL_KINDS
                         # above for the failure mode this prevents.
-                        task_terminal = task and task.status in {"done", "archived"}
+                        task_terminal = task and task.status in {
+                            "done", "archived"}
                         if task_terminal:
                             await asyncio.to_thread(
                                 self._kanban_unsub, sub, board_slug,
@@ -514,7 +538,8 @@ class GatewayKanbanWatchersMixin:
             return
 
         from gateway.platforms.base import BasePlatformAdapter
-        candidates = BasePlatformAdapter.filter_local_delivery_paths(candidates)
+        candidates = BasePlatformAdapter.filter_local_delivery_paths(
+            candidates)
         if not candidates:
             return
 
@@ -525,8 +550,10 @@ class GatewayKanbanWatchersMixin:
 
         # Partition images so they ride a single send_multiple_images call
         # on platforms that support batch image uploads (Signal/Slack RPCs).
-        image_paths = [p for p in candidates if _Path(p).suffix.lower() in _IMAGE_EXTS]
-        other_paths = [p for p in candidates if _Path(p).suffix.lower() not in _IMAGE_EXTS]
+        image_paths = [p for p in candidates if _Path(
+            p).suffix.lower() in _IMAGE_EXTS]
+        other_paths = [p for p in candidates if _Path(
+            p).suffix.lower() not in _IMAGE_EXTS]
 
         if image_paths:
             try:
@@ -581,17 +608,22 @@ class GatewayKanbanWatchersMixin:
         try:
             from nastech_cli.config import load_config as _load_config
         except Exception:
-            logger.warning("kanban dispatcher: config loader unavailable; disabled")
+            logger.warning(
+                "kanban dispatcher: config loader unavailable; disabled")
             return
-        env_override = os.environ.get("NASTECH_KANBAN_DISPATCH_IN_GATEWAY", "").strip().lower()
+        env_override = os.environ.get(
+            "NASTECH_KANBAN_DISPATCH_IN_GATEWAY",
+            "").strip().lower()
         if env_override in {"0", "false", "no", "off"}:
-            logger.info("kanban dispatcher: disabled via NASTECH_KANBAN_DISPATCH_IN_GATEWAY env")
+            logger.info(
+                "kanban dispatcher: disabled via NASTECH_KANBAN_DISPATCH_IN_GATEWAY env")
             return
 
         try:
             cfg = _load_config()
         except Exception as exc:
-            logger.warning("kanban dispatcher: cannot load config (%s); disabled", exc)
+            logger.warning(
+                "kanban dispatcher: cannot load config (%s); disabled", exc)
             return
         kanban_cfg = cfg.get("kanban", {}) if isinstance(cfg, dict) else {}
         if not kanban_cfg.get("dispatch_in_gateway", True):
@@ -603,18 +635,23 @@ class GatewayKanbanWatchersMixin:
         try:
             from nastech_cli import kanban_db as _kb
         except Exception:
-            logger.warning("kanban dispatcher: kanban_db not importable; dispatcher disabled")
+            logger.warning(
+                "kanban dispatcher: kanban_db not importable; dispatcher disabled")
             return
 
         try:
-            interval = float(kanban_cfg.get("dispatch_interval_seconds", 60) or 60)
+            interval = float(
+                kanban_cfg.get(
+                    "dispatch_interval_seconds",
+                    60) or 60)
         except (ValueError, TypeError):
             logger.warning(
                 "kanban dispatcher: invalid dispatch_interval_seconds=%r, using default 60",
                 kanban_cfg.get("dispatch_interval_seconds"),
             )
             interval = 60.0
-        interval = max(interval, 1.0)  # sanity floor — tighter than this is a footgun
+        # sanity floor — tighter than this is a footgun
+        interval = max(interval, 1.0)
 
         # Read max_spawn config to limit concurrent kanban tasks
         max_spawn = kanban_cfg.get("max_spawn", None)
@@ -644,9 +681,11 @@ class GatewayKanbanWatchersMixin:
                     )
                     max_in_progress = None
                 else:
-                    logger.info(f"kanban dispatcher: max_in_progress={max_in_progress}")
+                    logger.info(
+                        f"kanban dispatcher: max_in_progress={max_in_progress}")
 
-        raw_failure_limit = kanban_cfg.get("failure_limit", _kb.DEFAULT_FAILURE_LIMIT)
+        raw_failure_limit = kanban_cfg.get(
+            "failure_limit", _kb.DEFAULT_FAILURE_LIMIT)
         try:
             failure_limit = int(raw_failure_limit)
         except (TypeError, ValueError):
@@ -682,7 +721,8 @@ class GatewayKanbanWatchersMixin:
         # instead of skipping them indefinitely (#27145). Empty string
         # (the schema default) means "no fallback, keep skipping" —
         # backward-compatible with existing installs.
-        default_assignee = (kanban_cfg.get("default_assignee") or "").strip() or None
+        default_assignee = (kanban_cfg.get(
+            "default_assignee") or "").strip() or None
         if default_assignee:
             logger.info(
                 "kanban dispatcher: default_assignee=%r (unassigned ready tasks "
@@ -738,7 +778,8 @@ class GatewayKanbanWatchersMixin:
             str, tuple[tuple[str, int | None, int | None], float]
         ] = {}
 
-        def _board_db_fingerprint(slug: str) -> tuple[str, int | None, int | None]:
+        def _board_db_fingerprint(
+                slug: str) -> tuple[str, int | None, int | None]:
             path = _kb.kanban_db_path(slug)
             try:
                 resolved = str(path.expanduser().resolve())
@@ -752,7 +793,8 @@ class GatewayKanbanWatchersMixin:
 
         def _is_corrupt_board_db_error(exc: Exception) -> bool:
             corrupt_guard_error = getattr(_kb, "KanbanDbCorruptError", None)
-            if corrupt_guard_error is not None and isinstance(exc, corrupt_guard_error):
+            if corrupt_guard_error is not None and isinstance(
+                    exc, corrupt_guard_error):
                 return True
             if not isinstance(exc, sqlite3.DatabaseError):
                 return False
@@ -815,7 +857,8 @@ class GatewayKanbanWatchersMixin:
                 )
             except sqlite3.DatabaseError as exc:
                 if _is_corrupt_board_db_error(exc):
-                    disabled_corrupt_boards[slug] = (fingerprint, time.monotonic())
+                    disabled_corrupt_boards[slug] = (
+                        fingerprint, time.monotonic())
                     logger.error(
                         "kanban dispatcher: board %s database %s is not a valid "
                         "SQLite database; pausing dispatch for this board until "
@@ -826,11 +869,13 @@ class GatewayKanbanWatchersMixin:
                         fingerprint[0],
                     )
                     return None
-                logger.exception("kanban dispatcher: tick failed on board %s", slug)
+                logger.exception(
+                    "kanban dispatcher: tick failed on board %s", slug)
                 return None
             except Exception as exc:
                 if _is_corrupt_board_db_error(exc):
-                    disabled_corrupt_boards[slug] = (fingerprint, time.monotonic())
+                    disabled_corrupt_boards[slug] = (
+                        fingerprint, time.monotonic())
                     logger.error(
                         "kanban dispatcher: board %s database %s is not a valid "
                         "SQLite database; pausing dispatch for this board until "
@@ -841,7 +886,8 @@ class GatewayKanbanWatchersMixin:
                         fingerprint[0],
                     )
                     return None
-                logger.exception("kanban dispatcher: tick failed on board %s", slug)
+                logger.exception(
+                    "kanban dispatcher: tick failed on board %s", slug)
                 return None
             finally:
                 if conn is not None:
@@ -1028,10 +1074,13 @@ class GatewayKanbanWatchersMixin:
                             slug,
                             len(res.spawned),
                             res.reclaimed,
-                            len(res.crashed) if hasattr(res.crashed, "__len__") else 0,
-                            len(res.timed_out) if hasattr(res.timed_out, "__len__") else 0,
+                            len(res.crashed) if hasattr(
+                                res.crashed, "__len__") else 0,
+                            len(res.timed_out) if hasattr(
+                                res.timed_out, "__len__") else 0,
                             res.promoted,
-                            len(res.auto_blocked) if hasattr(res.auto_blocked, "__len__") else 0,
+                            len(res.auto_blocked) if hasattr(
+                                res.auto_blocked, "__len__") else 0,
                         )
                 # Health telemetry (aggregate across boards)
                 ready_pending = await asyncio.to_thread(_ready_nonempty)

@@ -82,8 +82,10 @@ def resolve_footer_config(
             if isinstance(plat_footer, dict):
                 if "enabled" in plat_footer:
                     resolved["enabled"] = bool(plat_footer.get("enabled"))
-                if isinstance(plat_footer.get("fields"), list) and plat_footer["fields"]:
-                    resolved["fields"] = [str(f) for f in plat_footer["fields"]]
+                if isinstance(plat_footer.get("fields"),
+                              list) and plat_footer["fields"]:
+                    resolved["fields"] = [str(f)
+                                          for f in plat_footer["fields"]]
 
     return resolved
 
@@ -109,7 +111,10 @@ def format_runtime_footer(
                 parts.append(m)
         elif field == "context_pct":
             if context_length and context_length > 0 and context_tokens >= 0:
-                pct = max(0, min(100, round((context_tokens / context_length) * 100)))
+                pct = max(
+                    0, min(
+                        100, round(
+                            (context_tokens / context_length) * 100)))
                 parts.append(f"{pct}%")
         elif field == "cwd":
             rel = _home_relative_cwd(cwd or os.environ.get("TERMINAL_CWD", ""))

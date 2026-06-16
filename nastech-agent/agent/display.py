@@ -13,8 +13,8 @@ from dataclasses import dataclass, field
 from difflib import unified_diff
 from pathlib import Path
 
-from utils import safe_json_loads
 from agent.tool_result_classification import file_mutation_result_landed
+from utils import safe_json_loads
 
 # ANSI escape codes for coloring tool failure indicators
 _RED = "\033[31m"
@@ -62,12 +62,20 @@ def _diff_ansi() -> dict[str, str]:
         err_h = skin.get_color("ui_error", "#ef5350")
         ok_h = skin.get_color("ui_ok", "#4caf50")
         if err_h and len(err_h) == 7:
-            er, eg, eb = int(err_h[1:3], 16), int(err_h[3:5], 16), int(err_h[5:7], 16)
+            er, eg, eb = int(err_h[1:3], 16), int(
+                err_h[3:5], 16), int(err_h[5:7], 16)
             # Use a dark tinted version as background
-            minus = f"\033[38;2;255;255;255;48;2;{max(er//2,20)};{max(eg//4,10)};{max(eb//4,10)}m"
+            minus = f"\033[38;2;255;255;255;48;2;{max(er //
+                                                      2, 20)};{max(eg //
+                                                                   4, 10)};{max(eb //
+                                                                                4, 10)}m"
         if ok_h and len(ok_h) == 7:
-            or_, og, ob = int(ok_h[1:3], 16), int(ok_h[3:5], 16), int(ok_h[5:7], 16)
-            plus = f"\033[38;2;255;255;255;48;2;{max(or_//4,10)};{max(og//2,20)};{max(ob//4,10)}m"
+            or_, og, ob = int(ok_h[1:3], 16), int(
+                ok_h[3:5], 16), int(ok_h[5:7], 16)
+            plus = f"\033[38;2;255;255;255;48;2;{max(or_ //
+                                                     4, 10)};{max(og //
+                                                                  2, 20)};{max(ob //
+                                                                               4, 10)}m"
     except Exception:
         pass
 
@@ -79,11 +87,13 @@ def _diff_ansi() -> dict[str, str]:
 
 
 # Module-level helpers — each call resolves from the active skin lazily.
-def _diff_dim():   return _diff_ansi()["dim"]
-def _diff_file():  return _diff_ansi()["file"]
-def _diff_hunk():  return _diff_ansi()["hunk"]
+def _diff_dim(): return _diff_ansi()["dim"]
+def _diff_file(): return _diff_ansi()["file"]
+def _diff_hunk(): return _diff_ansi()["hunk"]
 def _diff_minus(): return _diff_ansi()["minus"]
-def _diff_plus():  return _diff_ansi()["plus"]
+def _diff_plus(): return _diff_ansi()["plus"]
+
+
 _MAX_INLINE_DIFF_FILES = 6
 _MAX_INLINE_DIFF_LINES = 80
 
@@ -93,6 +103,7 @@ class LocalEditSnapshot:
     """Pre-tool filesystem snapshot used to render diffs locally after writes."""
     paths: list[Path] = field(default_factory=list)
     before: dict[str, str | None] = field(default_factory=dict)
+
 
 # =========================================================================
 # Configurable tool preview length (0 = no limit)
@@ -168,7 +179,8 @@ def _oneline(text: str) -> str:
     return " ".join(text.split())
 
 
-def build_tool_preview(tool_name: str, args: dict, max_len: int | None = None) -> str | None:
+def build_tool_preview(tool_name: str, args: dict,
+                       max_len: int | None = None) -> str | None:
     """Build a short preview of a tool call's primary argument for display.
 
     *max_len* controls truncation.  ``None`` (default) defers to the global
@@ -242,7 +254,8 @@ def build_tool_preview(tool_name: str, args: dict, max_len: int | None = None) -
 
     key = primary_args.get(tool_name)
     if not key:
-        for fallback_key in ("query", "text", "command", "path", "name", "prompt", "code", "goal"):
+        for fallback_key in ("query", "text", "command",
+                             "path", "name", "prompt", "code", "goal"):
             if fallback_key in args:
                 key = fallback_key
                 break
@@ -315,12 +328,15 @@ def _resolve_skill_manage_paths(args: dict) -> list[Path]:
         file_path = args.get("file_path")
         return [skill_dir / file_path] if file_path else []
     if action == "delete":
-        files = [path for path in sorted(skill_dir.rglob("*")) if path.is_file()]
+        files = [
+            path for path in sorted(
+                skill_dir.rglob("*")) if path.is_file()]
         return files
     return []
 
 
-def _resolve_local_edit_paths(tool_name: str, function_args: dict | None) -> list[Path]:
+def _resolve_local_edit_paths(
+        tool_name: str, function_args: dict | None) -> list[Path]:
     """Resolve local filesystem targets for write-capable tools."""
     if not isinstance(function_args, dict):
         return []
@@ -339,7 +355,8 @@ def _resolve_local_edit_paths(tool_name: str, function_args: dict | None) -> lis
     return []
 
 
-def capture_local_edit_snapshot(tool_name: str, function_args: dict | None) -> LocalEditSnapshot | None:
+def capture_local_edit_snapshot(
+        tool_name: str, function_args: dict | None) -> LocalEditSnapshot | None:
     """Capture before-state for local write previews."""
     paths = _resolve_local_edit_paths(tool_name, function_args)
     if not paths:
@@ -393,7 +410,8 @@ def _diff_from_snapshot(snapshot: LocalEditSnapshot | None) -> str | None:
 
     if not chunks:
         return None
-    return "".join(chunk if chunk.endswith("\n") else chunk + "\n" for chunk in chunks)
+    return "".join(chunk if chunk.endswith(
+        "\n") else chunk + "\n" for chunk in chunks)
 
 
 def extract_edit_diff(
@@ -444,7 +462,8 @@ def _render_inline_unified_diff(diff: str) -> list[str]:
         if raw_line.startswith("+++ "):
             to_file = raw_line[4:].strip()
             if from_file or to_file:
-                rendered.append(f"{_diff_file()}{from_file or 'a/?'} → {to_file or 'b/?'}{_ANSI_RESET}")
+                rendered.append(
+                    f"{_diff_file()}{from_file or 'a/?'} → {to_file or 'b/?'}{_ANSI_RESET}")
             continue
         if raw_line.startswith("@@"):
             rendered.append(f"{_diff_hunk()}{raw_line}{_ANSI_RESET}")
@@ -627,9 +646,11 @@ class KawaiiSpinner:
             pass
         return cls.THINKING_VERBS
 
-    def __init__(self, message: str = "", spinner_type: str = 'dots', print_fn=None):
+    def __init__(self, message: str = "",
+                 spinner_type: str = 'dots', print_fn=None):
         self.message = message
-        self.spinner_frames = self.SPINNERS.get(spinner_type, self.SPINNERS['dots'])
+        self.spinner_frames = self.SPINNERS.get(
+            spinner_type, self.SPINNERS['dots'])
         self.running = False
         self.thread = None
         self.frame_idx = 0
@@ -714,11 +735,14 @@ class KawaiiSpinner:
             if os.getenv("NASTECH_SPINNER_PAUSE"):
                 time.sleep(0.1)
                 continue
-            frame = self.spinner_frames[self.frame_idx % len(self.spinner_frames)]
+            frame = self.spinner_frames[self.frame_idx %
+                                        len(self.spinner_frames)]
             elapsed = time.time() - self.start_time
             if wings:
                 left, right = wings[self.frame_idx % len(wings)]
-                line = f"  {left} {frame} {self.message} {right} ({elapsed:.1f}s)"
+                line = f"  {left} {frame} {
+                    self.message} {right} ({
+                    elapsed:.1f}s)"
             else:
                 line = f"  {frame} {self.message} ({elapsed:.1f}s)"
             pad = max(self.last_line_len - len(line), 0)
@@ -764,11 +788,14 @@ class KawaiiSpinner:
         is_tty = self._is_tty
         if is_tty:
             # Clear the spinner line with spaces instead of \033[K to avoid
-            # garbled escape codes when prompt_toolkit's patch_stdout is active.
+            # garbled escape codes when prompt_toolkit's patch_stdout is
+            # active.
             blanks = ' ' * max(self.last_line_len + 5, 40)
             self._write(f"\r{blanks}\r", end='', flush=True)
         if final_message:
-            elapsed = f" ({time.time() - self.start_time:.1f}s)" if self.start_time else ""
+            elapsed = f" ({
+                time.time() -
+                self.start_time:.1f}s)" if self.start_time else ""
             if is_tty:
                 self._write(f"  {final_message}", flush=True)
             else:
@@ -808,7 +835,8 @@ def _trim_error(msg: str) -> str:
     return msg
 
 
-def _detect_tool_failure(tool_name: str, result: str | None) -> tuple[bool, str]:
+def _detect_tool_failure(tool_name: str, result: str |
+                         None) -> tuple[bool, str]:
     """Inspect a tool result string for signs of failure.
 
     Returns ``(is_failure, suffix)`` where *suffix* is a short informational
@@ -837,7 +865,8 @@ def _detect_tool_failure(tool_name: str, result: str | None) -> tuple[bool, str]
     # Memory: distinguish "store full" from real errors.
     if tool_name == "memory":
         if isinstance(data, dict):
-            if data.get("success") is False and "exceed the limit" in data.get("error", ""):
+            if data.get("success") is False and "exceed the limit" in data.get(
+                    "error", ""):
                 return True, " [full]"
 
     # Structured error in JSON result (any tool that surfaces {"error": ...}).
@@ -877,14 +906,14 @@ def get_cute_tool_message(
         if _tool_preview_max_len == 0:
             return s  # no limit
         limit = _tool_preview_max_len
-        return (s[:limit-3] + "...") if len(s) > limit else s
+        return (s[:limit - 3] + "...") if len(s) > limit else s
 
     def _path(p, n=35):
         p = str(p)
         if _tool_preview_max_len == 0:
             return p  # no limit
         limit = _tool_preview_max_len
-        return ("..." + p[-(limit-3):]) if len(p) > limit else p
+        return ("..." + p[-(limit - 3):]) if len(p) > limit else p
 
     def _wrap(line: str) -> str:
         """Apply skin tool prefix and failure suffix."""
@@ -895,23 +924,30 @@ def get_cute_tool_message(
         return f"{line}{failure_suffix}"
 
     if tool_name == "web_search":
-        return _wrap(f"┊ 🔍 search    {_trunc(args.get('query', ''), 42)}  {dur}")
+        return _wrap(
+            f"┊ 🔍 search    {_trunc(args.get('query', ''), 42)}  {dur}")
     if tool_name == "web_extract":
         urls = args.get("urls", [])
         if urls:
             url = urls[0] if isinstance(urls, list) else str(urls)
-            domain = url.replace("https://", "").replace("http://", "").split("/")[0]
-            extra = f" +{len(urls)-1}" if len(urls) > 1 else ""
+            domain = url.replace(
+                "https://",
+                "").replace(
+                "http://",
+                "").split("/")[0]
+            extra = f" +{len(urls) - 1}" if len(urls) > 1 else ""
             return _wrap(f"┊ 📄 fetch     {_trunc(domain, 35)}{extra}  {dur}")
         return _wrap(f"┊ 📄 fetch     pages  {dur}")
     if tool_name == "terminal":
-        return _wrap(f"┊ 💻 $         {_trunc(args.get('command', ''), 42)}  {dur}")
+        return _wrap(
+            f"┊ 💻 $         {_trunc(args.get('command', ''), 42)}  {dur}")
     if tool_name == "process":
         action = args.get("action", "?")
         sid = args.get("session_id", "")[:12]
         labels = {"list": "ls processes", "poll": f"poll {sid}", "log": f"log {sid}",
                   "wait": f"wait {sid}", "kill": f"kill {sid}", "write": f"write {sid}", "submit": f"submit {sid}"}
-        return _wrap(f"┊ ⚙️  proc      {labels.get(action, f'{action} {sid}')}  {dur}")
+        return _wrap(
+            f"┊ ⚙️  proc      {labels.get(action, f'{action} {sid}')}  {dur}")
     if tool_name == "read_file":
         return _wrap(f"┊ 📖 read      {_path(args.get('path', ''))}  {dur}")
     if tool_name == "write_file":
@@ -925,7 +961,11 @@ def get_cute_tool_message(
         return _wrap(f"┊ 🔎 {verb:9} {pattern}  {dur}")
     if tool_name == "browser_navigate":
         url = args.get("url", "")
-        domain = url.replace("https://", "").replace("http://", "").split("/")[0]
+        domain = url.replace(
+            "https://",
+            "").replace(
+            "http://",
+            "").split("/")[0]
         return _wrap(f"┊ 🌐 navigate  {_trunc(domain, 35)}  {dur}")
     if tool_name == "browser_snapshot":
         mode = "full" if args.get("full") else "compact"
@@ -933,7 +973,8 @@ def get_cute_tool_message(
     if tool_name == "browser_click":
         return _wrap(f"┊ 👆 click     {args.get('ref', '?')}  {dur}")
     if tool_name == "browser_type":
-        return _wrap(f"┊ ⌨️  type      \"{_trunc(args.get('text', ''), 30)}\"  {dur}")
+        return _wrap(
+            f"┊ ⌨️  type      \"{_trunc(args.get('text', ''), 30)}\"  {dur}")
     if tool_name == "browser_scroll":
         d = args.get("direction", "down")
         arrow = {"down": "↓", "up": "↑", "right": "→", "left": "←"}.get(d, "↓")
@@ -968,46 +1009,62 @@ def get_cute_tool_message(
         elif merge:
             if total > 0 and done > 0:
                 return _wrap(f"┊ 📋 plan      update {done}/{total} ✓  {dur}")
-            return _wrap(f"┊ 📋 plan      update {len(todos_arg)} task(s)  {dur}")
+            return _wrap(
+                f"┊ 📋 plan      update {len(todos_arg)} task(s)  {dur}")
         else:
             if total > 0 and done > 0:
                 return _wrap(f"┊ 📋 plan      {done}/{total} task(s)  {dur}")
             return _wrap(f"┊ 📋 plan      {len(todos_arg)} task(s)  {dur}")
     if tool_name == "session_search":
-        return _wrap(f"┊ 🔍 recall    \"{_trunc(args.get('query', ''), 35)}\"  {dur}")
+        return _wrap(
+            f"┊ 🔍 recall    \"{_trunc(args.get('query', ''), 35)}\"  {dur}")
     if tool_name == "memory":
         action = args.get("action", "?")
         target = args.get("target", "")
         if action == "add":
-            return _wrap(f"┊ 🧠 memory    +{target}: \"{_trunc(args.get('content', ''), 30)}\"  {dur}")
+            return _wrap(
+                f"┊ 🧠 memory    +{target}: \"{_trunc(args.get('content', ''), 30)}\"  {dur}")
         elif action == "replace":
             old = args.get("old_text") or ""
             old = old if old else "<missing old_text>"
-            return _wrap(f"┊ 🧠 memory    ~{target}: \"{_trunc(old, 20)}\"  {dur}")
+            return _wrap(
+                f"┊ 🧠 memory    ~{target}: \"{_trunc(old, 20)}\"  {dur}")
         elif action == "remove":
             old = args.get("old_text") or ""
             old = old if old else "<missing old_text>"
-            return _wrap(f"┊ 🧠 memory    -{target}: \"{_trunc(old, 20)}\"  {dur}")
+            return _wrap(
+                f"┊ 🧠 memory    -{target}: \"{_trunc(old, 20)}\"  {dur}")
         return _wrap(f"┊ 🧠 memory    {action}  {dur}")
     if tool_name == "skills_list":
-        return _wrap(f"┊ 📚 skills    list {args.get('category', 'all')}  {dur}")
+        return _wrap(
+            f"┊ 📚 skills    list {args.get('category', 'all')}  {dur}")
     if tool_name == "skill_view":
-        return _wrap(f"┊ 📚 skill     {_trunc(args.get('name', ''), 30)}  {dur}")
+        return _wrap(
+            f"┊ 📚 skill     {_trunc(args.get('name', ''), 30)}  {dur}")
     if tool_name == "image_generate":
-        return _wrap(f"┊ 🎨 create    {_trunc(args.get('prompt', ''), 35)}  {dur}")
+        return _wrap(
+            f"┊ 🎨 create    {_trunc(args.get('prompt', ''), 35)}  {dur}")
     if tool_name == "text_to_speech":
-        return _wrap(f"┊ 🔊 speak     {_trunc(args.get('text', ''), 30)}  {dur}")
+        return _wrap(
+            f"┊ 🔊 speak     {_trunc(args.get('text', ''), 30)}  {dur}")
     if tool_name == "vision_analyze":
-        return _wrap(f"┊ 👁️  vision    {_trunc(args.get('question', ''), 30)}  {dur}")
+        return _wrap(
+            f"┊ 👁️  vision    {_trunc(args.get('question', ''), 30)}  {dur}")
     if tool_name == "mixture_of_agents":
-        return _wrap(f"┊ 🧠 reason    {_trunc(args.get('user_prompt', ''), 30)}  {dur}")
+        return _wrap(
+            f"┊ 🧠 reason    {_trunc(args.get('user_prompt', ''), 30)}  {dur}")
     if tool_name == "send_message":
-        return _wrap(f"┊ 📨 send      {args.get('target', '?')}: \"{_trunc(args.get('message', ''), 25)}\"  {dur}")
+        return _wrap(
+            f"┊ 📨 send      {args.get('target', '?')}: \"{_trunc(args.get('message', ''), 25)}\"  {dur}")
     if tool_name == "cronjob":
         action = args.get("action", "?")
         if action == "create":
-            skills = args.get("skills") or ([] if not args.get("skill") else [args.get("skill")])
-            label = args.get("name") or (skills[0] if skills else None) or args.get("prompt", "task")
+            skills = args.get("skills") or (
+                [] if not args.get("skill") else [
+                    args.get("skill")])
+            label = args.get("name") or (
+                skills[0] if skills else None) or args.get(
+                "prompt", "task")
             return _wrap(f"┊ ⏰ cron      create {_trunc(label, 24)}  {dur}")
         if action == "list":
             return _wrap(f"┊ ⏰ cron      listing  {dur}")
@@ -1020,7 +1077,8 @@ def get_cute_tool_message(
         tasks = args.get("tasks")
         if tasks and isinstance(tasks, list):
             return _wrap(f"┊ 🔀 delegate  {len(tasks)} parallel tasks  {dur}")
-        return _wrap(f"┊ 🔀 delegate  {_trunc(args.get('goal', ''), 35)}  {dur}")
+        return _wrap(
+            f"┊ 🔀 delegate  {_trunc(args.get('goal', ''), 35)}  {dur}")
 
     preview = build_tool_preview(tool_name, args) or ""
     return _wrap(f"┊ ⚡ {tool_name[:9]:9} {_trunc(preview, 35)}  {dur}")
@@ -1029,5 +1087,3 @@ def get_cute_tool_message(
 # =========================================================================
 # Honcho session line (one-liner with clickable OSC 8 hyperlink)
 # =========================================================================
-
-

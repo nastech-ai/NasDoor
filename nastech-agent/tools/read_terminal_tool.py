@@ -22,7 +22,8 @@ def read_terminal_tool(
 ) -> str:
     """Return the in-app terminal's contents (+ line metadata) as a JSON string."""
     if callback is None:
-        return tool_error("read_terminal is only available in the NasTech desktop app.")
+        return tool_error(
+            "read_terminal is only available in the NasTech desktop app.")
 
     try:
         window = {
@@ -41,7 +42,8 @@ def read_terminal_tool(
     if not raw:
         return tool_error("No in-app terminal is open, or the read timed out.")
 
-    # Desktop answers with a JSON object; pass it through, else wrap the raw text.
+    # Desktop answers with a JSON object; pass it through, else wrap the raw
+    # text.
     try:
         return json.dumps(json.loads(raw), ensure_ascii=False)
     except (TypeError, ValueError):
@@ -50,7 +52,8 @@ def read_terminal_tool(
 
 def check_read_terminal_requirements() -> bool:
     """Desktop GUI only — NASTECH_DESKTOP is set on the gateway the app spawns."""
-    return (os.getenv("NASTECH_DESKTOP") or "").strip().lower() in ("1", "true", "yes")
+    return (os.getenv("NASTECH_DESKTOP") or "").strip(
+    ).lower() in ("1", "true", "yes")
 
 
 READ_TERMINAL_SCHEMA = {

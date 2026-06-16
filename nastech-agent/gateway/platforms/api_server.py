@@ -37,8 +37,8 @@ import hmac
 import json
 import logging
 import os
-import socket as _socket
 import re
+import socket as _socket
 import sqlite3
 import time
 import uuid
@@ -65,7 +65,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8642
 MAX_STORED_RESPONSES = 100
-MAX_REQUEST_BYTES = 10_000_000  # 10 MB — accommodates long agent conversations with tool calls
+# 10 MB — accommodates long agent conversations with tool calls
+MAX_REQUEST_BYTES = 10_000_000
 CHAT_COMPLETIONS_SSE_KEEPALIVE_SECONDS = 30.0
 MAX_NORMALIZED_TEXT_LENGTH = 65_536  # 64 KB cap for normalized content parts
 MAX_CONTENT_LIST_SIZE = 1_000  # Max items when content is an array
@@ -129,11 +130,13 @@ def _normalize_chat_content(
     if content is None:
         return ""
     if isinstance(content, str):
-        return content[:MAX_NORMALIZED_TEXT_LENGTH] if len(content) > MAX_NORMALIZED_TEXT_LENGTH else content
+        return content[:MAX_NORMALIZED_TEXT_LENGTH] if len(
+            content) > MAX_NORMALIZED_TEXT_LENGTH else content
 
     if isinstance(content, list):
         parts: List[str] = []
-        items = content[:MAX_CONTENT_LIST_SIZE] if len(content) > MAX_CONTENT_LIST_SIZE else content
+        items = content[:MAX_CONTENT_LIST_SIZE] if len(
+            content) > MAX_CONTENT_LIST_SIZE else content
         for item in items:
             if isinstance(item, str):
                 if item:
@@ -144,24 +147,29 @@ def _normalize_chat_content(
                     text = item.get("text", "")
                     if text:
                         try:
-                            parts.append(str(text)[:MAX_NORMALIZED_TEXT_LENGTH])
+                            parts.append(
+                                str(text)[
+                                    :MAX_NORMALIZED_TEXT_LENGTH])
                         except Exception:
                             pass
                 # Silently skip image_url / other non-text parts
             elif isinstance(item, list):
-                nested = _normalize_chat_content(item, _max_depth=_max_depth, _depth=_depth + 1)
+                nested = _normalize_chat_content(
+                    item, _max_depth=_max_depth, _depth=_depth + 1)
                 if nested:
                     parts.append(nested)
             # Check accumulated size
             if sum(len(p) for p in parts) >= MAX_NORMALIZED_TEXT_LENGTH:
                 break
         result = "\n".join(parts)
-        return result[:MAX_NORMALIZED_TEXT_LENGTH] if len(result) > MAX_NORMALIZED_TEXT_LENGTH else result
+        return result[:MAX_NORMALIZED_TEXT_LENGTH] if len(
+            result) > MAX_NORMALIZED_TEXT_LENGTH else result
 
     # Fallback for unexpected types (int, float, bool, etc.)
     try:
         result = str(content)
-        return result[:MAX_NORMALIZED_TEXT_LENGTH] if len(result) > MAX_NORMALIZED_TEXT_LENGTH else result
+        return result[:MAX_NORMALIZED_TEXT_LENGTH] if len(
+            result) > MAX_NORMALIZED_TEXT_LENGTH else result
     except Exception:
         return ""
 
@@ -196,13 +204,15 @@ def _normalize_multimodal_content(content: Any) -> Any:
     if content is None:
         return ""
     if isinstance(content, str):
-        return content[:MAX_NORMALIZED_TEXT_LENGTH] if len(content) > MAX_NORMALIZED_TEXT_LENGTH else content
+        return content[:MAX_NORMALIZED_TEXT_LENGTH] if len(
+            content) > MAX_NORMALIZED_TEXT_LENGTH else content
     if not isinstance(content, list):
         # Mirror the legacy text-normalizer's fallback so callers that
         # pre-existed image support still get a string back.
         return _normalize_chat_content(content)
 
-    items = content[:MAX_CONTENT_LIST_SIZE] if len(content) > MAX_CONTENT_LIST_SIZE else content
+    items = content[:MAX_CONTENT_LIST_SIZE] if len(
+        content) > MAX_CONTENT_LIST_SIZE else content
     normalized_parts: List[Dict[str, Any]] = []
     text_accum_len = 0
 
@@ -247,11 +257,13 @@ def _normalize_multimodal_content(content: Any) -> Any:
             else:
                 url_value = image_ref
             if not isinstance(url_value, str) or not url_value.strip():
-                raise ValueError("invalid_image_url:Image parts must include a non-empty image URL.")
+                raise ValueError(
+                    "invalid_image_url:Image parts must include a non-empty image URL.")
             url_value = url_value.strip()
             lowered = url_value.lower()
             if lowered.startswith("data:"):
-                if not lowered.startswith("data:image/") or "," not in url_value:
+                if not lowered.startswith(
+                        "data:image/") or "," not in url_value:
                     raise ValueError(
                         "unsupported_content_type:Only image data URLs are supported. "
                         "Non-image data payloads are not supported."
@@ -260,10 +272,12 @@ def _normalize_multimodal_content(content: Any) -> Any:
                 raise ValueError(
                     "invalid_image_url:Image inputs must use http(s) URLs or data:image/... URLs."
                 )
-            image_part: Dict[str, Any] = {"type": "image_url", "image_url": {"url": url_value}}
+            image_part: Dict[str, Any] = {
+                "type": "image_url", "image_url": {"url": url_value}}
             if detail is not None:
                 if not isinstance(detail, str) or not detail.strip():
-                    raise ValueError("invalid_content_part:Image detail must be a non-empty string when provided.")
+                    raise ValueError(
+                        "invalid_content_part:Image detail must be a non-empty string when provided.")
                 image_part["image_url"]["detail"] = detail.strip()
             normalized_parts.append(image_part)
             continue
@@ -277,7 +291,8 @@ def _normalize_multimodal_content(content: Any) -> Any:
         # Unknown part type — reject explicitly so clients get a clear error
         # instead of a silently dropped turn.
         raise ValueError(
-            f"unsupported_content_type:Unsupported content part type {raw_type!r}. "
+            f"unsupported_content_type:Unsupported content part type {
+                raw_type!r}. "
             "Only text and image_url/input_image parts are supported."
         )
 
@@ -301,14 +316,16 @@ def _content_has_visible_payload(content: Any) -> bool:
         for part in content:
             if isinstance(part, dict):
                 ptype = str(part.get("type") or "").strip().lower()
-                if ptype in _TEXT_PART_TYPES and str(part.get("text") or "").strip():
+                if ptype in _TEXT_PART_TYPES and str(
+                        part.get("text") or "").strip():
                     return True
                 if ptype in _IMAGE_PART_TYPES:
                     return True
     return False
 
 
-def _multimodal_validation_error(exc: ValueError, *, param: str) -> "web.Response":
+def _multimodal_validation_error(
+        exc: ValueError, *, param: str) -> "web.Response":
     """Translate a ``_normalize_multimodal_content`` ValueError into a 400 response."""
     raw = str(exc)
     code, _, message = raw.partition(":")
@@ -320,7 +337,8 @@ def _multimodal_validation_error(exc: ValueError, *, param: str) -> "web.Respons
     )
 
 
-def _session_chat_user_message(body: Dict[str, Any], *, param: str = "message") -> tuple[Any, Optional["web.Response"]]:
+def _session_chat_user_message(
+        body: Dict[str, Any], *, param: str = "message") -> tuple[Any, Optional["web.Response"]]:
     """Parse and normalize session chat ``message`` / ``input`` like chat completions."""
     user_message = body.get("message") or body.get("input")
     if not _content_has_visible_payload(user_message):
@@ -351,7 +369,8 @@ class ResponseStore:
     if the on-disk path is unavailable.
     """
 
-    def __init__(self, max_size: int = MAX_STORED_RESPONSES, db_path: str = None):
+    def __init__(self, max_size: int = MAX_STORED_RESPONSES,
+                 db_path: str = None):
         self._max_size = max_size
         if db_path is None:
             try:
@@ -432,7 +451,8 @@ class ResponseStore:
             (response_id, json.dumps(data, default=str), time.time()),
         )
         # Evict oldest entries beyond max_size
-        count = self._conn.execute("SELECT COUNT(*) FROM responses").fetchone()[0]
+        count = self._conn.execute(
+            "SELECT COUNT(*) FROM responses").fetchone()[0]
         if count > self._max_size:
             # Collect IDs that will be evicted
             evict_ids = [
@@ -530,7 +550,8 @@ else:
     cors_middleware = None  # type: ignore[assignment]
 
 
-def _openai_error(message: str, err_type: str = "invalid_request_error", param: str = None, code: str = None) -> Dict[str, Any]:
+def _openai_error(message: str, err_type: str = "invalid_request_error",
+                  param: str = None, code: str = None) -> Dict[str, Any]:
     """OpenAI-style error envelope."""
     return {
         "error": {
@@ -551,9 +572,11 @@ if AIOHTTP_AVAILABLE:
             if cl is not None:
                 try:
                     if int(cl) > MAX_REQUEST_BYTES:
-                        return web.json_response(_openai_error("Request body too large.", code="body_too_large"), status=413)
+                        return web.json_response(_openai_error(
+                            "Request body too large.", code="body_too_large"), status=413)
                 except ValueError:
-                    return web.json_response(_openai_error("Invalid Content-Length header.", code="invalid_content_length"), status=400)
+                    return web.json_response(_openai_error(
+                        "Invalid Content-Length header.", code="invalid_content_length"), status=400)
         return await handler(request)
 else:
     body_limit_middleware = None  # type: ignore[assignment]
@@ -583,6 +606,7 @@ else:
 
 class _IdempotencyCache:
     """In-memory idempotency cache with TTL and basic LRU semantics."""
+
     def __init__(self, max_items: int = 1000, ttl_seconds: int = 300):
         from collections import OrderedDict
         self._store = OrderedDict()
@@ -592,7 +616,10 @@ class _IdempotencyCache:
 
     def _purge(self):
         now = time.time()
-        expired = [k for k, v in self._store.items() if now - v["ts"] > self._ttl]
+        expired = [
+            k for k,
+            v in self._store.items() if now -
+            v["ts"] > self._ttl]
         for k in expired:
             self._store.pop(k, None)
         while len(self._store) > self._max:
@@ -610,7 +637,10 @@ class _IdempotencyCache:
             async def _compute_and_store():
                 resp = await compute_coro()
                 import time as _t
-                self._store[key] = {"resp": resp, "fp": fingerprint, "ts": _t.time()}
+                self._store[key] = {
+                    "resp": resp,
+                    "fp": fingerprint,
+                    "ts": _t.time()}
                 self._purge()
                 return resp
 
@@ -655,16 +685,14 @@ def _derive_chat_session_id(
 
 _CRON_AVAILABLE = False
 try:
-    from cron.jobs import (
-        list_jobs as _cron_list,
-        get_job as _cron_get,
-        create_job as _cron_create,
-        update_job as _cron_update,
-        remove_job as _cron_remove,
-        pause_job as _cron_pause,
-        resume_job as _cron_resume,
-        trigger_job as _cron_trigger,
-    )
+    from cron.jobs import create_job as _cron_create
+    from cron.jobs import get_job as _cron_get
+    from cron.jobs import list_jobs as _cron_list
+    from cron.jobs import pause_job as _cron_pause
+    from cron.jobs import remove_job as _cron_remove
+    from cron.jobs import resume_job as _cron_resume
+    from cron.jobs import trigger_job as _cron_trigger
+    from cron.jobs import update_job as _cron_update
     _CRON_AVAILABLE = True
 except ImportError:
     _cron_list = None
@@ -688,14 +716,18 @@ class APIServerAdapter(BasePlatformAdapter):
     def __init__(self, config: PlatformConfig):
         super().__init__(config, Platform.API_SERVER)
         extra = config.extra or {}
-        self._host: str = extra.get("host", os.getenv("API_SERVER_HOST", DEFAULT_HOST))
+        self._host: str = extra.get(
+            "host", os.getenv(
+                "API_SERVER_HOST", DEFAULT_HOST))
         raw_port = extra.get("port")
         if raw_port is None:
             raw_port = os.getenv("API_SERVER_PORT", str(DEFAULT_PORT))
         self._port: int = _coerce_port(raw_port, DEFAULT_PORT)
         self._api_key: str = extra.get("key", os.getenv("API_SERVER_KEY", ""))
         self._cors_origins: tuple[str, ...] = self._parse_cors_origins(
-            extra.get("cors_origins", os.getenv("API_SERVER_CORS_ORIGINS", "")),
+            extra.get(
+                "cors_origins", os.getenv(
+                    "API_SERVER_CORS_ORIGINS", "")),
         )
         self._model_name: str = self._resolve_model_name(
             extra.get("model_name", os.getenv("API_SERVER_MODEL_NAME", "")),
@@ -717,7 +749,8 @@ class APIServerAdapter(BasePlatformAdapter):
         # resolves requests by session key, while API clients address the
         # in-flight run by run_id.
         self._run_approval_sessions: Dict[str, str] = {}
-        self._session_db: Optional[Any] = None  # Lazy-init SessionDB for session continuity
+        # Lazy-init SessionDB for session continuity
+        self._session_db: Optional[Any] = None
 
     @staticmethod
     def _parse_cors_origins(value: Any) -> tuple[str, ...]:
@@ -754,7 +787,8 @@ class APIServerAdapter(BasePlatformAdapter):
             pass
         return "nastech-agent"
 
-    def _cors_headers_for_origin(self, origin: str) -> Optional[Dict[str, str]]:
+    def _cors_headers_for_origin(
+            self, origin: str) -> Optional[Dict[str, str]]:
         """Return CORS headers for an allowed browser origin."""
         if not origin or not self._cors_origins:
             return None
@@ -796,7 +830,8 @@ class APIServerAdapter(BasePlatformAdapter):
         """Return non-secret source metadata for security/audit warnings."""
         peer_ip = ""
         try:
-            peer = request.transport.get_extra_info("peername") if request.transport else None
+            peer = request.transport.get_extra_info(
+                "peername") if request.transport else None
             if isinstance(peer, (tuple, list)) and peer:
                 peer_ip = str(peer[0])
         except Exception:
@@ -817,7 +852,8 @@ class APIServerAdapter(BasePlatformAdapter):
         fields = [f"{key}={value!r}" for key, value in ctx.items() if value]
         return " ".join(fields) if fields else "source='unknown'"
 
-    def _cron_origin_from_request(self, request: "web.Request") -> Dict[str, str]:
+    def _cron_origin_from_request(
+            self, request: "web.Request") -> Dict[str, str]:
         """Persist safe API source metadata on cron jobs created over HTTP."""
         ctx = self._request_audit_context(request)
         origin = {
@@ -862,7 +898,9 @@ class APIServerAdapter(BasePlatformAdapter):
             self._request_audit_log_suffix(request),
         )
         return web.json_response(
-            {"error": {"message": "Invalid API key", "type": "invalid_request_error", "code": "invalid_api_key"}},
+            {"error": {"message": "Invalid API key",
+                       "type": "invalid_request_error",
+                       "code": "invalid_api_key"}},
             status=401,
         )
 
@@ -919,13 +957,15 @@ class APIServerAdapter(BasePlatformAdapter):
         # the echo path.
         if re.search(r'[\r\n\x00]', raw):
             return None, web.json_response(
-                {"error": {"message": "Invalid session key", "type": "invalid_request_error"}},
+                {"error": {"message": "Invalid session key",
+                           "type": "invalid_request_error"}},
                 status=400,
             )
 
         if len(raw) > self._MAX_SESSION_HEADER_LEN:
             return None, web.json_response(
-                {"error": {"message": "Session key too long", "type": "invalid_request_error"}},
+                {"error": {"message": "Session key too long",
+                           "type": "invalid_request_error"}},
                 status=400,
             )
 
@@ -978,16 +1018,23 @@ class APIServerAdapter(BasePlatformAdapter):
         providers (e.g. Honcho) can scope their per-chat state correctly
         — matching the semantics of the native gateway's ``session_key``.
         """
-        from run_agent import AIAgent
-        from gateway.run import _resolve_runtime_agent_kwargs, _resolve_gateway_model, _load_gateway_config, GatewayRunner
+        from gateway.run import (
+            GatewayRunner,
+            _load_gateway_config,
+            _resolve_gateway_model,
+            _resolve_runtime_agent_kwargs,
+        )
         from nastech_cli.tools_config import _get_platform_tools
+        from run_agent import AIAgent
 
         runtime_kwargs = _resolve_runtime_agent_kwargs()
         reasoning_config = GatewayRunner._load_reasoning_config()
         model = _resolve_gateway_model()
 
         user_config = _load_gateway_config()
-        enabled_toolsets = sorted(_get_platform_tools(user_config, "api_server"))
+        enabled_toolsets = sorted(
+            _get_platform_tools(
+                user_config, "api_server"))
 
         max_iterations = int(os.getenv("NASTECH_MAX_ITERATIONS", "90"))
 
@@ -1024,7 +1071,8 @@ class APIServerAdapter(BasePlatformAdapter):
         """GET /health — simple health check."""
         return web.json_response({"status": "ok", "platform": "nastech-agent"})
 
-    async def _handle_health_detailed(self, request: "web.Request") -> "web.Response":
+    async def _handle_health_detailed(
+            self, request: "web.Request") -> "web.Response":
         """GET /health/detailed — rich status for cross-container dashboard probing.
 
         Returns gateway state, connected platforms, PID, and uptime so the
@@ -1066,7 +1114,8 @@ class APIServerAdapter(BasePlatformAdapter):
             ],
         })
 
-    async def _handle_capabilities(self, request: "web.Request") -> "web.Response":
+    async def _handle_capabilities(
+            self, request: "web.Request") -> "web.Response":
         """GET /v1/capabilities — advertise the stable API surface.
 
         External UIs and orchestrators use this endpoint to discover the API
@@ -1168,7 +1217,9 @@ class APIServerAdapter(BasePlatformAdapter):
         except Exception:
             logger.exception("GET /v1/skills failed")
             return web.json_response(
-                _openai_error("Failed to enumerate skills", err_type="server_error"),
+                _openai_error(
+                    "Failed to enumerate skills",
+                    err_type="server_error"),
                 status=500,
             )
 
@@ -1223,7 +1274,9 @@ class APIServerAdapter(BasePlatformAdapter):
         except Exception:
             logger.exception("GET /v1/toolsets failed")
             return web.json_response(
-                _openai_error("Failed to enumerate toolsets", err_type="server_error"),
+                _openai_error(
+                    "Failed to enumerate toolsets",
+                    err_type="server_error"),
                 status=500,
             )
 
@@ -1258,7 +1311,8 @@ class APIServerAdapter(BasePlatformAdapter):
             "api_call_count", "parent_session_id", "last_active", "preview",
             "_lineage_root_id",
         )
-        payload = {key: session.get(key) for key in safe_keys if key in session}
+        payload = {key: session.get(key)
+                   for key in safe_keys if key in session}
         # Avoid exposing full system prompts/model_config through the client API;
         # callers only need to know whether those snapshots exist.
         payload["has_system_prompt"] = bool(session.get("system_prompt"))
@@ -1274,35 +1328,46 @@ class APIServerAdapter(BasePlatformAdapter):
         )
         return {key: message.get(key) for key in safe_keys if key in message}
 
-    async def _read_json_body(self, request: "web.Request") -> tuple[Dict[str, Any], Optional["web.Response"]]:
+    async def _read_json_body(
+            self, request: "web.Request") -> tuple[Dict[str, Any], Optional["web.Response"]]:
         try:
             body = await request.json()
         except Exception:
-            return {}, web.json_response(_openai_error("Invalid JSON in request body"), status=400)
+            return {}, web.json_response(_openai_error(
+                "Invalid JSON in request body"), status=400)
         if not isinstance(body, dict):
-            return {}, web.json_response(_openai_error("Request body must be a JSON object"), status=400)
+            return {}, web.json_response(_openai_error(
+                "Request body must be a JSON object"), status=400)
         return body, None
 
-    def _get_existing_session_or_404(self, session_id: str) -> tuple[Optional[Dict[str, Any]], Optional["web.Response"]]:
+    def _get_existing_session_or_404(
+            self, session_id: str) -> tuple[Optional[Dict[str, Any]], Optional["web.Response"]]:
         db = self._ensure_session_db()
         if db is None:
-            return None, web.json_response(_openai_error("Session database unavailable", code="session_db_unavailable"), status=503)
+            return None, web.json_response(_openai_error(
+                "Session database unavailable", code="session_db_unavailable"), status=503)
         session = db.get_session(session_id)
         if not session:
-            return None, web.json_response(_openai_error(f"Session not found: {session_id}", code="session_not_found"), status=404)
+            return None, web.json_response(_openai_error(
+                f"Session not found: {session_id}", code="session_not_found"), status=404)
         return session, None
 
-    def _conversation_history_for_session(self, session_id: str) -> List[Dict[str, Any]]:
+    def _conversation_history_for_session(
+            self, session_id: str) -> List[Dict[str, Any]]:
         db = self._ensure_session_db()
         if db is None:
             return []
         try:
             return db.get_messages_as_conversation(session_id)
         except Exception as exc:
-            logger.warning("Failed to load session history for %s: %s", session_id, exc)
+            logger.warning(
+                "Failed to load session history for %s: %s",
+                session_id,
+                exc)
             return []
 
-    async def _handle_list_sessions(self, request: "web.Request") -> "web.Response":
+    async def _handle_list_sessions(
+            self, request: "web.Request") -> "web.Response":
         """GET /api/sessions — list persisted NasTech sessions."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -1310,12 +1375,16 @@ class APIServerAdapter(BasePlatformAdapter):
 
         db = self._ensure_session_db()
         if db is None:
-            return web.json_response(_openai_error("Session database unavailable", code="session_db_unavailable"), status=503)
+            return web.json_response(_openai_error(
+                "Session database unavailable", code="session_db_unavailable"), status=503)
 
-        limit = self._parse_nonnegative_int(request.query.get("limit"), default=50, maximum=200)
-        offset = self._parse_nonnegative_int(request.query.get("offset"), default=0, maximum=1_000_000)
+        limit = self._parse_nonnegative_int(
+            request.query.get("limit"), default=50, maximum=200)
+        offset = self._parse_nonnegative_int(
+            request.query.get("offset"), default=0, maximum=1_000_000)
         source = request.query.get("source") or None
-        include_children = _coerce_request_bool(request.query.get("include_children"), default=False)
+        include_children = _coerce_request_bool(
+            request.query.get("include_children"), default=False)
         sessions = db.list_sessions_rich(
             source=source,
             limit=limit,
@@ -1331,7 +1400,8 @@ class APIServerAdapter(BasePlatformAdapter):
             "has_more": len(sessions) == limit,
         })
 
-    async def _handle_create_session(self, request: "web.Request") -> "web.Response":
+    async def _handle_create_session(
+            self, request: "web.Request") -> "web.Response":
         """POST /api/sessions — create an empty NasTech session row."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -1342,43 +1412,63 @@ class APIServerAdapter(BasePlatformAdapter):
 
         db = self._ensure_session_db()
         if db is None:
-            return web.json_response(_openai_error("Session database unavailable", code="session_db_unavailable"), status=503)
+            return web.json_response(_openai_error(
+                "Session database unavailable", code="session_db_unavailable"), status=503)
 
         raw_id = body.get("id") or body.get("session_id")
-        session_id = str(raw_id).strip() if raw_id else f"api_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        session_id = str(raw_id).strip(
+        ) if raw_id else f"api_{int(time.time())}_{uuid.uuid4().hex[:8]}"
         if not session_id or re.search(r'[\r\n\x00]', session_id):
-            return web.json_response(_openai_error("Invalid session ID", code="invalid_session_id"), status=400)
+            return web.json_response(_openai_error(
+                "Invalid session ID", code="invalid_session_id"), status=400)
         if len(session_id) > self._MAX_SESSION_HEADER_LEN:
-            return web.json_response(_openai_error("Session ID too long", code="invalid_session_id"), status=400)
+            return web.json_response(_openai_error(
+                "Session ID too long", code="invalid_session_id"), status=400)
         if db.get_session(session_id):
-            return web.json_response(_openai_error(f"Session already exists: {session_id}", code="session_exists"), status=409)
+            return web.json_response(_openai_error(
+                f"Session already exists: {session_id}", code="session_exists"), status=409)
 
         model = body.get("model") or self._model_name
         system_prompt = body.get("system_prompt")
         if system_prompt is not None and not isinstance(system_prompt, str):
-            return web.json_response(_openai_error("system_prompt must be a string", code="invalid_system_prompt"), status=400)
-        db.create_session(session_id, "api_server", model=str(model) if model else None, system_prompt=system_prompt)
+            return web.json_response(_openai_error(
+                "system_prompt must be a string", code="invalid_system_prompt"), status=400)
+        db.create_session(
+            session_id,
+            "api_server",
+            model=str(model) if model else None,
+            system_prompt=system_prompt)
         title = body.get("title")
         if title is not None:
             try:
                 db.set_session_title(session_id, str(title))
             except ValueError as exc:
                 db.delete_session(session_id)
-                return web.json_response(_openai_error(str(exc), code="invalid_title"), status=400)
-        session = db.get_session(session_id) or {"id": session_id, "source": "api_server", "model": model, "title": title}
-        return web.json_response({"object": "nastech.session", "session": self._session_response(session)}, status=201)
+                return web.json_response(_openai_error(
+                    str(exc), code="invalid_title"), status=400)
+        session = db.get_session(session_id) or {
+            "id": session_id,
+            "source": "api_server",
+            "model": model,
+            "title": title}
+        return web.json_response(
+            {"object": "nastech.session", "session": self._session_response(session)}, status=201)
 
-    async def _handle_get_session(self, request: "web.Request") -> "web.Response":
+    async def _handle_get_session(
+            self, request: "web.Request") -> "web.Response":
         """GET /api/sessions/{session_id}."""
         auth_err = self._check_auth(request)
         if auth_err:
             return auth_err
-        session, err = self._get_existing_session_or_404(request.match_info["session_id"])
+        session, err = self._get_existing_session_or_404(
+            request.match_info["session_id"])
         if err:
             return err
-        return web.json_response({"object": "nastech.session", "session": self._session_response(session)})
+        return web.json_response(
+            {"object": "nastech.session", "session": self._session_response(session)})
 
-    async def _handle_patch_session(self, request: "web.Request") -> "web.Response":
+    async def _handle_patch_session(
+            self, request: "web.Request") -> "web.Response":
         """PATCH /api/sessions/{session_id} — update client-safe session metadata."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -1393,20 +1483,27 @@ class APIServerAdapter(BasePlatformAdapter):
         allowed = {"title", "end_reason"}
         unknown = sorted(set(body) - allowed)
         if unknown:
-            return web.json_response(_openai_error(f"Unsupported session fields: {', '.join(unknown)}", code="unsupported_session_field"), status=400)
+            return web.json_response(_openai_error(
+                f"Unsupported session fields: {', '.join(unknown)}", code="unsupported_session_field"), status=400)
 
         db = self._ensure_session_db()
         if "title" in body:
             try:
-                db.set_session_title(session_id, "" if body["title"] is None else str(body["title"]))
+                db.set_session_title(
+                    session_id,
+                    "" if body["title"] is None else str(
+                        body["title"]))
             except ValueError as exc:
-                return web.json_response(_openai_error(str(exc), code="invalid_title"), status=400)
+                return web.json_response(_openai_error(
+                    str(exc), code="invalid_title"), status=400)
         if body.get("end_reason"):
             db.end_session(session_id, str(body["end_reason"]))
         session = db.get_session(session_id) or session
-        return web.json_response({"object": "nastech.session", "session": self._session_response(session)})
+        return web.json_response(
+            {"object": "nastech.session", "session": self._session_response(session)})
 
-    async def _handle_delete_session(self, request: "web.Request") -> "web.Response":
+    async def _handle_delete_session(
+            self, request: "web.Request") -> "web.Response":
         """DELETE /api/sessions/{session_id}."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -1417,9 +1514,11 @@ class APIServerAdapter(BasePlatformAdapter):
             return err
         db = self._ensure_session_db()
         deleted = db.delete_session(session_id)
-        return web.json_response({"object": "nastech.session.deleted", "id": session_id, "deleted": bool(deleted)})
+        return web.json_response(
+            {"object": "nastech.session.deleted", "id": session_id, "deleted": bool(deleted)})
 
-    async def _handle_session_messages(self, request: "web.Request") -> "web.Response":
+    async def _handle_session_messages(
+            self, request: "web.Request") -> "web.Response":
         """GET /api/sessions/{session_id}/messages."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -1436,7 +1535,8 @@ class APIServerAdapter(BasePlatformAdapter):
             "data": [self._message_response(m) for m in messages],
         })
 
-    async def _handle_fork_session(self, request: "web.Request") -> "web.Response":
+    async def _handle_fork_session(
+            self, request: "web.Request") -> "web.Response":
         """POST /api/sessions/{session_id}/fork — branch via current SessionDB primitives."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -1449,11 +1549,14 @@ class APIServerAdapter(BasePlatformAdapter):
         if err:
             return err
         db = self._ensure_session_db()
-        fork_id = str(body.get("id") or body.get("session_id") or f"api_{int(time.time())}_{uuid.uuid4().hex[:8]}").strip()
+        fork_id = str(body.get("id") or body.get("session_id")
+                      or f"api_{int(time.time())}_{uuid.uuid4().hex[:8]}").strip()
         if not fork_id or re.search(r'[\r\n\x00]', fork_id):
-            return web.json_response(_openai_error("Invalid session ID", code="invalid_session_id"), status=400)
+            return web.json_response(_openai_error(
+                "Invalid session ID", code="invalid_session_id"), status=400)
         if db.get_session(fork_id):
-            return web.json_response(_openai_error(f"Session already exists: {fork_id}", code="session_exists"), status=409)
+            return web.json_response(_openai_error(
+                f"Session already exists: {fork_id}", code="session_exists"), status=409)
 
         # Match the CLI /branch semantics: mark the original as branched, then
         # create a child session that carries the transcript forward. This uses
@@ -1479,11 +1582,15 @@ class APIServerAdapter(BasePlatformAdapter):
         try:
             db.set_session_title(fork_id, str(title))
         except ValueError as exc:
-            return web.json_response(_openai_error(str(exc), code="invalid_title"), status=400)
-        fork = db.get_session(fork_id) or {"id": fork_id, "parent_session_id": source_id}
-        return web.json_response({"object": "nastech.session", "session": self._session_response(fork)}, status=201)
+            return web.json_response(_openai_error(
+                str(exc), code="invalid_title"), status=400)
+        fork = db.get_session(fork_id) or {
+            "id": fork_id, "parent_session_id": source_id}
+        return web.json_response(
+            {"object": "nastech.session", "session": self._session_response(fork)}, status=201)
 
-    async def _handle_session_chat(self, request: "web.Request") -> "web.Response":
+    async def _handle_session_chat(
+            self, request: "web.Request") -> "web.Response":
         """POST /api/sessions/{session_id}/chat — one synchronous agent turn."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -1503,7 +1610,8 @@ class APIServerAdapter(BasePlatformAdapter):
             return err
         system_prompt = body.get("system_message") or body.get("instructions")
         if system_prompt is not None and not isinstance(system_prompt, str):
-            return web.json_response(_openai_error("system_message must be a string", code="invalid_system_message"), status=400)
+            return web.json_response(_openai_error(
+                "system_message must be a string", code="invalid_system_message"), status=400)
         history = self._conversation_history_for_session(session_id)
         result, usage = await self._run_agent(
             user_message=user_message,
@@ -1512,8 +1620,13 @@ class APIServerAdapter(BasePlatformAdapter):
             session_id=session_id,
             gateway_session_key=gateway_session_key,
         )
-        effective_session_id = result.get("session_id") if isinstance(result, dict) else session_id
-        final_response = result.get("final_response", "") if isinstance(result, dict) else ""
+        effective_session_id = result.get(
+            "session_id") if isinstance(result, dict) else session_id
+        final_response = result.get(
+            "final_response",
+            "") if isinstance(
+            result,
+            dict) else ""
         headers = {"X-NasTech-Session-Id": effective_session_id or session_id}
         if gateway_session_key:
             headers["X-NasTech-Session-Key"] = gateway_session_key
@@ -1527,7 +1640,8 @@ class APIServerAdapter(BasePlatformAdapter):
             headers=headers,
         )
 
-    async def _handle_session_chat_stream(self, request: "web.Request") -> "web.StreamResponse":
+    async def _handle_session_chat_stream(
+            self, request: "web.Request") -> "web.StreamResponse":
         """POST /api/sessions/{session_id}/chat/stream — SSE wrapper over _run_agent."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -1547,15 +1661,18 @@ class APIServerAdapter(BasePlatformAdapter):
             return err
         system_prompt = body.get("system_message") or body.get("instructions")
         if system_prompt is not None and not isinstance(system_prompt, str):
-            return web.json_response(_openai_error("system_message must be a string", code="invalid_system_message"), status=400)
+            return web.json_response(_openai_error(
+                "system_message must be a string", code="invalid_system_message"), status=400)
 
         loop = asyncio.get_running_loop()
-        queue: "asyncio.Queue[Optional[tuple[str, Dict[str, Any]]]]" = asyncio.Queue()
+        queue: "asyncio.Queue[Optional[tuple[str, Dict[str, Any]]]]" = asyncio.Queue(
+        )
         message_id = f"msg_{uuid.uuid4().hex}"
         run_id = f"run_{uuid.uuid4().hex}"
         seq = 0
 
-        def _event_payload(name: str, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+        def _event_payload(
+                name: str, payload: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
             nonlocal seq
             seq += 1
             payload.setdefault("session_id", session_id)
@@ -1580,14 +1697,24 @@ class APIServerAdapter(BasePlatformAdapter):
 
         def _delta(delta: str) -> None:
             if delta:
-                _enqueue("assistant.delta", {"message_id": message_id, "delta": delta})
+                _enqueue(
+                    "assistant.delta", {
+                        "message_id": message_id, "delta": delta})
 
-        def _tool_progress(event_type: str, tool_name: str = None, preview: str = None, args=None, **kwargs) -> None:
+        def _tool_progress(event_type: str, tool_name: str = None,
+                           preview: str = None, args=None, **kwargs) -> None:
             if event_type == "reasoning.available":
-                _enqueue("tool.progress", {"message_id": message_id, "tool_name": tool_name or "_thinking", "delta": preview or ""})
+                _enqueue("tool.progress",
+                         {"message_id": message_id,
+                          "tool_name": tool_name or "_thinking",
+                          "delta": preview or ""})
             elif event_type in {"tool.started", "tool.completed", "tool.failed"}:
                 event_name = event_type.replace("tool.", "tool.")
-                _enqueue(event_name, {"message_id": message_id, "tool_name": tool_name, "preview": preview, "args": args})
+                _enqueue(event_name,
+                         {"message_id": message_id,
+                          "tool_name": tool_name,
+                          "preview": preview,
+                          "args": args})
 
         async def _run_and_signal() -> None:
             try:
@@ -1603,9 +1730,15 @@ class APIServerAdapter(BasePlatformAdapter):
                     tool_progress_callback=_tool_progress,
                     gateway_session_key=gateway_session_key,
                 )
-                final_response = result.get("final_response", "") if isinstance(result, dict) else ""
-                effective_session_id = result.get("session_id", session_id) if isinstance(result, dict) else session_id
-                turn_messages = self._turn_transcript_messages(history, user_message, result) if isinstance(result, dict) else []
+                final_response = result.get(
+                    "final_response", "") if isinstance(
+                    result, dict) else ""
+                effective_session_id = result.get(
+                    "session_id", session_id) if isinstance(
+                    result, dict) else session_id
+                turn_messages = self._turn_transcript_messages(
+                    history, user_message, result) if isinstance(
+                    result, dict) else []
                 await queue.put(_event_payload("assistant.completed", {
                     "session_id": effective_session_id,
                     "message_id": message_id,
@@ -1668,7 +1801,8 @@ class APIServerAdapter(BasePlatformAdapter):
             logger.debug("[api_server] session SSE stream error: %s", exc)
         return response
 
-    async def _handle_chat_completions(self, request: "web.Request") -> "web.Response":
+    async def _handle_chat_completions(
+            self, request: "web.Request") -> "web.Response":
         """POST /v1/chat/completions — OpenAI Chat Completions format."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -1678,18 +1812,21 @@ class APIServerAdapter(BasePlatformAdapter):
         try:
             body = await request.json()
         except (json.JSONDecodeError, Exception):
-            return web.json_response(_openai_error("Invalid JSON in request body"), status=400)
+            return web.json_response(_openai_error(
+                "Invalid JSON in request body"), status=400)
 
         messages = body.get("messages")
         if not messages or not isinstance(messages, list):
             return web.json_response(
-                {"error": {"message": "Missing or invalid 'messages' field", "type": "invalid_request_error"}},
+                {"error": {"message": "Missing or invalid 'messages' field",
+                           "type": "invalid_request_error"}},
                 status=400,
             )
 
         stream = _coerce_request_bool(body.get("stream"), default=False)
 
-        # Extract system message (becomes ephemeral system prompt layered ON TOP of core)
+        # Extract system message (becomes ephemeral system prompt layered ON
+        # TOP of core)
         system_prompt = None
         conversation_messages: List[Dict[str, str]] = []
 
@@ -1708,8 +1845,10 @@ class APIServerAdapter(BasePlatformAdapter):
                 try:
                     content = _normalize_multimodal_content(raw_content)
                 except ValueError as exc:
-                    return _multimodal_validation_error(exc, param=f"messages[{idx}].content")
-                conversation_messages.append({"role": role, "content": content})
+                    return _multimodal_validation_error(
+                        exc, param=f"messages[{idx}].content")
+                conversation_messages.append(
+                    {"role": role, "content": content})
 
         # Extract the last user message as the primary input
         user_message: Any = ""
@@ -1720,7 +1859,8 @@ class APIServerAdapter(BasePlatformAdapter):
 
         if not _content_has_visible_payload(user_message):
             return web.json_response(
-                {"error": {"message": "No user message found in messages", "type": "invalid_request_error"}},
+                {"error": {"message": "No user message found in messages",
+                           "type": "invalid_request_error"}},
                 status=400,
             )
 
@@ -1740,7 +1880,8 @@ class APIServerAdapter(BasePlatformAdapter):
         # only allowed when the API key is configured and the request is
         # authenticated.  Without this gate, any unauthenticated client could
         # read arbitrary session history by guessing/enumerating session IDs.
-        provided_session_id = request.headers.get("X-NasTech-Session-Id", "").strip()
+        provided_session_id = request.headers.get(
+            "X-NasTech-Session-Id", "").strip()
         if provided_session_id:
             if not self._api_key:
                 logger.warning(
@@ -1755,10 +1896,12 @@ class APIServerAdapter(BasePlatformAdapter):
                     ),
                     status=403,
                 )
-            # Sanitize: reject control characters that could enable header injection.
+            # Sanitize: reject control characters that could enable header
+            # injection.
             if re.search(r'[\r\n\x00]', provided_session_id):
                 return web.json_response(
-                    {"error": {"message": "Invalid session ID", "type": "invalid_request_error"}},
+                    {"error": {"message": "Invalid session ID",
+                               "type": "invalid_request_error"}},
                     status=400,
                 )
             session_id = provided_session_id
@@ -1767,7 +1910,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 if db is not None:
                     history = db.get_messages_as_conversation(session_id)
             except Exception as e:
-                logger.warning("Failed to load session history for %s: %s", session_id, e)
+                logger.warning(
+                    "Failed to load session history for %s: %s", session_id, e)
                 history = []
         else:
             # Derive a stable session ID from the conversation fingerprint so
@@ -1824,7 +1968,8 @@ class APIServerAdapter(BasePlatformAdapter):
                     return
                 _started_tool_call_ids.add(tool_call_id)
                 from agent.display import build_tool_preview, get_tool_emoji
-                label = build_tool_preview(function_name, function_args) or function_name
+                label = build_tool_preview(
+                    function_name, function_args) or function_name
                 _stream_q.put(("__tool_progress__", {
                     "tool": function_name,
                     "emoji": get_tool_emoji(function_name),
@@ -1833,7 +1978,8 @@ class APIServerAdapter(BasePlatformAdapter):
                     "status": "running",
                 }))
 
-            def _on_tool_complete(tool_call_id, function_name, function_args, function_result):
+            def _on_tool_complete(
+                    tool_call_id, function_name, function_args, function_result):
                 """Emit the matching ``status: completed`` event.
 
                 Dropped if the start was filtered (internal tool, missing
@@ -1891,22 +2037,39 @@ class APIServerAdapter(BasePlatformAdapter):
 
         idempotency_key = request.headers.get("Idempotency-Key")
         if idempotency_key:
-            fp = _make_request_fingerprint(body, keys=["model", "messages", "tools", "tool_choice", "stream"])
+            fp = _make_request_fingerprint(
+                body,
+                keys=[
+                    "model",
+                    "messages",
+                    "tools",
+                    "tool_choice",
+                    "stream"])
             try:
                 result, usage = await _idem_cache.get_or_set(idempotency_key, fp, _compute_completion)
             except Exception as e:
-                logger.error("Error running agent for chat completions: %s", e, exc_info=True)
+                logger.error(
+                    "Error running agent for chat completions: %s",
+                    e,
+                    exc_info=True)
                 return web.json_response(
-                    _openai_error(f"Internal server error: {e}", err_type="server_error"),
+                    _openai_error(
+                        f"Internal server error: {e}",
+                        err_type="server_error"),
                     status=500,
                 )
         else:
             try:
                 result, usage = await _compute_completion()
             except Exception as e:
-                logger.error("Error running agent for chat completions: %s", e, exc_info=True)
+                logger.error(
+                    "Error running agent for chat completions: %s",
+                    e,
+                    exc_info=True)
                 return web.json_response(
-                    _openai_error(f"Internal server error: {e}", err_type="server_error"),
+                    _openai_error(
+                        f"Internal server error: {e}",
+                        err_type="server_error"),
                     status=500,
                 )
 
@@ -1948,7 +2111,8 @@ class APIServerAdapter(BasePlatformAdapter):
             }
             response_headers["X-NasTech-Completed"] = "false"
             response_headers["X-NasTech-Partial"] = "true" if is_partial else "false"
-            return web.json_response(err_body, status=502, headers=response_headers)
+            return web.json_response(
+                err_body, status=502, headers=response_headers)
 
         # Soft-partial path: we have *some* text but the run did not complete
         # (e.g. truncation with partial buffered output). Still 200 but signal
@@ -2043,10 +2207,12 @@ class APIServerAdapter(BasePlatformAdapter):
                 conversation history.  See #6972 for the original event,
                 #16588 for the ``toolCallId``/``status`` lifecycle fields.
                 """
-                if isinstance(item, tuple) and len(item) == 2 and item[0] == "__tool_progress__":
+                if isinstance(item, tuple) and len(
+                        item) == 2 and item[0] == "__tool_progress__":
                     event_data = json.dumps(item[1])
                     await response.write(
-                        f"event: nastech.tool.progress\ndata: {event_data}\n\n".encode()
+                        f"event: nastech.tool.progress\ndata: {event_data}\n\n".encode(
+                        )
                     )
                 else:
                     content_chunk = {
@@ -2090,7 +2256,10 @@ class APIServerAdapter(BasePlatformAdapter):
                 result, agent_usage = await agent_task
                 usage = agent_usage or usage
             except Exception as exc:
-                logger.warning("Agent task %s failed, usage data lost: %s", completion_id, exc)
+                logger.warning(
+                    "Agent task %s failed, usage data lost: %s",
+                    completion_id,
+                    exc)
 
             # Finish chunk
             finish_chunk = {
@@ -2121,13 +2290,16 @@ class APIServerAdapter(BasePlatformAdapter):
                     await agent_task
                 except (asyncio.CancelledError, Exception):
                     pass
-            logger.info("SSE client disconnected; interrupted agent task %s", completion_id)
+            logger.info(
+                "SSE client disconnected; interrupted agent task %s",
+                completion_id)
         except Exception as _exc:
             # Agent crashed mid-stream.  Try to emit an error chunk
             # so the client gets a proper response instead of a
             # TransferEncodingError from incomplete chunked encoding.
             import traceback as _tb
-            logger.error("Agent crashed mid-stream for %s: %s", completion_id, _tb.format_exc()[:300])
+            logger.error("Agent crashed mid-stream for %s: %s",
+                         completion_id, _tb.format_exc()[:300])
             try:
                 error_chunk = {
                     "id": completion_id, "object": "chat.completion.chunk",
@@ -2247,7 +2419,8 @@ class APIServerAdapter(BasePlatformAdapter):
 
         final_response_text = ""
         agent_error: Optional[str] = None
-        usage: Dict[str, int] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+        usage: Dict[str, int] = {"input_tokens": 0,
+                                 "output_tokens": 0, "total_tokens": 0}
         terminal_snapshot_persisted = False
 
         def _persist_response_snapshot(
@@ -2259,7 +2432,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 return
             if conversation_history_snapshot is None:
                 conversation_history_snapshot = list(conversation_history)
-                conversation_history_snapshot.append({"role": "user", "content": user_message})
+                conversation_history_snapshot.append(
+                    {"role": "user", "content": user_message})
             self._response_store.put(response_id, {
                 "response": response_env,
                 "conversation_history": conversation_history_snapshot,
@@ -2267,7 +2441,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 "session_id": session_id,
             })
             if conversation:
-                self._response_store.set_conversation(conversation, response_id)
+                self._response_store.set_conversation(
+                    conversation, response_id)
 
         def _persist_incomplete_if_needed() -> None:
             """Persist an ``incomplete`` snapshot if no terminal one was written.
@@ -2295,9 +2470,11 @@ class APIServerAdapter(BasePlatformAdapter):
                 "total_tokens": usage.get("total_tokens", 0),
             }
             incomplete_history = list(conversation_history)
-            incomplete_history.append({"role": "user", "content": user_message})
+            incomplete_history.append(
+                {"role": "user", "content": user_message})
             if incomplete_text:
-                incomplete_history.append({"role": "assistant", "content": incomplete_text})
+                incomplete_history.append(
+                    {"role": "assistant", "content": incomplete_text})
             _persist_response_snapshot(
                 incomplete_env,
                 conversation_history_snapshot=incomplete_history,
@@ -2358,7 +2535,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 """
                 nonlocal output_index, call_counter
                 call_counter += 1
-                call_id = payload.get("tool_call_id") or f"call_{response_id[5:]}_{call_counter}"
+                call_id = payload.get(
+                    "tool_call_id") or f"call_{response_id[5:]}_{call_counter}"
                 args = payload.get("arguments", {})
                 if isinstance(args, dict):
                     arguments_str = json.dumps(args)
@@ -2427,7 +2605,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 })
 
                 # function_call_output added (result)
-                result_str = result if isinstance(result, str) else json.dumps(result)
+                result_str = result if isinstance(
+                    result, str) else json.dumps(result)
                 output_parts = [{"type": "input_text", "text": result_str}]
                 output_item = {
                     "id": f"fco_{uuid.uuid4().hex[:24]}",
@@ -2465,7 +2644,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 before emitting.
                 """
                 nonlocal _batch_timer
-                if isinstance(it, tuple) and len(it) == 2 and isinstance(it[0], str):
+                if isinstance(it, tuple) and len(
+                        it) == 2 and isinstance(it[0], str):
                     tag, payload = it
                     # Flush batched text before tool events
                     if _batch_buf:
@@ -2478,7 +2658,8 @@ class APIServerAdapter(BasePlatformAdapter):
                     # Batch text deltas — append to buffer, flush on timer
                     _batch_buf.append(it)
                     if _batch_timer is None:
-                        _batch_timer = asyncio.create_task(_batch_flush_after(0.05))
+                        _batch_timer = asyncio.create_task(
+                            _batch_flush_after(0.05))
                 # Other types are silently dropped.
 
             # ── Batching state ──
@@ -2553,19 +2734,26 @@ class APIServerAdapter(BasePlatformAdapter):
                 # deltas were streamed (e.g. some providers only emit
                 # the full response at the end), emit a single fallback
                 # delta so Responses clients still receive a live text part.
-                agent_final = result.get("final_response", "") if isinstance(result, dict) else ""
+                agent_final = result.get(
+                    "final_response", "") if isinstance(
+                    result, dict) else ""
                 if agent_final and not final_text_parts:
                     await _emit_text_delta(agent_final)
                 if agent_final and not final_response_text:
                     final_response_text = agent_final
-                if isinstance(result, dict) and result.get("error") and not final_response_text:
+                if isinstance(result, dict) and result.get(
+                        "error") and not final_response_text:
                     agent_error = result["error"]
             except Exception as e:  # noqa: BLE001
-                logger.error("Error running agent for streaming responses: %s", e, exc_info=True)
+                logger.error(
+                    "Error running agent for streaming responses: %s",
+                    e,
+                    exc_info=True)
                 agent_error = str(e)
 
             # Close the message item if it was opened
-            final_response_text = "".join(final_text_parts) or final_response_text
+            final_response_text = "".join(
+                final_text_parts) or final_response_text
             if message_opened:
                 await _write_event("response.output_text.done", {
                     "type": "response.output_text.done",
@@ -2602,11 +2790,21 @@ class APIServerAdapter(BasePlatformAdapter):
             for _item in final_items:
                 if _item.get("type") == "function_call":
                     try:
-                        _args = json.loads(_item.get("arguments", "{}")) if isinstance(_item.get("arguments"), str) else _item.get("arguments", {})
+                        _args = json.loads(
+                            _item.get(
+                                "arguments",
+                                "{}")) if isinstance(
+                            _item.get("arguments"),
+                            str) else _item.get(
+                            "arguments",
+                            {})
                         if isinstance(_args, dict):
-                            for _k in ("content", "query", "pattern", "old_string", "new_string"):
-                                if isinstance(_args.get(_k), str) and len(_args[_k]) > 500:
-                                    _args[_k] = "[" + str(len(_args[_k])) + " chars — truncated for response.completed]"
+                            for _k in ("content", "query", "pattern",
+                                       "old_string", "new_string"):
+                                if isinstance(_args.get(_k), str) and len(
+                                        _args[_k]) > 500:
+                                    _args[_k] = "[" + str(len(_args[_k])) + \
+                                        " chars — truncated for response.completed]"
                             _item["arguments"] = json.dumps(_args)
                     except Exception:
                         pass
@@ -2614,31 +2812,37 @@ class APIServerAdapter(BasePlatformAdapter):
                     _output = _item.get("output", [])
                     if isinstance(_output, list) and _output:
                         _first = _output[0]
-                        if isinstance(_first, dict) and _first.get("type") == "input_text":
+                        if isinstance(_first, dict) and _first.get(
+                                "type") == "input_text":
                             _text = _first.get("text", "")
                             if len(_text) > 1000:
-                                _first["text"] = _text[:500] + "...[" + str(len(_text) - 500) + " more chars]"
+                                _first["text"] = _text[:500] + "...[" + \
+                                    str(len(_text) - 500) + " more chars]"
                                 _item["output"] = [_first]
 
             final_items.append({
                 "type": "message",
                 "role": "assistant",
                 "content": [
-                    {"type": "output_text", "text": final_response_text or (agent_error or "")}
+                    {"type": "output_text",
+                     "text": final_response_text or (agent_error or "")}
                 ],
             })
 
             if agent_error:
                 failed_env = _envelope("failed")
                 failed_env["output"] = final_items
-                failed_env["error"] = {"message": agent_error, "type": "server_error"}
+                failed_env["error"] = {
+                    "message": agent_error,
+                    "type": "server_error"}
                 failed_env["usage"] = {
                     "input_tokens": usage.get("input_tokens", 0),
                     "output_tokens": usage.get("output_tokens", 0),
                     "total_tokens": usage.get("total_tokens", 0),
                 }
                 _failed_history = list(conversation_history)
-                _failed_history.append({"role": "user", "content": user_message})
+                _failed_history.append(
+                    {"role": "user", "content": user_message})
                 if final_response_text or agent_error:
                     _failed_history.append({
                         "role": "assistant",
@@ -2693,7 +2897,9 @@ class APIServerAdapter(BasePlatformAdapter):
                     await agent_task
                 except (asyncio.CancelledError, Exception):
                     pass
-            logger.info("SSE client disconnected; interrupted agent task %s", response_id)
+            logger.info(
+                "SSE client disconnected; interrupted agent task %s",
+                response_id)
         except asyncio.CancelledError:
             # Server-side cancellation (e.g. shutdown, request timeout) —
             # persist an incomplete snapshot so GET /v1/responses/{id} and
@@ -2708,7 +2914,9 @@ class APIServerAdapter(BasePlatformAdapter):
                     pass
             if not agent_task.done():
                 agent_task.cancel()
-            logger.info("SSE task cancelled; persisted incomplete snapshot for %s", response_id)
+            logger.info(
+                "SSE task cancelled; persisted incomplete snapshot for %s",
+                response_id)
             raise
         except Exception as _exc:
             # Agent crashed with an unhandled error (e.g. model API error like
@@ -2721,7 +2929,9 @@ class APIServerAdapter(BasePlatformAdapter):
             try:
                 failed_env = _envelope("failed")
                 failed_env["output"] = list(emitted_items)
-                failed_env["error"] = {"message": str(_exc)[:500], "type": "server_error"}
+                failed_env["error"] = {
+                    "message": str(_exc)[
+                        :500], "type": "server_error"}
                 failed_env["usage"] = {
                     "input_tokens": usage.get("input_tokens", 0),
                     "output_tokens": usage.get("output_tokens", 0),
@@ -2733,11 +2943,13 @@ class APIServerAdapter(BasePlatformAdapter):
                 })
             except Exception:
                 pass
-            logger.error("Agent crashed mid-stream for %s: %s", response_id, str(agent_error)[:300])
+            logger.error("Agent crashed mid-stream for %s: %s",
+                         response_id, str(agent_error)[:300])
 
         return response
 
-    async def _handle_responses(self, request: "web.Request") -> "web.Response":
+    async def _handle_responses(
+            self, request: "web.Request") -> "web.Response":
         """POST /v1/responses — OpenAI Responses API format."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -2753,13 +2965,15 @@ class APIServerAdapter(BasePlatformAdapter):
             body = await request.json()
         except (json.JSONDecodeError, Exception):
             return web.json_response(
-                {"error": {"message": "Invalid JSON in request body", "type": "invalid_request_error"}},
+                {"error": {"message": "Invalid JSON in request body",
+                           "type": "invalid_request_error"}},
                 status=400,
             )
 
         raw_input = body.get("input")
         if raw_input is None:
-            return web.json_response(_openai_error("Missing 'input' field"), status=400)
+            return web.json_response(_openai_error(
+                "Missing 'input' field"), status=400)
 
         instructions = body.get("instructions")
         previous_response_id = body.get("previous_response_id")
@@ -2768,12 +2982,15 @@ class APIServerAdapter(BasePlatformAdapter):
 
         # conversation and previous_response_id are mutually exclusive
         if conversation and previous_response_id:
-            return web.json_response(_openai_error("Cannot use both 'conversation' and 'previous_response_id'"), status=400)
+            return web.json_response(_openai_error(
+                "Cannot use both 'conversation' and 'previous_response_id'"), status=400)
 
         # Resolve conversation name to latest response_id
         if conversation:
-            previous_response_id = self._response_store.get_conversation(conversation)
-            # No error if conversation doesn't exist yet — it's a new conversation
+            previous_response_id = self._response_store.get_conversation(
+                conversation)
+            # No error if conversation doesn't exist yet — it's a new
+            # conversation
 
         # Normalize input to message list
         input_messages: List[Dict[str, Any]] = []
@@ -2786,12 +3003,15 @@ class APIServerAdapter(BasePlatformAdapter):
                 elif isinstance(item, dict):
                     role = item.get("role", "user")
                     try:
-                        content = _normalize_multimodal_content(item.get("content", ""))
+                        content = _normalize_multimodal_content(
+                            item.get("content", ""))
                     except ValueError as exc:
-                        return _multimodal_validation_error(exc, param=f"input[{idx}].content")
+                        return _multimodal_validation_error(
+                            exc, param=f"input[{idx}].content")
                     input_messages.append({"role": role, "content": content})
         else:
-            return web.json_response(_openai_error("'input' must be a string or array"), status=400)
+            return web.json_response(_openai_error(
+                "'input' must be a string or array"), status=400)
 
         # Accept explicit conversation_history from the request body.
         # This lets stateless clients supply their own history instead of
@@ -2802,45 +3022,57 @@ class APIServerAdapter(BasePlatformAdapter):
         if raw_history:
             if not isinstance(raw_history, list):
                 return web.json_response(
-                    _openai_error("'conversation_history' must be an array of message objects"),
+                    _openai_error(
+                        "'conversation_history' must be an array of message objects"),
                     status=400,
                 )
             for i, entry in enumerate(raw_history):
-                if not isinstance(entry, dict) or "role" not in entry or "content" not in entry:
+                if not isinstance(
+                        entry, dict) or "role" not in entry or "content" not in entry:
                     return web.json_response(
-                        _openai_error(f"conversation_history[{i}] must have 'role' and 'content' fields"),
+                        _openai_error(
+                            f"conversation_history[{i}] must have 'role' and 'content' fields"),
                         status=400,
                     )
                 try:
-                    entry_content = _normalize_multimodal_content(entry["content"])
+                    entry_content = _normalize_multimodal_content(
+                        entry["content"])
                 except ValueError as exc:
-                    return _multimodal_validation_error(exc, param=f"conversation_history[{i}].content")
-                conversation_history.append({"role": str(entry["role"]), "content": entry_content})
+                    return _multimodal_validation_error(
+                        exc, param=f"conversation_history[{i}].content")
+                conversation_history.append(
+                    {"role": str(entry["role"]), "content": entry_content})
             if previous_response_id:
-                logger.debug("Both conversation_history and previous_response_id provided; using conversation_history")
+                logger.debug(
+                    "Both conversation_history and previous_response_id provided; using conversation_history")
 
         stored_session_id = None
         if not conversation_history and previous_response_id:
             stored = self._response_store.get(previous_response_id)
             if stored is None:
-                return web.json_response(_openai_error(f"Previous response not found: {previous_response_id}"), status=404)
+                return web.json_response(_openai_error(
+                    f"Previous response not found: {previous_response_id}"), status=404)
             conversation_history = list(stored.get("conversation_history", []))
             stored_session_id = stored.get("session_id")
             # If no instructions provided, carry forward from previous
             if instructions is None:
                 instructions = stored.get("instructions")
 
-        # Append new input messages to history (all but the last become history)
+        # Append new input messages to history (all but the last become
+        # history)
         for msg in input_messages[:-1]:
             conversation_history.append(msg)
 
         # Last input message is the user_message
-        user_message: Any = input_messages[-1].get("content", "") if input_messages else ""
+        user_message: Any = input_messages[-1].get(
+            "content", "") if input_messages else ""
         if not _content_has_visible_payload(user_message):
-            return web.json_response(_openai_error("No user message found in input"), status=400)
+            return web.json_response(_openai_error(
+                "No user message found in input"), status=400)
 
         # Truncation support
-        if body.get("truncation") == "auto" and len(conversation_history) > 100:
+        if body.get("truncation") == "auto" and len(
+                conversation_history) > 100:
             conversation_history = conversation_history[-100:]
 
         # Reuse session from previous_response_id chain so the dashboard
@@ -2879,7 +3111,8 @@ class APIServerAdapter(BasePlatformAdapter):
                     "arguments": function_args or {},
                 }))
 
-            def _on_tool_complete(tool_call_id, function_name, function_args, function_result):
+            def _on_tool_complete(
+                    tool_call_id, function_name, function_args, function_result):
                 """Queue a completed tool result for live function_call_output streaming."""
                 _stream_q.put(("__tool_completed__", {
                     "tool_call_id": tool_call_id,
@@ -2939,23 +3172,39 @@ class APIServerAdapter(BasePlatformAdapter):
         if idempotency_key:
             fp = _make_request_fingerprint(
                 body,
-                keys=["input", "instructions", "previous_response_id", "conversation", "model", "tools"],
+                keys=[
+                    "input",
+                    "instructions",
+                    "previous_response_id",
+                    "conversation",
+                    "model",
+                    "tools"],
             )
             try:
                 result, usage = await _idem_cache.get_or_set(idempotency_key, fp, _compute_response)
             except Exception as e:
-                logger.error("Error running agent for responses: %s", e, exc_info=True)
+                logger.error(
+                    "Error running agent for responses: %s",
+                    e,
+                    exc_info=True)
                 return web.json_response(
-                    _openai_error(f"Internal server error: {e}", err_type="server_error"),
+                    _openai_error(
+                        f"Internal server error: {e}",
+                        err_type="server_error"),
                     status=500,
                 )
         else:
             try:
                 result, usage = await _compute_response()
             except Exception as e:
-                logger.error("Error running agent for responses: %s", e, exc_info=True)
+                logger.error(
+                    "Error running agent for responses: %s",
+                    e,
+                    exc_info=True)
                 return web.json_response(
-                    _openai_error(f"Internal server error: {e}", err_type="server_error"),
+                    _openai_error(
+                        f"Internal server error: {e}",
+                        err_type="server_error"),
                     status=500,
                 )
 
@@ -2983,7 +3232,8 @@ class APIServerAdapter(BasePlatformAdapter):
             user_message,
             result,
         )
-        output_items = self._extract_output_items(result, start_index=output_start_index)
+        output_items = self._extract_output_items(
+            result, start_index=output_start_index)
 
         response_data = {
             "id": response_id,
@@ -2999,7 +3249,8 @@ class APIServerAdapter(BasePlatformAdapter):
             },
         }
 
-        # Store the complete response object for future chaining / GET retrieval
+        # Store the complete response object for future chaining / GET
+        # retrieval
         if store:
             self._response_store.put(response_id, {
                 "response": response_data,
@@ -3010,7 +3261,8 @@ class APIServerAdapter(BasePlatformAdapter):
             # Update conversation mapping so the next request with the same
             # conversation name automatically chains to this response
             if conversation:
-                self._response_store.set_conversation(conversation, response_id)
+                self._response_store.set_conversation(
+                    conversation, response_id)
 
         response_headers = {"X-NasTech-Session-Id": session_id}
         if gateway_session_key:
@@ -3021,7 +3273,8 @@ class APIServerAdapter(BasePlatformAdapter):
     # GET / DELETE response endpoints
     # ------------------------------------------------------------------
 
-    async def _handle_get_response(self, request: "web.Request") -> "web.Response":
+    async def _handle_get_response(
+            self, request: "web.Request") -> "web.Response":
         """GET /v1/responses/{response_id} — retrieve a stored response."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -3030,11 +3283,13 @@ class APIServerAdapter(BasePlatformAdapter):
         response_id = request.match_info["response_id"]
         stored = self._response_store.get(response_id)
         if stored is None:
-            return web.json_response(_openai_error(f"Response not found: {response_id}"), status=404)
+            return web.json_response(_openai_error(
+                f"Response not found: {response_id}"), status=404)
 
         return web.json_response(stored["response"])
 
-    async def _handle_delete_response(self, request: "web.Request") -> "web.Response":
+    async def _handle_delete_response(
+            self, request: "web.Request") -> "web.Response":
         """DELETE /v1/responses/{response_id} — delete a stored response."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -3043,7 +3298,8 @@ class APIServerAdapter(BasePlatformAdapter):
         response_id = request.match_info["response_id"]
         deleted = self._response_store.delete(response_id)
         if not deleted:
-            return web.json_response(_openai_error(f"Response not found: {response_id}"), status=404)
+            return web.json_response(_openai_error(
+                f"Response not found: {response_id}"), status=404)
 
         return web.json_response({
             "id": response_id,
@@ -3057,7 +3313,15 @@ class APIServerAdapter(BasePlatformAdapter):
 
     _JOB_ID_RE = __import__("re").compile(r"[a-f0-9]{12}")
     # Allowed fields for update — prevents clients injecting arbitrary keys
-    _UPDATE_ALLOWED_FIELDS = {"name", "schedule", "prompt", "deliver", "skills", "skill", "repeat", "enabled"}
+    _UPDATE_ALLOWED_FIELDS = {
+        "name",
+        "schedule",
+        "prompt",
+        "deliver",
+        "skills",
+        "skill",
+        "repeat",
+        "enabled"}
     _MAX_NAME_LENGTH = 200
     _MAX_PROMPT_LENGTH = 5000
 
@@ -3084,7 +3348,8 @@ class APIServerAdapter(BasePlatformAdapter):
             )
         return job_id, None
 
-    async def _handle_list_jobs(self, request: "web.Request") -> "web.Response":
+    async def _handle_list_jobs(
+            self, request: "web.Request") -> "web.Response":
         """GET /api/jobs — list all cron jobs."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -3093,13 +3358,15 @@ class APIServerAdapter(BasePlatformAdapter):
         if cron_err:
             return cron_err
         try:
-            include_disabled = request.query.get("include_disabled", "").lower() in {"true", "1"}
+            include_disabled = request.query.get(
+                "include_disabled", "").lower() in {"true", "1"}
             jobs = _cron_list(include_disabled=include_disabled)
             return web.json_response({"jobs": jobs})
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
-    async def _handle_create_job(self, request: "web.Request") -> "web.Response":
+    async def _handle_create_job(
+            self, request: "web.Request") -> "web.Response":
         """POST /api/jobs — create a new cron job."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -3117,19 +3384,23 @@ class APIServerAdapter(BasePlatformAdapter):
             repeat = body.get("repeat")
 
             if not name:
-                return web.json_response({"error": "Name is required"}, status=400)
+                return web.json_response(
+                    {"error": "Name is required"}, status=400)
             if len(name) > self._MAX_NAME_LENGTH:
                 return web.json_response(
                     {"error": f"Name must be ≤ {self._MAX_NAME_LENGTH} characters"}, status=400,
                 )
             if not schedule:
-                return web.json_response({"error": "Schedule is required"}, status=400)
+                return web.json_response(
+                    {"error": "Schedule is required"}, status=400)
             if len(prompt) > self._MAX_PROMPT_LENGTH:
                 return web.json_response(
                     {"error": f"Prompt must be ≤ {self._MAX_PROMPT_LENGTH} characters"}, status=400,
                 )
-            if repeat is not None and (not isinstance(repeat, int) or repeat < 1):
-                return web.json_response({"error": "Repeat must be a positive integer"}, status=400)
+            if repeat is not None and (
+                    not isinstance(repeat, int) or repeat < 1):
+                return web.json_response(
+                    {"error": "Repeat must be a positive integer"}, status=400)
 
             kwargs = {
                 "prompt": prompt,
@@ -3162,12 +3433,14 @@ class APIServerAdapter(BasePlatformAdapter):
         try:
             job = _cron_get(job_id)
             if not job:
-                return web.json_response({"error": "Job not found"}, status=404)
+                return web.json_response(
+                    {"error": "Job not found"}, status=404)
             return web.json_response({"job": job})
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
-    async def _handle_update_job(self, request: "web.Request") -> "web.Response":
+    async def _handle_update_job(
+            self, request: "web.Request") -> "web.Response":
         """PATCH /api/jobs/{job_id} — update a cron job."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -3181,26 +3454,33 @@ class APIServerAdapter(BasePlatformAdapter):
         try:
             body = await request.json()
             # Whitelist allowed fields to prevent arbitrary key injection
-            sanitized = {k: v for k, v in body.items() if k in self._UPDATE_ALLOWED_FIELDS}
+            sanitized = {
+                k: v for k,
+                v in body.items() if k in self._UPDATE_ALLOWED_FIELDS}
             if not sanitized:
-                return web.json_response({"error": "No valid fields to update"}, status=400)
+                return web.json_response(
+                    {"error": "No valid fields to update"}, status=400)
             # Validate lengths if present
-            if "name" in sanitized and len(sanitized["name"]) > self._MAX_NAME_LENGTH:
+            if "name" in sanitized and len(
+                    sanitized["name"]) > self._MAX_NAME_LENGTH:
                 return web.json_response(
                     {"error": f"Name must be ≤ {self._MAX_NAME_LENGTH} characters"}, status=400,
                 )
-            if "prompt" in sanitized and len(sanitized["prompt"]) > self._MAX_PROMPT_LENGTH:
+            if "prompt" in sanitized and len(
+                    sanitized["prompt"]) > self._MAX_PROMPT_LENGTH:
                 return web.json_response(
                     {"error": f"Prompt must be ≤ {self._MAX_PROMPT_LENGTH} characters"}, status=400,
                 )
             job = _cron_update(job_id, sanitized)
             if not job:
-                return web.json_response({"error": "Job not found"}, status=404)
+                return web.json_response(
+                    {"error": "Job not found"}, status=404)
             return web.json_response({"job": job})
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
-    async def _handle_delete_job(self, request: "web.Request") -> "web.Response":
+    async def _handle_delete_job(
+            self, request: "web.Request") -> "web.Response":
         """DELETE /api/jobs/{job_id} — delete a cron job."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -3214,12 +3494,14 @@ class APIServerAdapter(BasePlatformAdapter):
         try:
             success = _cron_remove(job_id)
             if not success:
-                return web.json_response({"error": "Job not found"}, status=404)
+                return web.json_response(
+                    {"error": "Job not found"}, status=404)
             return web.json_response({"ok": True})
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
-    async def _handle_pause_job(self, request: "web.Request") -> "web.Response":
+    async def _handle_pause_job(
+            self, request: "web.Request") -> "web.Response":
         """POST /api/jobs/{job_id}/pause — pause a cron job."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -3233,12 +3515,14 @@ class APIServerAdapter(BasePlatformAdapter):
         try:
             job = _cron_pause(job_id)
             if not job:
-                return web.json_response({"error": "Job not found"}, status=404)
+                return web.json_response(
+                    {"error": "Job not found"}, status=404)
             return web.json_response({"job": job})
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
-    async def _handle_resume_job(self, request: "web.Request") -> "web.Response":
+    async def _handle_resume_job(
+            self, request: "web.Request") -> "web.Response":
         """POST /api/jobs/{job_id}/resume — resume a paused cron job."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -3252,7 +3536,8 @@ class APIServerAdapter(BasePlatformAdapter):
         try:
             job = _cron_resume(job_id)
             if not job:
-                return web.json_response({"error": "Job not found"}, status=404)
+                return web.json_response(
+                    {"error": "Job not found"}, status=404)
             return web.json_response({"job": job})
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
@@ -3271,7 +3556,8 @@ class APIServerAdapter(BasePlatformAdapter):
         try:
             job = _cron_trigger(job_id)
             if not job:
-                return web.json_response({"error": "Job not found"}, status=404)
+                return web.json_response(
+                    {"error": "Job not found"}, status=404)
             return web.json_response({"job": job})
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
@@ -3290,7 +3576,8 @@ class APIServerAdapter(BasePlatformAdapter):
         """Build the stored Responses transcript without duplicating history."""
         prior = list(conversation_history)
         current_user = {"role": "user", "content": user_message}
-        agent_messages = result.get("messages") if isinstance(result, dict) else None
+        agent_messages = result.get(
+            "messages") if isinstance(result, dict) else None
 
         if isinstance(agent_messages, list) and agent_messages:
             turn_start = APIServerAdapter._response_messages_turn_start_index(
@@ -3318,7 +3605,8 @@ class APIServerAdapter(BasePlatformAdapter):
         result: Dict[str, Any],
     ) -> int:
         """Detect transcript-shaped result["messages"] and return turn start."""
-        agent_messages = result.get("messages") if isinstance(result, dict) else None
+        agent_messages = result.get(
+            "messages") if isinstance(result, dict) else None
         if not isinstance(agent_messages, list) or not agent_messages:
             return 0
 
@@ -3353,7 +3641,8 @@ class APIServerAdapter(BasePlatformAdapter):
         separate ``GET /messages`` round-trip.  Purely additive: clients that
         ignore the field are unaffected.  Refs #34703.
         """
-        agent_messages = result.get("messages") if isinstance(result, dict) else None
+        agent_messages = result.get(
+            "messages") if isinstance(result, dict) else None
         if not isinstance(agent_messages, list) or not agent_messages:
             return []
         start = cls._response_messages_turn_start_index(
@@ -3370,7 +3659,8 @@ class APIServerAdapter(BasePlatformAdapter):
         return out
 
     @staticmethod
-    def _extract_output_items(result: Dict[str, Any], start_index: int = 0) -> List[Dict[str, Any]]:
+    def _extract_output_items(
+            result: Dict[str, Any], start_index: int = 0) -> List[Dict[str, Any]]:
         """
         Build the output item array from the agent's messages.
 
@@ -3490,7 +3780,8 @@ class APIServerAdapter(BasePlatformAdapter):
     _RUN_STREAM_TTL = 300  # seconds before orphaned runs are swept
     _RUN_STATUS_TTL = 3600  # seconds to retain terminal run status for polling
 
-    def _set_run_status(self, run_id: str, status: str, **fields: Any) -> Dict[str, Any]:
+    def _set_run_status(self, run_id: str, status: str,
+                        **fields: Any) -> Dict[str, Any]:
         """Update pollable run status without exposing private agent objects."""
         now = time.time()
         current = self._run_statuses.get(run_id, {})
@@ -3505,7 +3796,8 @@ class APIServerAdapter(BasePlatformAdapter):
         self._run_statuses[run_id] = current
         return current
 
-    def _make_run_event_callback(self, run_id: str, loop: "asyncio.AbstractEventLoop"):
+    def _make_run_event_callback(
+            self, run_id: str, loop: "asyncio.AbstractEventLoop"):
         """Return a tool_progress_callback that pushes structured events to the run's SSE queue."""
         def _push(event: Dict[str, Any]) -> None:
             self._set_run_status(
@@ -3521,7 +3813,8 @@ class APIServerAdapter(BasePlatformAdapter):
             except Exception:
                 pass
 
-        def _callback(event_type: str, tool_name: str = None, preview: str = None, args=None, **kwargs):
+        def _callback(event_type: str, tool_name: str = None,
+                      preview: str = None, args=None, **kwargs):
             ts = time.time()
             if event_type == "tool.started":
                 _push({
@@ -3565,7 +3858,10 @@ class APIServerAdapter(BasePlatformAdapter):
         # Enforce concurrency limit
         if len(self._run_streams) >= self._MAX_CONCURRENT_RUNS:
             return web.json_response(
-                _openai_error(f"Too many concurrent runs (max {self._MAX_CONCURRENT_RUNS})", code="rate_limit_exceeded"),
+                _openai_error(
+                    f"Too many concurrent runs (max {
+                        self._MAX_CONCURRENT_RUNS})",
+                    code="rate_limit_exceeded"),
                 status=429,
             )
 
@@ -3576,11 +3872,14 @@ class APIServerAdapter(BasePlatformAdapter):
 
         raw_input = body.get("input")
         if not raw_input:
-            return web.json_response(_openai_error("Missing 'input' field"), status=400)
+            return web.json_response(_openai_error(
+                "Missing 'input' field"), status=400)
 
-        user_message = raw_input if isinstance(raw_input, str) else (raw_input[-1].get("content", "") if isinstance(raw_input, list) else "")
+        user_message = raw_input if isinstance(raw_input, str) else (
+            raw_input[-1].get("content", "") if isinstance(raw_input, list) else "")
         if not user_message:
-            return web.json_response(_openai_error("No user message found in input"), status=400)
+            return web.json_response(_openai_error(
+                "No user message found in input"), status=400)
 
         instructions = body.get("instructions")
         previous_response_id = body.get("previous_response_id")
@@ -3592,24 +3891,30 @@ class APIServerAdapter(BasePlatformAdapter):
         if raw_history:
             if not isinstance(raw_history, list):
                 return web.json_response(
-                    _openai_error("'conversation_history' must be an array of message objects"),
+                    _openai_error(
+                        "'conversation_history' must be an array of message objects"),
                     status=400,
                 )
             for i, entry in enumerate(raw_history):
-                if not isinstance(entry, dict) or "role" not in entry or "content" not in entry:
+                if not isinstance(
+                        entry, dict) or "role" not in entry or "content" not in entry:
                     return web.json_response(
-                        _openai_error(f"conversation_history[{i}] must have 'role' and 'content' fields"),
+                        _openai_error(
+                            f"conversation_history[{i}] must have 'role' and 'content' fields"),
                         status=400,
                     )
-                conversation_history.append({"role": str(entry["role"]), "content": str(entry["content"])})
+                conversation_history.append(
+                    {"role": str(entry["role"]), "content": str(entry["content"])})
             if previous_response_id:
-                logger.debug("Both conversation_history and previous_response_id provided; using conversation_history")
+                logger.debug(
+                    "Both conversation_history and previous_response_id provided; using conversation_history")
 
         stored_session_id = None
         if not conversation_history and previous_response_id:
             stored = self._response_store.get(previous_response_id)
             if stored:
-                conversation_history = list(stored.get("conversation_history", []))
+                conversation_history = list(
+                    stored.get("conversation_history", []))
                 stored_session_id = stored.get("session_id")
                 if instructions is None:
                     instructions = stored.get("instructions")
@@ -3617,9 +3922,11 @@ class APIServerAdapter(BasePlatformAdapter):
         # When input is a multi-message array, extract all but the last
         # message as conversation history (the last becomes user_message).
         # Only fires when no explicit history was provided.
-        if not conversation_history and isinstance(raw_input, list) and len(raw_input) > 1:
+        if not conversation_history and isinstance(
+                raw_input, list) and len(raw_input) > 1:
             for msg in raw_input[:-1]:
-                if isinstance(msg, dict) and msg.get("role") and msg.get("content"):
+                if isinstance(msg, dict) and msg.get(
+                        "role") and msg.get("content"):
                     content = msg["content"]
                     if isinstance(content, list):
                         # Flatten multi-part content blocks to text
@@ -3627,7 +3934,8 @@ class APIServerAdapter(BasePlatformAdapter):
                             part.get("text", "") for part in content
                             if isinstance(part, dict) and part.get("type") == "text"
                         )
-                    conversation_history.append({"role": msg["role"], "content": str(content)})
+                    conversation_history.append(
+                        {"role": msg["role"], "content": str(content)})
 
         run_id = f"run_{uuid.uuid4().hex}"
         session_id = body.get("session_id") or stored_session_id or run_id
@@ -3695,7 +4003,10 @@ class APIServerAdapter(BasePlatformAdapter):
                         pass
 
                 def _run_sync():
-                    from gateway.session_context import clear_session_vars, set_session_vars
+                    from gateway.session_context import (
+                        clear_session_vars,
+                        set_session_vars,
+                    )
                     from tools.approval import (
                         register_gateway_notify,
                         reset_current_session_key,
@@ -3710,12 +4021,14 @@ class APIServerAdapter(BasePlatformAdapter):
                         # Bind approval/session identity for this API run via
                         # contextvars so concurrent runs do not share process
                         # environment state.
-                        approval_token = set_current_session_key(approval_session_key)
+                        approval_token = set_current_session_key(
+                            approval_session_key)
                         session_tokens = set_session_vars(
                             platform="api_server",
                             session_key=approval_session_key,
                         )
-                        register_gateway_notify(approval_session_key, _approval_notify)
+                        register_gateway_notify(
+                            approval_session_key, _approval_notify)
                         r = agent.run_conversation(
                             user_message=user_message,
                             conversation_history=conversation_history,
@@ -3761,7 +4074,9 @@ class APIServerAdapter(BasePlatformAdapter):
                         last_event="run.failed",
                     )
                 else:
-                    final_response = result.get("final_response", "") if isinstance(result, dict) else ""
+                    final_response = result.get(
+                        "final_response", "") if isinstance(
+                        result, dict) else ""
                     q.put_nowait({
                         "event": "run.completed",
                         "run_id": run_id,
@@ -3857,12 +4172,15 @@ class APIServerAdapter(BasePlatformAdapter):
         status = self._run_statuses.get(run_id)
         if status is None:
             return web.json_response(
-                _openai_error(f"Run not found: {run_id}", code="run_not_found"),
+                _openai_error(
+                    f"Run not found: {run_id}",
+                    code="run_not_found"),
                 status=404,
             )
         return web.json_response(status)
 
-    async def _handle_run_events(self, request: "web.Request") -> "web.StreamResponse":
+    async def _handle_run_events(
+            self, request: "web.Request") -> "web.StreamResponse":
         """GET /v1/runs/{run_id}/events — SSE stream of structured agent lifecycle events."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -3870,13 +4188,15 @@ class APIServerAdapter(BasePlatformAdapter):
 
         run_id = request.match_info["run_id"]
 
-        # Allow subscribing slightly before the run is registered (race condition window)
+        # Allow subscribing slightly before the run is registered (race
+        # condition window)
         for _ in range(20):
             if run_id in self._run_streams:
                 break
             await asyncio.sleep(0.05)
         else:
-            return web.json_response(_openai_error(f"Run not found: {run_id}", code="run_not_found"), status=404)
+            return web.json_response(_openai_error(
+                f"Run not found: {run_id}", code="run_not_found"), status=404)
 
         q = self._run_streams[run_id]
 
@@ -3904,15 +4224,18 @@ class APIServerAdapter(BasePlatformAdapter):
                 payload = f"data: {json.dumps(event)}\n\n"
                 await response.write(payload.encode())
         except Exception as exc:
-            logger.debug("[api_server] SSE stream error for run %s: %s", run_id, exc)
+            logger.debug(
+                "[api_server] SSE stream error for run %s: %s",
+                run_id,
+                exc)
         finally:
             self._run_streams.pop(run_id, None)
             self._run_streams_created.pop(run_id, None)
 
         return response
 
-
-    async def _handle_run_approval(self, request: "web.Request") -> "web.Response":
+    async def _handle_run_approval(
+            self, request: "web.Request") -> "web.Response":
         """POST /v1/runs/{run_id}/approval — resolve a pending run approval."""
         auth_err = self._check_auth(request)
         if auth_err:
@@ -3922,7 +4245,9 @@ class APIServerAdapter(BasePlatformAdapter):
         status = self._run_statuses.get(run_id)
         if status is None:
             return web.json_response(
-                _openai_error(f"Run not found: {run_id}", code="run_not_found"),
+                _openai_error(
+                    f"Run not found: {run_id}",
+                    code="run_not_found"),
                 status=404,
             )
 
@@ -3967,7 +4292,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 resolve_all=resolve_all,
             )
         except Exception as exc:
-            logger.exception("[api_server] approval resolution failed for run %s", run_id)
+            logger.exception(
+                "[api_server] approval resolution failed for run %s", run_id)
             return web.json_response(_openai_error(str(exc)), status=500)
 
         if resolved <= 0:
@@ -3979,7 +4305,10 @@ class APIServerAdapter(BasePlatformAdapter):
                 status=409,
             )
 
-        self._set_run_status(run_id, "running", last_event="approval.responded")
+        self._set_run_status(
+            run_id,
+            "running",
+            last_event="approval.responded")
         q = self._run_streams.get(run_id)
         if q is not None:
             try:
@@ -4011,7 +4340,8 @@ class APIServerAdapter(BasePlatformAdapter):
         task = self._active_run_tasks.get(run_id)
 
         if agent is None and task is None:
-            return web.json_response(_openai_error(f"Run not found: {run_id}", code="run_not_found"), status=404)
+            return web.json_response(_openai_error(
+                f"Run not found: {run_id}", code="run_not_found"), status=404)
 
         self._set_run_status(run_id, "stopping", last_event="run.stopping")
 
@@ -4055,7 +4385,8 @@ class APIServerAdapter(BasePlatformAdapter):
                 try:
                     from tools.approval import unregister_gateway_notify
 
-                    approval_session_key = self._run_approval_sessions.get(run_id)
+                    approval_session_key = self._run_approval_sessions.get(
+                        run_id)
                     if approval_session_key:
                         unregister_gateway_notify(approval_session_key)
                 except Exception:
@@ -4086,52 +4417,100 @@ class APIServerAdapter(BasePlatformAdapter):
             return False
 
         try:
-            mws = [mw for mw in (cors_middleware, body_limit_middleware, security_headers_middleware) if mw is not None]
-            self._app = web.Application(middlewares=mws, client_max_size=MAX_REQUEST_BYTES)
+            mws = [
+                mw for mw in (
+                    cors_middleware,
+                    body_limit_middleware,
+                    security_headers_middleware) if mw is not None]
+            self._app = web.Application(
+                middlewares=mws, client_max_size=MAX_REQUEST_BYTES)
             assert self._app is not None
             self._app.router.add_get("/health", self._handle_health)
-            self._app.router.add_get("/health/detailed", self._handle_health_detailed)
+            self._app.router.add_get(
+                "/health/detailed",
+                self._handle_health_detailed)
             self._app.router.add_get("/v1/health", self._handle_health)
             self._app.router.add_get("/v1/models", self._handle_models)
-            self._app.router.add_get("/v1/capabilities", self._handle_capabilities)
+            self._app.router.add_get(
+                "/v1/capabilities",
+                self._handle_capabilities)
             self._app.router.add_get("/v1/skills", self._handle_skills)
             self._app.router.add_get("/v1/toolsets", self._handle_toolsets)
-            # Session/client control surface (thin wrappers over SessionDB + _run_agent)
-            self._app.router.add_get("/api/sessions", self._handle_list_sessions)
-            self._app.router.add_post("/api/sessions", self._handle_create_session)
-            self._app.router.add_get("/api/sessions/{session_id}", self._handle_get_session)
-            self._app.router.add_patch("/api/sessions/{session_id}", self._handle_patch_session)
-            self._app.router.add_delete("/api/sessions/{session_id}", self._handle_delete_session)
-            self._app.router.add_get("/api/sessions/{session_id}/messages", self._handle_session_messages)
-            self._app.router.add_post("/api/sessions/{session_id}/fork", self._handle_fork_session)
-            self._app.router.add_post("/api/sessions/{session_id}/chat", self._handle_session_chat)
-            self._app.router.add_post("/api/sessions/{session_id}/chat/stream", self._handle_session_chat_stream)
-            self._app.router.add_post("/v1/chat/completions", self._handle_chat_completions)
+            # Session/client control surface (thin wrappers over SessionDB +
+            # _run_agent)
+            self._app.router.add_get(
+                "/api/sessions", self._handle_list_sessions)
+            self._app.router.add_post(
+                "/api/sessions", self._handle_create_session)
+            self._app.router.add_get(
+                "/api/sessions/{session_id}",
+                self._handle_get_session)
+            self._app.router.add_patch(
+                "/api/sessions/{session_id}",
+                self._handle_patch_session)
+            self._app.router.add_delete(
+                "/api/sessions/{session_id}",
+                self._handle_delete_session)
+            self._app.router.add_get(
+                "/api/sessions/{session_id}/messages",
+                self._handle_session_messages)
+            self._app.router.add_post(
+                "/api/sessions/{session_id}/fork",
+                self._handle_fork_session)
+            self._app.router.add_post(
+                "/api/sessions/{session_id}/chat",
+                self._handle_session_chat)
+            self._app.router.add_post(
+                "/api/sessions/{session_id}/chat/stream",
+                self._handle_session_chat_stream)
+            self._app.router.add_post(
+                "/v1/chat/completions",
+                self._handle_chat_completions)
             self._app.router.add_post("/v1/responses", self._handle_responses)
-            self._app.router.add_get("/v1/responses/{response_id}", self._handle_get_response)
-            self._app.router.add_delete("/v1/responses/{response_id}", self._handle_delete_response)
+            self._app.router.add_get(
+                "/v1/responses/{response_id}",
+                self._handle_get_response)
+            self._app.router.add_delete(
+                "/v1/responses/{response_id}",
+                self._handle_delete_response)
             # Cron jobs management API
             self._app.router.add_get("/api/jobs", self._handle_list_jobs)
             self._app.router.add_post("/api/jobs", self._handle_create_job)
-            self._app.router.add_get("/api/jobs/{job_id}", self._handle_get_job)
-            self._app.router.add_patch("/api/jobs/{job_id}", self._handle_update_job)
-            self._app.router.add_delete("/api/jobs/{job_id}", self._handle_delete_job)
-            self._app.router.add_post("/api/jobs/{job_id}/pause", self._handle_pause_job)
-            self._app.router.add_post("/api/jobs/{job_id}/resume", self._handle_resume_job)
-            self._app.router.add_post("/api/jobs/{job_id}/run", self._handle_run_job)
+            self._app.router.add_get(
+                "/api/jobs/{job_id}", self._handle_get_job)
+            self._app.router.add_patch(
+                "/api/jobs/{job_id}", self._handle_update_job)
+            self._app.router.add_delete(
+                "/api/jobs/{job_id}", self._handle_delete_job)
+            self._app.router.add_post(
+                "/api/jobs/{job_id}/pause",
+                self._handle_pause_job)
+            self._app.router.add_post(
+                "/api/jobs/{job_id}/resume",
+                self._handle_resume_job)
+            self._app.router.add_post(
+                "/api/jobs/{job_id}/run",
+                self._handle_run_job)
             # Structured event streaming
             self._app.router.add_post("/v1/runs", self._handle_runs)
             self._app.router.add_get("/v1/runs/{run_id}", self._handle_get_run)
-            self._app.router.add_get("/v1/runs/{run_id}/events", self._handle_run_events)
-            self._app.router.add_post("/v1/runs/{run_id}/approval", self._handle_run_approval)
-            self._app.router.add_post("/v1/runs/{run_id}/stop", self._handle_stop_run)
+            self._app.router.add_get(
+                "/v1/runs/{run_id}/events",
+                self._handle_run_events)
+            self._app.router.add_post(
+                "/v1/runs/{run_id}/approval",
+                self._handle_run_approval)
+            self._app.router.add_post(
+                "/v1/runs/{run_id}/stop",
+                self._handle_stop_run)
             # Store the adapter after native routes are registered. Local NasTech-Relay
             # bootstrap shims use this key as a feature-detection hook; registering
             # native routes first lets those shims no-op instead of shadowing the
             # upstream session-control handlers.
             self._app["api_server_adapter"] = self
 
-            # Start background sweep to clean up orphaned (unconsumed) run streams
+            # Start background sweep to clean up orphaned (unconsumed) run
+            # streams
             sweep_task = asyncio.create_task(self._sweep_orphaned_runs())
             try:
                 self._background_tasks.add(sweep_task)
@@ -4173,7 +4552,10 @@ class APIServerAdapter(BasePlatformAdapter):
                 with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as _s:
                     _s.settimeout(1)
                     _s.connect(('127.0.0.1', self._port))
-                logger.error('[%s] Port %d already in use. Set a different port in config.yaml: platforms.api_server.port', self.name, self._port)
+                logger.error(
+                    '[%s] Port %d already in use. Set a different port in config.yaml: platforms.api_server.port',
+                    self.name,
+                    self._port)
                 return False
             except (ConnectionRefusedError, OSError):
                 pass  # port is free
@@ -4216,7 +4598,8 @@ class APIServerAdapter(BasePlatformAdapter):
         """
         Not used — HTTP request/response cycle handles delivery directly.
         """
-        return SendResult(success=False, error="API server uses HTTP request/response, not send()")
+        return SendResult(
+            success=False, error="API server uses HTTP request/response, not send()")
 
     async def get_chat_info(self, chat_id: str) -> Dict[str, Any]:
         """Return basic info about the API server."""

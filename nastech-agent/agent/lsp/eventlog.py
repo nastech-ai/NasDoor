@@ -105,7 +105,11 @@ def log_clean(server_id: str, file_path: str) -> None:
 def log_disabled(server_id: str, file_path: str, reason: str) -> None:
     """LSP intentionally skipped for this file (feature off, ext unmapped,
     backend not local, etc.).  DEBUG."""
-    _emit(server_id, logging.DEBUG, f"skipped: {reason} ({_short_path(file_path)})")
+    _emit(
+        server_id,
+        logging.DEBUG,
+        f"skipped: {reason} ({
+            _short_path(file_path)})")
 
 
 def log_active(server_id: str, workspace_root: str) -> None:
@@ -133,9 +137,17 @@ def log_no_project_root(server_id: str, file_path: str) -> None:
     DEBUG thereafter."""
     key = (server_id, file_path)
     if _announce_once(_announced_no_root, key):
-        _emit(server_id, logging.INFO, f"no project root for {_short_path(file_path)}")
+        _emit(
+            server_id,
+            logging.INFO,
+            f"no project root for {
+                _short_path(file_path)}")
     else:
-        _emit(server_id, logging.DEBUG, f"no project root for {_short_path(file_path)}")
+        _emit(
+            server_id,
+            logging.DEBUG,
+            f"no project root for {
+                _short_path(file_path)}")
 
 
 def log_server_unavailable(server_id: str, binary_or_pkg: str) -> None:
@@ -151,7 +163,10 @@ def log_server_unavailable(server_id: str, binary_or_pkg: str) -> None:
             "(install via `nastech lsp install <id>` or set lsp.servers.<id>.command)",
         )
     else:
-        _emit(server_id, logging.DEBUG, f"server still unavailable: {binary_or_pkg}")
+        _emit(
+            server_id,
+            logging.DEBUG,
+            f"server still unavailable: {binary_or_pkg}")
 
 
 def log_no_server_configured(server_id: str) -> None:
@@ -160,7 +175,8 @@ def log_no_server_configured(server_id: str) -> None:
         _emit(server_id, logging.WARNING, "no server configured")
 
 
-def log_timeout(server_id: str, file_path: str, kind: str = "diagnostics") -> None:
+def log_timeout(server_id: str, file_path: str,
+                kind: str = "diagnostics") -> None:
     """A request to the server timed out.  WARNING every time — these are
     inherently novel events worth surfacing on each occurrence."""
     _emit(
@@ -170,21 +186,26 @@ def log_timeout(server_id: str, file_path: str, kind: str = "diagnostics") -> No
     )
 
 
-def log_server_error(server_id: str, file_path: str, exc: BaseException) -> None:
+def log_server_error(server_id: str, file_path: str,
+                     exc: BaseException) -> None:
     """An unexpected exception bubbled out of the LSP layer.  WARNING."""
     _emit(
         server_id,
         logging.WARNING,
-        f"unexpected error for {_short_path(file_path)}: {type(exc).__name__}: {exc}",
+        f"unexpected error for {
+            _short_path(file_path)}: {
+            type(exc).__name__}: {exc}",
     )
 
 
-def log_spawn_failed(server_id: str, workspace_root: str, exc: BaseException) -> None:
+def log_spawn_failed(server_id: str, workspace_root: str,
+                     exc: BaseException) -> None:
     """The LSP server failed to spawn or initialize.  WARNING."""
     _emit(
         server_id,
         logging.WARNING,
-        f"spawn/initialize failed for {workspace_root}: {type(exc).__name__}: {exc}",
+        f"spawn/initialize failed for {workspace_root}: {
+            type(exc).__name__}: {exc}",
     )
 
 

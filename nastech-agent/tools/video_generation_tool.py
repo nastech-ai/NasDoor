@@ -310,10 +310,13 @@ def _normalize_reference_images(value: Any) -> Optional[List[str]]:
 def _handle_video_generate(args: Dict[str, Any], **_kw: Any) -> str:
     prompt = (args.get("prompt") or "").strip()
     image_url = (args.get("image_url") or "").strip() or None
-    reference_image_urls = _normalize_reference_images(args.get("reference_image_urls"))
+    reference_image_urls = _normalize_reference_images(
+        args.get("reference_image_urls"))
     duration = _coerce_int(args.get("duration"))
-    aspect_ratio = (args.get("aspect_ratio") or DEFAULT_ASPECT_RATIO).strip() or DEFAULT_ASPECT_RATIO
-    resolution = (args.get("resolution") or DEFAULT_RESOLUTION).strip() or DEFAULT_RESOLUTION
+    aspect_ratio = (args.get("aspect_ratio")
+                    or DEFAULT_ASPECT_RATIO).strip() or DEFAULT_ASPECT_RATIO
+    resolution = (args.get("resolution")
+                  or DEFAULT_RESOLUTION).strip() or DEFAULT_RESOLUTION
     negative_prompt = (args.get("negative_prompt") or "").strip() or None
     audio = _coerce_bool(args.get("audio"))
     seed = _coerce_int(args.get("seed"))
@@ -437,7 +440,8 @@ def _format_model_caveats(
     caveats: List[str] = []
 
     modalities = set(model_meta.get("modalities") or [])
-    modality = model_meta.get("modality")  # FAL's plugin uses this key for single-modality entries
+    # FAL's plugin uses this key for single-modality entries
+    modality = model_meta.get("modality")
     if modality:
         modalities.add(modality)
 
@@ -519,14 +523,16 @@ def _build_dynamic_video_schema() -> Dict[str, Any]:
     # both text and image. Single-modality backends are already covered by
     # the model caveat above.
     modalities = set(caps.get("modalities") or [])
-    if "text" in modalities and "image" in modalities and not model_meta.get("modality"):
+    if "text" in modalities and "image" in modalities and not model_meta.get(
+            "modality"):
         parts.append(
             "- supports both text-to-video (omit image_url) and "
             "image-to-video (pass image_url) — routes automatically"
         )
 
     if caps.get("aspect_ratios"):
-        parts.append(f"- aspect_ratio choices: {', '.join(caps['aspect_ratios'])}")
+        parts.append(
+            f"- aspect_ratio choices: {', '.join(caps['aspect_ratios'])}")
     if caps.get("resolutions"):
         parts.append(f"- resolution choices: {', '.join(caps['resolutions'])}")
     if caps.get("min_duration") and caps.get("max_duration"):
@@ -534,7 +540,8 @@ def _build_dynamic_video_schema() -> Dict[str, Any]:
             f"- duration range: {caps['min_duration']}-{caps['max_duration']}s"
         )
     if caps.get("supports_audio"):
-        parts.append("- audio: pass `audio=true` to enable native audio (pricing tier)")
+        parts.append(
+            "- audio: pass `audio=true` to enable native audio (pricing tier)")
     if caps.get("supports_negative_prompt"):
         parts.append("- negative_prompt: supported")
     max_refs = caps.get("max_reference_images") or 0

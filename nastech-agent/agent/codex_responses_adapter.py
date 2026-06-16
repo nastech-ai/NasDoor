@@ -76,7 +76,8 @@ _TOOL_CALL_LEAK_PATTERN = re.compile(
 # Multimodal content helpers
 # ---------------------------------------------------------------------------
 
-def _chat_content_to_responses_parts(content: Any, *, role: str = "user") -> List[Dict[str, Any]]:
+def _chat_content_to_responses_parts(
+        content: Any, *, role: str = "user") -> List[Dict[str, Any]]:
     """Convert chat-style multimodal content to Responses API input parts.
 
     Input:  ``[{"type":"text"|"image_url", ...}]`` (native OpenAI Chat format)
@@ -120,7 +121,8 @@ def _chat_content_to_responses_parts(content: Any, *, role: str = "user") -> Lis
                 url = image_ref
             if not isinstance(url, str) or not url:
                 continue
-            image_part: Dict[str, Any] = {"type": "input_image", "image_url": url}
+            image_part: Dict[str, Any] = {
+                "type": "input_image", "image_url": url}
             if isinstance(detail, str) and detail.strip():
                 image_part["detail"] = detail.strip()
             converted.append(image_part)
@@ -172,7 +174,8 @@ def _summarize_user_message_for_log(content: Any) -> str:
 # ID helpers
 # ---------------------------------------------------------------------------
 
-def _deterministic_call_id(fn_name: str, arguments: str, index: int = 0) -> str:
+def _deterministic_call_id(
+        fn_name: str, arguments: str, index: int = 0) -> str:
     """Generate a deterministic call_id from tool call content.
 
     Used as a fallback when the API doesn't provide a call_id.
@@ -180,11 +183,16 @@ def _deterministic_call_id(fn_name: str, arguments: str, index: int = 0) -> str:
     make every API call's prefix unique, breaking OpenAI's prompt cache.
     """
     seed = f"{fn_name}:{arguments}:{index}"
-    digest = hashlib.sha256(seed.encode("utf-8", errors="replace")).hexdigest()[:12]
+    digest = hashlib.sha256(
+        seed.encode(
+            "utf-8",
+            errors="replace")).hexdigest()[
+        :12]
     return f"call_{digest}"
 
 
-def _split_responses_tool_id(raw_id: Any) -> tuple[Optional[str], Optional[str]]:
+def _split_responses_tool_id(
+        raw_id: Any) -> tuple[Optional[str], Optional[str]]:
     """Split a stored tool id into (call_id, response_item_id)."""
     if not isinstance(raw_id, str):
         return None, None
@@ -234,7 +242,8 @@ def _derive_responses_function_call_id(
 # Schema conversion
 # ---------------------------------------------------------------------------
 
-def _responses_tools(tools: Optional[List[Dict[str, Any]]] = None) -> Optional[List[Dict[str, Any]]]:
+def _responses_tools(
+        tools: Optional[List[Dict[str, Any]]] = None) -> Optional[List[Dict[str, Any]]]:
     """Convert chat-completions tool schemas to Responses function-tool schemas."""
     if not tools:
         return None
@@ -262,7 +271,8 @@ def _responses_tools(tools: Optional[List[Dict[str, Any]]] = None) -> Optional[L
 _RESPONSE_MESSAGE_STATUSES = {"completed", "incomplete", "in_progress"}
 
 
-def _normalize_responses_message_status(value: Any, *, default: str = "completed") -> str:
+def _normalize_responses_message_status(
+        value: Any, *, default: str = "completed") -> str:
     """Normalize a Responses assistant message status for replay.
 
     The API accepts completed/incomplete/in_progress on replayed assistant
@@ -330,7 +340,8 @@ def _chat_messages_to_responses_input(
         if role in {"user", "assistant"}:
             content = msg.get("content", "")
             if isinstance(content, list):
-                content_parts = _chat_content_to_responses_parts(content, role=role)
+                content_parts = _chat_content_to_responses_parts(
+                    content, role=role)
                 text_type = "output_text" if role == "assistant" else "input_text"
                 content_text = "".join(
                     p.get("text", "") for p in content_parts if p.get("type") == text_type
@@ -353,7 +364,8 @@ def _chat_messages_to_responses_input(
                 has_codex_reasoning = False
                 if isinstance(codex_reasoning, list):
                     for ri in codex_reasoning:
-                        if isinstance(ri, dict) and ri.get("encrypted_content"):
+                        if isinstance(ri, dict) and ri.get(
+                                "encrypted_content"):
                             item_id = ri.get("id")
                             if item_id and item_id in seen_item_ids:
                                 continue
@@ -406,7 +418,8 @@ def _chat_messages_to_responses_input(
                     for raw_item in codex_message_items:
                         if not isinstance(raw_item, dict):
                             continue
-                        if raw_item.get("type") != "message" or raw_item.get("role") != "assistant":
+                        if raw_item.get("type") != "message" or raw_item.get(
+                                "role") != "assistant":
                             continue
                         raw_content_parts = raw_item.get("content")
                         if not isinstance(raw_content_parts, list):
@@ -424,7 +437,8 @@ def _chat_messages_to_responses_input(
                                 text = ""
                             if not isinstance(text, str):
                                 text = str(text)
-                            normalized_content_parts.append({"type": "output_text", "text": text})
+                            normalized_content_parts.append(
+                                {"type": "output_text", "text": text})
 
                         if not normalized_content_parts:
                             continue
@@ -447,9 +461,11 @@ def _chat_messages_to_responses_input(
                 if replayed_message_items > 0:
                     pass
                 elif content_parts:
-                    items.append({"role": "assistant", "content": content_parts})
+                    items.append(
+                        {"role": "assistant", "content": content_parts})
                 elif content_text.strip():
-                    items.append({"role": "assistant", "content": content_text})
+                    items.append(
+                        {"role": "assistant", "content": content_text})
                 elif has_codex_reasoning:
                     # The Responses API requires a following item after each
                     # reasoning item (otherwise: missing_following_item error).
@@ -483,12 +499,14 @@ def _chat_messages_to_responses_input(
                                 call_id = f"call_{embedded_response_item_id[len('fc_'):]}"
                             else:
                                 _raw_args = str(fn.get("arguments", "{}"))
-                                call_id = _deterministic_call_id(fn_name, _raw_args, len(items))
+                                call_id = _deterministic_call_id(
+                                    fn_name, _raw_args, len(items))
                         call_id = call_id.strip()
 
                         arguments = fn.get("arguments", "{}")
                         if isinstance(arguments, dict):
-                            arguments = json.dumps(arguments, ensure_ascii=False)
+                            arguments = json.dumps(
+                                arguments, ensure_ascii=False)
                         elif not isinstance(arguments, str):
                             arguments = str(arguments)
                         arguments = arguments.strip() or "{}"
@@ -513,7 +531,8 @@ def _chat_messages_to_responses_input(
             raw_tool_call_id = msg.get("tool_call_id")
             call_id, _ = _split_responses_tool_id(raw_tool_call_id)
             if not isinstance(call_id, str) or not call_id.strip():
-                if isinstance(raw_tool_call_id, str) and raw_tool_call_id.strip():
+                if isinstance(raw_tool_call_id,
+                              str) and raw_tool_call_id.strip():
                     call_id = raw_tool_call_id.strip()
             if not isinstance(call_id, str) or not call_id.strip():
                 continue
@@ -551,22 +570,26 @@ def _chat_messages_to_responses_input(
 
 def _preflight_codex_input_items(raw_items: Any) -> List[Dict[str, Any]]:
     if not isinstance(raw_items, list):
-        raise ValueError("Codex Responses input must be a list of input items.")
+        raise ValueError(
+            "Codex Responses input must be a list of input items.")
 
     normalized: List[Dict[str, Any]] = []
     seen_ids: set = set()
     for idx, item in enumerate(raw_items):
         if not isinstance(item, dict):
-            raise ValueError(f"Codex Responses input[{idx}] must be an object.")
+            raise ValueError(
+                f"Codex Responses input[{idx}] must be an object.")
 
         item_type = item.get("type")
         if item_type == "function_call":
             call_id = item.get("call_id")
             name = item.get("name")
             if not isinstance(call_id, str) or not call_id.strip():
-                raise ValueError(f"Codex Responses input[{idx}] function_call is missing call_id.")
+                raise ValueError(
+                    f"Codex Responses input[{idx}] function_call is missing call_id.")
             if not isinstance(name, str) or not name.strip():
-                raise ValueError(f"Codex Responses input[{idx}] function_call is missing name.")
+                raise ValueError(
+                    f"Codex Responses input[{idx}] function_call is missing name.")
 
             arguments = item.get("arguments", "{}")
             if isinstance(arguments, dict):
@@ -588,7 +611,8 @@ def _preflight_codex_input_items(raw_items: Any) -> List[Dict[str, Any]]:
         if item_type == "function_call_output":
             call_id = item.get("call_id")
             if not isinstance(call_id, str) or not call_id.strip():
-                raise ValueError(f"Codex Responses input[{idx}] function_call_output is missing call_id.")
+                raise ValueError(
+                    f"Codex Responses input[{idx}] function_call_output is missing call_id.")
             output = item.get("output", "")
             if output is None:
                 output = ""
@@ -607,11 +631,13 @@ def _preflight_codex_input_items(raw_items: Any) -> List[Dict[str, Any]]:
                     if ptype == "input_text":
                         text = part.get("text")
                         if isinstance(text, str) and text:
-                            cleaned.append({"type": "input_text", "text": text})
+                            cleaned.append(
+                                {"type": "input_text", "text": text})
                     elif ptype == "input_image":
                         url = part.get("image_url")
                         if isinstance(url, str) and url:
-                            entry: Dict[str, Any] = {"type": "input_image", "image_url": url}
+                            entry: Dict[str, Any] = {
+                                "type": "input_image", "image_url": url}
                             detail = part.get("detail")
                             if isinstance(detail, str) and detail.strip():
                                 entry["detail"] = detail.strip()
@@ -644,7 +670,9 @@ def _preflight_codex_input_items(raw_items: Any) -> List[Dict[str, Any]]:
                     if item_id in seen_ids:
                         continue
                     seen_ids.add(item_id)
-                reasoning_item = {"type": "reasoning", "encrypted_content": encrypted}
+                reasoning_item = {
+                    "type": "reasoning",
+                    "encrypted_content": encrypted}
                 # Do NOT include the "id" in the outgoing item — with
                 # store=False (our default) the API tries to resolve the
                 # id server-side and returns 404.  The id is still used
@@ -660,10 +688,12 @@ def _preflight_codex_input_items(raw_items: Any) -> List[Dict[str, Any]]:
         if item_type == "message":
             role = item.get("role")
             if role != "assistant":
-                raise ValueError(f"Codex Responses input[{idx}] message items must have role='assistant'.")
+                raise ValueError(
+                    f"Codex Responses input[{idx}] message items must have role='assistant'.")
             content = item.get("content")
             if not isinstance(content, list):
-                raise ValueError(f"Codex Responses input[{idx}] message item must have content list.")
+                raise ValueError(
+                    f"Codex Responses input[{idx}] message item must have content list.")
             normalized_content = []
             for part_idx, part in enumerate(content):
                 if not isinstance(part, dict):
@@ -673,16 +703,19 @@ def _preflight_codex_input_items(raw_items: Any) -> List[Dict[str, Any]]:
                 part_type = part.get("type")
                 if part_type not in {"output_text", "text"}:
                     raise ValueError(
-                        f"Codex Responses input[{idx}] message content[{part_idx}] has unsupported type {part_type!r}."
+                        f"Codex Responses input[{idx}] message content[{part_idx}] has unsupported type {
+                            part_type!r}."
                     )
                 text = part.get("text", "")
                 if text is None:
                     text = ""
                 if not isinstance(text, str):
                     text = str(text)
-                normalized_content.append({"type": "output_text", "text": text})
+                normalized_content.append(
+                    {"type": "output_text", "text": text})
             if not normalized_content:
-                raise ValueError(f"Codex Responses input[{idx}] message item must contain at least one text part.")
+                raise ValueError(
+                    f"Codex Responses input[{idx}] message item must contain at least one text part.")
             normalized_item: Dict[str, Any] = {
                 "type": "message",
                 "role": "assistant",
@@ -736,13 +769,15 @@ def _preflight_codex_input_items(raw_items: Any) -> List[Dict[str, Any]]:
                             url = image_ref
                         if not isinstance(url, str):
                             url = str(url or "")
-                        image_part: Dict[str, Any] = {"type": "input_image", "image_url": url}
+                        image_part: Dict[str, Any] = {
+                            "type": "input_image", "image_url": url}
                         if isinstance(detail, str) and detail.strip():
                             image_part["detail"] = detail.strip()
                         validated.append(image_part)
                     else:
                         raise ValueError(
-                            f"Codex Responses input[{idx}].content[{part_idx}] has unsupported type {part.get('type')!r}."
+                            f"Codex Responses input[{idx}].content[{part_idx}] has unsupported type {
+                                part.get('type')!r}."
                         )
                 normalized.append({"role": role, "content": validated})
                 continue
@@ -753,7 +788,9 @@ def _preflight_codex_input_items(raw_items: Any) -> List[Dict[str, Any]]:
             continue
 
         raise ValueError(
-            f"Codex Responses input[{idx}] has unsupported item shape (type={item_type!r}, role={role!r})."
+            f"Codex Responses input[{idx}] has unsupported item shape (type={
+                item_type!r}, role={
+                role!r})."
         )
 
     return normalized
@@ -770,11 +807,15 @@ def _preflight_codex_api_kwargs(
     required = {"model", "instructions", "input"}
     missing = [key for key in required if key not in api_kwargs]
     if missing:
-        raise ValueError(f"Codex Responses request missing required field(s): {', '.join(sorted(missing))}.")
+        raise ValueError(
+            f"Codex Responses request missing required field(s): {
+                ', '.join(
+                    sorted(missing))}.")
 
     model = api_kwargs.get("model")
     if not isinstance(model, str) or not model.strip():
-        raise ValueError("Codex Responses request 'model' must be a non-empty string.")
+        raise ValueError(
+            "Codex Responses request 'model' must be a non-empty string.")
     model = model.strip()
 
     instructions = api_kwargs.get("instructions")
@@ -790,20 +831,26 @@ def _preflight_codex_api_kwargs(
     normalized_tools = None
     if tools is not None:
         if not isinstance(tools, list):
-            raise ValueError("Codex Responses request 'tools' must be a list when provided.")
+            raise ValueError(
+                "Codex Responses request 'tools' must be a list when provided.")
         normalized_tools = []
         for idx, tool in enumerate(tools):
             if not isinstance(tool, dict):
-                raise ValueError(f"Codex Responses tools[{idx}] must be an object.")
+                raise ValueError(
+                    f"Codex Responses tools[{idx}] must be an object.")
             if tool.get("type") != "function":
-                raise ValueError(f"Codex Responses tools[{idx}] has unsupported type {tool.get('type')!r}.")
+                raise ValueError(
+                    f"Codex Responses tools[{idx}] has unsupported type {
+                        tool.get('type')!r}.")
 
             name = tool.get("name")
             parameters = tool.get("parameters")
             if not isinstance(name, str) or not name.strip():
-                raise ValueError(f"Codex Responses tools[{idx}] is missing a valid name.")
+                raise ValueError(
+                    f"Codex Responses tools[{idx}] is missing a valid name.")
             if not isinstance(parameters, dict):
-                raise ValueError(f"Codex Responses tools[{idx}] is missing valid parameters.")
+                raise ValueError(
+                    f"Codex Responses tools[{idx}] is missing valid parameters.")
 
             description = tool.get("description", "")
             if description is None:
@@ -827,7 +874,8 @@ def _preflight_codex_api_kwargs(
 
     store = api_kwargs.get("store", False)
     if store is not False:
-        raise ValueError("Codex Responses contract requires 'store' to be false.")
+        raise ValueError(
+            "Codex Responses contract requires 'store' to be false.")
 
     allowed_keys = {
         "model", "instructions", "input", "tools", "store",
@@ -871,7 +919,8 @@ def _preflight_codex_api_kwargs(
         normalized["temperature"] = float(temperature)
 
     # Pass through tool_choice, parallel_tool_calls, prompt_cache_key
-    for passthrough_key in ("tool_choice", "parallel_tool_calls", "prompt_cache_key"):
+    for passthrough_key in (
+            "tool_choice", "parallel_tool_calls", "prompt_cache_key"):
         val = api_kwargs.get(passthrough_key)
         if val is not None:
             normalized[passthrough_key] = val
@@ -879,11 +928,13 @@ def _preflight_codex_api_kwargs(
     extra_headers = api_kwargs.get("extra_headers")
     if extra_headers is not None:
         if not isinstance(extra_headers, dict):
-            raise ValueError("Codex Responses request 'extra_headers' must be an object.")
+            raise ValueError(
+                "Codex Responses request 'extra_headers' must be an object.")
         normalized_headers: Dict[str, str] = {}
         for key, value in extra_headers.items():
             if not isinstance(key, str) or not key.strip():
-                raise ValueError("Codex Responses request 'extra_headers' keys must be non-empty strings.")
+                raise ValueError(
+                    "Codex Responses request 'extra_headers' keys must be non-empty strings.")
             if value is None:
                 continue
             normalized_headers[key.strip()] = str(value)
@@ -893,7 +944,8 @@ def _preflight_codex_api_kwargs(
     extra_body = api_kwargs.get("extra_body")
     if extra_body is not None:
         if not isinstance(extra_body, dict):
-            raise ValueError("Codex Responses request 'extra_body' must be an object.")
+            raise ValueError(
+                "Codex Responses request 'extra_body' must be an object.")
         # Pass extra_body through verbatim — used by xAI Responses to
         # carry `prompt_cache_key` as a body-level field (the documented
         # cache-routing surface on /v1/responses). The openai SDK
@@ -911,7 +963,8 @@ def _preflight_codex_api_kwargs(
             normalized["stream"] = True
         allowed_keys.add("stream")
     elif "stream" in api_kwargs:
-        raise ValueError("Codex Responses stream flag is only allowed in fallback streaming requests.")
+        raise ValueError(
+            "Codex Responses stream flag is only allowed in fallback streaming requests.")
 
     # Safety-net sanitization for xAI Responses (#28490): defense-in-depth
     # for the same slash-enum strip that ``chat_completion_helpers`` and
@@ -925,7 +978,8 @@ def _preflight_codex_api_kwargs(
     # silently degrade tool-schema constraints.  xAI is the only
     # Responses-API surface that rejects the shape.
     model_name_for_provider_check = str(api_kwargs.get("model") or "").lower()
-    is_xai_model = model_name_for_provider_check.startswith(("grok-", "x-ai/grok-"))
+    is_xai_model = model_name_for_provider_check.startswith(
+        ("grok-", "x-ai/grok-"))
     if is_xai_model and normalized.get("tools"):
         try:
             from tools.schema_sanitizer import strip_slash_enum
@@ -936,7 +990,8 @@ def _preflight_codex_api_kwargs(
     unexpected = sorted(key for key in api_kwargs if key not in allowed_keys)
     if unexpected:
         raise ValueError(
-            f"Codex Responses request has unsupported field(s): {', '.join(unexpected)}."
+            f"Codex Responses request has unsupported field(s): {
+                ', '.join(unexpected)}."
         )
 
     return normalized
@@ -1006,8 +1061,12 @@ def _format_responses_error(error_obj: Any, response_status: str) -> str:
         code = getattr(error_obj, "code", None)
         message = getattr(error_obj, "message", None)
 
-    code_str = str(code).strip() if isinstance(code, str) else (str(code).strip() if code else "")
-    message_str = str(message).strip() if isinstance(message, str) else (str(message).strip() if message else "")
+    code_str = str(code).strip() if isinstance(
+        code, str) else (
+        str(code).strip() if code else "")
+    message_str = str(message).strip() if isinstance(
+        message, str) else (
+        str(message).strip() if message else "")
 
     if code_str and message_str:
         return f"{code_str}: {message_str}"
@@ -1051,7 +1110,10 @@ def _normalize_codex_response(
             )
             output = [SimpleNamespace(
                 type="message", role="assistant", status="completed",
-                content=[SimpleNamespace(type="output_text", text=out_text.strip())],
+                content=[
+                    SimpleNamespace(
+                        type="output_text",
+                        text=out_text.strip())],
             )]
             response.output = output
         else:
@@ -1073,7 +1135,8 @@ def _normalize_codex_response(
     reasoning_items_raw: List[Dict[str, Any]] = []
     message_items_raw: List[Dict[str, Any]] = []
     tool_calls: List[Any] = []
-    has_incomplete_items = response_status in {"queued", "in_progress", "incomplete"}
+    has_incomplete_items = response_status in {
+        "queued", "in_progress", "incomplete"}
     saw_commentary_phase = False
     saw_final_answer_phase = False
     saw_reasoning_item = False
@@ -1123,7 +1186,9 @@ def _normalize_codex_response(
             # subsequent turns to maintain coherent reasoning chains.
             encrypted = getattr(item, "encrypted_content", None)
             if isinstance(encrypted, str) and encrypted:
-                raw_item = {"type": "reasoning", "encrypted_content": encrypted}
+                raw_item = {
+                    "type": "reasoning",
+                    "encrypted_content": encrypted}
                 # Stamp the issuer so future turns can detect when a
                 # model swap moved the conversation to an endpoint that
                 # cannot decrypt this blob — see _chat_messages_to_responses_input
@@ -1139,14 +1204,16 @@ def _normalize_codex_response(
                     continue
                 if isinstance(item_id, str) and item_id:
                     raw_item["id"] = item_id
-                # Capture summary — required by the API when replaying reasoning items
+                # Capture summary — required by the API when replaying
+                # reasoning items
                 summary = getattr(item, "summary", None)
                 if isinstance(summary, list):
                     raw_summary = []
                     for part in summary:
                         text = getattr(part, "text", None)
                         if isinstance(text, str):
-                            raw_summary.append({"type": "summary_text", "text": text})
+                            raw_summary.append(
+                                {"type": "summary_text", "text": text})
                     raw_item["summary"] = raw_summary
                 reasoning_items_raw.append(raw_item)
         elif item_type == "function_call":
@@ -1159,12 +1226,16 @@ def _normalize_codex_response(
             raw_call_id = getattr(item, "call_id", None)
             raw_item_id = getattr(item, "id", None)
             embedded_call_id, _ = _split_responses_tool_id(raw_item_id)
-            call_id = raw_call_id if isinstance(raw_call_id, str) and raw_call_id.strip() else embedded_call_id
+            call_id = raw_call_id if isinstance(
+                raw_call_id, str) and raw_call_id.strip() else embedded_call_id
             if not isinstance(call_id, str) or not call_id.strip():
-                call_id = _deterministic_call_id(fn_name, arguments, len(tool_calls))
+                call_id = _deterministic_call_id(
+                    fn_name, arguments, len(tool_calls))
             call_id = call_id.strip()
-            response_item_id = raw_item_id if isinstance(raw_item_id, str) else None
-            response_item_id = _derive_responses_function_call_id(call_id, response_item_id)
+            response_item_id = raw_item_id if isinstance(
+                raw_item_id, str) else None
+            response_item_id = _derive_responses_function_call_id(
+                call_id, response_item_id)
             tool_calls.append(SimpleNamespace(
                 id=call_id,
                 call_id=call_id,
@@ -1180,12 +1251,16 @@ def _normalize_codex_response(
             raw_call_id = getattr(item, "call_id", None)
             raw_item_id = getattr(item, "id", None)
             embedded_call_id, _ = _split_responses_tool_id(raw_item_id)
-            call_id = raw_call_id if isinstance(raw_call_id, str) and raw_call_id.strip() else embedded_call_id
+            call_id = raw_call_id if isinstance(
+                raw_call_id, str) and raw_call_id.strip() else embedded_call_id
             if not isinstance(call_id, str) or not call_id.strip():
-                call_id = _deterministic_call_id(fn_name, arguments, len(tool_calls))
+                call_id = _deterministic_call_id(
+                    fn_name, arguments, len(tool_calls))
             call_id = call_id.strip()
-            response_item_id = raw_item_id if isinstance(raw_item_id, str) else None
-            response_item_id = _derive_responses_function_call_id(call_id, response_item_id)
+            response_item_id = raw_item_id if isinstance(
+                raw_item_id, str) else None
+            response_item_id = _derive_responses_function_call_id(
+                call_id, response_item_id)
             tool_calls.append(SimpleNamespace(
                 id=call_id,
                 call_id=call_id,
@@ -1218,7 +1293,8 @@ def _normalize_codex_response(
     # ``function_call`` item. The existing loop already handles message
     # append, dedup, and retry budget.
     leaked_tool_call_text = False
-    if final_text and not tool_calls and _TOOL_CALL_LEAK_PATTERN.search(final_text):
+    if final_text and not tool_calls and _TOOL_CALL_LEAK_PATTERN.search(
+            final_text):
         leaked_tool_call_text = True
         logger.warning(
             "Codex response contains leaked tool-call text in assistant content "
@@ -1234,7 +1310,8 @@ def _normalize_codex_response(
     assistant_message = SimpleNamespace(
         content=final_text,
         tool_calls=tool_calls,
-        reasoning="\n\n".join(reasoning_parts).strip() if reasoning_parts else None,
+        reasoning="\n\n".join(reasoning_parts).strip(
+        ) if reasoning_parts else None,
         reasoning_content=None,
         reasoning_details=None,
         codex_reasoning_items=reasoning_items_raw or None,

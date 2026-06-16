@@ -8,9 +8,7 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 import httpx
-
 from tools.microsoft_graph_auth import GraphCredentials, MicrosoftGraphTokenProvider
-
 
 DEFAULT_GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
 
@@ -132,7 +130,8 @@ class MicrosoftGraphClient:
             payload = self._decode_json(response)
             if not isinstance(payload, dict):
                 raise MicrosoftGraphClientError(
-                    f"Expected paginated Graph response dict, got {type(payload).__name__}."
+                    f"Expected paginated Graph response dict, got {
+                        type(payload).__name__}."
                 )
             yield payload
             next_url = payload.get("@odata.nextLink")
@@ -176,7 +175,8 @@ class MicrosoftGraphClient:
 
         while attempt <= self.max_retries:
             token = await self.token_provider.get_access_token(
-                force_refresh=attempt > 0 and self._should_refresh_token(last_error)
+                force_refresh=attempt > 0 and self._should_refresh_token(
+                    last_error)
             )
             request_headers = {
                 "Authorization": f"Bearer {token}",
@@ -200,7 +200,8 @@ class MicrosoftGraphClient:
                             # Materialize error body so we can surface a meaningful
                             # message; error bodies are small.
                             await response.aread()
-                            api_error = self._build_api_error("GET", url, response)
+                            api_error = self._build_api_error(
+                                "GET", url, response)
                             last_error = api_error
 
                             if (
@@ -271,7 +272,8 @@ class MicrosoftGraphClient:
 
         while attempt <= self.max_retries:
             token = await self.token_provider.get_access_token(
-                force_refresh=attempt > 0 and self._should_refresh_token(last_error)
+                force_refresh=attempt > 0 and self._should_refresh_token(
+                    last_error)
             )
             request_headers = {
                 "Authorization": f"Bearer {token}",
@@ -331,7 +333,8 @@ class MicrosoftGraphClient:
     def _resolve_url(self, path_or_url: str) -> str:
         if path_or_url.startswith(("http://", "https://")):
             return path_or_url
-        path = path_or_url if path_or_url.startswith("/") else f"/{path_or_url}"
+        path = path_or_url if path_or_url.startswith(
+            "/") else f"/{path_or_url}"
         return f"{self.base_url}{path}"
 
     @staticmethod
@@ -352,7 +355,8 @@ class MicrosoftGraphClient:
 
     @staticmethod
     def _should_refresh_token(error: Exception | None) -> bool:
-        return isinstance(error, MicrosoftGraphAPIError) and error.status_code == 401
+        return isinstance(
+            error, MicrosoftGraphAPIError) and error.status_code == 401
 
     @staticmethod
     def _retry_delay(response: httpx.Response | None, attempt: int) -> float:

@@ -11,8 +11,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional
 
-
-NastechAccountInfoSource = Literal["jwt", "account_api", "inference_key", "none", "error"]
+NastechAccountInfoSource = Literal["jwt",
+                                   "account_api",
+                                   "inference_key",
+                                   "none",
+                                   "error"]
 
 # Free tool-pool coverage categories. Kept byte-for-byte aligned with the
 # Portal's TOOL_COVERAGE_CATEGORIES (nastech-account-service
@@ -29,7 +32,8 @@ TOOL_COVERAGE_CATEGORIES = (
 )
 
 _ACCOUNT_INFO_CACHE_TTL = 60
-_account_info_cache: tuple[str, float, "NastechPortalAccountInfo"] | None = None
+_account_info_cache: tuple[str, float,
+                           "NastechPortalAccountInfo"] | None = None
 _ACCOUNT_INFO_CACHE_LOCK = threading.Lock()
 
 
@@ -127,7 +131,8 @@ class NastechPortalAccountInfo:
         return bool(ta and ta.enabled and ta.coverage.get(category) is True)
 
 
-def nous_portal_billing_url(account_info: Optional[NastechPortalAccountInfo] = None) -> str:
+def nous_portal_billing_url(
+        account_info: Optional[NastechPortalAccountInfo] = None) -> str:
     """Return the billing URL for a normalized Nous account snapshot."""
     try:
         from nastech_cli.auth import DEFAULT_NOUS_PORTAL_URL
@@ -142,7 +147,8 @@ def nous_portal_billing_url(account_info: Optional[NastechPortalAccountInfo] = N
     return f"{base.rstrip('/')}/billing"
 
 
-def nous_portal_topup_url(account_info: Optional[NastechPortalAccountInfo] = None) -> str:
+def nous_portal_topup_url(
+        account_info: Optional[NastechPortalAccountInfo] = None) -> str:
     """Return the portal top-up URL that auto-opens the top-up modal.
 
     Prefers the org-pinned page ``{base}/orgs/{slug}/billing?topup=open`` (skips
@@ -157,7 +163,10 @@ def nous_portal_topup_url(account_info: Optional[NastechPortalAccountInfo] = Non
     base_billing = nous_portal_billing_url(account_info)  # {base}/billing
     base = base_billing[: -len("/billing")]  # strip the trailing /billing
 
-    slug = getattr(account_info, "org_slug", None) if account_info is not None else None
+    slug = getattr(
+        account_info,
+        "org_slug",
+        None) if account_info is not None else None
     if isinstance(slug, str) and slug.strip():
         from urllib.parse import quote
 
@@ -245,7 +254,8 @@ def format_nous_portal_entitlement_message(
         )
 
     if reason == "no_usable_credits" or account_info.paid_service_access is False:
-        message = _no_paid_access_message(account_info, capability, billing_url)
+        message = _no_paid_access_message(
+            account_info, capability, billing_url)
         if include_refresh_hint and not account_info.fresh:
             message += " If you recently bought credits, run `nastech model` to refresh NasTech."
         return message
@@ -272,7 +282,10 @@ def _no_paid_access_message(
     purchased_credits = access.purchased_credits_remaining if access else None
 
     if has_active_subscription and active_subscription_is_paid:
-        credit_detail = _credit_detail(total_usable, subscription_credits, purchased_credits)
+        credit_detail = _credit_detail(
+            total_usable,
+            subscription_credits,
+            purchased_credits)
         return (
             f"Your NasTech Portal credits are exhausted{credit_detail}, so {capability} "
             f"is unavailable. Top up or renew credits at {billing_url}."
@@ -285,14 +298,20 @@ def _no_paid_access_message(
         )
 
     if has_active_subscription is False:
-        credit_detail = _credit_detail(total_usable, subscription_credits, purchased_credits)
+        credit_detail = _credit_detail(
+            total_usable,
+            subscription_credits,
+            purchased_credits)
         return (
             f"Your NasTech Portal account has no active subscription or usable credits"
             f"{credit_detail}, so {capability} is unavailable. Subscribe or add credits "
             f"at {billing_url}."
         )
 
-    credit_detail = _credit_detail(total_usable, subscription_credits, purchased_credits)
+    credit_detail = _credit_detail(
+        total_usable,
+        subscription_credits,
+        purchased_credits)
     return (
         f"Your NasTech Portal account has no usable paid credits{credit_detail}, so "
         f"{capability} is unavailable. Add credits or update billing at {billing_url}."
@@ -397,7 +416,8 @@ def _fresh_account_info(
         with _ACCOUNT_INFO_CACHE_LOCK:
             if not force_fresh and _account_info_cache is not None:
                 cached_key, cached_at, cached_info = _account_info_cache
-                if cached_key == cache_key and (time.monotonic() - cached_at) < _ACCOUNT_INFO_CACHE_TTL:
+                if cached_key == cache_key and (
+                        time.monotonic() - cached_at) < _ACCOUNT_INFO_CACHE_TTL:
                     return cached_info
 
         payload = _fetch_nastech_account_info(access_token, portal_base_url)
@@ -439,7 +459,9 @@ def _info_from_inference_key_pool(
         entry = _select_nous_pool_entry()
         if entry is None:
             return None
-        runtime_key = getattr(entry, "runtime_api_key", None) or getattr(entry, "access_token", "")
+        runtime_key = getattr(
+            entry, "runtime_api_key", None) or getattr(
+            entry, "access_token", "")
         if not isinstance(runtime_key, str) or not runtime_key.strip():
             return None
 
@@ -546,8 +568,10 @@ def _select_nous_pool_entry() -> Optional[Any]:
         return None
 
     def _entry_sort_key(entry: Any) -> tuple[float, float, int]:
-        agent_exp = _parse_iso_timestamp(getattr(entry, "agent_key_expires_at", None)) or 0.0
-        access_exp = _parse_iso_timestamp(getattr(entry, "expires_at", None)) or 0.0
+        agent_exp = _parse_iso_timestamp(
+            getattr(entry, "agent_key_expires_at", None)) or 0.0
+        access_exp = _parse_iso_timestamp(
+            getattr(entry, "expires_at", None)) or 0.0
         priority = int(getattr(entry, "priority", 0) or 0)
         return (agent_exp, access_exp, -priority)
 
@@ -614,13 +638,15 @@ def _info_from_valid_jwt(
         fresh=False,
         user_id=_coerce_str(claims.get("sub")),
         org_id=_coerce_str(claims.get("org_id")),
-        client_id=_coerce_str(claims.get("client_id") or state.get("client_id")),
+        client_id=_coerce_str(claims.get("client_id")
+                              or state.get("client_id")),
         product_id=_coerce_str(claims.get("product_id")),
         nous_client=_coerce_str(claims.get("nous_client")),
         portal_base_url=portal_base_url,
         inference_base_url=_coerce_str(state.get("inference_base_url")),
         inference_credential_present=True,
-        credential_source=_coerce_str(state.get("credential_source")) or "auth_store",
+        credential_source=_coerce_str(
+            state.get("credential_source")) or "auth_store",
         expires_at=datetime.fromtimestamp(exp, tz=timezone.utc),
         paid_service_access=paid_access,
         paid_service_access_info=access_info,
@@ -640,7 +666,8 @@ def _info_from_account_payload(
     raw_org = payload.get("organisation")
     organisation: dict[str, Any] = raw_org if isinstance(raw_org, dict) else {}
     subscription = _subscription_from_payload(payload.get("subscription"))
-    access = _paid_service_access_from_payload(payload.get("paid_service_access"))
+    access = _paid_service_access_from_payload(
+        payload.get("paid_service_access"))
     paid_access = access.allowed if access else None
     if paid_access is None and access is not None:
         paid_access = access.paid_access
@@ -649,14 +676,17 @@ def _info_from_account_payload(
         logged_in=True,
         source="account_api",
         fresh=True,
-        org_id=_coerce_str(organisation.get("id")) or (access.organisation_id if access else None),
+        org_id=_coerce_str(organisation.get("id")) or (
+            access.organisation_id if access else None),
         org_slug=_coerce_str(organisation.get("slug")),
         org_name=_coerce_str(organisation.get("name")),
         client_id=_coerce_str(state.get("client_id")),
         portal_base_url=portal_base_url,
         inference_base_url=_coerce_str(state.get("inference_base_url")),
-        inference_credential_present=bool(state.get("access_token") or state.get("agent_key")),
-        credential_source=_coerce_str(state.get("credential_source")) or "auth_store",
+        inference_credential_present=bool(
+            state.get("access_token") or state.get("agent_key")),
+        credential_source=_coerce_str(
+            state.get("credential_source")) or "auth_store",
         email=_coerce_str(user.get("email")),
         privy_did=_coerce_str(user.get("privy_did")),
         subscription=subscription,
@@ -684,7 +714,8 @@ def _tool_access_from_value(value: Any) -> Optional[NousToolAccessInfo]:
     return NousToolAccessInfo(enabled=enabled, coverage=coverage)
 
 
-def _subscription_from_payload(value: Any) -> Optional[NastechPortalSubscriptionInfo]:
+def _subscription_from_payload(
+        value: Any) -> Optional[NastechPortalSubscriptionInfo]:
     if not isinstance(value, dict):
         return None
     return NastechPortalSubscriptionInfo(
@@ -698,7 +729,8 @@ def _subscription_from_payload(value: Any) -> Optional[NastechPortalSubscription
     )
 
 
-def _paid_service_access_from_payload(value: Any) -> Optional[NousPaidServiceAccessInfo]:
+def _paid_service_access_from_payload(
+        value: Any) -> Optional[NousPaidServiceAccessInfo]:
     if not isinstance(value, dict):
         return None
     allowed = _coerce_bool(value.get("allowed"))
@@ -709,12 +741,17 @@ def _paid_service_access_from_payload(value: Any) -> Optional[NousPaidServiceAcc
         reason=_coerce_str(value.get("reason")),
         organisation_id=_coerce_str(value.get("organisation_id")),
         effective_at_ms=_coerce_int(value.get("effective_at_ms")),
-        has_active_subscription=_coerce_bool(value.get("has_active_subscription")),
-        active_subscription_is_paid=_coerce_bool(value.get("active_subscription_is_paid")),
+        has_active_subscription=_coerce_bool(
+            value.get("has_active_subscription")),
+        active_subscription_is_paid=_coerce_bool(
+            value.get("active_subscription_is_paid")),
         subscription_tier=_coerce_int(value.get("subscription_tier")),
-        subscription_monthly_charge=_coerce_float(value.get("subscription_monthly_charge")),
-        subscription_credits_remaining=_coerce_float(value.get("subscription_credits_remaining")),
-        purchased_credits_remaining=_coerce_float(value.get("purchased_credits_remaining")),
+        subscription_monthly_charge=_coerce_float(
+            value.get("subscription_monthly_charge")),
+        subscription_credits_remaining=_coerce_float(
+            value.get("subscription_credits_remaining")),
+        purchased_credits_remaining=_coerce_float(
+            value.get("purchased_credits_remaining")),
         total_usable_credits=_coerce_float(value.get("total_usable_credits")),
     )
 

@@ -34,14 +34,16 @@ from websockets.asyncio.client import ClientConnection
 logger = logging.getLogger(__name__)
 
 
-# ── Config defaults ───────────────────────────────────────────────────────────
+# ── Config defaults ─────────────────────────────────────────────────────
 
 DIALOG_POLICY_MUST_RESPOND = "must_respond"
 DIALOG_POLICY_AUTO_DISMISS = "auto_dismiss"
 DIALOG_POLICY_AUTO_ACCEPT = "auto_accept"
 
 _VALID_POLICIES = frozenset(
-    {DIALOG_POLICY_MUST_RESPOND, DIALOG_POLICY_AUTO_DISMISS, DIALOG_POLICY_AUTO_ACCEPT}
+    {DIALOG_POLICY_MUST_RESPOND,
+     DIALOG_POLICY_AUTO_DISMISS,
+     DIALOG_POLICY_AUTO_ACCEPT}
 )
 
 DEFAULT_DIALOG_POLICY = DIALOG_POLICY_MUST_RESPOND
@@ -124,7 +126,7 @@ _DIALOG_BRIDGE_SCRIPT = r"""
 """
 
 
-# ── Data model ────────────────────────────────────────────────────────────────
+# ── Data model ──────────────────────────────────────────────────────────
 
 
 @dataclass
@@ -253,7 +255,7 @@ class SupervisorSnapshot:
         return out
 
 
-# ── Supervisor core ───────────────────────────────────────────────────────────
+# ── Supervisor core ─────────────────────────────────────────────────────
 
 
 class CDPSupervisor:
@@ -311,7 +313,8 @@ class CDPSupervisor:
         self._pending_calls: Dict[int, asyncio.Future] = {}
         self._ws: Optional[ClientConnection] = None
         self._page_session_id: Optional[str] = None
-        self._child_sessions: Dict[str, Dict[str, Any]] = {}  # session_id -> info
+        # session_id -> info
+        self._child_sessions: Dict[str, Dict[str, Any]] = {}
 
         # Dialog auto-dismiss watchdog handles (per dialog id).
         self._dialog_watchdogs: Dict[str, asyncio.TimerHandle] = {}
@@ -415,7 +418,8 @@ class CDPSupervisor:
         ambiguous dialog_id, supervisor inactive).
         """
         if action not in {"accept", "dismiss"}:
-            return {"ok": False, "error": f"action must be 'accept' or 'dismiss', got {action!r}"}
+            return {
+                "ok": False, "error": f"action must be 'accept' or 'dismiss', got {action!r}"}
 
         with self._state_lock:
             if not self._active:
@@ -456,7 +460,8 @@ class CDPSupervisor:
             from agent.async_utils import safe_schedule_threadsafe
             fut = safe_schedule_threadsafe(_do_respond(), loop)
             if fut is None:
-                return {"ok": False, "error": "Browser supervisor loop unavailable"}
+                return {"ok": False,
+                        "error": "Browser supervisor loop unavailable"}
             fut.result(timeout=timeout)
         except Exception as e:
             return {"ok": False, "error": f"{type(e).__name__}: {e}"}
@@ -530,18 +535,22 @@ class CDPSupervisor:
             # Chrome returns the object's description string instead — the same
             # graceful degradation path used for ``document.querySelector(...)``
             # results — rather than crashing the eval.
-            if return_by_value and "reference chain is too long" in str(exc).lower():
+            if return_by_value and "reference chain is too long" in str(
+                    exc).lower():
                 try:
                     response = _run_eval(False)
                 except Exception as exc2:
-                    return {"ok": False, "error": f"{type(exc2).__name__}: {exc2}"}
+                    return {"ok": False,
+                            "error": f"{type(exc2).__name__}: {exc2}"}
             else:
                 return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
         # Runtime.evaluate response shape:
         #   {"id": N, "result": {"result": {"type": "...", "value": ..., ...},
         #                         "exceptionDetails": {...} (only on error)}}
-        result_payload = response.get("result", {}) if isinstance(response, dict) else {}
+        result_payload = response.get(
+            "result", {}) if isinstance(
+            response, dict) else {}
         exception_details = result_payload.get("exceptionDetails")
         if exception_details:
             # Surface the JS-side exception with a clean message.
@@ -562,7 +571,8 @@ class CDPSupervisor:
         else:
             # Non-serializable (functions, DOM nodes, etc.) — return the
             # browser's string description so the model gets *something*.
-            value = result_obj.get("description") or result_obj.get("unserializableValue")
+            value = result_obj.get("description") or result_obj.get(
+                "unserializableValue")
 
         return {"ok": True, "result": value, "result_type": result_type}
 
@@ -580,7 +590,8 @@ class CDPSupervisor:
                 self._start_error = e
                 self._ready_event.set()
             else:
-                logger.warning("CDP supervisor %s crashed: %s", self.task_id, e)
+                logger.warning(
+                    "CDP supervisor %s crashed: %s", self.task_id, e)
         finally:
             # Flush any remaining tasks before closing the loop so we don't
             # emit "Task was destroyed but it is pending" warnings.
@@ -589,7 +600,8 @@ class CDPSupervisor:
                 for t in pending:
                     t.cancel()
                 if pending:
-                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                    loop.run_until_complete(asyncio.gather(
+                        *pending, return_exceptions=True))
             except Exception:
                 pass
             try:
@@ -614,7 +626,8 @@ class CDPSupervisor:
         while not self._stop_requested:
             try:
                 self._ws = await asyncio.wait_for(
-                    websockets.connect(self.cdp_url, max_size=50 * 1024 * 1024),
+                    websockets.connect(
+                        self.cdp_url, max_size=50 * 1024 * 1024),
                     timeout=10.0,
                 )
             except Exception as e:
@@ -632,7 +645,8 @@ class CDPSupervisor:
                 backoff = min(backoff * 2, 10.0)
                 continue
 
-            reader_task = asyncio.create_task(self._read_loop(), name="cdp-reader")
+            reader_task = asyncio.create_task(
+                self._read_loop(), name="cdp-reader")
             try:
                 # Reset per-connection session state so stale ids don't hang
                 # around after a reconnect.
@@ -699,7 +713,8 @@ class CDPSupervisor:
         """Find a page target, attach flattened session, enable domains, install dialog bridge."""
         resp = await self._cdp("Target.getTargets")
         targets = resp.get("result", {}).get("targetInfos", [])
-        page_target = next((t for t in targets if t.get("type") == "page"), None)
+        page_target = next(
+            (t for t in targets if t.get("type") == "page"), None)
         if page_target is None:
             created = await self._cdp("Target.createTarget", {"url": "about:blank"})
             target_id = created["result"]["targetId"]
@@ -825,7 +840,10 @@ class CDPSupervisor:
                     if fut is not None and not fut.done():
                         if "error" in msg:
                             fut.set_exception(
-                                RuntimeError(f"CDP error on id={msg['id']}: {msg['error']}")
+                                RuntimeError(
+                                    f"CDP error on id={
+                                        msg['id']}: {
+                                        msg['error']}")
                             )
                         else:
                             fut.set_result(msg)
@@ -898,7 +916,8 @@ class CDPSupervisor:
             loop = asyncio.get_running_loop()
             handle = loop.call_later(
                 self.dialog_timeout_s,
-                lambda: asyncio.create_task(self._dialog_timeout_expired(dialog.id)),
+                lambda: asyncio.create_task(
+                    self._dialog_timeout_expired(dialog.id)),
             )
             self._dialog_watchdogs[dialog.id] = handle
 
@@ -921,7 +940,10 @@ class CDPSupervisor:
                 timeout=5.0,
             )
         except Exception as e:
-            logger.debug("auto-handle CDP call failed for %s: %s", dialog.id, e)
+            logger.debug(
+                "auto-handle CDP call failed for %s: %s",
+                dialog.id,
+                e)
 
     async def _dialog_timeout_expired(self, dialog_id: str) -> None:
         with self._state_lock:
@@ -955,7 +977,8 @@ class CDPSupervisor:
         except Exception as e:
             logger.debug("auto-dismiss failed for %s: %s", dialog_id, e)
 
-    def _archive_dialog_locked(self, dialog: PendingDialog, closed_by: str) -> None:
+    def _archive_dialog_locked(
+            self, dialog: PendingDialog, closed_by: str) -> None:
         """Move a pending dialog to the recent_dialogs ring buffer. Must hold state_lock."""
         record = DialogRecord(
             id=dialog.id,
@@ -1073,7 +1096,7 @@ class CDPSupervisor:
             return
 
         # Parse query string for dialog metadata. Use urllib to be robust.
-        from urllib.parse import urlparse, parse_qs
+        from urllib.parse import parse_qs, urlparse
         q = parse_qs(urlparse(url).query)
 
         def _q(name: str) -> str:
@@ -1101,7 +1124,8 @@ class CDPSupervisor:
             with self._state_lock:
                 self._archive_dialog_locked(dialog, "auto_policy")
             asyncio.create_task(
-                self._fulfill_bridge_request(dialog, accept=False, prompt_text="")
+                self._fulfill_bridge_request(
+                    dialog, accept=False, prompt_text="")
             )
         elif self.dialog_policy == DIALOG_POLICY_AUTO_ACCEPT:
             with self._state_lock:
@@ -1118,7 +1142,8 @@ class CDPSupervisor:
             loop = asyncio.get_running_loop()
             handle = loop.call_later(
                 self.dialog_timeout_s,
-                lambda: asyncio.create_task(self._dialog_timeout_expired(dialog.id)),
+                lambda: asyncio.create_task(
+                    self._dialog_timeout_expired(dialog.id)),
             )
             self._dialog_watchdogs[dialog.id] = handle
 
@@ -1183,11 +1208,15 @@ class CDPSupervisor:
             info = FrameInfo(
                 frame_id=frame_id,
                 url=str(frame.get("url") or ""),
-                origin=str(frame.get("securityOrigin") or frame.get("origin") or ""),
-                parent_frame_id=frame.get("parentId") or (existing.parent_frame_id if existing else None),
+                origin=str(frame.get("securityOrigin")
+                           or frame.get("origin") or ""),
+                parent_frame_id=frame.get("parentId") or (
+                    existing.parent_frame_id if existing else None),
                 is_oopif=bool(existing.is_oopif if existing else False),
                 cdp_session_id=existing.cdp_session_id if existing else session_id,
-                name=str(frame.get("name") or (existing.name if existing else "")),
+                name=str(
+                    frame.get("name") or (
+                        existing.name if existing else "")),
             )
             self._frames[frame_id] = info
 
@@ -1245,10 +1274,13 @@ class CDPSupervisor:
                     frame_id=target_id,
                     url=str(info.get("url") or ""),
                     origin="",  # filled by frameNavigated on the child session
-                    parent_frame_id=(existing.parent_frame_id if existing else None),
+                    parent_frame_id=(
+                        existing.parent_frame_id if existing else None),
                     is_oopif=True,
                     cdp_session_id=sid,
-                    name=str(info.get("title") or (existing.name if existing else "")),
+                    name=str(
+                        info.get("title") or (
+                            existing.name if existing else "")),
                 )
 
         # Enable domains on the child off-loop so the reader keeps pumping.
@@ -1267,13 +1299,16 @@ class CDPSupervisor:
             await self._cdp("Runtime.enable", session_id=sid, timeout=3.0)
             await self._cdp(
                 "Target.setAutoAttach",
-                {"autoAttach": True, "waitForDebuggerOnStart": False, "flatten": True},
+                {"autoAttach": True,
+                 "waitForDebuggerOnStart": False,
+                 "flatten": True},
                 session_id=sid,
                 timeout=3.0,
             )
         except Exception as e:
             logger.debug("child session %s setup failed: %s", sid[:16], e)
-        # Install the dialog bridge on the child so iframe dialogs are captured.
+        # Install the dialog bridge on the child so iframe dialogs are
+        # captured.
         await self._install_dialog_bridge(sid)
 
     def _on_target_detached(self, params: Dict[str, Any]) -> None:
@@ -1313,7 +1348,11 @@ class CDPSupervisor:
             details = params.get("exceptionDetails") or {}
             text = str(details.get("text") or "")
             url = details.get("url")
-            event = ConsoleEvent(ts=time.time(), level="exception", text=text, url=url)
+            event = ConsoleEvent(
+                ts=time.time(),
+                level="exception",
+                text=text,
+                url=url)
         else:
             raw_level = str(params.get("type") or "log")
             level = "error" if raw_level in {"error", "assert"} else (
@@ -1323,12 +1362,17 @@ class CDPSupervisor:
             parts: List[str] = []
             for a in args[:4]:
                 if isinstance(a, dict):
-                    parts.append(str(a.get("value") or a.get("description") or ""))
-            event = ConsoleEvent(ts=time.time(), level=level, text=" ".join(parts))
+                    parts.append(
+                        str(a.get("value") or a.get("description") or ""))
+            event = ConsoleEvent(
+                ts=time.time(),
+                level=level,
+                text=" ".join(parts))
         with self._state_lock:
             self._console_events.append(event)
             if len(self._console_events) > CONSOLE_HISTORY_MAX * 2:
-                # Keep last CONSOLE_HISTORY_MAX; allow 2x slack to reduce churn.
+                # Keep last CONSOLE_HISTORY_MAX; allow 2x slack to reduce
+                # churn.
                 self._console_events = self._console_events[-CONSOLE_HISTORY_MAX:]
 
     # ── Frame tree building (bounded) ───────────────────────────────────────
@@ -1341,7 +1385,9 @@ class CDPSupervisor:
 
         # Identify a top frame — one with no parent, preferring oopif=False.
         tops = [f for f in frames.values() if not f.parent_frame_id]
-        top = next((f for f in tops if not f.is_oopif), tops[0] if tops else None)
+        top = next(
+            (f for f in tops if not f.is_oopif),
+            tops[0] if tops else None)
 
         # BFS from top, capped by FRAME_TREE_MAX_ENTRIES and
         # FRAME_TREE_MAX_OOPIF_DEPTH for OOPIF branches.
@@ -1418,7 +1464,8 @@ class _SupervisorRegistry:
                     if thread_ok and loop_ok:
                         return existing
                     # Unhealthy — tear down and recreate.
-                # URL changed or unhealthy — tear down, fall through to re-create.
+                # URL changed or unhealthy — tear down, fall through to
+                # re-create.
                 self._by_task.pop(task_id, None)
         if existing is not None:
             existing.stop()

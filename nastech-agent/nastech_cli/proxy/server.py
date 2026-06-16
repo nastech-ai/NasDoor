@@ -31,7 +31,8 @@ logger = logging.getLogger(__name__)
 
 # Headers we strip when forwarding to the upstream. ``host``/``content-length``
 # are recomputed by aiohttp; ``authorization`` is replaced with our bearer.
-# Everything else (content-type, accept, user-agent, x-* headers) passes through.
+# Everything else (content-type, accept, user-agent, x-* headers) passes
+# through.
 _HOP_BY_HOP_HEADERS = frozenset(
     {
         "host",
@@ -52,7 +53,8 @@ DEFAULT_PORT = 8645
 DEFAULT_HOST = "127.0.0.1"
 
 
-def _json_error(status: int, message: str, code: str = "proxy_error") -> "web.Response":
+def _json_error(status: int, message: str,
+                code: str = "proxy_error") -> "web.Response":
     """Return an OpenAI-style error JSON response."""
     body = {"error": {"message": message, "type": code, "code": code}}
     return web.json_response(body, status=status)
@@ -74,7 +76,8 @@ def _filter_response_headers(headers) -> dict:
     for key, value in headers.items():
         if key.lower() in _HOP_BY_HOP_HEADERS:
             continue
-        # aiohttp recomputes Content-Encoding/Content-Length on stream — let it.
+        # aiohttp recomputes Content-Encoding/Content-Length on stream — let
+        # it.
         if key.lower() in {"content-encoding", "content-length"}:
             continue
         out[key] = value
@@ -130,7 +133,8 @@ def create_app(adapter: UpstreamAdapter) -> "web.Application":
         # the request body too.
         body = await request.read()
 
-        timeout = aiohttp.ClientTimeout(total=None, sock_connect=15, sock_read=300)
+        timeout = aiohttp.ClientTimeout(
+            total=None, sock_connect=15, sock_read=300)
 
         async def _send_upstream(active_cred: UpstreamCredential):
             upstream_url = f"{active_cred.base_url.rstrip('/')}{rel_path}"
@@ -139,7 +143,9 @@ def create_app(adapter: UpstreamAdapter) -> "web.Application":
                 upstream_url = f"{upstream_url}?{request.query_string}"
 
             fwd_headers = _filter_request_headers(request.headers)
-            fwd_headers["Authorization"] = f"{active_cred.token_type} {active_cred.bearer}"
+            fwd_headers["Authorization"] = f"{
+                active_cred.token_type} {
+                active_cred.bearer}"
 
             logger.debug(
                 "proxy: forwarding %s %s -> %s (body=%d bytes)",
@@ -149,7 +155,8 @@ def create_app(adapter: UpstreamAdapter) -> "web.Application":
             try:
                 session = aiohttp.ClientSession(timeout=timeout)
             except Exception as exc:  # pragma: no cover - aiohttp setup issue
-                raise RuntimeError(f"proxy session init failed: {exc}") from exc
+                raise RuntimeError(
+                    f"proxy session init failed: {exc}") from exc
 
             try:
                 upstream_resp = await session.request(
@@ -201,7 +208,8 @@ def create_app(adapter: UpstreamAdapter) -> "web.Application":
                     status_code=upstream_resp.status,
                 )
             except Exception as exc:
-                logger.warning("proxy: retry credential resolution failed: %s", exc)
+                logger.warning(
+                    "proxy: retry credential resolution failed: %s", exc)
                 retry_cred = None
 
             if retry_cred is not None:
@@ -274,7 +282,8 @@ async def run_server(
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
             try:
-                loop.add_signal_handler(sig, stop_event.set)  # windows-footgun: ok
+                loop.add_signal_handler(
+                    sig, stop_event.set)  # windows-footgun: ok
             except NotImplementedError:
                 # Windows / restricted environments — Ctrl+C will still
                 # raise KeyboardInterrupt and unwind us.

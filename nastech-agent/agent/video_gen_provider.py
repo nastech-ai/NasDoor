@@ -60,7 +60,8 @@ logger = logging.getLogger(__name__)
 # Common aspect ratios across providers (Veo / Kling / xAI / Pixverse). The
 # tool schema advertises this set as an enum hint, but providers may accept
 # a narrower or wider set — they are responsible for clamping.
-COMMON_ASPECT_RATIOS: Tuple[str, ...] = ("16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3")
+COMMON_ASPECT_RATIOS: Tuple[str, ...] = (
+    "16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3")
 DEFAULT_ASPECT_RATIO = "16:9"
 
 COMMON_RESOLUTIONS: Tuple[str, ...] = ("480p", "540p", "720p", "1080p")

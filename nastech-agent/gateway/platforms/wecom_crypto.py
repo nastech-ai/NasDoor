@@ -58,7 +58,8 @@ class PKCS7Encoder:
         return decrypted[:-pad]
 
 
-def _sha1_signature(token: str, timestamp: str, nonce: str, encrypt: str) -> str:
+def _sha1_signature(token: str, timestamp: str,
+                    nonce: str, encrypt: str) -> str:
     parts = sorted([token, timestamp, nonce, encrypt])
     return hashlib.sha1("".join(parts).encode("utf-8")).hexdigest()
 
@@ -81,11 +82,13 @@ class WXBizMsgCrypt:
         self.key = base64.b64decode(encoding_aes_key + "=")
         self.iv = self.key[:16]
 
-    def verify_url(self, msg_signature: str, timestamp: str, nonce: str, echostr: str) -> str:
+    def verify_url(self, msg_signature: str, timestamp: str,
+                   nonce: str, echostr: str) -> str:
         plain = self.decrypt(msg_signature, timestamp, nonce, echostr)
         return plain.decode("utf-8")
 
-    def decrypt(self, msg_signature: str, timestamp: str, nonce: str, encrypt: str) -> bytes:
+    def decrypt(self, msg_signature: str, timestamp: str,
+                nonce: str, encrypt: str) -> bytes:
         expected = _sha1_signature(self.token, timestamp, nonce, encrypt)
         if expected != msg_signature:
             raise SignatureError("signature mismatch")
@@ -94,7 +97,10 @@ class WXBizMsgCrypt:
         except Exception as exc:
             raise DecryptError(f"invalid base64 payload: {exc}") from exc
         try:
-            cipher = Cipher(algorithms.AES(self.key), modes.CBC(self.iv), backend=default_backend())
+            cipher = Cipher(
+                algorithms.AES(
+                    self.key), modes.CBC(
+                    self.iv), backend=default_backend())
             decryptor = cipher.decryptor()
             padded = decryptor.update(cipher_text) + decryptor.finalize()
             plain = PKCS7Encoder.decode(padded)
@@ -111,7 +117,8 @@ class WXBizMsgCrypt:
             raise DecryptError("receive_id mismatch")
         return xml_content
 
-    def encrypt(self, plaintext: str, nonce: Optional[str] = None, timestamp: Optional[str] = None) -> str:
+    def encrypt(self, plaintext: str,
+                nonce: Optional[str] = None, timestamp: Optional[str] = None) -> str:
         nonce = nonce or self._random_nonce()
         timestamp = timestamp or str(int(__import__("time").time()))
         encrypt = self._encrypt_bytes(plaintext.encode("utf-8"))
@@ -127,9 +134,13 @@ class WXBizMsgCrypt:
         try:
             random_prefix = os.urandom(16)
             msg_len = struct.pack("I", socket.htonl(len(raw)))
-            payload = random_prefix + msg_len + raw + self.receive_id.encode("utf-8")
+            payload = random_prefix + msg_len + \
+                raw + self.receive_id.encode("utf-8")
             padded = PKCS7Encoder.encode(payload)
-            cipher = Cipher(algorithms.AES(self.key), modes.CBC(self.iv), backend=default_backend())
+            cipher = Cipher(
+                algorithms.AES(
+                    self.key), modes.CBC(
+                    self.iv), backend=default_backend())
             encryptor = cipher.encryptor()
             encrypted = encryptor.update(padded) + encryptor.finalize()
             return base64.b64encode(encrypted).decode("utf-8")

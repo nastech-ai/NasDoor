@@ -24,7 +24,6 @@ import time
 from pathlib import Path
 from typing import List, Optional, Sequence, Tuple
 
-
 # ---------------------------------------------------------------------------
 # Environment fingerprint
 # ---------------------------------------------------------------------------
@@ -33,11 +32,12 @@ class PlatformInfo:
     """Snapshot of the current execution environment."""
 
     def __init__(self) -> None:
-        self.system: str = platform.system()          # "Linux", "Darwin", "Windows", ""
+        # "Linux", "Darwin", "Windows", ""
+        self.system: str = platform.system()
         self.machine: str = platform.machine()        # "x86_64", "aarch64", "arm64", …
         self.is_windows: bool = self.system == "Windows"
-        self.is_macos: bool   = self.system == "Darwin"
-        self.is_linux: bool   = self.system == "Linux"
+        self.is_macos: bool = self.system == "Darwin"
+        self.is_linux: bool = self.system == "Linux"
         self.is_android: bool = sys.platform == "android"
 
         env = os.environ
@@ -77,12 +77,14 @@ class PlatformInfo:
 
     def _detect_distro_fallback(self) -> None:
         try:
-            text = Path("/etc/os-release").read_text(encoding="utf-8", errors="replace")
+            text = Path(
+                "/etc/os-release").read_text(encoding="utf-8", errors="replace")
             for line in text.splitlines():
                 if line.startswith("ID="):
                     self.linux_distro = line[3:].strip().strip('"').lower()
                 if line.startswith("ID_LIKE="):
-                    self.linux_distro_like = line[8:].strip().strip('"').lower()
+                    self.linux_distro_like = line[8:].strip().strip(
+                        '"').lower()
         except OSError:
             pass
 
@@ -96,7 +98,8 @@ class PlatformInfo:
         elif self.is_macos:
             candidates = [("brew", "brew"), ("port", "port")]
         elif self.is_windows:
-            candidates = [("choco", "choco"), ("winget", "winget"), ("scoop", "scoop")]
+            candidates = [
+                ("choco", "choco"), ("winget", "winget"), ("scoop", "scoop")]
         elif self.is_nixos:
             candidates = [("nix-env", "nix-env"), ("nix", "nix")]
         else:
@@ -109,21 +112,30 @@ class PlatformInfo:
                 ("emerge", "emerge"),
             ]
 
-        return [bin_name for _, bin_name in candidates if shutil.which(bin_name)]
+        return [bin_name for _,
+                bin_name in candidates if shutil.which(bin_name)]
 
     def __repr__(self) -> str:
         tags = []
-        if self.is_termux:  tags.append("termux")
-        if self.is_nixos:   tags.append("nixos")
-        if self.is_wsl:     tags.append("wsl")
-        if self.is_android: tags.append("android")
-        if self.is_macos:   tags.append("macos")
-        if self.is_windows: tags.append("windows")
-        if self.linux_distro: tags.append(self.linux_distro)
+        if self.is_termux:
+            tags.append("termux")
+        if self.is_nixos:
+            tags.append("nixos")
+        if self.is_wsl:
+            tags.append("wsl")
+        if self.is_android:
+            tags.append("android")
+        if self.is_macos:
+            tags.append("macos")
+        if self.is_windows:
+            tags.append("windows")
+        if self.linux_distro:
+            tags.append(self.linux_distro)
         return f"PlatformInfo({', '.join(tags) or self.system})"
 
 
 _INFO: Optional[PlatformInfo] = None
+
 
 def get_platform() -> PlatformInfo:
     global _INFO
@@ -138,20 +150,20 @@ def get_platform() -> PlatformInfo:
 
 _PKG_INSTALL_CMDS: dict[str, List[str]] = {
     "apt-get": ["apt-get", "install", "-y", "--no-install-recommends"],
-    "apt":     ["apt",     "install", "-y", "--no-install-recommends"],
-    "dnf":     ["dnf",     "install", "-y"],
-    "yum":     ["yum",     "install", "-y"],
-    "pacman":  ["pacman",  "-S",      "--noconfirm"],
-    "zypper":  ["zypper",  "install", "-y"],
-    "apk":     ["apk",     "add",     "--no-cache"],
-    "emerge":  ["emerge",  "-av"],
-    "brew":    ["brew",    "install"],
-    "port":    ["port",    "install"],
-    "pkg":     ["pkg",     "install", "-y"],
-    "choco":   ["choco",   "install", "-y"],
-    "winget":  ["winget",  "install", "--silent", "--accept-package-agreements",
-                "--accept-source-agreements", "-e", "--id"],
-    "scoop":   ["scoop",   "install"],
+    "apt": ["apt", "install", "-y", "--no-install-recommends"],
+    "dnf": ["dnf", "install", "-y"],
+    "yum": ["yum", "install", "-y"],
+    "pacman": ["pacman", "-S", "--noconfirm"],
+    "zypper": ["zypper", "install", "-y"],
+    "apk": ["apk", "add", "--no-cache"],
+    "emerge": ["emerge", "-av"],
+    "brew": ["brew", "install"],
+    "port": ["port", "install"],
+    "pkg": ["pkg", "install", "-y"],
+    "choco": ["choco", "install", "-y"],
+    "winget": ["winget", "install", "--silent", "--accept-package-agreements",
+               "--accept-source-agreements", "-e", "--id"],
+    "scoop": ["scoop", "install"],
     "nix-env": ["nix-env", "-iA", "nixpkgs."],
 }
 
@@ -309,7 +321,9 @@ def install_system_dep(dep: str, *, verbose: bool = True) -> bool:
         return bool(shutil.which(binary))
 
     if verbose:
-        print(f"  ⚠ Could not install {dep} automatically (tried: {', '.join(tried)}).")
+        print(
+            f"  ⚠ Could not install {dep} automatically (tried: {
+                ', '.join(tried)}).")
     return bool(shutil.which(binary))
 
 
@@ -338,14 +352,18 @@ def _termux_install_node(*, verbose: bool = True) -> bool:
         if not shutil.which(cmd[0]):
             continue
         try:
-            r = subprocess.run(cmd, check=False, capture_output=not verbose, timeout=300)
+            r = subprocess.run(
+                cmd,
+                check=False,
+                capture_output=not verbose,
+                timeout=300)
             if r.returncode == 0 and shutil.which("node"):
                 if verbose:
                     print("  ✓ Node.js installed on Termux")
                 return True
         except Exception as exc:
             if verbose:
-                print(f"  ⚠ Attempt {attempt+1} failed: {exc}")
+                print(f"  ⚠ Attempt {attempt + 1} failed: {exc}")
     return bool(shutil.which("node"))
 
 
@@ -371,7 +389,8 @@ class NpmStrategy:
         self.env = env
         self.timeout = timeout
 
-    def _run(self, cmd: List[str], capture: bool = True) -> subprocess.CompletedProcess:
+    def _run(self, cmd: List[str],
+             capture: bool = True) -> subprocess.CompletedProcess:
         try:
             return subprocess.run(
                 cmd, cwd=self.cwd, env=self.env,
@@ -392,13 +411,16 @@ class NpmStrategy:
         return self._run([self.npm, "install", *self.extra_args])
 
     def run_install_ignore_scripts(self) -> subprocess.CompletedProcess:
-        return self._run([self.npm, "install", "--ignore-scripts", *self.extra_args])
+        return self._run(
+            [self.npm, "install", "--ignore-scripts", *self.extra_args])
 
     def run_install_no_optional(self) -> subprocess.CompletedProcess:
-        return self._run([self.npm, "install", "--no-optional", "--ignore-scripts", *self.extra_args])
+        return self._run([self.npm, "install", "--no-optional",
+                         "--ignore-scripts", *self.extra_args])
 
     def run_install_legacy(self) -> subprocess.CompletedProcess:
-        return self._run([self.npm, "install", "--legacy-peer-deps", "--ignore-scripts", *self.extra_args])
+        return self._run([self.npm, "install", "--legacy-peer-deps",
+                         "--ignore-scripts", *self.extra_args])
 
 
 def npm_install_with_fallbacks(
@@ -434,8 +456,10 @@ def npm_install_with_fallbacks(
     attempts += [
         ("npm install", strategy.run_install),
         ("npm install --ignore-scripts", strategy.run_install_ignore_scripts),
-        ("npm install --no-optional --ignore-scripts", strategy.run_install_no_optional),
-        ("npm install --legacy-peer-deps --ignore-scripts", strategy.run_install_legacy),
+        ("npm install --no-optional --ignore-scripts",
+         strategy.run_install_no_optional),
+        ("npm install --legacy-peer-deps --ignore-scripts",
+         strategy.run_install_legacy),
     ]
 
     for desc, fn in attempts:
@@ -555,8 +579,10 @@ def pip_install_with_fallbacks(
 
     strategies = [
         ("pip install", base_args),
-        ("pip install --no-build-isolation", [*base_args, "--no-build-isolation"]),
-        ("pip install --only-binary :all:", [*base_args, "--only-binary", ":all:"]),
+        ("pip install --no-build-isolation",
+         [*base_args, "--no-build-isolation"]),
+        ("pip install --only-binary :all:",
+         [*base_args, "--only-binary", ":all:"]),
         ("pip install --prefer-binary", [*base_args, "--prefer-binary"]),
     ]
 
@@ -569,7 +595,8 @@ def pip_install_with_fallbacks(
 
     for desc, cmd in strategies:
         if verbose:
-            print(f"  → {desc}: {' '.join(packages[:3])}{'…' if len(packages) > 3 else ''}")
+            print(
+                f"  → {desc}: {' '.join(packages[:3])}{'…' if len(packages) > 3 else ''}")
         try:
             result = subprocess.run(
                 cmd, check=False,
@@ -602,7 +629,8 @@ _REQUIRED_SYSTEM_DEPS = ["node", "npm", "git", "curl"]
 _OPTIONAL_SYSTEM_DEPS = ["ripgrep", "ffmpeg"]
 
 
-def bootstrap_all_deps(*, verbose: bool = True, auto: bool = True) -> dict[str, bool]:
+def bootstrap_all_deps(*, verbose: bool = True,
+                       auto: bool = True) -> dict[str, bool]:
     """Detect and install all system dependencies NasTech needs.
 
     Returns a dict of dep → available (bool).
@@ -643,14 +671,16 @@ def bootstrap_all_deps(*, verbose: bool = True, auto: bool = True) -> dict[str, 
 def ensure_node(*, verbose: bool = True) -> bool:
     """Make sure Node.js and npm are available; auto-install if missing."""
     node_ok = bool(shutil.which("node"))
-    npm_ok  = bool(shutil.which("npm"))
+    npm_ok = bool(shutil.which("npm"))
 
     if node_ok and npm_ok:
         return True
 
     p = get_platform()
     if verbose:
-        missing = [d for d, ok in [("node", node_ok), ("npm", npm_ok)] if not ok]
+        missing = [
+            d for d, ok in [
+                ("node", node_ok), ("npm", npm_ok)] if not ok]
         print(f"  ⚠ Missing: {', '.join(missing)} — auto-installing…")
 
     # Termux: single pkg command installs both
@@ -659,5 +689,5 @@ def ensure_node(*, verbose: bool = True) -> bool:
 
     # Generic path
     ok_node = install_system_dep("node", verbose=verbose)
-    ok_npm  = install_system_dep("npm",  verbose=verbose)
+    ok_npm = install_system_dep("npm", verbose=verbose)
     return ok_node and ok_npm

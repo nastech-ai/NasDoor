@@ -68,18 +68,17 @@ Usage:
 
 import json
 import logging
-
-from nastech_constants import get_nastech_home, display_nastech_home
 import os
 import re
 from enum import Enum
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Dict, Any, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
-from tools.registry import registry, tool_error
-from nastech_cli.config import cfg_get
-from utils import env_var_enabled
 from agent.skill_utils import EXCLUDED_SKILL_DIRS as _EXCLUDED_SKILL_DIRS
+from nastech_cli.config import cfg_get
+from nastech_constants import display_nastech_home, get_nastech_home
+from tools.registry import registry, tool_error
+from utils import env_var_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -245,8 +244,10 @@ def _normalize_setup_metadata(frontmatter: Dict[str, Any]) -> Dict[str, Any]:
         if not env_var:
             continue
 
-        prompt = str(item.get("prompt") or f"Enter value for {env_var}").strip()
-        provider_url = str(item.get("provider_url") or item.get("url") or "").strip()
+        prompt = str(
+            item.get("prompt") or f"Enter value for {env_var}").strip()
+        provider_url = str(item.get("provider_url")
+                           or item.get("url") or "").strip()
 
         entry: Dict[str, Any] = {
             "env_var": env_var,
@@ -349,7 +350,8 @@ def _capture_required_environment_variables(
     # — the desktop app / TUI — set NASTECH_INTERACTIVE and register a
     # secret-capture callback that routes to a secure secret.request overlay, so
     # they fall through and actually prompt. (NASTECH_INTERACTIVE is the same flag
-    # tools/approval.py uses to tell an interactive surface from a messaging one.)
+    # tools/approval.py uses to tell an interactive surface from a messaging
+    # one.)
     if _is_gateway_surface() and not env_var_enabled("NASTECH_INTERACTIVE"):
         return {
             "missing_names": missing_names,
@@ -446,7 +448,8 @@ def _remaining_required_environment_names(
         name = entry["name"]
         if entry.get("optional"):
             continue
-        if name in missing_names or not _is_env_var_persisted(name, env_snapshot):
+        if name in missing_names or not _is_env_var_persisted(
+                name, env_snapshot):
             remaining.append(name)
     return remaining
 
@@ -466,7 +469,8 @@ def _build_setup_note(
     setup_help: str | None = None,
 ) -> str | None:
     if readiness_status == SkillReadinessStatus.SETUP_NEEDED:
-        missing_str = ", ".join(missing) if missing else "required prerequisites"
+        missing_str = ", ".join(
+            missing) if missing else "required prerequisites"
         note = f"Setup needed before using this skill: missing {missing_str}."
         if setup_help:
             return f"{note} {setup_help}"
@@ -545,7 +549,6 @@ def _parse_tags(tags_value) -> List[str]:
     return [t.strip().strip("\"'") for t in tags_value.split(",") if t.strip()]
 
 
-
 def _get_disabled_skill_names() -> Set[str]:
     """Load disabled skill names from config.
 
@@ -582,9 +585,11 @@ def _is_skill_disabled(name: str, platform: str = None) -> bool:
         from nastech_cli.config import load_config
         config = load_config()
         skills_cfg = config.get("skills", {})
-        resolved_platform = platform or os.getenv("NASTECH_PLATFORM") or _get_session_platform()
+        resolved_platform = platform or os.getenv(
+            "NASTECH_PLATFORM") or _get_session_platform()
         if resolved_platform:
-            platform_disabled = cfg_get(skills_cfg, "platform_disabled", resolved_platform)
+            platform_disabled = cfg_get(
+                skills_cfg, "platform_disabled", resolved_platform)
             if platform_disabled is not None:
                 return name in platform_disabled
         return name in skills_cfg.get("disabled", [])
@@ -634,7 +639,8 @@ def _find_all_skills(*, skip_disabled: bool = False) -> List[Dict[str, Any]]:
                 if not skill_matches_environment(frontmatter):
                     continue
 
-                name = frontmatter.get("name", skill_dir.name)[:MAX_NAME_LENGTH]
+                name = frontmatter.get("name", skill_dir.name)[
+                    :MAX_NAME_LENGTH]
                 if name in seen_names:
                     continue
                 if name in disabled:
@@ -720,7 +726,8 @@ def skills_list(category: str = None, task_id: str = None) -> str:
 
         # Filter by category if specified
         if category:
-            all_skills = [s for s in all_skills if s.get("category") == category]
+            all_skills = [
+                s for s in all_skills if s.get("category") == category]
 
         # Sort by category then name
         all_skills = _sort_skills(all_skills)
@@ -817,7 +824,8 @@ def _serve_plugin_skill(
             banner = (
                 f"[Bundle context: This skill is part of the '{namespace}' plugin.\n"
                 f"Sibling skills: {sib_list}.\n"
-                f"Use qualified form to invoke siblings (e.g. {namespace}:{siblings[0]}).]\n\n"
+                f"Use qualified form to invoke siblings (e.g. {namespace}:{
+                    siblings[0]}).]\n\n"
             )
         else:
             banner = f"[Bundle context: This skill is part of the '{namespace}' plugin.]\n\n"
@@ -999,7 +1007,8 @@ def skill_view(
         # loaded the other) so we surface it loudly instead of guessing.
         from agent.skill_utils import iter_skill_index_files
 
-        candidates: List[Tuple[Optional[Path], Path]] = []  # (skill_dir, skill_md)
+        # (skill_dir, skill_md)
+        candidates: List[Tuple[Optional[Path], Path]] = []
         seen_md: set = set()
 
         def _record(sd: Optional[Path], smd: Path) -> None:
@@ -1033,7 +1042,8 @@ def skill_view(
 
             # Strategy 2: recursive by directory name (catches nested skills
             # like "foundations/runtime/explore-codebase" called by bare name).
-            for found_skill_md in iter_skill_index_files(search_dir, "SKILL.md"):
+            for found_skill_md in iter_skill_index_files(
+                    search_dir, "SKILL.md"):
                 if found_skill_md.parent.name == name:
                     _record(found_skill_md.parent, found_skill_md)
 
@@ -1052,7 +1062,8 @@ def skill_view(
                 {
                     "success": False,
                     "error": (
-                        f"Ambiguous skill name '{name}': {len(candidates)} skills "
+                        f"Ambiguous skill name '{name}': {
+                            len(candidates)} skills "
                         "match across your local skills dir and external_dirs. "
                         "Refusing to guess — load one explicitly by its categorized path."
                     ),
@@ -1070,7 +1081,8 @@ def skill_view(
             skill_dir, skill_md = candidates[0]
 
         if not skill_md or not skill_md.exists():
-            available = [s["name"] for s in _sort_skills(_find_all_skills())[:20]]
+            available = [s["name"]
+                         for s in _sort_skills(_find_all_skills())[:20]]
             return json.dumps(
                 {
                     "success": False,
@@ -1112,15 +1124,19 @@ def skill_view(
         # Security: detect common prompt injection patterns
         # (pattern list at module level as _INJECTION_PATTERNS)
         _content_lower = content.lower()
-        _injection_detected = any(p in _content_lower for p in _INJECTION_PATTERNS)
+        _injection_detected = any(
+            p in _content_lower for p in _INJECTION_PATTERNS)
 
         if _outside_skills_dir or _injection_detected:
             _warnings = []
             if _outside_skills_dir:
-                _warnings.append(f"skill file is outside the trusted skills directory (~/.nastech/skills/): {skill_md}")
+                _warnings.append(
+                    f"skill file is outside the trusted skills directory (~/.nastech/skills/): {skill_md}")
             if _injection_detected:
-                _warnings.append("skill content contains patterns that may indicate prompt injection")
-            logging.getLogger(__name__).warning("Skill security warning for '%s': %s", name, "; ".join(_warnings))
+                _warnings.append(
+                    "skill content contains patterns that may indicate prompt injection")
+            logging.getLogger(__name__).warning(
+                "Skill security warning for '%s': %s", name, "; ".join(_warnings))
 
         parsed_frontmatter: Dict[str, Any] = {}
         try:
@@ -1154,7 +1170,7 @@ def skill_view(
 
         # If a specific file path is requested, read that instead
         if file_path and skill_dir:
-            from tools.path_security import validate_within_dir, has_traversal_component
+            from tools.path_security import has_traversal_component, validate_within_dir
 
             # Security: Prevent path traversal attacks
             if has_traversal_component(file_path):
@@ -1181,7 +1197,8 @@ def skill_view(
                     ensure_ascii=False,
                 )
             if not target_file.exists():
-                # List available files in the skill directory, organized by type
+                # List available files in the skill directory, organized by
+                # type
                 available_files = {
                     "references": [],
                     "templates": [],
@@ -1214,7 +1231,8 @@ def skill_view(
                             available_files["other"].append(rel)
 
                 # Remove empty categories
-                available_files = {k: v for k, v in available_files.items() if v}
+                available_files = {
+                    k: v for k, v in available_files.items() if v}
 
                 return json.dumps(
                     {
@@ -1256,7 +1274,8 @@ def skill_view(
         # Reuse the parse from the platform check above
         frontmatter = parsed_frontmatter
 
-        # Get reference, template, asset, and script files if this is a directory-based skill
+        # Get reference, template, asset, and script files if this is a
+        # directory-based skill
         reference_files = []
         template_files = []
         asset_files = []
@@ -1287,7 +1306,8 @@ def skill_view(
                         ]
                     )
 
-            # assets/ — agentskills.io standard directory for supplementary files
+            # assets/ — agentskills.io standard directory for supplementary
+            # files
             assets_dir = skill_dir / "assets"
             if assets_dir.exists():
                 for f in assets_dir.rglob("*"):
@@ -1298,19 +1318,24 @@ def skill_view(
             if scripts_dir.exists():
                 for ext in ["*.py", "*.sh", "*.bash", "*.js", "*.ts", "*.rb"]:
                     script_files.extend(
-                        [str(f.relative_to(skill_dir)) for f in scripts_dir.glob(ext)]
+                        [str(f.relative_to(skill_dir))
+                         for f in scripts_dir.glob(ext)]
                     )
 
         # Read tags/related_skills with backward compat:
-        # Check metadata.nastech.* first (agentskills.io convention), fall back to top-level
+        # Check metadata.nastech.* first (agentskills.io convention), fall back
+        # to top-level
         nastech_meta = {}
         metadata = frontmatter.get("metadata")
         if isinstance(metadata, dict):
             nastech_meta = metadata.get("nastech", {}) or {}
 
-        tags = _parse_tags(nastech_meta.get("tags") or frontmatter.get("tags", ""))
+        tags = _parse_tags(
+            nastech_meta.get("tags") or frontmatter.get(
+                "tags", ""))
         related_skills = _parse_tags(
-            nastech_meta.get("related_skills") or frontmatter.get("related_skills", "")
+            nastech_meta.get("related_skills") or frontmatter.get(
+                "related_skills", "")
         )
 
         # Build linked files structure for clear discovery
@@ -1328,7 +1353,9 @@ def skill_view(
             rel_path = str(skill_md.relative_to(SKILLS_DIR))
         except ValueError:
             # External skill — use path relative to the skill's own parent dir
-            rel_path = str(skill_md.relative_to(skill_md.parent.parent)) if skill_md.parent.parent else skill_md.name
+            rel_path = str(
+                skill_md.relative_to(
+                    skill_md.parent.parent)) if skill_md.parent.parent else skill_md.name
         skill_name = frontmatter.get(
             "name", skill_md.stem if not skill_dir else skill_dir.name
         )
@@ -1359,7 +1386,8 @@ def skill_view(
 
         # Register available skill env vars so they pass through to sandboxed
         # execution environments (execute_code, terminal).  Only vars that are
-        # actually set get registered — missing ones are reported as setup_needed.
+        # actually set get registered — missing ones are reported as
+        # setup_needed.
         available_env_names = [
             e["name"]
             for e in required_env_vars
@@ -1380,7 +1408,8 @@ def skill_view(
         # Register credential files for mounting into remote sandboxes
         # (Modal, Docker).  Files that exist on the host are registered;
         # missing ones are added to the setup_needed indicators.
-        required_cred_files_raw = frontmatter.get("required_credential_files", [])
+        required_cred_files_raw = frontmatter.get(
+            "required_credential_files", [])
         if not isinstance(required_cred_files_raw, list):
             required_cred_files_raw = []
         missing_cred_files: list = []
@@ -1388,7 +1417,8 @@ def skill_view(
             try:
                 from tools.credential_files import register_credential_files
 
-                missing_cred_files = register_credential_files(required_cred_files_raw)
+                missing_cred_files = register_credential_files(
+                    required_cred_files_raw)
                 if missing_cred_files:
                     setup_needed = True
             except Exception:
@@ -1438,7 +1468,8 @@ def skill_view(
             else SkillReadinessStatus.AVAILABLE.value,
         }
 
-        setup_help = next((e["help"] for e in required_env_vars if e.get("help")), None)
+        setup_help = next((e["help"]
+                          for e in required_env_vars if e.get("help")), None)
         if setup_help:
             result["setup_help"] = setup_help
 
@@ -1457,7 +1488,8 @@ def skill_view(
                 setup_help,
             )
             if backend in _REMOTE_ENV_BACKENDS and setup_note:
-                setup_note = f"{setup_note} {backend.upper()}-backed skills need these requirements available inside the remote environment as well."
+                setup_note = f"{setup_note} {
+                    backend.upper()}-backed skills need these requirements available inside the remote environment as well."
             if setup_note:
                 result["setup_note"] = setup_note
 
@@ -1473,8 +1505,6 @@ def skill_view(
         return tool_error(str(e), success=False)
 
 
-
-
 if __name__ == "__main__":
     """Test the skills tool"""
     print("🎯 Skills Tool Test")
@@ -1485,7 +1515,12 @@ if __name__ == "__main__":
     result = json.loads(skills_list())
     if result["success"]:
         print(
-            f"Found {result['count']} skills in {len(result.get('categories', []))} categories"
+            f"Found {
+                result['count']} skills in {
+                len(
+                    result.get(
+                        'categories',
+                        []))} categories"
         )
         print(f"Categories: {result.get('categories', [])}")
         print("\nFirst 10 skills:")
@@ -1566,6 +1601,8 @@ registry.register(
     check_fn=check_skills_requirements,
     emoji="📚",
 )
+
+
 def _skill_view_with_bump(args, **kw):
     """Invoke skill_view, then bump view_count on success. Best-effort: a
     telemetry failure never breaks the tool call."""
@@ -1584,7 +1621,8 @@ def _skill_view_with_bump(args, **kw):
                 bump_view(str(resolved))
                 # A skill_view tool call is the agent actively loading the skill
                 # to act on it — that counts as use, not just a browse/view.
-                # Curator's stale timer keys off last_used_at (see agent/curator.py).
+                # Curator's stale timer keys off last_used_at (see
+                # agent/curator.py).
                 bump_use(str(resolved))
     except Exception:
         pass

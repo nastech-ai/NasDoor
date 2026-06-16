@@ -11,19 +11,19 @@ default. Third parties register their own providers via the plugin hook
 """
 from nastech_cli.dashboard_auth.base import (
     DashboardAuthProvider,
-    Session,
-    LoginStart,
     InvalidCodeError,
     InvalidCredentialsError,
+    LoginStart,
     ProviderError,
     RefreshExpiredError,
+    Session,
     assert_protocol_compliance,
 )
 from nastech_cli.dashboard_auth.registry import (
-    register_provider,
+    clear_providers,
     get_provider,
     list_providers,
-    clear_providers,
+    register_provider,
 )
 
 __all__ = [

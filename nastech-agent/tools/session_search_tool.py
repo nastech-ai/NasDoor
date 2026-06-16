@@ -33,6 +33,8 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+from tools.registry import registry, tool_error
+
 # Sources that are excluded from session browsing/searching by default.
 # Third-party integrations tag their sessions with NASTECH_SESSION_SOURCE=tool
 # so they don't clutter the user's session history.
@@ -58,9 +60,17 @@ def _format_timestamp(ts: Union[int, float, str, None]) -> str:
                 return dt.strftime("%B %d, %Y at %I:%M %p")
             return ts
     except (ValueError, OSError, OverflowError) as e:
-        logging.debug("Failed to format timestamp %s: %s", ts, e, exc_info=True)
+        logging.debug(
+            "Failed to format timestamp %s: %s",
+            ts,
+            e,
+            exc_info=True)
     except Exception as e:
-        logging.debug("Unexpected error formatting timestamp %s: %s", ts, e, exc_info=True)
+        logging.debug(
+            "Unexpected error formatting timestamp %s: %s",
+            ts,
+            e,
+            exc_info=True)
     return str(ts)
 
 
@@ -81,12 +91,17 @@ def _resolve_to_parent(db, session_id: str) -> str:
                 break
             cur = parent
         except Exception as e:
-            logging.debug("Error resolving parent for %s: %s", cur, e, exc_info=True)
+            logging.debug(
+                "Error resolving parent for %s: %s",
+                cur,
+                e,
+                exc_info=True)
             break
     return cur
 
 
-def _shape_message(m: Dict[str, Any], anchor_id: Optional[int] = None) -> Dict[str, Any]:
+def _shape_message(m: Dict[str, Any],
+                   anchor_id: Optional[int] = None) -> Dict[str, Any]:
     """Slim a message row for the tool response. Keeps content even if empty."""
     entry = {
         "id": m.get("id"),
@@ -127,7 +142,8 @@ def _resolve_profile_db(profile: str):
     if not profiles_mod.profile_exists(canon):
         raise ValueError(f"profile '{canon}' does not exist")
 
-    return SessionDB(db_path=profiles_mod.get_profile_dir(canon) / "state.db", read_only=True)
+    return SessionDB(db_path=profiles_mod.get_profile_dir(
+        canon) / "state.db", read_only=True)
 
 
 def _locate_session_db(session_id: str):
@@ -149,9 +165,12 @@ def _locate_session_db(session_id: str):
 
     targets = [("default", profiles_mod.get_profile_dir("default"))]
     try:
-        targets += [(info.name, info.path) for info in profiles_mod.list_profiles()]
+        targets += [(info.name, info.path)
+                    for info in profiles_mod.list_profiles()]
     except Exception:
-        logging.debug("list_profiles failed during session locate", exc_info=True)
+        logging.debug(
+            "list_profiles failed during session locate",
+            exc_info=True)
 
     seen: set = set()
     for name, home in targets:
@@ -168,7 +187,11 @@ def _locate_session_db(session_id: str):
             if pdb.get_session(session_id):
                 return pdb, name
         except Exception:
-            logging.debug("get_session probe failed for %s in %s", session_id, name, exc_info=True)
+            logging.debug(
+                "get_session probe failed for %s in %s",
+                session_id,
+                name,
+                exc_info=True)
         pdb.close()
 
     return None, None
@@ -185,7 +208,11 @@ def _read_session(db, session_id: str, head: int = 20, tail: int = 10) -> str:
     try:
         meta = db.get_session(session_id) or {}
     except Exception as e:
-        logging.debug("get_session failed for %s: %s", session_id, e, exc_info=True)
+        logging.debug(
+            "get_session failed for %s: %s",
+            session_id,
+            e,
+            exc_info=True)
         meta = {}
     if not meta:
         return tool_error(f"session_id not found: {session_id}", success=False)
@@ -193,7 +220,11 @@ def _read_session(db, session_id: str, head: int = 20, tail: int = 10) -> str:
     try:
         rows = db.get_messages(session_id)
     except Exception as e:
-        logging.error("get_messages failed for %s: %s", session_id, e, exc_info=True)
+        logging.error(
+            "get_messages failed for %s: %s",
+            session_id,
+            e,
+            exc_info=True)
         return tool_error(f"failed to load session: {e}", success=False)
 
     shaped = [_shape_message(m) for m in rows]
@@ -223,7 +254,8 @@ def _read_session(db, session_id: str, head: int = 20, tail: int = 10) -> str:
     return json.dumps(response, ensure_ascii=False)
 
 
-def _list_recent_sessions(db, limit: int, current_session_id: str = None) -> str:
+def _list_recent_sessions(
+        db, limit: int, current_session_id: str = None) -> str:
     """Return metadata for the most recent sessions (no LLM calls, no FTS5)."""
     try:
         sessions = db.list_sessions_rich(
@@ -232,12 +264,14 @@ def _list_recent_sessions(db, limit: int, current_session_id: str = None) -> str
             order_by_last_active=True,
         )  # fetch extra so we can skip current
 
-        current_root = _resolve_to_parent(db, current_session_id) if current_session_id else None
+        current_root = _resolve_to_parent(
+            db, current_session_id) if current_session_id else None
 
         results = []
         for s in sessions:
             sid = s.get("id", "")
-            if current_root and (sid == current_root or sid == current_session_id):
+            if current_root and (
+                    sid == current_root or sid == current_session_id):
                 continue
             # Skip child / delegation sessions
             if s.get("parent_session_id"):
@@ -263,7 +297,8 @@ def _list_recent_sessions(db, limit: int, current_session_id: str = None) -> str
         }, ensure_ascii=False)
     except Exception as e:
         logging.error("Error listing recent sessions: %s", e, exc_info=True)
-        return tool_error(f"Failed to list recent sessions: {e}", success=False)
+        return tool_error(
+            f"Failed to list recent sessions: {e}", success=False)
 
 
 def _scroll(
@@ -286,7 +321,8 @@ def _scroll(
     try:
         around_message_id = int(around_message_id)
     except (TypeError, ValueError):
-        return tool_error("scroll requires integer around_message_id", success=False)
+        return tool_error(
+            "scroll requires integer around_message_id", success=False)
 
     # Window clamp [1, 20]
     if not isinstance(window, int):
@@ -311,14 +347,19 @@ def _scroll(
     try:
         session_meta = db.get_session(session_id) or {}
     except Exception as e:
-        logging.debug("get_session failed for %s: %s", session_id, e, exc_info=True)
+        logging.debug(
+            "get_session failed for %s: %s",
+            session_id,
+            e,
+            exc_info=True)
         session_meta = {}
     if not session_meta:
         return tool_error(f"session_id not found: {session_id}", success=False)
 
     # Fetch the window
     try:
-        view = db.get_messages_around(session_id, around_message_id, window=window)
+        view = db.get_messages_around(
+            session_id, around_message_id, window=window)
     except Exception as e:
         logging.error("get_messages_around failed: %s", e, exc_info=True)
         return tool_error(f"failed to load messages: {e}", success=False)
@@ -347,7 +388,8 @@ def _scroll(
             o_root = _resolve_to_parent(db, owning)
             if a_root and o_root and a_root == o_root:
                 try:
-                    rebind_view = db.get_messages_around(owning, around_message_id, window=window)
+                    rebind_view = db.get_messages_around(
+                        owning, around_message_id, window=window)
                     messages = rebind_view.get("window") or []
                     if messages:
                         view = rebind_view
@@ -356,12 +398,14 @@ def _scroll(
                             f"(child of {session_id}); rebound transparently"
                         )
                         try:
-                            session_meta = db.get_session(owning) or session_meta
+                            session_meta = db.get_session(
+                                owning) or session_meta
                         except Exception:
                             pass
                         session_id = owning
                 except Exception as e:
-                    logging.debug("rebind get_messages_around failed: %s", e, exc_info=True)
+                    logging.debug(
+                        "rebind get_messages_around failed: %s", e, exc_info=True)
 
     if not messages:
         return tool_error(
@@ -424,7 +468,8 @@ def _discover(
             "message": "No matching sessions found.",
         }, ensure_ascii=False)
 
-    current_lineage_root = _resolve_to_parent(db, current_session_id) if current_session_id else None
+    current_lineage_root = _resolve_to_parent(
+        db, current_session_id) if current_session_id else None
 
     # Dedupe by lineage. Keep the raw owning session_id on the surviving
     # row — only that pairs validly with the FTS5 match id for the anchored
@@ -452,7 +497,12 @@ def _discover(
         try:
             view = db.get_anchored_view(hit_sid, msg_id, window=5, bookend=3)
         except Exception as e:
-            logging.warning("get_anchored_view failed for %s/%s: %s", hit_sid, msg_id, e, exc_info=True)
+            logging.warning(
+                "get_anchored_view failed for %s/%s: %s",
+                hit_sid,
+                msg_id,
+                e,
+                exc_info=True)
             continue
 
         try:
@@ -463,7 +513,8 @@ def _discover(
         entry = {
             "session_id": hit_sid,
             "when": _format_timestamp(
-                session_meta.get("started_at") or match_info.get("session_started")
+                session_meta.get("started_at") or match_info.get(
+                    "session_started")
             ),
             "source": session_meta.get("source") or match_info.get("source", "unknown"),
             "model": session_meta.get("model") or match_info.get("model") or "unknown",
@@ -522,7 +573,9 @@ def session_search(
             from nastech_state import SessionDB
             db = SessionDB()
         except Exception:
-            logging.debug("SessionDB unavailable for session_search", exc_info=True)
+            logging.debug(
+                "SessionDB unavailable for session_search",
+                exc_info=True)
             from nastech_state import format_session_db_unavailable
             return tool_error(format_session_db_unavailable(), success=False)
 
@@ -551,7 +604,8 @@ def session_search(
             current_session_id = None
 
     # Scroll shape takes precedence — explicit anchor beats any query.
-    if (isinstance(session_id, str) and session_id.strip()) and around_message_id is not None:
+    if (isinstance(session_id, str) and session_id.strip()
+            ) and around_message_id is not None:
         return _scroll(
             db=db,
             session_id=session_id,
@@ -760,7 +814,6 @@ SESSION_SEARCH_SCHEMA = {
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
 
 registry.register(
     name="session_search",

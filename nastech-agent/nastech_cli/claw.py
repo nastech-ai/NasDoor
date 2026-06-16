@@ -18,17 +18,22 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from nastech_cli.config import get_nastech_home, get_config_path, load_config, save_config
-from nastech_constants import get_optional_skills_dir
+from nastech_cli.config import (
+    get_config_path,
+    get_nastech_home,
+    load_config,
+    save_config,
+)
 from nastech_cli.setup import (
     Colors,
     color,
+    print_error,
     print_header,
     print_info,
     print_success,
-    print_error,
     prompt_yes_no,
 )
+from nastech_constants import get_optional_skills_dir
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +59,7 @@ _OPENCLAW_SCRIPT_INSTALLED = (
 
 # Known OpenClaw directory names (current + legacy)
 _OPENCLAW_DIR_NAMES = (".openclaw", ".clawdbot", ".moltbot")
+
 
 def _detect_openclaw_processes() -> list[str]:
     """Detect running OpenClaw processes and services.
@@ -98,7 +104,9 @@ def _detect_openclaw_processes() -> list[str]:
                 capture_output=True, text=True, timeout=5,
             )
             if result.stdout.strip():
-                found.append(f"node.exe process with openclaw in command line (PID {result.stdout.strip()})")
+                found.append(
+                    f"node.exe process with openclaw in command line (PID {
+                        result.stdout.strip()})")
         except Exception:
             pass
     else:
@@ -177,11 +185,13 @@ def _warn_if_gateway_running(auto_yes: bool) -> None:
         "conflicts (Telegram, Discord, and Slack only allow one active "
         "session per token)."
     )
-    print_info("Recommendation: stop the gateway first with 'nastech gateway stop'.")
+    print_info(
+        "Recommendation: stop the gateway first with 'nastech gateway stop'.")
     print()
     if not auto_yes and not prompt_yes_no("Continue anyway?", default=False):
         print_info("Migration cancelled. Stop the gateway and try again.")
         sys.exit(0)
+
 
 # State files commonly found in OpenClaw workspace directories — listed
 # during cleanup to help the user decide whether to archive
@@ -203,7 +213,8 @@ def _find_migration_script() -> Path | None:
 
 def _load_migration_module(script_path: Path):
     """Dynamically load the migration script as a module."""
-    spec = importlib.util.spec_from_file_location("openclaw_to_nastech", script_path)
+    spec = importlib.util.spec_from_file_location(
+        "openclaw_to_nastech", script_path)
     if spec is None or spec.loader is None:
         return None
     mod = importlib.util.module_from_spec(spec)
@@ -363,8 +374,10 @@ def _cmd_migrate(args):
     if not source_dir.is_dir():
         print()
         print_error(f"OpenClaw directory not found: {source_dir}")
-        print_info("Make sure your OpenClaw installation is at the expected path.")
-        print_info("You can specify a custom path: nastech claw migrate --source /path/to/.openclaw")
+        print_info(
+            "Make sure your OpenClaw installation is at the expected path.")
+        print_info(
+            "You can specify a custom path: nastech claw migrate --source /path/to/.openclaw")
         return
 
     # Find the migration script
@@ -387,7 +400,9 @@ def _cmd_migrate(args):
     print_info(f"Target:      {nastech_home}")
     print_info(f"Preset:      {preset}")
     print_info(f"Overwrite:   {'yes' if overwrite else 'no (skip conflicts)'}")
-    print_info(f"Secrets:     {'yes (allowlisted only)' if migrate_secrets else 'no'}")
+    print_info(
+        f"Secrets:     {
+            'yes (allowlisted only)' if migrate_secrets else 'no'}")
     if skill_conflict != "skip":
         print_info(f"Skill conflicts: {skill_conflict}")
     if workspace_target:
@@ -457,7 +472,8 @@ def _cmd_migrate(args):
 
     print()
     if preview_count > 0:
-        print_header(f"Migration Preview — {preview_count} item(s) would be imported")
+        print_header(
+            f"Migration Preview — {preview_count} item(s) would be imported")
     else:
         print_header(
             f"Migration Preview — {preview_conflicts} conflict(s), nothing would be imported"
@@ -508,13 +524,17 @@ def _cmd_migrate(args):
     backup_archive: Optional[Path] = None
     if not no_backup:
         try:
-            from nastech_cli.backup import create_pre_migration_backup, _format_size
-            backup_archive = create_pre_migration_backup(nastech_home=nastech_home)
+            from nastech_cli.backup import _format_size, create_pre_migration_backup
+            backup_archive = create_pre_migration_backup(
+                nastech_home=nastech_home)
             if backup_archive:
                 size_str = _format_size(backup_archive.stat().st_size)
                 print()
-                print_success(f"Pre-migration backup: {backup_archive} ({size_str})")
-                print_info(f"Restore with: nastech import {backup_archive.name}")
+                print_success(
+                    f"Pre-migration backup: {backup_archive} ({size_str})")
+                print_info(
+                    f"Restore with: nastech import {
+                        backup_archive.name}")
         except Exception as e:
             print()
             print_error(f"Could not create pre-migration backup: {e}")
@@ -543,7 +563,8 @@ def _cmd_migrate(args):
         print_error(f"Migration failed: {e}")
         logger.debug("OpenClaw migration error", exc_info=True)
         if backup_archive:
-            print_info(f"A pre-migration backup is available at: {backup_archive}")
+            print_info(
+                f"A pre-migration backup is available at: {backup_archive}")
             print_info(f"Restore with: nastech import {backup_archive.name}")
         return
 
@@ -608,14 +629,17 @@ def _cmd_cleanup(args):
             "Archiving .openclaw/ while the service is active may cause it to "
             "immediately recreate an empty skeleton directory, destroying your config."
         )
-        print_info("Stop OpenClaw first: systemctl --user stop openclaw-gateway.service")
+        print_info(
+            "Stop OpenClaw first: systemctl --user stop openclaw-gateway.service")
         print()
         if not auto_yes:
             if not sys.stdin.isatty():
-                print_info("Non-interactive session — aborting. Stop OpenClaw and re-run.")
+                print_info(
+                    "Non-interactive session — aborting. Stop OpenClaw and re-run.")
                 return
             if not prompt_yes_no("Proceed anyway?", default=False):
-                print_info("Aborted. Stop OpenClaw first, then re-run: nastech claw cleanup")
+                print_info(
+                    "Aborted. Stop OpenClaw first, then re-run: nastech claw cleanup")
                 return
 
     total_archived = 0
@@ -656,7 +680,11 @@ def _cmd_cleanup(args):
 
         if state_files:
             print()
-            print(color(f"  {len(state_files)} state file(s) found:", Colors.YELLOW))
+            print(
+                color(
+                    f"  {
+                        len(state_files)} state file(s) found:",
+                    Colors.YELLOW))
             for path, desc in state_files[:8]:
                 print(f"      {desc}")
             if len(state_files) > 8:
@@ -668,7 +696,8 @@ def _cmd_cleanup(args):
             archive_path = _archive_directory(source_dir, dry_run=True)
             print_info(f"Would archive: {source_dir} → {archive_path}")
         elif not auto_yes and not sys.stdin.isatty():
-            print_info(f"Non-interactive session — would archive: {source_dir}")
+            print_info(
+                f"Non-interactive session — would archive: {source_dir}")
             print_info("To execute, re-run with: nastech claw cleanup --yes")
         elif auto_yes or prompt_yes_no(f"Archive {source_dir}?", default=True):
             try:
@@ -677,7 +706,8 @@ def _cmd_cleanup(args):
                 total_archived += 1
             except OSError as e:
                 print_error(f"Could not archive: {e}")
-                print_info(f"Try manually: mv {source_dir} {source_dir}.pre-migration")
+                print_info(
+                    f"Try manually: mv {source_dir} {source_dir}.pre-migration")
         else:
             print_info("Skipped.")
 
@@ -695,7 +725,8 @@ def _cmd_cleanup(args):
             f"Cleaned up {total_archived} OpenClaw "
             f"{'directory' if total_archived == 1 else 'directories'}."
         )
-        print_info("Directories were renamed, not deleted. You can undo by renaming them back.")
+        print_info(
+            "Directories were renamed, not deleted. You can undo by renaming them back.")
     else:
         print_info("No directories were archived.")
 
@@ -711,7 +742,8 @@ def _print_migration_report(report: dict, dry_run: bool):
     print()
     if dry_run:
         print_header("Dry Run Results")
-        print_info("No files were modified. This is a preview of what would happen.")
+        print_info(
+            "No files were modified. This is a preview of what would happen.")
     else:
         print_header("Migration Results")
 
@@ -740,7 +772,10 @@ def _print_migration_report(report: dict, dry_run: bool):
             print()
 
         if conflict_items:
-            print(color("  ⚠ Conflicts (skipped — use --overwrite to force):", Colors.YELLOW))
+            print(
+                color(
+                    "  ⚠ Conflicts (skipped — use --overwrite to force):",
+                    Colors.YELLOW))
             for item in conflict_items:
                 kind = item.get("kind", "unknown")
                 reason = item.get("reason", "already exists")
@@ -788,7 +823,8 @@ def _print_migration_report(report: dict, dry_run: bool):
     if dry_run:
         print()
         print_info("To execute the migration, run without --dry-run:")
-        print_info(f"  nastech claw migrate --preset {report.get('preset', 'full')}")
+        print_info(
+            f"  nastech claw migrate --preset {report.get('preset', 'full')}")
     elif migrated:
         print()
         print_success("Migration complete!")
@@ -799,8 +835,14 @@ def _print_migration_report(report: dict, dry_run: bool):
         ]
         if skipped_keys:
             print()
-            print(color("  ⚠ API keys were NOT migrated (secrets migration is disabled by default).", Colors.YELLOW))
-            print(color("  Your OPENROUTER_API_KEY and other provider keys must be added manually.", Colors.YELLOW))
+            print(
+                color(
+                    "  ⚠ API keys were NOT migrated (secrets migration is disabled by default).",
+                    Colors.YELLOW))
+            print(
+                color(
+                    "  Your OPENROUTER_API_KEY and other provider keys must be added manually.",
+                    Colors.YELLOW))
             print()
             print_info("To migrate API keys, re-run with:")
             print_info("  nastech claw migrate --migrate-secrets")

@@ -15,7 +15,6 @@ from tools.computer_use.tool import (
 )
 from tools.registry import registry
 
-
 registry.register(
     name="computer_use",
     toolset="computer_use",

@@ -31,8 +31,8 @@ class CLIAgentSetupMixin:
         """
         from cli import ChatConsole, _cprint, logger
         from nastech_cli.runtime_provider import (
-            resolve_runtime_provider,
             format_runtime_provider_error,
+            resolve_runtime_provider,
         )
 
         _primary_exc = None
@@ -46,23 +46,27 @@ class CLIAgentSetupMixin:
         except Exception as exc:
             _primary_exc = exc
 
-        # Primary provider auth failed — try fallback providers before giving up.
+        # Primary provider auth failed — try fallback providers before giving
+        # up.
         if runtime is None and _primary_exc is not None:
             from nastech_cli.auth import AuthError
             if isinstance(_primary_exc, AuthError):
-                _fb_chain = self._fallback_model if isinstance(self._fallback_model, list) else []
+                _fb_chain = self._fallback_model if isinstance(
+                    self._fallback_model, list) else []
                 for _fb in _fb_chain:
                     _fb_provider = (_fb.get("provider") or "").strip().lower()
                     _fb_model = (_fb.get("model") or "").strip()
                     if not _fb_provider or not _fb_model:
                         continue
                     try:
-                        runtime = resolve_runtime_provider(requested=_fb_provider)
+                        runtime = resolve_runtime_provider(
+                            requested=_fb_provider)
                         logger.warning(
                             "Primary provider auth failed (%s). Falling through to fallback: %s/%s",
                             _primary_exc, _fb_provider, _fb_model,
                         )
-                        _cprint(f"⚠️  Primary auth failed — switching to fallback: {_fb_provider} / {_fb_model}")
+                        _cprint(
+                            f"⚠️  Primary auth failed — switching to fallback: {_fb_provider} / {_fb_model}")
                         self.requested_provider = _fb_provider
                         self.model = _fb_model
                         _primary_exc = None
@@ -71,7 +75,8 @@ class CLIAgentSetupMixin:
                         continue
 
         if runtime is None:
-            message = format_runtime_provider_error(_primary_exc) if _primary_exc else "Provider resolution failed."
+            message = format_runtime_provider_error(
+                _primary_exc) if _primary_exc else "Provider resolution failed."
             ChatConsole().print(f"[bold red]{message}[/]")
             return False
 
@@ -87,14 +92,17 @@ class CLIAgentSetupMixin:
         # The OpenAI SDK accepts ``Callable[[], str]`` for ``api_key`` and
         # invokes it before every request. Skip the string-only validation
         # and placeholder substitution for callables.
-        _is_callable_provider = callable(api_key) and not isinstance(api_key, str)
-        if not _is_callable_provider and (not isinstance(api_key, str) or not api_key):
+        _is_callable_provider = callable(
+            api_key) and not isinstance(api_key, str)
+        if not _is_callable_provider and (
+                not isinstance(api_key, str) or not api_key):
             # Custom / local endpoints (llama.cpp, ollama, vLLM, etc.) often
             # don't require authentication.  When a base_url IS configured but
             # no API key was found, use a placeholder so the OpenAI SDK
             # doesn't reject the request and local servers just ignore it.
             _source = runtime.get("source", "")
-            _has_custom_base = isinstance(base_url, str) and base_url and "openrouter.ai" not in base_url
+            _has_custom_base = isinstance(
+                base_url, str) and base_url and "openrouter.ai" not in base_url
             if _has_custom_base:
                 api_key = "no-key-required"
                 logger.debug(
@@ -134,11 +142,13 @@ class CLIAgentSetupMixin:
         # the configured model (e.g. "qwen3.6-plus"), causing 400 errors.
         runtime_model = runtime.get("model")
         if runtime_model and isinstance(runtime_model, str):
-            # Only use runtime model if: model is unset, or model equals provider name
+            # Only use runtime model if: model is unset, or model equals
+            # provider name
             should_use_runtime_model = (
                 not self.model or  # No model configured yet
                 self.model == self.provider or  # Model is the provider slug
-                self.model == runtime.get("name")  # Model matches provider display name
+                # Model matches provider display name
+                self.model == runtime.get("name")
             )
             if should_use_runtime_model:
                 self.model = runtime_model
@@ -215,15 +225,25 @@ class CLIAgentSetupMixin:
         route["request_overrides"] = overrides
         return route
 
-    def _init_agent(self, *, model_override: str = None, runtime_override: dict = None, request_overrides: dict | None = None) -> bool:
+    def _init_agent(self, *, model_override: str = None, runtime_override: dict = None,
+                    request_overrides: dict | None = None) -> bool:
         """
         Initialize the agent on first use.
         When resuming a session, restores conversation history from SQLite.
-        
+
         Returns:
             bool: True if successful, False otherwise
         """
-        from cli import AIAgent, ChatConsole, _DIM, _RST, _accent_hex, _cprint, _prepare_deferred_agent_startup, logger
+        from cli import (
+            _DIM,
+            _RST,
+            AIAgent,
+            ChatConsole,
+            _accent_hex,
+            _cprint,
+            _prepare_deferred_agent_startup,
+            logger,
+        )
         if self.agent is not None:
             return True
 
@@ -238,14 +258,16 @@ class CLIAgentSetupMixin:
 
         wait_for_mcp_discovery()
 
-        # Initialize SQLite session store for CLI sessions (if not already done in __init__)
+        # Initialize SQLite session store for CLI sessions (if not already done
+        # in __init__)
         if self._session_db is None:
             try:
                 from nastech_state import SessionDB
                 self._session_db = SessionDB()
             except Exception as e:
-                logger.warning("SQLite session store not available — session will NOT be indexed: %s", e)
-        
+                logger.warning(
+                    "SQLite session store not available — session will NOT be indexed: %s", e)
+
         # If resuming, validate the session exists and load its history.
         # _preload_resumed_session() may have already loaded it (called from
         # run() for immediate display).  In that case, conversation_history
@@ -260,25 +282,34 @@ class CLIAgentSetupMixin:
             _quiet_mode = getattr(self, "tool_progress_mode", "full") == "off"
             if not session_meta:
                 if _quiet_mode:
-                    print(f"Session not found: {self.session_id}", file=sys.stderr)
+                    print(
+                        f"Session not found: {
+                            self.session_id}",
+                        file=sys.stderr)
                     print(
                         "Use a session ID from a previous CLI run (nastech sessions list).",
                         file=sys.stderr,
                     )
                 else:
-                    _cprint(f"\033[1;31mSession not found: {self.session_id}{_RST}")
-                    _cprint(f"{_DIM}Use a session ID from a previous CLI run (nastech sessions list).{_RST}")
+                    _cprint(
+                        f"\033[1;31mSession not found: {
+                            self.session_id}{_RST}")
+                    _cprint(
+                        f"{_DIM}Use a session ID from a previous CLI run (nastech sessions list).{_RST}")
                 return False
             # If the requested session is the (empty) head of a compression
             # chain, walk to the descendant that actually holds the messages.
             # See #15000 and SessionDB.resolve_resume_session_id.
             try:
-                resolved_id = self._session_db.resolve_resume_session_id(self.session_id)
+                resolved_id = self._session_db.resolve_resume_session_id(
+                    self.session_id)
             except Exception:
                 resolved_id = self.session_id
             if resolved_id and resolved_id != self.session_id:
                 ChatConsole().print(
-                    f"[dim]Session {_escape(self.session_id)} was compressed into "
+                    f"[dim]Session {
+                        _escape(
+                            self.session_id)} was compressed into "
                     f"{_escape(resolved_id)}; resuming the descendant with your "
                     f"transcript.[/dim]"
                 )
@@ -286,11 +317,14 @@ class CLIAgentSetupMixin:
                 resolved_meta = self._session_db.get_session(self.session_id)
                 if resolved_meta:
                     session_meta = resolved_meta
-            restored = self._session_db.get_messages_as_conversation(self.session_id)
+            restored = self._session_db.get_messages_as_conversation(
+                self.session_id)
             if restored:
-                restored = [m for m in restored if m.get("role") != "session_meta"]
+                restored = [
+                    m for m in restored if m.get("role") != "session_meta"]
                 self.conversation_history = restored
-                msg_count = len([m for m in restored if m.get("role") == "user"])
+                msg_count = len(
+                    [m for m in restored if m.get("role") == "user"])
                 title_part = ""
                 if session_meta.get("title"):
                     title_part = f" \"{session_meta['title']}\""
@@ -312,12 +346,16 @@ class CLIAgentSetupMixin:
             else:
                 if _quiet_mode:
                     print(
-                        f"Session {self.session_id} found but has no messages. Starting fresh.",
+                        f"Session {
+                            self.session_id} found but has no messages. Starting fresh.",
                         file=sys.stderr,
                     )
                 else:
                     ChatConsole().print(
-                        f"[bold {_accent_hex()}]Session {_escape(self.session_id)} found but has no messages. Starting fresh.[/]"
+                        f"[bold {
+                            _accent_hex()}]Session {
+                            _escape(
+                                self.session_id)} found but has no messages. Starting fresh.[/]"
                     )
             # Re-open the session (clear ended_at so it's active again)
             try:
@@ -328,7 +366,7 @@ class CLIAgentSetupMixin:
                 self._session_db._conn.commit()
             except Exception:
                 pass
-        
+
         try:
             runtime = runtime_override or {
                 "api_key": self.api_key,
@@ -421,16 +459,22 @@ class CLIAgentSetupMixin:
                 try:
                     self.agent._ensure_db_session()
                     if self.agent._session_db_created:
-                        self._session_db.set_session_title(self.session_id, self._pending_title)
-                        _cprint(f"  Session title applied: {self._pending_title}")
+                        self._session_db.set_session_title(
+                            self.session_id, self._pending_title)
+                        _cprint(
+                            f"  Session title applied: {
+                                self._pending_title}")
                         self._pending_title = None
-                    # else: row creation failed transiently — keep _pending_title for retry
+                    # else: row creation failed transiently — keep
+                    # _pending_title for retry
                 except (ValueError, Exception) as e:
                     _cprint(f"  Could not apply pending title: {e}")
-                    # Keep _pending_title so it can be retried after row creation succeeds
+                    # Keep _pending_title so it can be retried after row
+                    # creation succeeds
             return True
         except Exception as e:
-            ChatConsole().print(f"[bold red]Failed to initialize agent: {e}[/]")
+            ChatConsole().print(
+                f"[bold red]Failed to initialize agent: {e}[/]")
             return False
 
     def _preload_resumed_session(self) -> bool:
@@ -462,7 +506,8 @@ class CLIAgentSetupMixin:
         # If the requested session is the (empty) head of a compression chain,
         # walk to the descendant that actually holds the messages. See #15000.
         try:
-            resolved_id = self._session_db.resolve_resume_session_id(self.session_id)
+            resolved_id = self._session_db.resolve_resume_session_id(
+                self.session_id)
         except Exception:
             resolved_id = self.session_id
         if resolved_id and resolved_id != self.session_id:
@@ -475,7 +520,8 @@ class CLIAgentSetupMixin:
             if resolved_meta:
                 session_meta = resolved_meta
 
-        restored = self._session_db.get_messages_as_conversation(self.session_id)
+        restored = self._session_db.get_messages_as_conversation(
+            self.session_id)
         if restored:
             restored = [m for m in restored if m.get("role") != "session_meta"]
             self.conversation_history = restored
@@ -520,7 +566,12 @@ class CLIAgentSetupMixin:
         last ``MAX_DISPLAY_EXCHANGES`` user/assistant exchanges and shows
         an indicator for earlier hidden messages.
         """
-        from cli import CLI_CONFIG, _record_output_history_entry, _strip_reasoning_tags, _suspend_output_history
+        from cli import (
+            CLI_CONFIG,
+            _record_output_history_entry,
+            _strip_reasoning_tags,
+            _suspend_output_history,
+        )
         if not self.conversation_history:
             return
 
@@ -556,7 +607,8 @@ class CLIAgentSetupMixin:
                 if isinstance(content, list):
                     parts = []
                     for part in content:
-                        if isinstance(part, dict) and part.get("type") == "text":
+                        if isinstance(part, dict) and part.get(
+                                "type") == "text":
                             parts.append(part.get("text", ""))
                         elif isinstance(part, dict) and part.get("type") == "image_url":
                             parts.append("[image]")
@@ -584,7 +636,9 @@ class CLIAgentSetupMixin:
                     names = []
                     for tc in tool_calls:
                         fn = tc.get("function", {})
-                        name = fn.get("name", "unknown") if isinstance(fn, dict) else "unknown"
+                        name = fn.get(
+                            "name", "unknown") if isinstance(
+                            fn, dict) else "unknown"
                         if name not in names:
                             names.append(name)
                     names_str = ", ".join(names[:4])
@@ -655,13 +709,17 @@ class CLIAgentSetupMixin:
                     lines.append(f"         {ml}\n", style="dim")
             elif role == "assistant_last":
                 # Last assistant response shown in full, non-dim
-                lines.append("  ◆ NasTech: ", style=f"bold {_assistant_label_c}")
+                lines.append(
+                    "  ◆ NasTech: ",
+                    style=f"bold {_assistant_label_c}")
                 msg_lines = text.splitlines()
                 lines.append(msg_lines[0] + "\n", style="")
                 for ml in msg_lines[1:]:
                     lines.append(f"            {ml}\n", style="")
             else:
-                lines.append("  ◆ NasTech: ", style=f"dim bold {_assistant_label_c}")
+                lines.append(
+                    "  ◆ NasTech: ",
+                    style=f"dim bold {_assistant_label_c}")
                 msg_lines = text.splitlines()
                 lines.append(msg_lines[0] + "\n", style="dim")
                 for ml in msg_lines[1:]:
@@ -676,6 +734,7 @@ class CLIAgentSetupMixin:
             padding=(0, 1),
             style=_history_text_c,
         )
-        _record_output_history_entry(lambda: self._render_resume_history_panel_lines(panel))
+        _record_output_history_entry(
+            lambda: self._render_resume_history_panel_lines(panel))
         with _suspend_output_history():
             self._console_print(panel)

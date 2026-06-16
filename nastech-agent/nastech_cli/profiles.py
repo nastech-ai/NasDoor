@@ -147,7 +147,8 @@ def _clone_all_copytree_ignore(source_dir: Path):
             ):
                 ignored.append(entry)
                 continue
-            # Root-level exclusions only apply when cloning the default profile.
+            # Root-level exclusions only apply when cloning the default
+            # profile.
             if is_default_source:
                 try:
                     if Path(directory).resolve() == source_resolved:
@@ -359,7 +360,8 @@ def _is_wrapper_dir_in_path() -> bool:
     return wrapper_dir in os.environ.get("PATH", "").split(os.pathsep)
 
 
-def create_wrapper_script(name: str, target: Optional[str] = None) -> Optional[Path]:
+def create_wrapper_script(
+        name: str, target: Optional[str] = None) -> Optional[Path]:
     """Create a shell wrapper script at ~/.local/bin/<name>.
 
     The wrapper file is named after ``name`` (the alias). The profile it
@@ -382,7 +384,8 @@ def create_wrapper_script(name: str, target: Optional[str] = None) -> Optional[P
     if is_windows:
         wrapper_path = wrapper_dir / f"{canon}.bat"
         try:
-            wrapper_path.write_text(f"@echo off\r\nnastech -p {profile} %*\r\n")
+            wrapper_path.write_text(
+                f"@echo off\r\nnastech -p {profile} %*\r\n")
             return wrapper_path
         except OSError as e:
             print(f"⚠ Could not create wrapper at {wrapper_path}: {e}")
@@ -390,8 +393,10 @@ def create_wrapper_script(name: str, target: Optional[str] = None) -> Optional[P
     else:
         wrapper_path = wrapper_dir / canon
         try:
-            wrapper_path.write_text(f'#!/bin/sh\nexec nastech -p {profile} "$@"\n')
-            wrapper_path.chmod(wrapper_path.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+            wrapper_path.write_text(
+                f'#!/bin/sh\nexec nastech -p {profile} "$@"\n')
+            wrapper_path.chmod(wrapper_path.stat().st_mode |
+                               stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
             return wrapper_path
         except OSError as e:
             print(f"⚠ Could not create wrapper at {wrapper_path}: {e}")
@@ -486,7 +491,8 @@ class ProfileInfo:
     # falls back to ``name`` when a profile-named wrapper exists. None if no
     # wrapper points at this profile. See ``find_alias_for_profile``.
     alias_name: Optional[str] = None
-    # Distribution metadata (None if the profile wasn't installed from a distribution).
+    # Distribution metadata (None if the profile wasn't installed from a
+    # distribution).
     distribution_name: Optional[str] = None
     distribution_version: Optional[str] = None
     distribution_source: Optional[str] = None
@@ -541,7 +547,8 @@ def _read_config_model(profile_dir: Path) -> tuple:
         if isinstance(model_cfg, str):
             return model_cfg, None
         if isinstance(model_cfg, dict):
-            return model_cfg.get("default") or model_cfg.get("model"), model_cfg.get("provider")
+            return model_cfg.get("default") or model_cfg.get(
+                "model"), model_cfg.get("provider")
         return None, None
     except Exception:
         return None, None
@@ -551,7 +558,8 @@ def _check_gateway_running(profile_dir: Path) -> bool:
     """Check if a gateway is running for a given profile directory."""
     try:
         from gateway.status import get_running_pid
-        return get_running_pid(profile_dir / "gateway.pid", cleanup_stale=False) is not None
+        return get_running_pid(profile_dir / "gateway.pid",
+                               cleanup_stale=False) is not None
     except Exception:
         return False
 
@@ -625,7 +633,8 @@ def write_profile_meta(
     Profile directory itself must exist.
     """
     if not profile_dir.is_dir():
-        raise FileNotFoundError(f"profile directory does not exist: {profile_dir}")
+        raise FileNotFoundError(
+            f"profile directory does not exist: {profile_dir}")
     import yaml
     path = _profile_yaml_path(profile_dir)
     existing: dict = {}
@@ -658,7 +667,8 @@ def list_profiles() -> List[ProfileInfo]:
     default_home = _get_default_nastech_home()
     if default_home.is_dir():
         model, provider = _read_config_model(default_home)
-        dist_name, dist_version, dist_source = _read_distribution_meta(default_home)
+        dist_name, dist_version, dist_source = _read_distribution_meta(
+            default_home)
         meta = read_profile_meta(default_home)
         profiles.append(ProfileInfo(
             name="default",
@@ -691,10 +701,12 @@ def list_profiles() -> List[ProfileInfo]:
             alias_name = find_alias_for_profile(name)
             if alias_name:
                 is_windows = sys.platform == "win32"
-                alias_path = wrapper_dir / (f"{alias_name}.bat" if is_windows else alias_name)
+                alias_path = wrapper_dir / \
+                    (f"{alias_name}.bat" if is_windows else alias_name)
             else:
                 alias_path = None
-            dist_name, dist_version, dist_source = _read_distribution_meta(entry)
+            dist_name, dist_version, dist_source = _read_distribution_meta(
+                entry)
             meta = read_profile_meta(entry)
             profiles.append(ProfileInfo(
                 name=name,
@@ -705,7 +717,8 @@ def list_profiles() -> List[ProfileInfo]:
                 provider=provider,
                 has_env=(entry / ".env").exists(),
                 skill_count=_count_skills(entry),
-                alias_path=alias_path if (alias_path and alias_path.exists()) else None,
+                alias_path=alias_path if (
+                    alias_path and alias_path.exists()) else None,
                 alias_name=alias_name,
                 distribution_name=dist_name,
                 distribution_version=dist_version,
@@ -768,7 +781,8 @@ def create_profile(
 
     profile_dir = get_profile_dir(canon)
     if profile_dir.exists():
-        raise FileExistsError(f"Profile '{canon}' already exists at {profile_dir}")
+        raise FileExistsError(
+            f"Profile '{canon}' already exists at {profile_dir}")
 
     # Resolve clone source
     source_dir = None
@@ -783,7 +797,8 @@ def create_profile(
             source_dir = get_profile_dir(clone_from)
         if not source_dir.is_dir():
             raise FileNotFoundError(
-                f"Source profile '{clone_from or 'active'}' does not exist at {source_dir}"
+                f"Source profile '{
+                    clone_from or 'active'}' does not exist at {source_dir}"
             )
 
     if clone_all and source_dir:
@@ -825,7 +840,10 @@ def create_profile(
             # same agent capabilities as the source profile.
             source_skills = source_dir / "skills"
             if source_skills.is_dir():
-                shutil.copytree(source_skills, profile_dir / "skills", dirs_exist_ok=True)
+                shutil.copytree(
+                    source_skills,
+                    profile_dir / "skills",
+                    dirs_exist_ok=True)
 
             # Clone memory and other subdirectory files
             for relpath in _CLONE_SUBDIR_FILES:
@@ -882,7 +900,8 @@ def create_profile(
     return profile_dir
 
 
-def seed_profile_skills(profile_dir: Path, quiet: bool = False) -> Optional[dict]:
+def seed_profile_skills(profile_dir: Path,
+                        quiet: bool = False) -> Optional[dict]:
     """Seed bundled skills into a profile via subprocess.
 
     Uses subprocess because sync_skills() caches NASTECH_HOME at module level.
@@ -1041,7 +1060,8 @@ def delete_profile(name: str, yes: bool = False) -> Path:
                 parent = os.path.dirname(path)
                 if parent:
                     try:
-                        os.chmod(parent, os.stat(parent).st_mode | _stat.S_IWUSR)
+                        os.chmod(
+                            parent, os.stat(parent).st_mode | _stat.S_IWUSR)
                     except OSError:
                         pass
                 func(path)
@@ -1160,11 +1180,12 @@ def _cleanup_gateway_service(name: str, profile_dir: Path) -> None:
     old_home = os.environ.get("NASTECH_HOME")
     try:
         os.environ["NASTECH_HOME"] = str(profile_dir)
-        from nastech_cli.gateway import get_service_name, get_launchd_plist_path
+        from nastech_cli.gateway import get_launchd_plist_path, get_service_name
 
         if _platform.system() == "Linux":
             svc_name = get_service_name()
-            svc_file = Path.home() / ".config" / "systemd" / "user" / f"{svc_name}.service"
+            svc_file = Path.home() / ".config" / "systemd" / \
+                "user" / f"{svc_name}.service"
             if svc_file.exists():
                 subprocess.run(
                     ["systemctl", "--user", "disable", svc_name],
@@ -1216,8 +1237,8 @@ def _stop_gateway_process(profile_dir: Path) -> None:
         # _signal.SIGKILL raises AttributeError at import time on Windows,
         # and raw os.kill with SIGTERM doesn't cascade to child processes
         # the same way taskkill /T does.
-        from gateway.status import terminate_pid as _terminate_pid
         from gateway.status import _pid_exists
+        from gateway.status import terminate_pid as _terminate_pid
         _terminate_pid(pid)  # graceful first
         # Wait up to 10s for graceful shutdown. On Windows, os.kill(pid, 0)
         # is NOT a no-op — use the handle-based existence check.
@@ -1331,7 +1352,8 @@ def _default_export_ignore(root_dir: Path):
                 ignored.add(entry)
         # Root-level exclusions
         if Path(directory) == root_dir:
-            ignored.update(c for c in contents if c in _DEFAULT_EXPORT_EXCLUDE_ROOT)
+            ignored.update(
+                c for c in contents if c in _DEFAULT_EXPORT_EXCLUDE_ROOT)
         return ignored
 
     return _ignore
@@ -1496,7 +1518,8 @@ def import_profile(archive_path: str, name: Optional[str] = None) -> Path:
 
     profile_dir = get_profile_dir(canon)
     if profile_dir.exists():
-        raise FileExistsError(f"Profile '{canon}' already exists at {profile_dir}")
+        raise FileExistsError(
+            f"Profile '{canon}' already exists at {profile_dir}")
 
     profiles_root = _get_profiles_root()
     profiles_root.mkdir(parents=True, exist_ok=True)
@@ -1525,7 +1548,8 @@ def import_profile(archive_path: str, name: Optional[str] = None) -> Path:
 # Rename
 # ---------------------------------------------------------------------------
 
-def _migrate_honcho_profile_host(old_name: str, new_name: str, new_dir: Path) -> None:
+def _migrate_honcho_profile_host(
+        old_name: str, new_name: str, new_dir: Path) -> None:
     """Rename Honcho host blocks for a renamed profile without changing peers."""
     old_host = f"nastech_{old_name}"
     legacy_old_host = f"nastech.{old_name}"
@@ -1560,7 +1584,8 @@ def _migrate_honcho_profile_host(old_name: str, new_name: str, new_dir: Path) ->
             continue
 
         if new_host in hosts:
-            print(f"⚠ Honcho host block not migrated: {new_host} already exists in {path}")
+            print(
+                f"⚠ Honcho host block not migrated: {new_host} already exists in {path}")
             continue
 
         block = hosts[source_host]
@@ -1568,12 +1593,19 @@ def _migrate_honcho_profile_host(old_name: str, new_name: str, new_dir: Path) ->
             if source_host.startswith("nastech_"):
                 bare = source_host.split("_", 1)[1]
             else:
-                bare = source_host.split(".", 1)[1] if "." in source_host else source_host
+                bare = source_host.split(
+                    ".", 1)[1] if "." in source_host else source_host
             block["aiPeer"] = bare
         hosts[new_host] = hosts.pop(source_host)
         tmp = path.with_suffix(path.suffix + ".tmp")
         try:
-            tmp.write_text(json.dumps(raw, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            tmp.write_text(
+                json.dumps(
+                    raw,
+                    indent=2,
+                    ensure_ascii=False) +
+                "\n",
+                encoding="utf-8")
             tmp.replace(path)
         except OSError:
             try:

@@ -77,7 +77,8 @@ def list_providers() -> list[ProviderProfile]:
     """Return all registered provider profiles (one per canonical name)."""
     if not _discovered:
         _discover_providers()
-    # Deduplicate: _REGISTRY has canonical names; _ALIASES points to same objects
+    # Deduplicate: _REGISTRY has canonical names; _ALIASES points to same
+    # objects
     seen: set[int] = set()
     result: list[ProviderProfile] = []
     for profile in _REGISTRY.values():
@@ -123,7 +124,8 @@ def _import_plugin_dir(plugin_dir: Path, source: str) -> None:
 
     try:
         spec = importlib.util.spec_from_file_location(
-            module_name, init_file, submodule_search_locations=[str(plugin_dir)]
+            module_name, init_file, submodule_search_locations=[
+                str(plugin_dir)]
         )
         if spec is None or spec.loader is None:
             return

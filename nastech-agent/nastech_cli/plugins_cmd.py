@@ -19,9 +19,9 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
-from nastech_constants import get_nastech_home
 from nastech_cli.config import cfg_get
 from nastech_cli.secret_prompt import masked_secret_prompt
+from nastech_constants import get_nastech_home
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,9 @@ def _resolve_git_executable() -> Optional[str]:
         return found
     if os.name == "nt":
         prog = os.environ.get("ProgramFiles", r"C:\Program Files")
-        prog_x86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+        prog_x86 = os.environ.get(
+            "ProgramFiles(x86)",
+            r"C:\Program Files (x86)")
         local = os.environ.get("LOCALAPPDATA", "")
         candidates = [
             os.path.join(prog, "Git", "cmd", "git.exe"),
@@ -115,7 +117,8 @@ def _sanitize_plugin_name(
     bad_chars = ("\\", "..") if allow_subdir else ("/", "\\", "..")
     for bad in bad_chars:
         if bad in name:
-            raise ValueError(f"Invalid plugin name '{name}': must not contain '{bad}'.")
+            raise ValueError(
+                f"Invalid plugin name '{name}': must not contain '{bad}'.")
 
     target = (plugins_dir / name).resolve()
     plugins_resolved = plugins_dir.resolve()
@@ -148,7 +151,8 @@ def _resolve_git_url(identifier: str) -> str:
     security warning at install time.
     """
     # Already a URL
-    if identifier.startswith(("https://", "http://", "git@", "ssh://", "file://")):
+    if identifier.startswith(
+            ("https://", "http://", "git@", "ssh://", "file://")):
         return identifier
 
     # owner/repo shorthand
@@ -205,11 +209,13 @@ def _copy_example_files(plugin_dir: Path, console) -> None:
             try:
                 shutil.copy2(example_file, real_path)
                 console.print(
-                    f"[dim]  Created {real_name} from {example_file.name}[/dim]"
+                    f"[dim]  Created {real_name} from {
+                        example_file.name}[/dim]"
                 )
             except OSError as e:
                 console.print(
-                    f"[yellow]Warning:[/yellow] Failed to copy {example_file.name}: {e}"
+                    f"[yellow]Warning:[/yellow] Failed to copy {
+                        example_file.name}: {e}"
                 )
 
 
@@ -228,7 +234,8 @@ def _missing_requires_env_names(manifest: dict) -> list[str]:
         elif isinstance(entry, dict) and entry.get("name"):
             env_specs.append(entry)
 
-    return [s["name"] for s in env_specs if s.get("name") and not get_env_value(s["name"])]
+    return [s["name"] for s in env_specs if s.get(
+        "name") and not get_env_value(s["name"])]
 
 
 def _prompt_plugin_env_vars(manifest: dict, console) -> None:
@@ -272,7 +279,8 @@ def _prompt_plugin_env_vars(manifest: dict, console) -> None:
         return
 
     plugin_name = manifest.get("name", "this plugin")
-    console.print(f"\n[bold]{plugin_name}[/bold] requires the following environment variables:\n")
+    console.print(
+        f"\n[bold]{plugin_name}[/bold] requires the following environment variables:\n")
 
     for spec in missing:
         name = spec["name"]
@@ -293,15 +301,20 @@ def _prompt_plugin_env_vars(manifest: dict, console) -> None:
             else:
                 value = input(f"  {name}: ").strip()
         except (EOFError, KeyboardInterrupt):
-            console.print(f"\n[dim]  Skipped (you can set these later in {display_nastech_home()}/.env)[/dim]")
+            console.print(
+                f"\n[dim]  Skipped (you can set these later in {
+                    display_nastech_home()}/.env)[/dim]")
             return
 
         if value:
             save_env_value(name, value)
             os.environ[name] = value
-            console.print(f"  [green]✓[/green] Saved to {display_nastech_home()}/.env")
+            console.print(
+                f"  [green]✓[/green] Saved to {display_nastech_home()}/.env")
         else:
-            console.print(f"  [dim]  Skipped (set {name} in {display_nastech_home()}/.env later)[/dim]")
+            console.print(
+                f"  [dim]  Skipped (set {name} in {
+                    display_nastech_home()}/.env later)[/dim]")
 
     console.print()
 
@@ -341,7 +354,8 @@ def _display_removed(name: str, plugins_dir: Path) -> None:
 
     console = Console()
     console.print()
-    console.print(f"[red]✗[/red] Plugin [bold]{name}[/bold] removed from {plugins_dir}")
+    console.print(
+        f"[red]✗[/red] Plugin [bold]{name}[/bold] removed from {plugins_dir}")
     console.print()
 
 
@@ -349,7 +363,8 @@ def _require_installed_plugin(name: str, plugins_dir: Path, console) -> Path:
     """Return the plugin path if it exists, or exit with an error listing installed plugins."""
     target = _sanitize_plugin_name(name, plugins_dir, allow_subdir=True)
     if not target.exists():
-        installed = ", ".join(d.name for d in plugins_dir.iterdir() if d.is_dir()) or "(none)"
+        installed = ", ".join(
+            d.name for d in plugins_dir.iterdir() if d.is_dir()) or "(none)"
         console.print(
             f"[red]Error:[/red] Plugin '{name}' not found in {plugins_dir}.\n"
             f"Installed plugins: {installed}"
@@ -363,7 +378,8 @@ def _require_installed_plugin(name: str, plugins_dir: Path, console) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def _install_plugin_core(identifier: str, *, force: bool) -> tuple[Path, dict, str]:
+def _install_plugin_core(
+        identifier: str, *, force: bool) -> tuple[Path, dict, str]:
     """Clone Git plugin into ``~/.nastech/plugins``.
 
     Returns ``(target_dir, installed_manifest, canonical_name)``.
@@ -441,7 +457,11 @@ def _install_plugin_core(identifier: str, *, force: bool) -> tuple[Path, dict, s
 
         shutil.move(str(tmp_target), str(target))
 
-    has_yaml = (target / "plugin.yaml").exists() or (target / "plugin.yml").exists()
+    has_yaml = (
+        target /
+        "plugin.yaml").exists() or (
+        target /
+        "plugin.yml").exists()
     if not has_yaml and not (target / "__init__.py").exists():
         logger.warning(
             "%s has no plugin.yaml / __init__.py; may not be a valid plugin",
@@ -534,7 +554,8 @@ def cmd_install(
             f"Run `nastech plugins enable {installed_name}` to activate.[/dim]",
         )
 
-    console.print("[dim]Restart the gateway for the plugin to take effect:[/dim]")
+    console.print(
+        "[dim]Restart the gateway for the plugin to take effect:[/dim]")
     console.print("[dim]  nastech gateway restart[/dim]")
     console.print()
 
@@ -670,7 +691,8 @@ def _resolve_plugin_key(name: str) -> Optional[str]:
     # 2. Fall back to a bare leaf-name match (e.g. "nemo_relay" ->
     #    "observability/nemo_relay"), but only when it resolves to exactly one
     #    plugin so we never silently pick the wrong same-named nested plugin.
-    leaf_matches = [entry[5] for entry in entries if name == entry[5].split("/")[-1]]
+    leaf_matches = [entry[5]
+                    for entry in entries if name == entry[5].split("/")[-1]]
     if len(leaf_matches) == 1:
         return leaf_matches[0]
     return None
@@ -685,7 +707,8 @@ def cmd_enable(name: str) -> None:
     # nested category plugins — and normalize to its canonical registry key.
     key = _resolve_plugin_key(name)
     if key is None:
-        console.print(f"[red]Plugin '{name}' is not installed or bundled.[/red]")
+        console.print(
+            f"[red]Plugin '{name}' is not installed or bundled.[/red]")
         sys.exit(1)
 
     enabled = _get_enabled_set()
@@ -716,7 +739,8 @@ def cmd_disable(name: str) -> None:
     console = Console()
     key = _resolve_plugin_key(name)
     if key is None:
-        console.print(f"[red]Plugin '{name}' is not installed or bundled.[/red]")
+        console.print(
+            f"[red]Plugin '{name}' is not installed or bundled.[/red]")
         sys.exit(1)
 
     enabled = _get_enabled_set()
@@ -832,7 +856,8 @@ def _discover_all_plugins() -> list:
     return list(seen.values())
 
 
-def _plugin_status(name: str, enabled: set, disabled: set, key: str = "") -> str:
+def _plugin_status(name: str, enabled: set, disabled: set,
+                   key: str = "") -> str:
     """Return the user-facing activation state for a plugin name or key."""
     if name in disabled or key in disabled:
         return "disabled"
@@ -841,7 +866,8 @@ def _plugin_status(name: str, enabled: set, disabled: set, key: str = "") -> str
     return "not enabled"
 
 
-def _filter_plugin_entries(entries: list, args: Any, enabled: set, disabled: set) -> list:
+def _filter_plugin_entries(entries: list, args: Any,
+                           enabled: set, disabled: set) -> list:
     """Apply ``nastech plugins list`` CLI filters."""
     filtered = entries
     if getattr(args, "no_bundled", False) or getattr(args, "user", False):
@@ -863,7 +889,8 @@ def cmd_list(args: Any | None = None) -> None:
     entries = _discover_all_plugins()
     if not entries:
         console.print("[dim]No plugins installed.[/dim]")
-        console.print("[dim]Install with:[/dim] nastech plugins install owner/repo")
+        console.print(
+            "[dim]Install with:[/dim] nastech plugins install owner/repo")
         return
 
     enabled = _get_enabled_set()
@@ -914,10 +941,13 @@ def cmd_list(args: Any | None = None) -> None:
     console.print()
     console.print(table)
     console.print()
-    console.print("[dim]Compact view:[/dim] nastech plugins list --plain --no-bundled")
+    console.print(
+        "[dim]Compact view:[/dim] nastech plugins list --plain --no-bundled")
     console.print("[dim]Interactive toggle:[/dim] nastech plugins")
-    console.print("[dim]Enable/disable:[/dim] nastech plugins enable/disable <name>")
-    console.print("[dim]Plugins are opt-in by default — only 'enabled' plugins load.[/dim]")
+    console.print(
+        "[dim]Enable/disable:[/dim] nastech plugins enable/disable <name>")
+    console.print(
+        "[dim]Plugins are opt-in by default — only 'enabled' plugins load.[/dim]")
 
 
 # ---------------------------------------------------------------------------
@@ -929,7 +959,8 @@ def _discover_memory_providers() -> list[tuple[str, str]]:
     """Return [(name, description), ...] for available memory providers."""
     try:
         from plugins.memory import discover_memory_providers
-        return [(name, desc) for name, desc, _avail in discover_memory_providers()]
+        return [(name, desc)
+                for name, desc, _avail in discover_memory_providers()]
     except Exception:
         return []
 
@@ -958,7 +989,8 @@ def _discover_context_engines() -> list[tuple[str, str]]:
         from nastech_cli.plugins import discover_plugins, get_plugin_context_engine
         discover_plugins()
         plugin_engine = get_plugin_context_engine()
-        if plugin_engine and getattr(plugin_engine, "name", None) and plugin_engine.name not in seen:
+        if plugin_engine and getattr(
+                plugin_engine, "name", None) and plugin_engine.name not in seen:
             engines.append((plugin_engine.name, "installed plugin"))
     except Exception:
         pass
@@ -981,7 +1013,8 @@ def _get_current_context_engine() -> str:
     try:
         from nastech_cli.config import load_config
         config = load_config()
-        return cfg_get(config, "context", "engine", default="compressor") or "compressor"
+        return cfg_get(config, "context", "engine",
+                       default="compressor") or "compressor"
     except Exception:
         return "compressor"
 
@@ -1102,7 +1135,8 @@ def cmd_toggle() -> None:
     plugin_labels = []
     plugin_selected = set()
 
-    for i, (name, _version, description, source, _d, key) in enumerate(entries):
+    for i, (name, _version, description, source, _d,
+            key) in enumerate(entries):
         label = f"{name} \u2014 {description}" if description else name
         if source == "bundled":
             label = f"{label} [bundled]"
@@ -1124,8 +1158,10 @@ def cmd_toggle() -> None:
     has_categories = bool(categories)
 
     if not has_plugins and not has_categories:
-        console.print("[dim]No plugins installed and no provider categories available.[/dim]")
-        console.print("[dim]Install with:[/dim] nastech plugins install owner/repo")
+        console.print(
+            "[dim]No plugins installed and no provider categories available.[/dim]")
+        console.print(
+            "[dim]Install with:[/dim] nastech plugins install owner/repo")
         return
 
     # Non-TTY fallback
@@ -1165,7 +1201,8 @@ def _run_composite_ui(curses, plugin_names, plugin_labels, plugin_selected,
             curses.init_pair(1, curses.COLOR_GREEN, -1)
             curses.init_pair(2, curses.COLOR_YELLOW, -1)
             curses.init_pair(3, curses.COLOR_CYAN, -1)
-            curses.init_pair(4, 8 if curses.COLORS > 8 else curses.COLOR_WHITE, -1)  # dim gray
+            curses.init_pair(4, 8 if curses.COLORS >
+                             8 else curses.COLOR_WHITE, -1)  # dim gray
         cursor = 0
         scroll_offset = 0
 
@@ -1193,7 +1230,8 @@ def _run_composite_ui(curses, plugin_names, plugin_labels, plugin_selected,
             #   plugin checkboxes (navigable, indices 0..n_plugins-1)
             #   [separator] (not navigable)
             #   [categories section header] (not navigable)
-            #   category action rows (navigable, indices n_plugins..total_items-1)
+            # category action rows (navigable, indices
+            # n_plugins..total_items-1)
 
             visible_rows = max_y - 4
             if cursor < scroll_offset:
@@ -1207,7 +1245,6 @@ def _run_composite_ui(curses, plugin_names, plugin_labels, plugin_selected,
             # We need to map logical cursor positions to screen rows
             # accounting for non-navigable separator/headers
 
-
             # --- General Plugins section ---
             if n_plugins > 0:
                 # Section header
@@ -1216,13 +1253,15 @@ def _run_composite_ui(curses, plugin_names, plugin_labels, plugin_selected,
                         sattr = curses.A_BOLD
                         if curses.has_colors():
                             sattr |= curses.color_pair(2)
-                        stdscr.addnstr(y, 0, "  General Plugins", max_x - 1, sattr)
+                        stdscr.addnstr(
+                            y, 0, "  General Plugins", max_x - 1, sattr)
                     except curses.error:
                         pass
                     y += 1
 
                 plugin_start = scroll_offset
-                plugin_stop = min(n_plugins, scroll_offset + max(visible_rows, 0))
+                plugin_stop = min(n_plugins, scroll_offset +
+                                  max(visible_rows, 0))
                 for i in range(plugin_start, plugin_stop):
                     if y >= max_y - 1:
                         break
@@ -1250,12 +1289,14 @@ def _run_composite_ui(curses, plugin_names, plugin_labels, plugin_selected,
                     sattr = curses.A_BOLD
                     if curses.has_colors():
                         sattr |= curses.color_pair(2)
-                    stdscr.addnstr(y, 0, "  Provider Plugins", max_x - 1, sattr)
+                    stdscr.addnstr(
+                        y, 0, "  Provider Plugins", max_x - 1, sattr)
                 except curses.error:
                     pass
                 y += 1
 
-                for ci, (cat_name, cat_current, _cat_fn) in enumerate(categories):
+                for ci, (cat_name, cat_current,
+                         _cat_fn) in enumerate(categories):
                     if y >= max_y - 1:
                         break
                     cat_idx = n_plugins + ci
@@ -1322,7 +1363,8 @@ def _run_composite_ui(curses, plugin_names, plugin_labels, plugin_selected,
                             curses.init_pair(1, curses.COLOR_GREEN, -1)
                             curses.init_pair(2, curses.COLOR_YELLOW, -1)
                             curses.init_pair(3, curses.COLOR_CYAN, -1)
-                            curses.init_pair(4, 8 if curses.COLORS > 8 else curses.COLOR_WHITE, -1)
+                            curses.init_pair(
+                                4, 8 if curses.COLORS > 8 else curses.COLOR_WHITE, -1)
                         curses.curs_set(0)
             elif key in {curses.KEY_ENTER, 10, 13}:
                 if cursor < n_plugins:
@@ -1354,7 +1396,8 @@ def _run_composite_ui(curses, plugin_names, plugin_labels, plugin_selected,
                             curses.init_pair(1, curses.COLOR_GREEN, -1)
                             curses.init_pair(2, curses.COLOR_YELLOW, -1)
                             curses.init_pair(3, curses.COLOR_CYAN, -1)
-                            curses.init_pair(4, 8 if curses.COLORS > 8 else curses.COLOR_WHITE, -1)
+                            curses.init_pair(
+                                4, 8 if curses.COLORS > 8 else curses.COLOR_WHITE, -1)
                         curses.curs_set(0)
             elif key in {27, ord("q")}:
                 # Save plugin changes on exit
@@ -1369,7 +1412,8 @@ def _run_composite_ui(curses, plugin_names, plugin_labels, plugin_selected,
     # disabled (written to disabled-list) so it remains off even if the
     # plugin code does something clever like auto-enable in the future.
     new_enabled: set = set()
-    new_disabled: set = set(disabled)  # preserve existing disabled state for unseen plugins
+    # preserve existing disabled state for unseen plugins
+    new_disabled: set = set(disabled)
     for i, name in enumerate(plugin_names):
         if i in chosen:
             new_enabled.add(name)
@@ -1385,7 +1429,8 @@ def _run_composite_ui(curses, plugin_names, plugin_labels, plugin_selected,
         _save_enabled_set(new_enabled)
         _save_disabled_set(new_disabled)
         console.print(
-            f"\n[green]\u2713[/green] General plugins: {len(new_enabled)} enabled, "
+            f"\n[green]\u2713[/green] General plugins: {
+                len(new_enabled)} enabled, "
             f"{len(plugin_names) - len(new_enabled)} disabled."
         )
     elif n_plugins > 0:
@@ -1419,11 +1464,15 @@ def _run_composite_fallback(plugin_names, plugin_labels, plugin_selected,
 
         while True:
             for i, label in enumerate(plugin_labels):
-                marker = color("[\u2713]", Colors.GREEN) if i in chosen else "[ ]"
+                marker = color("[\u2713]",
+                               Colors.GREEN) if i in chosen else "[ ]"
                 print(f"  {marker} {i + 1:>2}. {label}")
             print()
             try:
-                val = input(color("  Toggle # (or Enter to confirm): ", Colors.DIM)).strip()
+                val = input(
+                    color(
+                        "  Toggle # (or Enter to confirm): ",
+                        Colors.DIM)).strip()
                 if not val:
                     break
                 idx = int(val) - 1
@@ -1453,7 +1502,10 @@ def _run_composite_fallback(plugin_names, plugin_labels, plugin_selected,
             print(f"  {ci + 1}. {cat_name} [{cat_current}]")
         print()
         try:
-            val = input(color("  Configure # (or Enter to skip): ", Colors.DIM)).strip()
+            val = input(
+                color(
+                    "  Configure # (or Enter to skip): ",
+                    Colors.DIM)).strip()
             if val:
                 ci = int(val) - 1
                 if 0 <= ci < len(categories):
@@ -1588,7 +1640,8 @@ def _toggle_plugin_toolset(name: str, *, enable: bool) -> None:
             ts_list.remove(toolset_key)
             changed = True
 
-    # If enabling and no platforms have toolset lists yet, add to "cli" at minimum
+    # If enabling and no platforms have toolset lists yet, add to "cli" at
+    # minimum
     if enable and not changed and not platform_toolsets:
         platform_toolsets["cli"] = [toolset_key]
         changed = True
@@ -1597,7 +1650,8 @@ def _toggle_plugin_toolset(name: str, *, enable: bool) -> None:
         save_config(config)
 
 
-def dashboard_set_agent_plugin_enabled(name: str, *, enabled: bool) -> dict[str, Any]:
+def dashboard_set_agent_plugin_enabled(
+        name: str, *, enabled: bool) -> dict[str, Any]:
     """Enable or disable a plugin in ``config.yaml`` (runtime allow/deny lists).
 
     For plugins that provide tools (toolsets), also toggles the toolset in
@@ -1694,7 +1748,8 @@ def dashboard_remove_user_plugin(name: str) -> dict[str, Any]:
     plugins_dir = _plugins_dir()
     for n, _ver, _d, src, _path, _key in _discover_all_plugins():
         if n == name and src == "bundled":
-            return {"ok": False, "error": "Bundled plugins cannot be removed from the dashboard."}
+            return {
+                "ok": False, "error": "Bundled plugins cannot be removed from the dashboard."}
 
     target = _user_installed_plugin_dir(name)
     if target is None:
@@ -1712,7 +1767,8 @@ def plugins_command(args) -> None:
     action = getattr(args, "plugins_action", None)
 
     if action == "install":
-        # Map argparse tri-state: --enable=True, --no-enable=False, neither=None (prompt)
+        # Map argparse tri-state: --enable=True, --no-enable=False,
+        # neither=None (prompt)
         enable_arg = None
         if getattr(args, "enable", False):
             enable_arg = True

@@ -41,10 +41,12 @@ def is_intentional_silence_response(response: Any) -> bool:
         return False
     if len(stripped) > 64:
         return False
-    return _canonical_silence_candidate(stripped) in LIVE_GATEWAY_SILENT_MARKERS
+    return _canonical_silence_candidate(
+        stripped) in LIVE_GATEWAY_SILENT_MARKERS
 
 
-def is_intentional_silence_agent_result(agent_result: dict | None, response: Any) -> bool:
+def is_intentional_silence_agent_result(
+        agent_result: dict | None, response: Any) -> bool:
     """Silence markers suppress delivery only for successful agent turns."""
     if not isinstance(agent_result, dict):
         return False

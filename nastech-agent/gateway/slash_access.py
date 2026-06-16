@@ -37,7 +37,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, FrozenSet, Iterable, Optional, Tuple
 
-
 # Slash commands that MUST stay reachable for any allowed user, even when
 # slash gating is enabled and the user has no commands listed. Without this
 # carve-out, a non-admin user has no way to discover what they can or

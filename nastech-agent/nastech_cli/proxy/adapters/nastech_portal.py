@@ -12,11 +12,11 @@ import threading
 from typing import Any, Dict, FrozenSet, Optional
 
 from nastech_cli.auth import (
-    AuthError,
     DEFAULT_NASTECH_INFERENCE_URL,
-    _load_auth_store,
+    AuthError,
     _auth_store_lock,
     _is_terminal_nastech_refresh_error,
+    _load_auth_store,
     _quarantine_nastech_oauth_state,
     _quarantine_nastech_pool_entries,
     _save_auth_store,
@@ -84,7 +84,8 @@ class NousPortalAdapter(UpstreamAdapter):
         _ = failed_credential
         if status_code != 401:
             return None
-        logger.info("proxy: Nous upstream rejected bearer; force-refreshing invoke JWT")
+        logger.info(
+            "proxy: Nous upstream rejected bearer; force-refreshing invoke JWT")
         return self._get_credential(
             force_refresh=True,
         )
@@ -133,7 +134,8 @@ class NousPortalAdapter(UpstreamAdapter):
                 )
 
             base_url = (
-                _validate_nastech_inference_url_from_network(refreshed.get("base_url"))
+                _validate_nastech_inference_url_from_network(
+                    refreshed.get("base_url"))
                 or DEFAULT_NASTECH_INFERENCE_URL
             )
             base_url = base_url.rstrip("/")
@@ -183,7 +185,8 @@ class NousPortalAdapter(UpstreamAdapter):
                 _save_auth_store(store)
             _write_shared_nastech_state(state)
         except Exception as exc:
-            logger.warning("proxy: failed to persist Nous quarantine state: %s", exc)
+            logger.warning(
+                "proxy: failed to persist Nous quarantine state: %s", exc)
 
 
 __all__ = ["NousPortalAdapter"]

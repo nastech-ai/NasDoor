@@ -17,9 +17,9 @@ from typing import Any, Optional
 from nastech_constants import get_nastech_home
 from tools.environments.base import (
     BaseEnvironment,
-    _ThreadedProcessHandle,
     _load_json_store,
     _save_json_store,
+    _ThreadedProcessHandle,
 )
 from tools.environments.file_sync import (
     FileSyncManager,
@@ -66,7 +66,8 @@ def _store_direct_snapshot(task_id: str, snapshot_id: str) -> None:
     _save_snapshots(snapshots)
 
 
-def _delete_direct_snapshot(task_id: str, snapshot_id: str | None = None) -> None:
+def _delete_direct_snapshot(
+        task_id: str, snapshot_id: str | None = None) -> None:
     snapshots = _load_snapshots()
     updated = False
     for key in (_direct_snapshot_key(task_id), task_id):
@@ -115,8 +116,8 @@ def _resolve_modal_image(image_spec: Any) -> Any:
     ]
     if add_python:
         setup_commands.insert(0,
-            "RUN apt-get update -qq && apt-get install -y -qq python3 python3-venv > /dev/null 2>&1 || true"
-        )
+                              "RUN apt-get update -qq && apt-get install -y -qq python3 python3-venv > /dev/null 2>&1 || true"
+                              )
 
     return _modal.Image.from_registry(
         image_spec,
@@ -187,7 +188,8 @@ class ModalEnvironment(BaseEnvironment):
         self._sandbox = None
         self._app = None
         self._worker = _AsyncWorker()
-        self._sync_manager: FileSyncManager | None = None  # initialized after sandbox creation
+        # initialized after sandbox creation
+        self._sync_manager: FileSyncManager | None = None
 
         sandbox_kwargs = dict(modal_sandbox_kwargs or {})
 
@@ -198,7 +200,8 @@ class ModalEnvironment(BaseEnvironment):
                 self._task_id
             )
             if restored_snapshot_id:
-                logger.info("Modal: restoring from snapshot %s", restored_snapshot_id[:20])
+                logger.info("Modal: restoring from snapshot %s",
+                            restored_snapshot_id[:20])
 
         _ensure_modal_sdk()
         import modal as _modal
@@ -207,8 +210,8 @@ class ModalEnvironment(BaseEnvironment):
         try:
             from tools.credential_files import (
                 get_credential_file_mounts,
-                iter_skills_files,
                 iter_cache_files,
+                iter_skills_files,
             )
 
             for mount_entry in get_credential_file_mounts():
@@ -379,7 +382,8 @@ class ModalEnvironment(BaseEnvironment):
             data = await proc.stdout.read.aio()
             exit_code = await proc.wait.aio()
             if exit_code != 0:
-                raise RuntimeError(f"Modal bulk download failed (exit {exit_code})")
+                raise RuntimeError(
+                    f"Modal bulk download failed (exit {exit_code})")
             return data
 
         tar_bytes = self._worker.run_coroutine(_download(), timeout=120)
@@ -455,7 +459,8 @@ class ModalEnvironment(BaseEnvironment):
                     return img.object_id
 
                 try:
-                    snapshot_id = self._worker.run_coroutine(_snapshot(), timeout=60)
+                    snapshot_id = self._worker.run_coroutine(
+                        _snapshot(), timeout=60)
                 except Exception:
                     snapshot_id = None
 
@@ -469,7 +474,8 @@ class ModalEnvironment(BaseEnvironment):
                 logger.warning("Modal: filesystem snapshot failed: %s", e)
 
         try:
-            self._worker.run_coroutine(self._sandbox.terminate.aio(), timeout=15)
+            self._worker.run_coroutine(
+                self._sandbox.terminate.aio(), timeout=15)
         except Exception:
             pass
         finally:

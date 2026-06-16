@@ -89,7 +89,12 @@ def gql(query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = resp.read().decode("utf-8")
     except urllib.error.HTTPError as e:
-        sys.stderr.write(f"HTTP {e.code}: {e.read().decode('utf-8', 'replace')}\n")
+        sys.stderr.write(
+            f"HTTP {
+                e.code}: {
+                e.read().decode(
+                    'utf-8',
+                    'replace')}\n")
         sys.exit(1)
     except urllib.error.URLError as e:
         sys.stderr.write(f"Network error: {e}\n")
@@ -97,7 +102,11 @@ def gql(query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
 
     result = json.loads(body)
     if "errors" in result and result["errors"]:
-        sys.stderr.write(f"GraphQL errors: {json.dumps(result['errors'], indent=2)}\n")
+        sys.stderr.write(
+            f"GraphQL errors: {
+                json.dumps(
+                    result['errors'],
+                    indent=2)}\n")
         # Still return data if partial success; let caller decide
         if not result.get("data"):
             sys.exit(1)
@@ -156,7 +165,8 @@ def cmd_list_states(args: argparse.Namespace) -> None:
         q = """query($id: String!) {
           team(id: $id) { states(first: 100) { nodes { id name type color } } }
         }"""
-        emit(gql(q, {"id": tid}).get("team", {}).get("states", {}).get("nodes", []))
+        emit(gql(q, {"id": tid}).get("team", {}).get(
+            "states", {}).get("nodes", []))
     else:
         q = "query { workflowStates(first: 200) { nodes { id name type team { key } } } }"
         emit(gql(q).get("workflowStates", {}).get("nodes", []))
@@ -214,7 +224,8 @@ def cmd_search_issues(args: argparse.Namespace) -> None:
         nodes { id identifier title state { name } url }
       }
     }"""
-    emit(gql(q, {"term": args.query, "first": args.limit}).get("searchIssues", {}).get("nodes", []))
+    emit(gql(q, {"term": args.query, "first": args.limit}).get(
+        "searchIssues", {}).get("nodes", []))
 
 
 def cmd_create_issue(args: argparse.Namespace) -> None:
@@ -268,7 +279,10 @@ def cmd_update_status(args: argparse.Namespace) -> None:
         sys.stderr.write(f"Issue not found: {args.identifier}\n")
         sys.exit(1)
     sl = args.state.lower()
-    match = next((s for s in issue["team"]["states"]["nodes"] if s["name"].lower() == sl), None)
+    match = next(
+        (s for s in issue["team"]["states"]
+         ["nodes"] if s["name"].lower() == sl),
+        None)
     if not match:
         sys.stderr.write(
             f"State '{args.state}' not found. Available: "
@@ -281,7 +295,8 @@ def cmd_update_status(args: argparse.Namespace) -> None:
         success issue { identifier state { name } url }
       }
     }"""
-    emit(gql(q, {"id": args.identifier, "stateId": match["id"]}).get("issueUpdate"))
+    emit(gql(q, {"id": args.identifier, "stateId": match["id"]}).get(
+        "issueUpdate"))
 
 
 def cmd_add_comment(args: argparse.Namespace) -> None:
@@ -290,7 +305,8 @@ def cmd_add_comment(args: argparse.Namespace) -> None:
         success comment { id body createdAt }
       }
     }"""
-    emit(gql(q, {"input": {"issueId": args.identifier, "body": args.body}}).get("commentCreate"))
+    emit(gql(q, {"input": {"issueId": args.identifier, "body": args.body}}).get(
+        "commentCreate"))
 
 
 # ---- Documents ----
@@ -324,7 +340,8 @@ def cmd_get_document(args: argparse.Namespace) -> None:
         }"""
         emit(gql(q, {"id": ref}).get("document"))
     else:
-        # Query the collection and filter by slugId — the doc() query only accepts UUIDs.
+        # Query the collection and filter by slugId — the doc() query only
+        # accepts UUIDs.
         q = """query($slug: String!) {
           documents(filter: { slugId: { eq: $slug } }, first: 1) {
             nodes {
@@ -339,13 +356,15 @@ def cmd_get_document(args: argparse.Namespace) -> None:
 
 
 def cmd_search_documents(args: argparse.Namespace) -> None:
-    # Linear doesn't have a first-class searchDocuments — use title filter as a fallback.
+    # Linear doesn't have a first-class searchDocuments — use title filter as
+    # a fallback.
     q = """query($term: String!, $first: Int!) {
       documents(filter: { title: { containsIgnoreCase: $term } }, first: $first) {
         nodes { id title slugId url updatedAt }
       }
     }"""
-    emit(gql(q, {"term": args.query, "first": args.limit}).get("documents", {}).get("nodes", []))
+    emit(gql(q, {"term": args.query, "first": args.limit}).get(
+        "documents", {}).get("nodes", []))
 
 
 def cmd_raw(args: argparse.Namespace) -> None:
@@ -356,7 +375,9 @@ def cmd_raw(args: argparse.Namespace) -> None:
 # ---------- Arg parsing ----------
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="linear_api.py", description="Linear GraphQL CLI")
+    p = argparse.ArgumentParser(
+        prog="linear_api.py",
+        description="Linear GraphQL CLI")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("whoami").set_defaults(func=cmd_whoami)

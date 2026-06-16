@@ -13,7 +13,6 @@ import hashlib
 import re
 from typing import Any, Dict, Mapping
 
-
 # Sources NasTech owns and can intentionally persist in auth.json.  Everything
 # else with a non-empty source is treated as borrowed/reference-only by default
 # so future external secret providers fail closed at the disk boundary.
@@ -100,15 +99,18 @@ def _normalize_key(key: Any) -> str:
     return raw.lower().replace("-", "_").replace(".", "_")
 
 
-def is_borrowed_credential_source(source: Any, provider_id: Any = None) -> bool:
+def is_borrowed_credential_source(
+        source: Any, provider_id: Any = None) -> bool:
     """Return True when ``source`` points at a borrowed/reference-only secret."""
     normalized_source = str(source or "").strip().lower()
     if not normalized_source:
         return False
-    if normalized_source == "manual" or normalized_source.startswith("manual:"):
+    if normalized_source == "manual" or normalized_source.startswith(
+            "manual:"):
         return False
     normalized_provider = str(provider_id or "").strip().lower()
-    return (normalized_provider, normalized_source) not in _PERSISTABLE_PROVIDER_SOURCES
+    return (normalized_provider,
+            normalized_source) not in _PERSISTABLE_PROVIDER_SOURCES
 
 
 def _is_secret_payload_key(key: Any) -> bool:
@@ -126,12 +128,16 @@ def _fingerprint_value(value: Any) -> str | None:
     text = str(value)
     if not text:
         return None
-    digest = hashlib.sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest()
+    digest = hashlib.sha256(
+        text.encode(
+            "utf-8",
+            errors="surrogatepass")).hexdigest()
     return f"sha256:{digest[:16]}"
 
 
 def _credential_secret_fingerprint(payload: Mapping[str, Any]) -> str | None:
-    for key in ("agent_key", "access_token", "refresh_token", "api_key", "token", "secret"):
+    for key in ("agent_key", "access_token", "refresh_token",
+                "api_key", "token", "secret"):
         fingerprint = _fingerprint_value(payload.get(key))
         if fingerprint:
             return fingerprint

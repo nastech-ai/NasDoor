@@ -9,15 +9,17 @@ Handles:
 """
 
 import hashlib
+import json
 import logging
 import os
-import json
 import threading
 import uuid
-from pathlib import Path
-from datetime import datetime, timedelta
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Any
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from utils import atomic_replace
 
 logger = logging.getLogger(__name__)
 
@@ -54,24 +56,27 @@ def _hash_chat_id(value: str) -> str:
     return _hash_id(value)
 
 
+from .config import (  # noqa: F401 — re-exported via gateway/__init__.py
+    SessionResetPolicy,
+)
 from .config import (
-    Platform,
     GatewayConfig,
-    SessionResetPolicy,  # noqa: F401 — re-exported via gateway/__init__.py
     HomeChannel,
+    Platform,
+)
+from .whatsapp_identity import (  # noqa: F401 - re-exported for gateway.session callers
+    normalize_whatsapp_identifier,
 )
 from .whatsapp_identity import (
     canonical_whatsapp_identifier,
-    normalize_whatsapp_identifier,  # noqa: F401 - re-exported for gateway.session callers
 )
-from utils import atomic_replace
 
 
 @dataclass
 class SessionSource:
     """
     Describes where a message originated from.
-    
+
     This information is used to:
     1. Route responses back to the right place
     2. Inject context into the system prompt
@@ -84,20 +89,26 @@ class SessionSource:
     user_id: Optional[str] = None
     user_name: Optional[str] = None
     thread_id: Optional[str] = None  # For forum topics, Discord threads, etc.
-    chat_topic: Optional[str] = None  # Channel topic/description (Discord, Slack)
-    user_id_alt: Optional[str] = None  # Platform-specific stable alt ID (Signal UUID, Feishu union_id)
+    # Channel topic/description (Discord, Slack)
+    chat_topic: Optional[str] = None
+    # Platform-specific stable alt ID (Signal UUID, Feishu union_id)
+    user_id_alt: Optional[str] = None
     chat_id_alt: Optional[str] = None  # Signal group internal ID
-    is_bot: bool = False  # True when the message author is a bot/webhook (Discord)
-    guild_id: Optional[str] = None  # Discord guild / Slack workspace / Matrix server scope
-    parent_chat_id: Optional[str] = None  # Parent channel when chat_id refers to a thread
-    message_id: Optional[str] = None  # ID of the triggering message (for pin/reply/react)
-    
+    # True when the message author is a bot/webhook (Discord)
+    is_bot: bool = False
+    # Discord guild / Slack workspace / Matrix server scope
+    guild_id: Optional[str] = None
+    # Parent channel when chat_id refers to a thread
+    parent_chat_id: Optional[str] = None
+    # ID of the triggering message (for pin/reply/react)
+    message_id: Optional[str] = None
+
     @property
     def description(self) -> str:
         """Human-readable description of the source."""
         if self.platform == Platform.LOCAL:
             return "CLI terminal"
-        
+
         parts = []
         if self.chat_type == "dm":
             parts.append(f"DM with {self.user_name or self.user_id or 'user'}")
@@ -107,12 +118,12 @@ class SessionSource:
             parts.append(f"channel: {self.chat_name or self.chat_id}")
         else:
             parts.append(self.chat_name or self.chat_id)
-        
+
         if self.thread_id:
             parts.append(f"thread: {self.thread_id}")
-        
+
         return ", ".join(parts)
-    
+
     def to_dict(self) -> Dict[str, Any]:
         d = {
             "platform": self.platform.value,
@@ -153,14 +164,13 @@ class SessionSource:
             parent_chat_id=data.get("parent_chat_id"),
             message_id=data.get("message_id"),
         )
-    
 
 
 @dataclass
 class SessionContext:
     """
     Full context for a session, used for dynamic system prompt injection.
-    
+
     The agent receives this information to understand:
     - Where messages are coming from
     - What platforms are available
@@ -170,13 +180,13 @@ class SessionContext:
     connected_platforms: List[Platform]
     home_channels: Dict[Platform, HomeChannel]
     shared_multi_user_session: bool = False
-    
+
     # Session metadata
     session_key: str = ""
     session_id: str = ""
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "source": self.source.to_dict(),
@@ -222,7 +232,8 @@ def _discord_tools_loaded() -> bool:
         from nastech_cli.config import load_config
         from nastech_cli.tools_config import _get_platform_tools
         cfg = load_config()
-        enabled = _get_platform_tools(cfg, "discord", include_default_mcp_servers=False)
+        enabled = _get_platform_tools(
+            cfg, "discord", include_default_mcp_servers=False)
         return "discord" in enabled or "discord_admin" in enabled
     except Exception:
         return False
@@ -267,7 +278,8 @@ def build_session_context_prompt(
     # Source info
     platform_name = context.source.platform.value.title()
     if context.source.platform == Platform.LOCAL:
-        lines.append(f"**Source:** {platform_name} (the machine running this agent)")
+        lines.append(
+            f"**Source:** {platform_name} (the machine running this agent)")
     else:
         # Build a description that respects PII redaction
         src = context.source
@@ -289,7 +301,8 @@ def build_session_context_prompt(
             desc = src.description
         lines.append(f"**Source:** {platform_name} ({desc})")
 
-    # Channel topic (if available - provides context about the channel's purpose)
+    # Channel topic (if available - provides context about the channel's
+    # purpose)
     if context.source.chat_topic:
         lines.append(f"**Channel Topic:** {context.source.chat_topic}")
 
@@ -333,12 +346,14 @@ def build_session_context_prompt(
         # honest so we never promise tools the agent lacks.
         if _discord_tools_loaded():
             src = context.source
-            id_lines = ["", "**Discord IDs (for the `discord` / `discord_admin` tools):**"]
+            id_lines = [
+                "", "**Discord IDs (for the `discord` / `discord_admin` tools):**"]
             if src.guild_id:
                 id_lines.append(f"  - Guild: `{src.guild_id}`")
             if src.thread_id and src.parent_chat_id:
                 id_lines.append(f"  - Parent channel: `{src.parent_chat_id}`")
-                id_lines.append(f"  - Thread: `{src.thread_id}` (use as `channel_id` for fetch_messages etc.)")
+                id_lines.append(
+                    f"  - Thread: `{src.thread_id}` (use as `channel_id` for fetch_messages etc.)")
             else:
                 id_lines.append(f"  - Channel: `{src.chat_id}`")
             if src.message_id:
@@ -401,13 +416,15 @@ def build_session_context_prompt(
         lines.append("- `\"origin\"` → Local output (saved to files)")
     else:
         _origin_label = context.source.chat_name or (
-            _hash_chat_id(context.source.chat_id) if redact_pii else context.source.chat_id
+            _hash_chat_id(
+                context.source.chat_id) if redact_pii else context.source.chat_id
         )
         lines.append(f"- `\"origin\"` → Back to this chat ({_origin_label})")
 
     # Local always available
     lines.append(
-        f"- `\"local\"` → Save to local files only ({display_nastech_home()}/cron/output/)"
+        f"- `\"local\"` → Save to local files only ({
+            display_nastech_home()}/cron/output/)"
     )
 
     # Platform home channels
@@ -416,7 +433,8 @@ def build_session_context_prompt(
 
     # Note about explicit targeting
     lines.append("")
-    lines.append("*For explicit targeting, use `\"platform:chat_id\"` format if the user provides a specific chat ID.*")
+    lines.append(
+        "*For explicit targeting, use `\"platform:chat_id\"` format if the user provides a specific chat ID.*")
 
     return "\n".join(lines)
 
@@ -425,22 +443,22 @@ def build_session_context_prompt(
 class SessionEntry:
     """
     Entry in the session store.
-    
+
     Maps a session key to its current session ID and metadata.
     """
     session_key: str
     session_id: str
     created_at: datetime
     updated_at: datetime
-    
+
     # Origin metadata for delivery routing
     origin: Optional[SessionSource] = None
-    
+
     # Display metadata
     display_name: Optional[str] = None
     platform: Optional[Platform] = None
     chat_type: str = "dm"
-    
+
     # Token tracking
     input_tokens: int = 0
     output_tokens: int = 0
@@ -449,10 +467,10 @@ class SessionEntry:
     total_tokens: int = 0
     estimated_cost_usd: float = 0.0
     cost_status: str = "unknown"
-    
+
     # Last API-reported prompt tokens (for accurate compression pre-check)
     last_prompt_tokens: int = 0
-    
+
     # Set when a session was created because the previous one expired;
     # consumed once by the message handler to inject a notice into context
     was_auto_reset: bool = False
@@ -467,7 +485,7 @@ class SessionEntry:
     # context-note prepend — both wrong for an explicit manual reset.
     # See issue #6508.
     is_fresh_reset: bool = False
-    
+
     # Set by the background expiry watcher after it finalizes an expired
     # session (invoking on_session_finalize hooks and evicting the cached
     # agent).  Persisted to sessions.json so the flag survives gateway
@@ -525,19 +543,22 @@ class SessionEntry:
         if self.origin:
             result["origin"] = self.origin.to_dict()
         return result
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SessionEntry":
         origin = None
         if "origin" in data and data["origin"]:
             origin = SessionSource.from_dict(data["origin"])
-        
+
         platform = None
         if data.get("platform"):
             try:
                 platform = Platform(data["platform"])
             except ValueError as e:
-                logger.debug("Unknown platform value %r: %s", data["platform"], e)
+                logger.debug(
+                    "Unknown platform value %r: %s",
+                    data["platform"],
+                    e)
 
         last_resume_marked_at = None
         _lrma = data.get("last_resume_marked_at")
@@ -564,7 +585,9 @@ class SessionEntry:
             last_prompt_tokens=data.get("last_prompt_tokens", 0),
             estimated_cost_usd=data.get("estimated_cost_usd", 0.0),
             cost_status=data.get("cost_status", "unknown"),
-            expiry_finalized=data.get("expiry_finalized", data.get("memory_flushed", False)),
+            expiry_finalized=data.get(
+                "expiry_finalized", data.get(
+                    "memory_flushed", False)),
             suspended=data.get("suspended", False),
             resume_pending=data.get("resume_pending", False),
             resume_reason=data.get("resume_reason"),
@@ -640,7 +663,8 @@ def build_session_key(
         # arrives without a chat_id (non-standard adapters / synthetic sources)
         # collapses into one shared "agent:main:<platform>:dm" session, and a
         # single cached agent ends up serving multiple people's conversations —
-        # cross-user history bleed.  participant_id keeps DMs isolated per user.
+        # cross-user history bleed.  participant_id keeps DMs isolated per
+        # user.
         dm_participant_id = source.user_id_alt or source.user_id
         if dm_participant_id and source.platform == Platform.WHATSAPP:
             dm_participant_id = (
@@ -660,7 +684,8 @@ def build_session_key(
         # Same JID/LID-flip bug as the DM case: without canonicalisation, a
         # single group member gets two isolated per-user sessions when the
         # bridge reshuffles alias forms.
-        participant_id = canonical_whatsapp_identifier(str(participant_id)) or participant_id
+        participant_id = canonical_whatsapp_identifier(
+            str(participant_id)) or participant_id
     key_parts = ["agent:main", platform, source.chat_type]
 
     if source.chat_id:
@@ -684,11 +709,11 @@ def build_session_key(
 class SessionStore:
     """
     Manages session storage and retrieval.
-    
+
     Uses SQLite (via SessionDB) for session metadata and message transcripts.
     Falls back to legacy JSONL files if SQLite is unavailable.
     """
-    
+
     def __init__(self, sessions_dir: Path, config: GatewayConfig,
                  has_active_processes_fn=None):
         self.sessions_dir = sessions_dir
@@ -697,15 +722,16 @@ class SessionStore:
         self._loaded = False
         self._lock = threading.Lock()
         self._has_active_processes_fn = has_active_processes_fn
-        
+
         # Initialize SQLite session database
         self._db = None
         try:
             from nastech_state import SessionDB
             self._db = SessionDB()
         except Exception as e:
-            print(f"[gateway] Warning: SQLite session store unavailable, falling back to JSONL: {e}")
-    
+            print(
+                f"[gateway] Warning: SQLite session store unavailable, falling back to JSONL: {e}")
+
     def _ensure_loaded(self) -> None:
         """Load sessions index from disk if not already loaded."""
         with self._lock:
@@ -725,7 +751,8 @@ class SessionStore:
                     data = json.load(f)
                     for key, entry_data in data.items():
                         try:
-                            self._entries[key] = SessionEntry.from_dict(entry_data)
+                            self._entries[key] = SessionEntry.from_dict(
+                                entry_data)
                         except (ValueError, KeyError):
                             # Skip entries with unknown/removed platform values
                             continue
@@ -733,7 +760,7 @@ class SessionStore:
                 print(f"[gateway] Warning: Failed to load sessions: {e}")
 
         self._loaded = True
-    
+
     def _save(self) -> None:
         """Save sessions index to disk (kept for session key -> ID mapping)."""
         import tempfile
@@ -756,18 +783,20 @@ class SessionStore:
             except OSError as e:
                 logger.debug("Could not remove temp file %s: %s", tmp_path, e)
             raise
-    
+
     def _generate_session_key(self, source: SessionSource) -> str:
         """Generate a session key from a source."""
         return build_session_key(
             source,
-            group_sessions_per_user=getattr(self.config, "group_sessions_per_user", True),
-            thread_sessions_per_user=getattr(self.config, "thread_sessions_per_user", False),
+            group_sessions_per_user=getattr(
+                self.config, "group_sessions_per_user", True),
+            thread_sessions_per_user=getattr(
+                self.config, "thread_sessions_per_user", False),
         )
-    
+
     def _is_session_expired(self, entry: SessionEntry) -> bool:
         """Check if a session has expired based on its reset policy.
-        
+
         Works from the entry alone — no SessionSource needed.
         Used by the background expiry watcher to proactively flush memories.
         Sessions with active background processes are never considered expired.
@@ -787,7 +816,8 @@ class SessionStore:
         now = _now()
 
         if policy.mode in {"idle", "both"}:
-            idle_deadline = entry.updated_at + timedelta(minutes=policy.idle_minutes)
+            idle_deadline = entry.updated_at + \
+                timedelta(minutes=policy.idle_minutes)
             if now > idle_deadline:
                 return True
 
@@ -803,13 +833,14 @@ class SessionStore:
 
         return False
 
-    def _should_reset(self, entry: SessionEntry, source: SessionSource) -> Optional[str]:
+    def _should_reset(self, entry: SessionEntry,
+                      source: SessionSource) -> Optional[str]:
         """
         Check if a session should be reset based on policy.
-        
+
         Returns the reset reason ("idle" or "daily") if a reset is needed,
         or None if the session is still valid.
-        
+
         Sessions with active background processes are never reset.
         """
         if self._has_active_processes_fn:
@@ -821,32 +852,33 @@ class SessionStore:
             platform=source.platform,
             session_type=source.chat_type
         )
-        
+
         if policy.mode == "none":
             return None
-        
+
         now = _now()
-        
+
         if policy.mode in {"idle", "both"}:
-            idle_deadline = entry.updated_at + timedelta(minutes=policy.idle_minutes)
+            idle_deadline = entry.updated_at + \
+                timedelta(minutes=policy.idle_minutes)
             if now > idle_deadline:
                 return "idle"
-        
+
         if policy.mode in {"daily", "both"}:
             today_reset = now.replace(
-                hour=policy.at_hour, 
-                minute=0, 
-                second=0, 
+                hour=policy.at_hour,
+                minute=0,
+                second=0,
                 microsecond=0
             )
             if now.hour < policy.at_hour:
                 today_reset -= timedelta(days=1)
-            
+
             if entry.updated_at < today_reset:
                 return "daily"
-        
+
         return None
-    
+
     def has_any_sessions(self) -> bool:
         """Check if any sessions have ever been created (across all platforms).
 
@@ -922,7 +954,8 @@ class SessionStore:
                     # Session is being auto-reset.
                     was_auto_reset = True
                     auto_reset_reason = reset_reason
-                    # Track whether the expired session had any real conversation
+                    # Track whether the expired session had any real
+                    # conversation
                     reset_had_activity = entry.total_tokens > 0
                     db_end_session_id = entry.session_id
             else:
@@ -966,7 +999,8 @@ class SessionStore:
             try:
                 self._db.create_session(**db_create_kwargs)
             except Exception as e:
-                print(f"[gateway] Warning: Failed to create SQLite session: {e}")
+                print(
+                    f"[gateway] Warning: Failed to create SQLite session: {e}")
 
         return entry
 
@@ -1143,7 +1177,8 @@ class SessionStore:
                 self._save()
         return count
 
-    def reset_session(self, session_key: str, display_name: Optional[str] = None) -> Optional[SessionEntry]:
+    def reset_session(self, session_key: str,
+                      display_name: Optional[str] = None) -> Optional[SessionEntry]:
         """Force reset a session, creating a new session ID."""
         db_end_session_id = None
         db_create_kwargs = None
@@ -1195,7 +1230,8 @@ class SessionStore:
 
         return new_entry
 
-    def switch_session(self, session_key: str, target_session_id: str) -> Optional[SessionEntry]:
+    def switch_session(self, session_key: str,
+                       target_session_id: str) -> Optional[SessionEntry]:
         """Switch a session key to point at an existing session ID.
 
         Used by ``/resume`` to restore a previously-named session.
@@ -1250,7 +1286,8 @@ class SessionStore:
 
         return new_entry
 
-    def list_sessions(self, active_minutes: Optional[int] = None) -> List[SessionEntry]:
+    def list_sessions(
+            self, active_minutes: Optional[int] = None) -> List[SessionEntry]:
         """List all sessions, optionally filtered by activity."""
         with self._lock:
             self._ensure_loaded_locked()
@@ -1263,8 +1300,9 @@ class SessionStore:
         entries.sort(key=lambda e: e.updated_at, reverse=True)
 
         return entries
-    
-    def append_to_transcript(self, session_id: str, message: Dict[str, Any], skip_db: bool = False) -> None:
+
+    def append_to_transcript(
+            self, session_id: str, message: Dict[str, Any], skip_db: bool = False) -> None:
         """Append a message to a session's transcript (SQLite).
 
         Args:
@@ -1282,23 +1320,30 @@ class SessionStore:
                     tool_name=message.get("tool_name"),
                     tool_calls=message.get("tool_calls"),
                     tool_call_id=message.get("tool_call_id"),
-                    reasoning=message.get("reasoning") if message.get("role") == "assistant" else None,
-                    reasoning_content=message.get("reasoning_content") if message.get("role") == "assistant" else None,
-                    reasoning_details=message.get("reasoning_details") if message.get("role") == "assistant" else None,
-                    codex_reasoning_items=message.get("codex_reasoning_items") if message.get("role") == "assistant" else None,
-                    codex_message_items=message.get("codex_message_items") if message.get("role") == "assistant" else None,
+                    reasoning=message.get("reasoning") if message.get(
+                        "role") == "assistant" else None,
+                    reasoning_content=message.get("reasoning_content") if message.get(
+                        "role") == "assistant" else None,
+                    reasoning_details=message.get("reasoning_details") if message.get(
+                        "role") == "assistant" else None,
+                    codex_reasoning_items=message.get("codex_reasoning_items") if message.get(
+                        "role") == "assistant" else None,
+                    codex_message_items=message.get("codex_message_items") if message.get(
+                        "role") == "assistant" else None,
                     # Platform-side message id (yuanbao msg_id, telegram update_id, …).
                     # Accept either explicit ``platform_message_id`` or the legacy
                     # ``message_id`` key the JSONL transcript used.
                     platform_message_id=(
-                        message.get("platform_message_id") or message.get("message_id")
+                        message.get("platform_message_id") or message.get(
+                            "message_id")
                     ),
                     observed=bool(message.get("observed")),
                 )
             except Exception as e:
                 logger.debug("Session DB operation failed: %s", e)
-    
-    def rewrite_transcript(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
+
+    def rewrite_transcript(self, session_id: str,
+                           messages: List[Dict[str, Any]]) -> None:
         """Replace the entire transcript for a session with new messages.
 
         Used by /retry, /undo, and /compress to persist modified conversation
@@ -1325,7 +1370,8 @@ class SessionStore:
             logger.debug("Could not load messages from DB: %s", e)
             return []
 
-    def rewind_session(self, session_id: str, n: int = 1) -> Optional[Dict[str, Any]]:
+    def rewind_session(self, session_id: str,
+                       n: int = 1) -> Optional[Dict[str, Any]]:
         """Back up ``n`` user turns via soft-delete, keeping rows for audit.
 
         Unlike :meth:`rewrite_transcript` (a hard replace used by /retry),
@@ -1342,7 +1388,8 @@ class SessionStore:
         if n < 1:
             n = 1
         try:
-            recents = self._db.list_recent_user_messages(session_id, limit=max(n, 10))
+            recents = self._db.list_recent_user_messages(
+                session_id, limit=max(n, 10))
         except Exception as e:
             logger.debug("rewind_session: failed to list user messages: %s", e)
             return None
@@ -1385,32 +1432,34 @@ def build_session_context(
 ) -> SessionContext:
     """
     Build a full session context from a source and config.
-    
+
     This is used to inject context into the agent's system prompt.
     """
     connected = config.get_connected_platforms()
-    
+
     home_channels = {}
     for platform in connected:
         home = config.get_home_channel(platform)
         if home:
             home_channels[platform] = home
-    
+
     context = SessionContext(
         source=source,
         connected_platforms=connected,
         home_channels=home_channels,
         shared_multi_user_session=is_shared_multi_user_session(
             source,
-            group_sessions_per_user=getattr(config, "group_sessions_per_user", True),
-            thread_sessions_per_user=getattr(config, "thread_sessions_per_user", False),
+            group_sessions_per_user=getattr(
+                config, "group_sessions_per_user", True),
+            thread_sessions_per_user=getattr(
+                config, "thread_sessions_per_user", False),
         ),
     )
-    
+
     if session_entry:
         context.session_key = session_entry.session_key
         context.session_id = session_entry.session_id
         context.created_at = session_entry.created_at
         context.updated_at = session_entry.updated_at
-    
+
     return context

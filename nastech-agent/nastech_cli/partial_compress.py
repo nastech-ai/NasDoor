@@ -86,8 +86,8 @@ def parse_partial_compress_args(
 
     # Normalize the "up to here" alias to "here".
     if lowered.startswith("up to here"):
-        lowered = lowered[len("up to ") :]
-        text = text[len("up to ") :]
+        lowered = lowered[len("up to "):]
+        text = text[len("up to "):]
 
     tokens = lowered.split()
 

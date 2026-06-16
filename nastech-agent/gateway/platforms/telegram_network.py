@@ -44,7 +44,8 @@ _SEED_FALLBACK_IPS: list[str] = ["149.154.167.220"]
 
 
 def _resolve_proxy_url(target_hosts=None) -> str | None:
-    # Delegate to shared implementation (env vars + macOS system proxy detection)
+    # Delegate to shared implementation (env vars + macOS system proxy
+    # detection)
     from gateway.platforms.base import resolve_proxy_url
     return resolve_proxy_url("TELEGRAM_PROXY", target_hosts=target_hosts)
 
@@ -59,8 +60,12 @@ class TelegramFallbackTransport(httpx.AsyncBaseTransport):
     """
 
     def __init__(self, fallback_ips: Iterable[str], **transport_kwargs):
-        self._fallback_ips = list(dict.fromkeys(_normalize_fallback_ips(fallback_ips)))
-        proxy_url = _resolve_proxy_url(target_hosts=[_TELEGRAM_API_HOST, *self._fallback_ips])
+        self._fallback_ips = list(dict.fromkeys(
+            _normalize_fallback_ips(fallback_ips)))
+        proxy_url = _resolve_proxy_url(
+            target_hosts=[
+                _TELEGRAM_API_HOST,
+                *self._fallback_ips])
         if proxy_url and "proxy" not in transport_kwargs:
             transport_kwargs["proxy"] = proxy_url
         self._primary = httpx.AsyncHTTPTransport(**transport_kwargs)
@@ -70,21 +75,25 @@ class TelegramFallbackTransport(httpx.AsyncBaseTransport):
         self._sticky_ip: Optional[str] = None
         self._sticky_lock = asyncio.Lock()
 
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+    async def handle_async_request(
+            self, request: httpx.Request) -> httpx.Response:
         if request.url.host != _TELEGRAM_API_HOST or not self._fallback_ips:
             return await self._primary.handle_async_request(request)
 
         sticky_ip = self._sticky_ip
-        attempt_order: list[Optional[str]] = [sticky_ip] if sticky_ip else [None]
+        attempt_order: list[Optional[str]] = [
+            sticky_ip] if sticky_ip else [None]
         if sticky_ip:
-            attempt_order.append(None)  # retry primary DNS after sticky failure
+            # retry primary DNS after sticky failure
+            attempt_order.append(None)
         for ip in self._fallback_ips:
             if ip != sticky_ip:
                 attempt_order.append(ip)
 
         last_error: Exception | None = None
         for ip in attempt_order:
-            candidate = request if ip is None else _rewrite_request_for_ip(request, ip)
+            candidate = request if ip is None else _rewrite_request_for_ip(
+                request, ip)
             transport = self._primary if ip is None else self._fallbacks[ip]
             try:
                 response = await transport.handle_async_request(candidate)
@@ -120,7 +129,8 @@ class TelegramFallbackTransport(httpx.AsyncBaseTransport):
                 continue
 
         if last_error is None:
-            raise RuntimeError("All Telegram fallback IPs exhausted but no error was recorded")
+            raise RuntimeError(
+                "All Telegram fallback IPs exhausted but no error was recorded")
         raise last_error
 
     async def aclose(self) -> None:
@@ -144,7 +154,8 @@ def _normalize_fallback_ips(values: Iterable[str]) -> list[str]:
             logger.warning("Ignoring non-IPv4 Telegram fallback IP: %s", raw)
             continue
         if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_unspecified:
-            logger.warning("Ignoring private/internal Telegram fallback IP: %s", raw)
+            logger.warning(
+                "Ignoring private/internal Telegram fallback IP: %s", raw)
             continue
         normalized.append(str(addr))
     return normalized
@@ -228,7 +239,9 @@ async def discover_fallback_ips() -> list[str]:
     validated = _normalize_fallback_ips(candidates)
 
     if validated:
-        logger.debug("Discovered Telegram fallback IPs via DoH: %s", ", ".join(validated))
+        logger.debug(
+            "Discovered Telegram fallback IPs via DoH: %s",
+            ", ".join(validated))
         return validated
 
     logger.info(

@@ -80,7 +80,7 @@ def _require_azure_identity():
         return _ai
     except ImportError:
         try:
-            from tools.lazy_deps import ensure, FeatureUnavailable
+            from tools.lazy_deps import FeatureUnavailable, ensure
         except ImportError as exc:
             raise ImportError(
                 "The 'azure-identity' package is required for Azure AI "
@@ -163,7 +163,8 @@ class EntraIdentityConfig:
     def from_dict(cls, data: Optional[Dict[str, Any]],
                   *, default_scope: Optional[str] = None) -> "EntraIdentityConfig":
         data = data or {}
-        scope = str(data.get("scope") or "").strip() or default_scope or SCOPE_AI_AZURE_DEFAULT
+        scope = str(data.get("scope") or "").strip(
+        ) or default_scope or SCOPE_AI_AZURE_DEFAULT
         exclude_browser = bool(data.get("exclude_interactive_browser", True))
         return cls(
             scope=scope,
@@ -307,7 +308,9 @@ def has_azure_identity_credentials(scope: Optional[str] = None,
     thread.start()
     thread.join(timeout=max(0.01, timeout_seconds))
     if thread.is_alive():
-        logger.debug("Entra token service probe timed out after %ss", timeout_seconds)
+        logger.debug(
+            "Entra token service probe timed out after %ss",
+            timeout_seconds)
         return False
     return bool(result.get("ok"))
 
@@ -369,12 +372,14 @@ def describe_active_credential(config: Optional[EntraIdentityConfig] = None,
     # Surface which env-var sources are present without minting yet.
     env_sources = []
     if os.environ.get("AZURE_FEDERATED_TOKEN_FILE", "").strip():
-        env_sources.append("WorkloadIdentityCredential (AZURE_FEDERATED_TOKEN_FILE)")
+        env_sources.append(
+            "WorkloadIdentityCredential (AZURE_FEDERATED_TOKEN_FILE)")
     if (os.environ.get("AZURE_CLIENT_ID", "").strip()
             and os.environ.get("AZURE_CLIENT_SECRET", "").strip()
             and os.environ.get("AZURE_TENANT_ID", "").strip()):
         env_sources.append("EnvironmentCredential (client secret)")
-    if os.environ.get("IDENTITY_ENDPOINT", "").strip() or os.environ.get("MSI_ENDPOINT", "").strip():
+    if os.environ.get("IDENTITY_ENDPOINT", "").strip(
+    ) or os.environ.get("MSI_ENDPOINT", "").strip():
         env_sources.append("ManagedIdentityCredential (IDENTITY_ENDPOINT)")
     info["env_sources"] = env_sources
 
@@ -459,7 +464,8 @@ def materialize_bearer_for_http(value: Any) -> str:
     raise ValueError("no usable api_key / token provider")
 
 
-def build_bearer_http_client(token_provider: Callable[[], str], **httpx_kwargs: Any) -> Any:
+def build_bearer_http_client(
+        token_provider: Callable[[], str], **httpx_kwargs: Any) -> Any:
     """Return an ``httpx.Client`` that mints a fresh Entra bearer JWT
     per outbound request.
 
@@ -527,10 +533,12 @@ def build_bearer_http_client(token_provider: Callable[[], str], **httpx_kwargs: 
                 "Run `nastech doctor` or `az login` to recover.",
                 exc,
             )
-            for header_name in ("Authorization", "authorization", "Api-Key", "api-key", "X-Api-Key", "x-api-key"):
+            for header_name in ("Authorization", "authorization",
+                                "Api-Key", "api-key", "X-Api-Key", "x-api-key"):
                 request.headers.pop(header_name, None)
             return
-        for header_name in ("Authorization", "authorization", "Api-Key", "api-key", "X-Api-Key", "x-api-key"):
+        for header_name in ("Authorization", "authorization",
+                            "Api-Key", "api-key", "X-Api-Key", "x-api-key"):
             request.headers.pop(header_name, None)
         request.headers["Authorization"] = f"Bearer {token}"
 

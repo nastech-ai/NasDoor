@@ -21,7 +21,6 @@ from typing import Awaitable, Callable
 
 from fastapi import Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
-
 from nastech_cli.dashboard_auth import list_providers
 from nastech_cli.dashboard_auth.audit import AuditEvent, audit_log
 from nastech_cli.dashboard_auth.base import ProviderError
@@ -210,7 +209,8 @@ async def gated_auth_middleware(
             reason="no_provider_recognises",
             ip=_client_ip(request),
         )
-        response = _unauth_response(request, reason="invalid_or_expired_session")
+        response = _unauth_response(
+            request, reason="invalid_or_expired_session")
         # Clear the dead cookie so the browser doesn't keep sending it.
         # Contract v1: no refresh token to retry with, so the only correct
         # next step is full re-auth via /login. Importing locally avoids a

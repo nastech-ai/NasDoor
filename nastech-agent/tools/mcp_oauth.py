@@ -48,6 +48,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+
 from nastech_constants import secure_parent_dir
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ logger = logging.getLogger(__name__)
 # Lazy imports -- MCP SDK with OAuth support is optional
 # ---------------------------------------------------------------------------
 
-_OAUTH_AVAILABLE=False
+_OAUTH_AVAILABLE = False
 try:
     from mcp.client.auth import OAuthClientProvider
     from mcp.shared.auth import (
@@ -66,7 +67,7 @@ try:
         OAuthToken,
     )
 
-    _OAUTH_AVAILABLE=True
+    _OAUTH_AVAILABLE = True
 except ImportError:
     logger.debug("MCP OAuth types not available -- OAuth MCP auth disabled")
 
@@ -119,7 +120,10 @@ def _get_token_dir() -> Path:
         from nastech_constants import get_nastech_home
         base = Path(get_nastech_home())
     except ImportError:
-        base = Path(os.environ.get("NASTECH_HOME", str(Path.home() / ".nastech")))
+        base = Path(
+            os.environ.get(
+                "NASTECH_HOME", str(
+                    Path.home() / ".nastech")))
     return base / "mcp-tokens"
 
 
@@ -269,13 +273,17 @@ class NasTechTokenStorage:
             if file_mtime is not None:
                 try:
                     implied_expiry = file_mtime + int(data["expires_in"])
-                    data["expires_in"] = int(max(implied_expiry - time.time(), 0))
+                    data["expires_in"] = int(
+                        max(implied_expiry - time.time(), 0))
                 except (TypeError, ValueError):
                     pass
         try:
             return OAuthToken.model_validate(data)
         except (ValueError, TypeError, KeyError) as exc:
-            logger.warning("Corrupt tokens at %s -- ignoring: %s", self._tokens_path(), exc)
+            logger.warning(
+                "Corrupt tokens at %s -- ignoring: %s",
+                self._tokens_path(),
+                exc)
             return None
 
     async def set_tokens(self, tokens: "OAuthToken") -> None:
@@ -307,11 +315,19 @@ class NasTechTokenStorage:
         try:
             return OAuthClientInformationFull.model_validate(data)
         except (ValueError, TypeError, KeyError) as exc:
-            logger.warning("Corrupt client info at %s -- ignoring: %s", self._client_info_path(), exc)
+            logger.warning(
+                "Corrupt client info at %s -- ignoring: %s",
+                self._client_info_path(),
+                exc)
             return None
 
-    async def set_client_info(self, client_info: "OAuthClientInformationFull") -> None:
-        _write_json(self._client_info_path(), client_info.model_dump(mode="json", exclude_none=True))
+    async def set_client_info(
+            self, client_info: "OAuthClientInformationFull") -> None:
+        _write_json(
+            self._client_info_path(),
+            client_info.model_dump(
+                mode="json",
+                exclude_none=True))
         logger.debug("OAuth client info saved for %s", self._server_name)
 
     # -- oauth server metadata --------------------------------------------
@@ -323,7 +339,11 @@ class NasTechTokenStorage:
     # forces a full browser re-authorization.
 
     def save_oauth_metadata(self, metadata: "OAuthMetadata") -> None:
-        _write_json(self._meta_path(), metadata.model_dump(exclude_none=True, mode="json"))
+        _write_json(
+            self._meta_path(),
+            metadata.model_dump(
+                exclude_none=True,
+                mode="json"))
         logger.debug("OAuth metadata saved for %s", self._server_name)
 
     def load_oauth_metadata(self) -> "OAuthMetadata | None":
@@ -333,14 +353,18 @@ class NasTechTokenStorage:
         try:
             return OAuthMetadata.model_validate(data)
         except (ValueError, TypeError, KeyError) as exc:
-            logger.warning("Corrupt OAuth metadata at %s -- ignoring: %s", self._meta_path(), exc)
+            logger.warning(
+                "Corrupt OAuth metadata at %s -- ignoring: %s",
+                self._meta_path(),
+                exc)
             return None
 
     # -- cleanup -----------------------------------------------------------
 
     def remove(self) -> None:
         """Delete all stored OAuth state for this server."""
-        for p in (self._tokens_path(), self._client_info_path(), self._meta_path()):
+        for p in (self._tokens_path(), self._client_info_path(),
+                  self._meta_path()):
             p.unlink(missing_ok=True)
 
     def has_cached_tokens(self) -> bool:
@@ -441,11 +465,17 @@ async def _redirect_handler(authorization_url: str) -> None:
             if opened:
                 print("  (Browser opened automatically.)\n", file=sys.stderr)
             else:
-                print("  (Could not open browser — please open the URL manually.)\n", file=sys.stderr)
+                print(
+                    "  (Could not open browser — please open the URL manually.)\n",
+                    file=sys.stderr)
         except Exception:
-            print("  (Could not open browser — please open the URL manually.)\n", file=sys.stderr)
+            print(
+                "  (Could not open browser — please open the URL manually.)\n",
+                file=sys.stderr)
     else:
-        print("  (Headless environment detected — open the URL manually.)\n", file=sys.stderr)
+        print(
+            "  (Headless environment detected — open the URL manually.)\n",
+            file=sys.stderr)
 
 
 async def _wait_for_callback() -> tuple[str, str | None]:
@@ -569,7 +599,8 @@ def _paste_callback_reader(result: dict) -> None:
     # to OAuthNonInteractiveError (already handled by mcp_tool.py as a
     # non-fatal "skip this server and continue startup" path).
     if line.lower() in _SKIP_TOKENS:
-        if result.get("auth_code") is not None or result.get("error") is not None:
+        if result.get("auth_code") is not None or result.get(
+                "error") is not None:
             return
         result["error"] = _USER_SKIPPED_SENTINEL
         print(
@@ -583,7 +614,8 @@ def _paste_callback_reader(result: dict) -> None:
     # Strip a leading "?" if user pasted just a query string.
     query = line
     if "?" in line:
-        # Either a full URL or "?code=...". Take everything after the first "?".
+        # Either a full URL or "?code=...". Take everything after the first
+        # "?".
         query = line.split("?", 1)[1]
     if query.startswith("?"):
         query = query[1:]
@@ -616,7 +648,9 @@ def _paste_callback_reader(result: dict) -> None:
     result["state"] = state
     result["error"] = error
     if code:
-        print("  Got authorization code from paste — completing flow.", file=sys.stderr)
+        print(
+            "  Got authorization code from paste — completing flow.",
+            file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -718,8 +752,15 @@ def _maybe_preregister_client(
         info_dict["scope"] = cfg["scope"]
 
     client_info = OAuthClientInformationFull.model_validate(info_dict)
-    _write_json(storage._client_info_path(), client_info.model_dump(mode="json", exclude_none=True))
-    logger.debug("Pre-registered client_id=%s for '%s'", client_id, storage._server_name)
+    _write_json(
+        storage._client_info_path(),
+        client_info.model_dump(
+            mode="json",
+            exclude_none=True))
+    logger.debug(
+        "Pre-registered client_id=%s for '%s'",
+        client_id,
+        storage._server_name)
 
 
 def build_oauth_auth(

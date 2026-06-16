@@ -62,7 +62,8 @@ class WinPtyBridge:
     no selectable fd, so we poll with a short sleep instead of ``select``.
     """
 
-    def __init__(self, proc: "PtyProcess") -> None:  # type: ignore[name-defined]
+    # type: ignore[name-defined]
+    def __init__(self, proc: "PtyProcess") -> None:
         self._proc = proc
         self._closed = False
 
@@ -87,7 +88,8 @@ class WinPtyBridge:
                 raise PtyUnavailableError(
                     "pywinpty is not installed. Install with: pip install pywinpty"
                 )
-            raise PtyUnavailableError("ConPTY is unavailable on this platform.")
+            raise PtyUnavailableError(
+                "ConPTY is unavailable on this platform.")
         spawn_env = (os.environ.copy() if env is None else dict(env))
         if not spawn_env.get("TERM"):
             spawn_env["TERM"] = "xterm-256color"
@@ -146,7 +148,8 @@ class WinPtyBridge:
         if self._closed or not data:
             return
         try:
-            # The dashboard sends raw keystroke bytes; pywinpty.write wants text.
+            # The dashboard sends raw keystroke bytes; pywinpty.write wants
+            # text.
             self._proc.write(data.decode("utf-8", errors="replace"))
         except Exception:
             return

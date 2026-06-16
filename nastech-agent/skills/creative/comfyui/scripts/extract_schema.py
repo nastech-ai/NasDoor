@@ -32,10 +32,15 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (  # noqa: E402
-    OUTPUT_NODES, PARAM_PATTERNS, PROMPT_FIELDS,
-    is_link, iter_embedding_refs, iter_model_deps, iter_nodes, unwrap_workflow,
+    OUTPUT_NODES,
+    PARAM_PATTERNS,
+    PROMPT_FIELDS,
+    is_link,
+    iter_embedding_refs,
+    iter_model_deps,
+    iter_nodes,
+    unwrap_workflow,
 )
-
 
 # Sampler nodes whose `positive` / `negative` connections we trace
 SAMPLER_NODE_FAMILY = {
@@ -61,7 +66,8 @@ def infer_type(value: Any) -> str:
     return "unknown"
 
 
-def trace_to_node(workflow: dict, link: list, *, max_hops: int = 8) -> str | None:
+def trace_to_node(workflow: dict, link: list, *,
+                  max_hops: int = 8) -> str | None:
     """Follow a [node_id, slot] link, hopping through Reroute / Primitive nodes
     if needed, to find the *upstream* node id that holds the actual value/input.
 
@@ -105,7 +111,8 @@ def find_negative_prompt_node(workflow: dict) -> str | None:
         src = trace_to_node(workflow, neg)
         if src and isinstance(workflow.get(src), dict):
             cls = workflow[src].get("class_type", "")
-            if cls.startswith("CLIPTextEncode") or cls in {"smZ CLIPTextEncode", "BNK_CLIPTextEncodeAdvanced"}:
+            if cls.startswith("CLIPTextEncode") or cls in {
+                    "smZ CLIPTextEncode", "BNK_CLIPTextEncodeAdvanced"}:
                 return src
     return None
 
@@ -121,7 +128,8 @@ def find_positive_prompt_node(workflow: dict) -> str | None:
         src = trace_to_node(workflow, pos)
         if src and isinstance(workflow.get(src), dict):
             cls = workflow[src].get("class_type", "")
-            if cls.startswith("CLIPTextEncode") or cls in {"smZ CLIPTextEncode", "BNK_CLIPTextEncodeAdvanced"}:
+            if cls.startswith("CLIPTextEncode") or cls in {
+                    "smZ CLIPTextEncode", "BNK_CLIPTextEncodeAdvanced"}:
                 return src
     return None
 
@@ -140,7 +148,8 @@ def extract_schema(workflow: dict) -> dict:
     """
     output_nodes: list[str] = []
 
-    # First pass: identify positive / negative prompt nodes via connection tracing
+    # First pass: identify positive / negative prompt nodes via connection
+    # tracing
     pos_node = find_positive_prompt_node(workflow)
     neg_node = find_negative_prompt_node(workflow)
 
@@ -177,8 +186,12 @@ def extract_schema(workflow: dict) -> dict:
                     actual_name = "prompt"
                 else:
                     # Fallback: use _meta.title hints if present
-                    meta_title = (node.get("_meta") or {}).get("title", "").lower()
-                    if any(t_ in meta_title for t_ in ("negative", "neg", "-prompt", "anti")):
+                    meta_title = (
+                        node.get("_meta") or {}).get(
+                        "title",
+                        "").lower()
+                    if any(t_ in meta_title for t_ in (
+                            "negative", "neg", "-prompt", "anti")):
                         actual_name = "negative_prompt"
 
             raw_params.append({
@@ -208,7 +221,8 @@ def extract_schema(workflow: dict) -> dict:
             }
         else:
             # Sort by node_id (string-natural) for stability
-            entries.sort(key=lambda x: (str(x["node_id"]).zfill(8), x["field"]))
+            entries.sort(key=lambda x: (
+                str(x["node_id"]).zfill(8), x["field"]))
             for r in entries:
                 full_name = f"{name}_{r['node_id']}"
                 parameters[full_name] = {
@@ -235,7 +249,8 @@ def extract_schema(workflow: dict) -> dict:
         found_field = None
         excerpt = None
         for fname, fval in inputs.items():
-            if isinstance(fval, str) and fname in PROMPT_FIELDS and emb_name in fval:
+            if isinstance(
+                    fval, str) and fname in PROMPT_FIELDS and emb_name in fval:
                 found_field = fname
                 excerpt = fval[:120]
                 break
@@ -272,7 +287,8 @@ def extract_schema(workflow: dict) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Extract controllable parameters from a ComfyUI workflow")
+    p = argparse.ArgumentParser(
+        description="Extract controllable parameters from a ComfyUI workflow")
     p.add_argument("workflow", help="Path to workflow API JSON file")
     p.add_argument("--output", "-o", help="Output file (default: stdout)")
     p.add_argument("--summary-only", action="store_true",

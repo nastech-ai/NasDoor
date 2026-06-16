@@ -13,7 +13,6 @@ from nastech_cli.nous_account import (
     get_nous_portal_account_info,
 )
 from tools.managed_tool_gateway import is_managed_tool_gateway_ready
-from utils import is_truthy_value
 from tools.tool_backend_helpers import (
     fal_key_is_configured,
     has_direct_modal_credentials,
@@ -23,7 +22,7 @@ from tools.tool_backend_helpers import (
     resolve_modal_backend_state,
     resolve_openai_audio_api_key,
 )
-
+from utils import is_truthy_value
 
 _DEFAULT_PLATFORM_TOOLSETS = {
     "cli": "nastech-cli",
@@ -33,7 +32,8 @@ _DEFAULT_PLATFORM_TOOLSETS = {
 # coverage category (nastech_cli.nous_account.TOOL_COVERAGE_CATEGORIES). Lets the
 # `nastech tools` picker scope its entitlement gate to the selected backend, so a
 # free-tool-pool user is allowed image gen but denied video gen at select time —
-# consistent with the per-category feature gates in get_nous_subscription_features.
+# consistent with the per-category feature gates in
+# get_nous_subscription_features.
 MANAGED_FEATURE_COVERAGE_CATEGORY: Dict[str, str] = {
     "web": "firecrawl",
     "image_gen": "fal",
@@ -105,7 +105,14 @@ class NousSubscriptionFeatures:
         return self.features["modal"]
 
     def items(self) -> Iterable[NousFeatureState]:
-        ordered = ("web", "image_gen", "video_gen", "tts", "stt", "browser", "modal")
+        ordered = (
+            "web",
+            "image_gen",
+            "video_gen",
+            "tts",
+            "stt",
+            "browser",
+            "modal")
         for key in ordered:
             yield self.features[key]
 
@@ -161,7 +168,8 @@ def _has_agent_browser() -> bool:
 
     agent_browser_bin = shutil.which("agent-browser")
     local_bin = (
-        Path(__file__).parent.parent / "node_modules" / ".bin" / "agent-browser"
+        Path(__file__).parent.parent /
+        "node_modules" / ".bin" / "agent-browser"
     )
     return bool(agent_browser_bin or local_bin.exists())
 
@@ -201,7 +209,8 @@ def _browser_label(current_provider: str) -> str:
         "camofox": "Camofox",
         "local": "Local browser",
     }
-    return mapping.get(current_provider or "local", current_provider or "Local browser")
+    return mapping.get(current_provider or "local",
+                       current_provider or "Local browser")
 
 
 def _tts_label(current_provider: str) -> str:
@@ -213,7 +222,8 @@ def _tts_label(current_provider: str) -> str:
         "mistral": "Mistral Voxtral TTS",
         "neutts": "NeuTTS",
     }
-    return mapping.get(current_provider or "edge", current_provider or "Edge TTS")
+    return mapping.get(current_provider or "edge",
+                       current_provider or "Edge TTS")
 
 
 def _stt_label(current_provider: str) -> str:
@@ -223,7 +233,8 @@ def _stt_label(current_provider: str) -> str:
         "mistral": "Mistral Voxtral Transcribe",
         "local": "Local faster-whisper",
     }
-    return mapping.get(current_provider or "local", current_provider or "Local faster-whisper")
+    return mapping.get(current_provider or "local",
+                       current_provider or "Local faster-whisper")
 
 
 def _local_stt_backend_available() -> bool:
@@ -329,7 +340,8 @@ def get_nous_subscription_features(
         config = load_config() or {}
     config = dict(config)
     model_cfg = _model_config_dict(config)
-    provider_is_nous = str(model_cfg.get("provider") or "").strip().lower() == "nous"
+    provider_is_nous = str(model_cfg.get("provider")
+                           or "").strip().lower() == "nous"
 
     try:
         if force_fresh:
@@ -350,7 +362,8 @@ def get_nous_subscription_features(
     nous_auth_present = bool(account_info and account_info.logged_in)
 
     def _entitled_for(category: str) -> bool:
-        return bool(account_info and account_info.tool_gateway_entitled_for(category))
+        return bool(
+            account_info and account_info.tool_gateway_entitled_for(category))
     subscribed = provider_is_nous or nous_auth_present
 
     web_tool_enabled = _toolset_enabled(config, "web")
@@ -363,14 +376,18 @@ def get_nous_subscription_features(
     web_cfg = config.get("web") if isinstance(config.get("web"), dict) else {}
     tts_cfg = config.get("tts") if isinstance(config.get("tts"), dict) else {}
     stt_cfg = config.get("stt") if isinstance(config.get("stt"), dict) else {}
-    browser_cfg = config.get("browser") if isinstance(config.get("browser"), dict) else {}
-    terminal_cfg = config.get("terminal") if isinstance(config.get("terminal"), dict) else {}
+    browser_cfg = config.get("browser") if isinstance(
+        config.get("browser"), dict) else {}
+    terminal_cfg = config.get("terminal") if isinstance(
+        config.get("terminal"), dict) else {}
 
     web_backend = str(web_cfg.get("backend") or "").strip().lower()
     # Per-capability overrides: if set, they determine which backend is active for
     # search/extract independently of web.backend.
-    web_search_backend = str(web_cfg.get("search_backend") or "").strip().lower()
-    web_extract_backend = str(web_cfg.get("extract_backend") or "").strip().lower()
+    web_search_backend = str(
+        web_cfg.get("search_backend") or "").strip().lower()
+    web_extract_backend = str(
+        web_cfg.get("extract_backend") or "").strip().lower()
     tts_provider = str(tts_cfg.get("provider") or "edge").strip().lower()
     # STT default is "local" (faster-whisper) per DEFAULT_CONFIG, which
     # requires `pip install faster-whisper`. For Nous subscribers we'd
@@ -379,7 +396,8 @@ def get_nous_subscription_features(
     stt_provider = str(stt_cfg.get("provider") or "local").strip().lower()
     browser_provider_explicit = "cloud_provider" in browser_cfg
     browser_provider = normalize_browser_cloud_provider(
-        browser_cfg.get("cloud_provider") if browser_provider_explicit else None
+        browser_cfg.get(
+            "cloud_provider") if browser_provider_explicit else None
     )
     terminal_backend = (
         str(terminal_cfg.get("backend") or "local").strip().lower()
@@ -395,22 +413,27 @@ def get_nous_subscription_features(
     tts_use_gateway = _uses_gateway(tts_cfg)
     stt_use_gateway = _uses_gateway(stt_cfg)
     browser_use_gateway = _uses_gateway(browser_cfg)
-    image_gen_cfg = config.get("image_gen") if isinstance(config.get("image_gen"), dict) else {}
+    image_gen_cfg = config.get("image_gen") if isinstance(
+        config.get("image_gen"), dict) else {}
     image_use_gateway = _uses_gateway(image_gen_cfg)
-    video_gen_cfg = config.get("video_gen") if isinstance(config.get("video_gen"), dict) else {}
+    video_gen_cfg = config.get("video_gen") if isinstance(
+        config.get("video_gen"), dict) else {}
     video_use_gateway = _uses_gateway(video_gen_cfg)
 
     direct_exa = bool(get_env_value("EXA_API_KEY"))
-    direct_firecrawl = bool(get_env_value("FIRECRAWL_API_KEY") or get_env_value("FIRECRAWL_API_URL"))
+    direct_firecrawl = bool(get_env_value(
+        "FIRECRAWL_API_KEY") or get_env_value("FIRECRAWL_API_URL"))
     direct_parallel = bool(get_env_value("PARALLEL_API_KEY"))
     direct_tavily = bool(get_env_value("TAVILY_API_KEY"))
     direct_searxng = bool(get_env_value("SEARXNG_URL"))
     direct_fal = fal_key_is_configured()
-    direct_fal_video = direct_fal  # same FAL_KEY; separate var so use_gateway is independent
+    # same FAL_KEY; separate var so use_gateway is independent
+    direct_fal_video = direct_fal
     direct_openai_tts = bool(resolve_openai_audio_api_key())
     direct_elevenlabs = bool(get_env_value("ELEVENLABS_API_KEY"))
     direct_camofox = bool(get_env_value("CAMOFOX_URL"))
-    direct_browserbase = bool(get_env_value("BROWSERBASE_API_KEY") and get_env_value("BROWSERBASE_PROJECT_ID"))
+    direct_browserbase = bool(get_env_value(
+        "BROWSERBASE_API_KEY") and get_env_value("BROWSERBASE_PROJECT_ID"))
     direct_browser_use = bool(get_env_value("BROWSER_USE_API_KEY"))
     direct_modal = has_direct_modal_credentials()
 
@@ -430,7 +453,8 @@ def get_nous_subscription_features(
     except Exception:
         local_stt_available = bool(get_env_value("NASTECH_LOCAL_STT_COMMAND"))
 
-    # When use_gateway is set, suppress direct credentials for managed detection
+    # When use_gateway is set, suppress direct credentials for managed
+    # detection
     if web_use_gateway:
         direct_firecrawl = False
         direct_exa = False
@@ -530,7 +554,9 @@ def get_nous_subscription_features(
     image_available = bool(managed_image_available or direct_fal)
 
     video_managed = video_tool_enabled and managed_video_available and not direct_fal_video
-    video_active = bool(video_tool_enabled and (video_managed or direct_fal_video))
+    video_active = bool(
+        video_tool_enabled and (
+            video_managed or direct_fal_video))
     video_available = bool(managed_video_available or direct_fal_video)
 
     tts_current_provider = tts_provider or "edge"
@@ -651,7 +677,8 @@ def get_nous_subscription_features(
             managed_by_nous=image_managed,
             direct_override=image_active and not image_managed,
             toolset_enabled=image_tool_enabled,
-            current_provider="FAL" if direct_fal else ("Nous Subscription" if image_managed else ""),
+            current_provider="FAL" if direct_fal else (
+                "Nous Subscription" if image_managed else ""),
             explicit_configured=direct_fal,
         ),
         "video_gen": NousFeatureState(
@@ -663,7 +690,8 @@ def get_nous_subscription_features(
             managed_by_nous=video_managed,
             direct_override=video_active and not video_managed,
             toolset_enabled=video_tool_enabled,
-            current_provider="FAL" if direct_fal_video else ("Nous Subscription" if video_managed else ""),
+            current_provider="FAL" if direct_fal_video else (
+                "Nous Subscription" if video_managed else ""),
             explicit_configured=direct_fal_video,
         ),
         "tts": NousFeatureState(
@@ -726,9 +754,6 @@ def get_nous_subscription_features(
         features=features,
         account_info=account_info,
     )
-
-
-
 
 
 def apply_nous_managed_defaults(
@@ -923,15 +948,18 @@ def get_gateway_eligible_tools(
         account_info = get_nous_portal_account_info(force_fresh=force_fresh)
     except Exception:
         return [], [], []
-    if not (account_info and account_info.logged_in and account_info.tool_gateway_entitled):
+    if not (
+            account_info and account_info.logged_in and account_info.tool_gateway_entitled):
         return [], [], []
 
     if config is None:
         config = load_config() or {}
 
-    # Quick provider check without the heavy get_nous_subscription_features call
+    # Quick provider check without the heavy get_nous_subscription_features
+    # call
     model_cfg = config.get("model")
-    if not isinstance(model_cfg, dict) or str(model_cfg.get("provider") or "").strip().lower() != "nous":
+    if not isinstance(model_cfg, dict) or str(
+            model_cfg.get("provider") or "").strip().lower() != "nous":
         return [], [], []
 
     direct = _get_gateway_direct_credentials()
@@ -1109,7 +1137,8 @@ def prompt_enable_tool_gateway(
     except (KeyboardInterrupt, EOFError, OSError, SystemExit):
         return set()
 
-    chosen_keys = [offer_keys[i] for i in chosen_idx if 0 <= i < len(offer_keys)]
+    chosen_keys = [offer_keys[i]
+                   for i in chosen_idx if 0 <= i < len(offer_keys)]
     if not chosen_keys:
         return set()
 
@@ -1247,7 +1276,8 @@ def _run_nous_portal_login_only(*, capability: str) -> bool:
             except (EOFError, KeyboardInterrupt):
                 do_import = "y"
             if do_import in {"", "y", "yes"}:
-                auth_state = _try_import_shared_nous_state(timeout_seconds=15.0)
+                auth_state = _try_import_shared_nous_state(
+                    timeout_seconds=15.0)
 
         if auth_state is None:
             auth_state = _nous_device_code_login()

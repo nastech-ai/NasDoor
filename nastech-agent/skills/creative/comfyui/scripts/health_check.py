@@ -26,14 +26,21 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (  # noqa: E402
-    DEFAULT_LOCAL_HOST, ENV_API_KEY, emit_json, http_get, parse_model_list,
-    resolve_api_key, resolve_url, unwrap_workflow,
+    DEFAULT_LOCAL_HOST,
+    ENV_API_KEY,
+    emit_json,
+    http_get,
+    parse_model_list,
+    resolve_api_key,
+    resolve_url,
+    unwrap_workflow,
 )
 
 
 def comfy_cli_status() -> dict:
     if shutil.which("comfy"):
-        return {"available": True, "method": "comfy", "path": shutil.which("comfy")}
+        return {"available": True, "method": "comfy",
+                "path": shutil.which("comfy")}
     if shutil.which("uvx"):
         return {"available": True, "method": "uvx",
                 "hint": "Invoke as `uvx --from comfy-cli comfy ...`"}
@@ -53,7 +60,8 @@ def server_status(host: str, headers: dict) -> dict:
             except Exception:
                 stats = {}
             return {"reachable": True, "url": url, "stats": stats}
-        return {"reachable": False, "url": url, "http_status": r.status, "body": r.text()[:200]}
+        return {"reachable": False, "url": url,
+                "http_status": r.status, "body": r.text()[:200]}
     except Exception as e:
         return {"reachable": False, "url": url, "error": str(e)}
 
@@ -65,7 +73,8 @@ def checkpoint_status(host: str, headers: dict) -> dict:
     except Exception as e:
         return {"queryable": False, "error": str(e)}
     if r.status != 200:
-        return {"queryable": False, "http_status": r.status, "url": url, "body": r.text()[:200]}
+        return {"queryable": False, "http_status": r.status,
+                "url": url, "body": r.text()[:200]}
     try:
         models = parse_model_list(r.json())
     except Exception:
@@ -141,7 +150,9 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="One-stop ComfyUI health check")
     p.add_argument("--host", default=DEFAULT_LOCAL_HOST)
     p.add_argument("--api-key", help=f"or set ${ENV_API_KEY}")
-    p.add_argument("--workflow", help="Optional: also run check_deps on this workflow")
+    p.add_argument(
+        "--workflow",
+        help="Optional: also run check_deps on this workflow")
     p.add_argument("--smoke-test", action="store_true",
                    help="Submit a tiny test workflow and verify round-trip")
     p.add_argument("--strict", action="store_true",
@@ -153,7 +164,8 @@ def main(argv: list[str] | None = None) -> int:
 
     cli = comfy_cli_status()
     server = server_status(args.host, headers)
-    ckpts = checkpoint_status(args.host, headers) if server.get("reachable") else None
+    ckpts = checkpoint_status(
+        args.host, headers) if server.get("reachable") else None
 
     # ---- workflow check ----
     workflow_check: dict | None = None
@@ -166,13 +178,15 @@ def main(argv: list[str] | None = None) -> int:
                 with wf_path.open() as f:
                     workflow = unwrap_workflow(json.load(f))
                 from check_deps import check_deps
-                workflow_check = check_deps(workflow, host=args.host, api_key=api_key)
+                workflow_check = check_deps(
+                    workflow, host=args.host, api_key=api_key)
             except (ValueError, json.JSONDecodeError) as e:
                 workflow_check = {"error": str(e)}
 
     smoke = None
     if args.smoke_test and server.get("reachable"):
-        first_ckpt = ckpts["first_few"][0] if ckpts and ckpts.get("first_few") else None
+        first_ckpt = ckpts["first_few"][0] if ckpts and ckpts.get(
+            "first_few") else None
         smoke = smoke_test(args.host, headers, first_ckpt)
 
     # ---- verdict ----

@@ -33,8 +33,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from nastech_cli import profiles as profiles_mod
 from agent.skill_utils import is_excluded_skill_path
+from nastech_cli import profiles as profiles_mod
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +143,7 @@ def _extract_json_blob(raw: str) -> Optional[dict]:
     last = stripped.rfind("}")
     if first == -1 or last == -1 or last <= first:
         return None
-    candidate = stripped[first : last + 1]
+    candidate = stripped[first: last + 1]
     try:
         val = json.loads(candidate)
     except (ValueError, json.JSONDecodeError):
@@ -184,11 +184,13 @@ def describe_profile(
         else:
             profile_dir = profiles_mod.get_profile_dir(canon)
     except Exception as exc:
-        return DescribeOutcome(canon, False, f"cannot resolve profile dir: {exc}")
+        return DescribeOutcome(
+            canon, False, f"cannot resolve profile dir: {exc}")
 
     # Honor curated descriptions unless --overwrite.
     existing = profiles_mod.read_profile_meta(profile_dir)
-    if existing.get("description") and not existing.get("description_auto") and not overwrite:
+    if existing.get("description") and not existing.get(
+            "description_auto") and not overwrite:
         return DescribeOutcome(
             canon,
             False,
@@ -197,7 +199,8 @@ def describe_profile(
         )
 
     skill_names = _collect_skills(profile_dir)
-    skill_list = "\n".join(f"  - {n}" for n in skill_names) or "  (no skills installed)"
+    skill_list = "\n".join(
+        f"  - {n}" for n in skill_names) or "  (no skills installed)"
     skill_count = sum(
         1 for _ in (profile_dir / "skills").rglob("SKILL.md")
         if not is_excluded_skill_path(_)
@@ -250,7 +253,8 @@ def describe_profile(
         )
     except Exception as exc:
         logger.info("describe: API call failed for %s (%s)", canon, exc)
-        return DescribeOutcome(canon, False, f"LLM error: {type(exc).__name__}")
+        return DescribeOutcome(
+            canon, False, f"LLM error: {type(exc).__name__}")
 
     try:
         raw = resp.choices[0].message.content or ""
@@ -262,7 +266,8 @@ def describe_profile(
         # Fall back: take the raw text trimmed to one paragraph.
         text = raw.strip().split("\n\n", 1)[0]
         if not text:
-            return DescribeOutcome(canon, False, "LLM returned an empty response")
+            return DescribeOutcome(
+                canon, False, "LLM returned an empty response")
         description = text[:280]
     else:
         val = parsed.get("description")
@@ -279,7 +284,8 @@ def describe_profile(
             description_auto=True,
         )
     except Exception as exc:
-        return DescribeOutcome(canon, False, f"failed to write profile.yaml: {exc}")
+        return DescribeOutcome(
+            canon, False, f"failed to write profile.yaml: {exc}")
 
     return DescribeOutcome(canon, True, "described", description=description)
 
@@ -292,7 +298,8 @@ def list_describable_profiles(*, missing_only: bool = True) -> list[str]:
     """
     out: list[str] = []
     for p in profiles_mod.list_profiles():
-        if missing_only and (p.description or "").strip() and not p.description_auto:
+        if missing_only and (
+                p.description or "").strip() and not p.description_auto:
             continue
         out.append(p.name)
     return out

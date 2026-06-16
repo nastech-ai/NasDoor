@@ -24,7 +24,9 @@ def build_profile_parser(subparsers, *, cmd_profile: Callable) -> None:
     profile_use = profile_subparsers.add_parser(
         "use", help="Set sticky default profile"
     )
-    profile_use.add_argument("profile_name", help="Profile name (or 'default')")
+    profile_use.add_argument(
+        "profile_name",
+        help="Profile name (or 'default')")
 
     profile_create = profile_subparsers.add_parser(
         "create", help="Create a new profile"
@@ -63,7 +65,8 @@ def build_profile_parser(subparsers, *, cmd_profile: Callable) -> None:
              "of profile name alone. Skip and add later via `nastech profile describe`.",
     )
 
-    profile_delete = profile_subparsers.add_parser("delete", help="Delete a profile")
+    profile_delete = profile_subparsers.add_parser(
+        "delete", help="Delete a profile")
     profile_delete.add_argument("profile_name", help="Profile to delete")
     profile_delete.add_argument(
         "-y", "--yes", action="store_true", help="Skip confirmation prompt"
@@ -103,7 +106,8 @@ def build_profile_parser(subparsers, *, cmd_profile: Callable) -> None:
         help="With --auto, run on every profile missing a description",
     )
 
-    profile_show = profile_subparsers.add_parser("show", help="Show profile details")
+    profile_show = profile_subparsers.add_parser(
+        "show", help="Show profile details")
     profile_show.add_argument("profile_name", help="Profile to show")
 
     profile_alias = profile_subparsers.add_parser(
@@ -120,7 +124,8 @@ def build_profile_parser(subparsers, *, cmd_profile: Callable) -> None:
         help="Custom alias name (default: profile name)",
     )
 
-    profile_rename = profile_subparsers.add_parser("rename", help="Rename a profile")
+    profile_rename = profile_subparsers.add_parser(
+        "rename", help="Rename a profile")
     profile_rename.add_argument("old_name", help="Current profile name")
     profile_rename.add_argument("new_name", help="New profile name")
 

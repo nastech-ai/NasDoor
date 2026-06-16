@@ -86,8 +86,10 @@ class StreamingThinkScrubber:
 
     # Materialise literal tag strings so the hot path does string
     # operations, not regex compilation per feed().
-    _OPEN_TAGS: Tuple[str, ...] = tuple(f"<{name}>" for name in _OPEN_TAG_NAMES)
-    _CLOSE_TAGS: Tuple[str, ...] = tuple(f"</{name}>" for name in _OPEN_TAG_NAMES)
+    _OPEN_TAGS: Tuple[str, ...] = tuple(
+        f"<{name}>" for name in _OPEN_TAG_NAMES)
+    _CLOSE_TAGS: Tuple[str, ...] = tuple(
+        f"</{name}>" for name in _OPEN_TAG_NAMES)
 
     # Pre-compute the longest tag (for partial-tag hold-back bound).
     _MAX_TAG_LEN: int = max(len(tag) for tag in _OPEN_TAGS + _CLOSE_TAGS)

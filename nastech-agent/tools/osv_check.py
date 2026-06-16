@@ -47,7 +47,11 @@ def check_package_for_malware(
         malware = _query_osv(package, ecosystem, version)
     except Exception as exc:
         # Fail-open: network errors, timeouts, parse failures → allow
-        logger.debug("OSV check failed for %s/%s (allowing): %s", ecosystem, package, exc)
+        logger.debug(
+            "OSV check failed for %s/%s (allowing): %s",
+            ecosystem,
+            package,
+            exc)
         return None
 
     if malware:

@@ -40,7 +40,9 @@ def start_background_mcp_discovery(*, logger, thread_name: str) -> None:
 
                 discover_mcp_tools()
             except Exception:
-                logger.debug("Background MCP tool discovery failed", exc_info=True)
+                logger.debug(
+                    "Background MCP tool discovery failed",
+                    exc_info=True)
 
         thread = threading.Thread(
             target=_discover,

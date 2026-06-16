@@ -104,8 +104,8 @@ def parse_frontmatter(content: str) -> Tuple[Dict[str, Any], str]:
     if not end_match:
         return frontmatter, body
 
-    yaml_content = content[3 : end_match.start() + 3]
-    body = content[end_match.end() + 3 :]
+    yaml_content = content[3: end_match.start() + 3]
+    body = content[end_match.end() + 3:]
 
     try:
         parsed = yaml_load(yaml_content)
@@ -201,7 +201,8 @@ def _detect_environment(env: str) -> bool:
         # kanban toolset. Mirror the same signals the kanban tools themselves
         # gate on (``tools/kanban_tools.py``) so the offer filter agrees with
         # tool availability.
-        if os.getenv("NASTECH_KANBAN_TASK") or os.getenv("NASTECH_KANBAN_BOARD"):
+        if os.getenv("NASTECH_KANBAN_TASK") or os.getenv(
+                "NASTECH_KANBAN_BOARD"):
             result = True
         else:
             try:
@@ -441,7 +442,8 @@ def get_all_skills_dirs() -> List[Path]:
 def extract_skill_conditions(frontmatter: Dict[str, Any]) -> Dict[str, List]:
     """Extract conditional activation fields from parsed frontmatter."""
     metadata = frontmatter.get("metadata")
-    # Handle cases where metadata is not a dict (e.g., a string from malformed YAML)
+    # Handle cases where metadata is not a dict (e.g., a string from malformed
+    # YAML)
     if not isinstance(metadata, dict):
         metadata = {}
     nastech = metadata.get("nastech") or {}
@@ -458,7 +460,8 @@ def extract_skill_conditions(frontmatter: Dict[str, Any]) -> Dict[str, List]:
 # ── Skill config extraction ───────────────────────────────────────────────
 
 
-def extract_skill_config_vars(frontmatter: Dict[str, Any]) -> List[Dict[str, Any]]:
+def extract_skill_config_vars(
+        frontmatter: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Extract config variable declarations from parsed frontmatter.
 
     Skills declare config.yaml settings they need via::

@@ -161,7 +161,8 @@ def _http_get_json(url: str,
         with urllib_request.urlopen(req, timeout=timeout) as resp:
             body = resp.read()
             try:
-                return resp.status, json.loads(body.decode("utf-8", errors="replace"))
+                return resp.status, json.loads(
+                    body.decode("utf-8", errors="replace"))
             except Exception:
                 return resp.status, None
     except HTTPError as exc:
@@ -228,7 +229,8 @@ def _probe_openai_models(base_url: str,
         candidates.append(f"{base_url}/models?api-version={v}")
 
     for url in candidates:
-        status, body = _http_get_json(url, api_key, token_provider=token_provider)
+        status, body = _http_get_json(
+            url, api_key, token_provider=token_provider)
         if status == 200 and body is not None:
             ids = _extract_model_ids(body)
             if ids:
@@ -247,7 +249,8 @@ def _probe_openai_models(base_url: str,
 def _probe_anthropic_messages(base_url: str,
                               api_key: Any,
                               *,
-                              token_provider: Optional[Callable[[], str]] = None,
+                              token_provider: Optional[Callable[[
+                              ], str]] = None,
                               ) -> bool:
     """Send a zero-token request to ``<base>/v1/messages`` and check
     whether the endpoint at least *recognises* the Anthropic Messages
@@ -283,7 +286,8 @@ def _probe_anthropic_messages(base_url: str,
             # Pre-Azure-v1 Azure Foundry returns a plain 404 for
             # Anthropic-style calls on non-Anthropic deployments.  A
             # 400 "model not found" IS Anthropic though.
-            if exc.code == 400 and ("messages" in lowered or "model" in lowered):
+            if exc.code == 400 and (
+                    "messages" in lowered or "model" in lowered):
                 return True
             return False
         except Exception:
@@ -330,13 +334,15 @@ def detect(base_url: str,
 
     # 2. Try the OpenAI-style /models probe.  If this works, the
     #    endpoint definitely speaks OpenAI wire.
-    ok, models = _probe_openai_models(base_url, api_key, token_provider=token_provider)
+    ok, models = _probe_openai_models(
+        base_url, api_key, token_provider=token_provider)
     if ok:
         result.models_probe_ok = True
         result.models = models
         result.api_mode = "chat_completions"
         result.reason = (
-            f"GET /models returned {len(models)} model(s) — OpenAI-style endpoint"
+            f"GET /models returned {
+                len(models)} model(s) — OpenAI-style endpoint"
             if models
             else "GET /models returned an OpenAI-shaped empty list — OpenAI-style endpoint"
         )
@@ -345,7 +351,8 @@ def detect(base_url: str,
     # 3. Fallback: probe the Anthropic Messages shape.  Slower and more
     #    intrusive than /models, so only run it when the OpenAI probe
     #    failed.
-    if _probe_anthropic_messages(base_url, api_key, token_provider=token_provider):
+    if _probe_anthropic_messages(
+            base_url, api_key, token_provider=token_provider):
         result.is_anthropic = True
         result.api_mode = "anthropic_messages"
         result.reason = "Endpoint accepts Anthropic Messages shape"
@@ -393,7 +400,8 @@ def lookup_context_length(model: str,
     effective_key = token or ""
 
     try:
-        n = get_model_context_length(model_id, base_url=base_url, api_key=effective_key)
+        n = get_model_context_length(
+            model_id, base_url=base_url, api_key=effective_key)
     except Exception as exc:
         logger.debug("azure_detect: context length lookup failed: %s", exc)
         return None

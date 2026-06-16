@@ -73,7 +73,8 @@ def _handle_feishu_doc_read(args: dict, **kwargs) -> str:
 
     client = get_client()
     if client is None:
-        return tool_error("Feishu client not available (not in a Feishu comment context)")
+        return tool_error(
+            "Feishu client not available (not in a Feishu comment context)")
 
     try:
         from lark_oapi import AccessTokenType

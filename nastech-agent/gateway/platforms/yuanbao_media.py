@@ -25,7 +25,7 @@ import secrets
 import struct
 import time
 import urllib.parse
-from typing import Optional, Any
+from typing import Any, Optional
 
 import httpx
 
@@ -97,7 +97,8 @@ def is_image(filename: str, mime_type: str = "") -> bool:
     if mime_type.startswith("image/"):
         return True
     ext = os.path.splitext(filename)[-1].lower()
-    return ext in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".heic", ".tiff", ".ico"}
+    return ext in {".jpg", ".jpeg", ".png", ".gif",
+                   ".webp", ".bmp", ".heic", ".tiff", ".ico"}
 
 
 def get_image_format(mime_type: str) -> int:
@@ -113,7 +114,6 @@ def md5_hex(data: bytes) -> str:
 def generate_file_id() -> str:
     """生成随机文件 ID（32 位 hex）。"""
     return secrets.token_hex(16)
-
 
 
 # ============ 图片尺寸解析（纯 Python，无需 Pillow） ============
@@ -179,7 +179,8 @@ def _parse_webp_size(buf: bytes) -> Optional[dict[str, int]]:
         return None
     chunk = buf[12:16].decode("ascii", errors="replace")
     if chunk == "VP8 ":
-        if len(buf) >= 30 and buf[23] == 0x9D and buf[24] == 0x01 and buf[25] == 0x2A:
+        if len(
+                buf) >= 30 and buf[23] == 0x9D and buf[24] == 0x01 and buf[25] == 0x2A:
             w = struct.unpack("<H", buf[26:28])[0] & 0x3FFF
             h = struct.unpack("<H", buf[28:30])[0] & 0x3FFF
             return {"width": w, "height": h}
@@ -225,7 +226,10 @@ async def download_url(
             content_length = int(head.headers.get("content-length", 0) or 0)
             if content_length > 0 and content_length > max_bytes:
                 raise ValueError(
-                    f"文件过大: {content_length / 1024 / 1024:.1f} MB > {max_size_mb} MB"
+                    f"文件过大: {
+                        content_length /
+                        1024 /
+                        1024:.1f} MB > {max_size_mb} MB"
                 )
         except httpx.HTTPStatusError:
             pass  # 部分服务器不支持 HEAD，忽略
@@ -234,7 +238,8 @@ async def download_url(
         async with client.stream("GET", url) as resp:
             resp.raise_for_status()
 
-            content_type = resp.headers.get("content-type", "").split(";")[0].strip()
+            content_type = resp.headers.get(
+                "content-type", "").split(";")[0].strip()
 
             chunks: list[bytes] = []
             downloaded = 0
@@ -291,8 +296,18 @@ def _cos_sign(
 
     # Step 2: HttpString
     # 参数和头部需按字典序排列，key 小写
-    sorted_params = sorted((k.lower(), urllib.parse.quote(str(v), safe="") ) for k, v in params.items())
-    sorted_headers = sorted((k.lower(), urllib.parse.quote(str(v), safe="") ) for k, v in headers.items())
+    sorted_params = sorted(
+        (k.lower(),
+         urllib.parse.quote(
+            str(v),
+            safe="")) for k,
+        v in params.items())
+    sorted_headers = sorted(
+        (k.lower(),
+         urllib.parse.quote(
+            str(v),
+            safe="")) for k,
+        v in headers.items())
 
     url_param_list = ";".join(k for k, _ in sorted_params)
     url_params = "&".join(f"{k}={v}" for k, v in sorted_params)
@@ -498,7 +513,9 @@ async def upload_to_cos(
     # 计算签名有效期
     now = int(time.time())
     sign_start = start_time if start_time else now
-    sign_expire = (expired_time - now) if expired_time and expired_time > now else 3600
+    sign_expire = (
+        expired_time -
+        now) if expired_time and expired_time > now else 3600
 
     authorization = _cos_sign(
         method="put",

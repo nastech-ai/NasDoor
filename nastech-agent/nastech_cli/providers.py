@@ -35,9 +35,11 @@ logger = logging.getLogger(__name__)
 class NasTechOverlay:
     """NasTech-specific provider metadata layered on top of models.dev."""
 
-    transport: str = "openai_chat"        # openai_chat | anthropic_messages | codex_responses
+    # openai_chat | anthropic_messages | codex_responses
+    transport: str = "openai_chat"
     is_aggregator: bool = False
-    auth_type: str = "api_key"            # api_key | oauth_device_code | oauth_external | external_process
+    # api_key | oauth_device_code | oauth_external | external_process
+    auth_type: str = "api_key"
     extra_env_vars: Tuple[str, ...] = ()  # env vars models.dev doesn't list
     base_url_override: str = ""           # override if models.dev URL is wrong/missing
     base_url_env_var: str = ""            # env var for user-custom base URL
@@ -223,7 +225,8 @@ class ProviderDef:
 
     id: str
     name: str
-    transport: str                        # openai_chat | anthropic_messages | codex_responses
+    # openai_chat | anthropic_messages | codex_responses
+    transport: str
     api_key_env_vars: Tuple[str, ...]     # all env vars to check for API key
     base_url: str = ""
     base_url_env_var: str = ""
@@ -488,8 +491,6 @@ def get_label(provider_id: str) -> str:
     return canonical
 
 
-
-
 def is_aggregator(provider: str) -> bool:
     """Return True when the provider is a multi-model aggregator."""
     provider_norm = normalize_provider(provider or "")
@@ -515,7 +516,8 @@ def determine_api_mode(provider: str, base_url: str = "") -> str:
             url_lower = base_url.rstrip("/").lower()
             if "api.kimi.com/coding" in url_lower:
                 return "anthropic_messages"
-            if url_lower.endswith("/anthropic") or "api.anthropic.com" in url_lower:
+            if url_lower.endswith(
+                    "/anthropic") or "api.anthropic.com" in url_lower:
                 return "anthropic_messages"
             if "api.openai.com" in url_lower:
                 return "codex_responses"
@@ -535,7 +537,8 @@ def determine_api_mode(provider: str, base_url: str = "") -> str:
             return "anthropic_messages"
         if hostname == "api.openai.com":
             return "codex_responses"
-        if hostname.startswith("bedrock-runtime.") and base_url_host_matches(base_url, "amazonaws.com"):
+        if hostname.startswith(
+                "bedrock-runtime.") and base_url_host_matches(base_url, "amazonaws.com"):
             return "bedrock_converse"
 
     return "chat_completions"
@@ -543,7 +546,8 @@ def determine_api_mode(provider: str, base_url: str = "") -> str:
 
 # -- Provider from user config ------------------------------------------------
 
-def resolve_user_provider(name: str, user_config: Dict[str, Any]) -> Optional[ProviderDef]:
+def resolve_user_provider(
+        name: str, user_config: Dict[str, Any]) -> Optional[ProviderDef]:
     """Resolve a provider from the user's config.yaml ``providers:`` section.
 
     Args:
@@ -562,7 +566,13 @@ def resolve_user_provider(name: str, user_config: Dict[str, Any]) -> Optional[Pr
 
     # Extract fields
     display_name = entry.get("name", "") or name
-    api_url = entry.get("api", "") or entry.get("url", "") or entry.get("base_url", "") or ""
+    api_url = entry.get(
+        "api",
+        "") or entry.get(
+        "url",
+        "") or entry.get(
+            "base_url",
+        "") or ""
     key_env = entry.get("key_env", "") or ""
     transport = entry.get("transport", "openai_chat") or "openai_chat"
 

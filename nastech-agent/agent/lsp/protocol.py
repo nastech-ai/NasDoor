@@ -58,7 +58,12 @@ def encode_message(obj: dict) -> bytes:
     separators) — matches what ``vscode-jsonrpc`` emits and keeps the
     Content-Length count exact.
     """
-    body = json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    body = json.dumps(
+        obj,
+        separators=(
+            ",",
+            ":"),
+        ensure_ascii=False).encode("utf-8")
     header = f"Content-Length: {len(body)}\r\n\r\n".encode("ascii")
     return header + body
 
@@ -83,7 +88,8 @@ async def read_message(reader: asyncio.StreamReader) -> Optional[dict]:
             if not e.partial and not headers:
                 return None
             raise LSPProtocolError(
-                f"unexpected EOF while reading LSP headers (partial={e.partial!r})"
+                f"unexpected EOF while reading LSP headers (partial={
+                    e.partial!r})"
             ) from e
         # Defensive cap against a server streaming headers without ever
         # emitting CRLF-CRLF.  Caps total header bytes at 8 KiB — a
@@ -106,7 +112,8 @@ async def read_message(reader: asyncio.StreamReader) -> Optional[dict]:
 
     cl = headers.get("content-length")
     if cl is None:
-        raise LSPProtocolError(f"LSP message missing Content-Length: {headers!r}")
+        raise LSPProtocolError(
+            f"LSP message missing Content-Length: {headers!r}")
     try:
         n = int(cl)
     except ValueError as e:
@@ -150,7 +157,8 @@ def make_response(req_id: Any, result: Any) -> dict:
     return {"jsonrpc": "2.0", "id": req_id, "result": result}
 
 
-def make_error_response(req_id: Any, code: int, message: str, data: Any = None) -> dict:
+def make_error_response(req_id: Any, code: int,
+                        message: str, data: Any = None) -> dict:
     """Build a JSON-RPC 2.0 error response envelope."""
     err: dict = {"code": code, "message": message}
     if data is not None:

@@ -2,7 +2,6 @@
 
 import random
 
-
 # ---------------------------------------------------------------------------
 # Tip corpus — one-liners covering slash commands, CLI flags, config,
 # keybindings, tools, gateway, skills, profiles, and workflow tricks.

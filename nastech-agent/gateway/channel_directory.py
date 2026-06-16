@@ -44,7 +44,8 @@ def _session_entry_id(origin: Dict[str, Any]) -> Optional[str]:
 
 
 def _session_entry_name(origin: Dict[str, Any]) -> str:
-    base_name = origin.get("chat_name") or origin.get("user_name") or str(origin.get("chat_id"))
+    base_name = origin.get("chat_name") or origin.get(
+        "user_name") or str(origin.get("chat_id"))
     thread_id = origin.get("thread_id")
     if not thread_id:
         return base_name
@@ -74,7 +75,10 @@ async def build_channel_directory(adapters: Dict[Any, Any]) -> Dict[str, Any]:
             elif platform == Platform.SLACK:
                 platforms["slack"] = await _build_slack(adapter)
         except Exception as e:
-            logger.warning("Channel directory: failed to build %s: %s", platform.value, e)
+            logger.warning(
+                "Channel directory: failed to build %s: %s",
+                platform.value,
+                e)
 
     # Platforms that don't support direct channel enumeration get session-based
     # discovery automatically.  Skip infrastructure entries that aren't messaging
@@ -129,7 +133,8 @@ def _build_discord(adapter) -> List[Dict[str, str]]:
                 "guild": guild.name,
                 "type": "channel",
             })
-        # Forum channels (type 15) — creating a message auto-spawns a thread post.
+        # Forum channels (type 15) — creating a message auto-spawns a thread
+        # post.
         forums = getattr(guild, "forum_channels", None) or []
         for ch in forums:
             channels.append({
@@ -189,7 +194,8 @@ async def _build_slack(adapter) -> List[Dict[str, Any]]:
                         "name": name,
                         "type": "private" if ch.get("is_private") else "channel",
                     })
-                cursor = (response.get("response_metadata") or {}).get("next_cursor")
+                cursor = (response.get("response_metadata")
+                          or {}).get("next_cursor")
                 if not cursor:
                     break
         except Exception as e:
@@ -235,7 +241,10 @@ def _build_from_sessions(platform_name: str) -> List[Dict[str, str]]:
                 "thread_id": origin.get("thread_id"),
             })
     except Exception as e:
-        logger.debug("Channel directory: failed to read sessions for %s: %s", platform_name, e)
+        logger.debug(
+            "Channel directory: failed to read sessions for %s: %s",
+            platform_name,
+            e)
 
     return entries
 
@@ -288,11 +297,13 @@ def resolve_channel_name(platform_name: str, name: str) -> Optional[str]:
 
     query = _normalize_channel_query(name)
 
-    # 1. Exact name match, including the display labels shown by send_message(action="list")
+    # 1. Exact name match, including the display labels shown by
+    # send_message(action="list")
     for ch in channels:
         if _normalize_channel_query(ch["name"]) == query:
             return ch["id"]
-        if _normalize_channel_query(_channel_target_name(platform_name, ch)) == query:
+        if _normalize_channel_query(
+                _channel_target_name(platform_name, ch)) == query:
             return ch["id"]
 
     # 2. Guild-qualified match for Discord ("GuildName/channel")
@@ -300,11 +311,14 @@ def resolve_channel_name(platform_name: str, name: str) -> Optional[str]:
         guild_part, ch_part = query.rsplit("/", 1)
         for ch in channels:
             guild = ch.get("guild", "").strip().lower()
-            if guild == guild_part and _normalize_channel_query(ch["name"]) == ch_part:
+            if guild == guild_part and _normalize_channel_query(
+                    ch["name"]) == ch_part:
                 return ch["id"]
 
     # 3. Partial prefix match (only if unambiguous)
-    matches = [ch for ch in channels if _normalize_channel_query(ch["name"]).startswith(query)]
+    matches = [
+        ch for ch in channels if _normalize_channel_query(
+            ch["name"]).startswith(query)]
     if len(matches) == 1:
         return matches[0]["id"]
 
@@ -339,16 +353,25 @@ def format_directory_for_display() -> str:
             for guild_name, guild_channels in sorted(guilds.items()):
                 lines.append(f"Discord ({guild_name}):")
                 for ch in sorted(guild_channels, key=lambda c: c["name"]):
-                    lines.append(f"  discord:{_channel_target_name(plat_name, ch)}")
+                    lines.append(
+                        f"  discord:{
+                            _channel_target_name(
+                                plat_name, ch)}")
             if dms:
                 lines.append("Discord (DMs):")
                 for ch in dms:
-                    lines.append(f"  discord:{_channel_target_name(plat_name, ch)}")
+                    lines.append(
+                        f"  discord:{
+                            _channel_target_name(
+                                plat_name, ch)}")
             lines.append("")
         else:
             lines.append(f"{plat_name.title()}:")
             for ch in channels:
-                lines.append(f"  {plat_name}:{_channel_target_name(plat_name, ch)}")
+                lines.append(
+                    f"  {plat_name}:{
+                        _channel_target_name(
+                            plat_name, ch)}")
             lines.append("")
 
     lines.append('Use these as the "target" parameter when sending.')

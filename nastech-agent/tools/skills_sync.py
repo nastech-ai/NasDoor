@@ -28,9 +28,14 @@ import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from nastech_constants import get_bundled_skills_dir, get_nastech_home, get_optional_skills_dir
-from agent.skill_utils import is_excluded_skill_path
 from typing import Dict, List, Tuple
+
+from agent.skill_utils import is_excluded_skill_path
+from nastech_constants import (
+    get_bundled_skills_dir,
+    get_nastech_home,
+    get_optional_skills_dir,
+)
 from utils import atomic_replace
 
 logger = logging.getLogger(__name__)
@@ -62,7 +67,8 @@ def _get_bundled_dir() -> Path:
 
 def _get_optional_dir() -> Path:
     """Locate the official optional-skills/ directory."""
-    return get_optional_skills_dir(Path(__file__).parent.parent / "optional-skills")
+    return get_optional_skills_dir(
+        Path(__file__).parent.parent / "optional-skills")
 
 
 def _read_manifest() -> Dict[str, str]:
@@ -127,7 +133,10 @@ def _write_manifest(entries: Dict[str, str]):
     import tempfile
 
     MANIFEST_FILE.parent.mkdir(parents=True, exist_ok=True)
-    data = "\n".join(f"{name}:{hash_val}" for name, hash_val in sorted(entries.items())) + "\n"
+    data = "\n".join(
+        f"{name}:{hash_val}" for name,
+        hash_val in sorted(
+            entries.items())) + "\n"
 
     try:
         fd, tmp_path = tempfile.mkstemp(
@@ -148,7 +157,11 @@ def _write_manifest(entries: Dict[str, str]):
                 pass
             raise
     except Exception as e:
-        logger.debug("Failed to write skills manifest %s: %s", MANIFEST_FILE, e, exc_info=True)
+        logger.debug(
+            "Failed to write skills manifest %s: %s",
+            MANIFEST_FILE,
+            e,
+            exc_info=True)
 
 
 def _read_skill_name(skill_md: Path, fallback: str) -> str:
@@ -287,7 +300,8 @@ def _move_to_restore_backup(path: Path, backup_root: Path) -> str:
     return rel.as_posix()
 
 
-def restore_official_optional_skill(name: str, *, restore: bool = False) -> dict:
+def restore_official_optional_skill(
+        name: str, *, restore: bool = False) -> dict:
     """Restore one or all official optional skills from repo source.
 
     ``restore=False`` only performs exact-match provenance backfill. ``restore=True``
@@ -296,19 +310,23 @@ def restore_official_optional_skill(name: str, *, restore: bool = False) -> dict
     """
     index = _optional_skill_index()
     if not index:
-        return {"ok": False, "message": "No official optional skills directory found.", "restored": [], "backfilled": [], "backed_up": []}
+        return {"ok": False, "message": "No official optional skills directory found.",
+                "restored": [], "backfilled": [], "backed_up": []}
 
-    targets = sorted(set(index.values()), key=lambda item: item[1]) if name in {"all", "*"} else []
+    targets = sorted(set(index.values()), key=lambda item: item[1]) if name in {
+        "all", "*"} else []
     if not targets:
         target = index.get(name)
         if target is None:
-            return {"ok": False, "message": f"Official optional skill not found: {name}", "restored": [], "backfilled": [], "backed_up": []}
+            return {"ok": False, "message": f"Official optional skill not found: {name}",
+                    "restored": [], "backfilled": [], "backed_up": []}
         targets = [target]
 
     restored: List[str] = []
     backed_up: List[str] = []
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    backup_root = SKILLS_DIR / ".restore-backups" / f"official-optional-{timestamp}"
+    backup_root = SKILLS_DIR / ".restore-backups" / \
+        f"official-optional-{timestamp}"
 
     for folder_name, install_path, src in targets:
         dest = SKILLS_DIR / Path(*install_path.split("/"))
@@ -331,13 +349,16 @@ def restore_official_optional_skill(name: str, *, restore: bool = False) -> dict
                 candidate_name = _read_skill_name(skill_md, candidate.name)
                 if candidate == dest:
                     continue
-                if candidate.name == folder_name or candidate_name in {folder_name, src_frontmatter}:
+                if candidate.name == folder_name or candidate_name in {
+                        folder_name, src_frontmatter}:
                     matches.append(candidate)
 
         if restore:
             for match in matches:
                 if match.exists():
-                    backed_up.append(_move_to_restore_backup(match, backup_root))
+                    backed_up.append(
+                        _move_to_restore_backup(
+                            match, backup_root))
             if dest.exists() and not canonical_ok:
                 backed_up.append(_move_to_restore_backup(dest, backup_root))
             if not dest.exists():
@@ -373,7 +394,8 @@ def _backfill_optional_provenance(quiet: bool = False) -> List[str]:
 
     lock_path = SKILLS_DIR / ".hub" / "lock.json"
     try:
-        data = json.loads(lock_path.read_text()) if lock_path.exists() else {"version": 1, "installed": {}}
+        data = json.loads(lock_path.read_text()) if lock_path.exists() else {
+            "version": 1, "installed": {}}
     except (json.JSONDecodeError, OSError):
         data = {"version": 1, "installed": {}}
     installed = data.setdefault("installed", {})
@@ -392,7 +414,8 @@ def _backfill_optional_provenance(quiet: bool = False) -> List[str]:
         try:
             install_path = _safe_rel_install_path(src, optional_dir)
         except ValueError as e:
-            logger.debug("Skipping optional skill with unsafe path %s: %s", src, e)
+            logger.debug(
+                "Skipping optional skill with unsafe path %s: %s", src, e)
             continue
         dest = SKILLS_DIR / Path(*install_path.split("/"))
         if not dest.exists() or not dest.is_dir():
@@ -466,7 +489,8 @@ def sync_skills(quiet: bool = False) -> dict:
     # to seed_profile_skills()'s marker check for named profiles.
     if (NASTECH_HOME / NO_BUNDLED_SKILLS_MARKER).exists():
         if not quiet:
-            print("  (skipped — profile opted out of bundled skills via .no-bundled-skills)")
+            print(
+                "  (skipped — profile opted out of bundled skills via .no-bundled-skills)")
         return {
             "copied": [], "updated": [], "skipped": 0,
             "user_modified": [], "cleaned": [], "total_bundled": 0,
@@ -498,7 +522,8 @@ def sync_skills(quiet: bool = False) -> dict:
         # (~/.nastech/skills/.curator_suppressed) is written when the curator
         # archives a bundled skill with curator.prune_builtins enabled. Without
         # this skip, every `nastech update` would resurrect a skill the user
-        # deliberately pruned. Restoring the skill clears its suppression entry.
+        # deliberately pruned. Restoring the skill clears its suppression
+        # entry.
         if skill_name in suppressed:
             suppressed_skipped.append(skill_name)
             continue
@@ -580,7 +605,8 @@ def sync_skills(quiet: bool = False) -> dict:
                         try:
                             _rmtree_writable(backup)
                         except (OSError, IOError):
-                            logger.debug("Could not remove backup %s", backup, exc_info=True)
+                            logger.debug(
+                                "Could not remove backup %s", backup, exc_info=True)
                     except (OSError, IOError):
                         # Restore from backup
                         if backup.exists() and not dest.exists():
@@ -737,7 +763,8 @@ def reset_bundled_skill(name: str, restore: bool = False) -> dict:
         action = "restored"
         message = f"Restored '{name}' from bundled source."
     elif restore:
-        # Nothing on disk to delete, but we re-synced — acts like a fresh install
+        # Nothing on disk to delete, but we re-synced — acts like a fresh
+        # install
         action = "restored"
         message = f"Restored '{name}' (no prior user copy, re-copied from bundled)."
     else:
@@ -797,7 +824,8 @@ def set_bundled_skills_opt_out(enabled: bool) -> dict:
             "ok": False, "changed": False, "marker": str(marker),
             "message": f"Could not update opt-out marker at {marker}: {e}",
         }
-    return {"ok": True, "changed": changed, "marker": str(marker), "message": message}
+    return {"ok": True, "changed": changed,
+            "marker": str(marker), "message": message}
 
 
 def is_bundled_skills_opt_out() -> bool:
@@ -838,8 +866,10 @@ def remove_pristine_bundled_skills(dry_run: bool = False) -> dict:
     for name, origin_hash in sorted(manifest.items()):
         src = bundled_by_name.get(name)
         if src is None:
-            # Tracked but no longer bundled upstream — leave it; not ours to judge.
-            skipped.append({"name": name, "reason": "no bundled source (removed upstream)"})
+            # Tracked but no longer bundled upstream — leave it; not ours to
+            # judge.
+            skipped.append(
+                {"name": name, "reason": "no bundled source (removed upstream)"})
             continue
         dest = _compute_relative_dest(src, bundled_dir)
         if not dest.exists():
@@ -868,7 +898,9 @@ def remove_pristine_bundled_skills(dry_run: bool = False) -> dict:
         _write_manifest(manifest)
 
     verb = "Would remove" if dry_run else "Removed"
-    message = f"{verb} {len(removed)} pristine bundled skill(s); kept {len(skipped)}."
+    message = f"{verb} {
+        len(removed)} pristine bundled skill(s); kept {
+        len(skipped)}."
     return {
         "ok": True, "removed": removed, "skipped": skipped,
         "dry_run": dry_run, "message": message,
@@ -893,5 +925,9 @@ if __name__ == "__main__":
     if result["cleaned"]:
         parts.append(f"{len(result['cleaned'])} cleaned from manifest")
     if result.get("optional_provenance_backfilled"):
-        parts.append(f"{len(result['optional_provenance_backfilled'])} official optional backfilled")
-    print(f"\nDone: {', '.join(parts)}. {result['total_bundled']} total bundled.")
+        parts.append(
+            f"{len(result['optional_provenance_backfilled'])} official optional backfilled")
+    print(
+        f"\nDone: {
+            ', '.join(parts)}. {
+            result['total_bundled']} total bundled.")

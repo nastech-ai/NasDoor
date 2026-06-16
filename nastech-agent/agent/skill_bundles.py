@@ -49,7 +49,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
-
 from nastech_constants import get_nastech_home
 
 logger = logging.getLogger(__name__)
@@ -226,7 +225,8 @@ def reload_bundles() -> Dict[str, Any]:
     ``unchanged``, and ``total`` keys.
     """
     def _snapshot(cmds: Dict[str, Dict[str, Any]]) -> Dict[str, str]:
-        return {k.lstrip("/"): (v or {}).get("description", "") for k, v in cmds.items()}
+        return {k.lstrip("/"): (v or {}).get("description", "")
+                for k, v in cmds.items()}
 
     before = _snapshot(_bundles_cache)
     new = scan_bundles()
@@ -272,7 +272,7 @@ def build_bundle_invocation_message(
 
     # Late import to avoid pulling tools/* at module import time and to
     # keep skill_bundles cheap to import in test environments.
-    from agent.skill_commands import _load_skill_payload, _build_skill_message
+    from agent.skill_commands import _build_skill_message, _load_skill_payload
 
     loaded_names: List[str] = []
     missing: List[str] = []
@@ -321,7 +321,8 @@ def build_bundle_invocation_message(
     # provides any author-supplied instruction.
     header_lines = [
         f'[IMPORTANT: The user has invoked the "{bundle_name}" skill bundle, '
-        f"loading {len(loaded_names)} skills together. Treat every skill below "
+        f"loading {
+            len(loaded_names)} skills together. Treat every skill below "
         "as active guidance for this turn.]",
         "",
         f"Bundle: {bundle_name}",

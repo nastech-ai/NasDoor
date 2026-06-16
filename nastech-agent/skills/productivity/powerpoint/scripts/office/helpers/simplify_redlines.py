@@ -26,7 +26,8 @@ def simplify_redlines(input_dir: str) -> tuple[int, str]:
         return 0, f"Error: {doc_xml} not found"
 
     try:
-        dom = defusedxml.minidom.parseString(doc_xml.read_text(encoding="utf-8"))
+        dom = defusedxml.minidom.parseString(
+            doc_xml.read_text(encoding="utf-8"))
         root = dom.documentElement
 
         merge_count = 0
@@ -169,7 +170,8 @@ def _get_authors_from_docx(docx_path: Path) -> dict[str, int]:
         return {}
 
 
-def infer_author(modified_dir: Path, original_docx: Path, default: str = "Claude") -> str:
+def infer_author(modified_dir: Path, original_docx: Path,
+                 default: str = "Claude") -> str:
     modified_xml = modified_dir / "word" / "document.xml"
     modified_authors = get_tracked_change_authors(modified_xml)
 

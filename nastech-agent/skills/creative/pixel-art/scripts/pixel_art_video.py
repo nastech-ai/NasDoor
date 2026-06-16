@@ -25,7 +25,6 @@ import tempfile
 
 from PIL import Image, ImageDraw
 
-
 # ── Pixel drawing helpers ──────────────────────────────────────────────
 
 def _px(draw, x, y, color, size=2):
@@ -47,6 +46,7 @@ def _pixel_cross(draw, x, y, color, arm=2):
 def init_stars(rng, W, H):
     return [(rng.randint(0, W), rng.randint(0, H // 2)) for _ in range(15)]
 
+
 def draw_stars(draw, stars, t, W, H):
     for i, (sx, sy) in enumerate(stars):
         if math.sin(t * 2.0 + i * 0.7) > 0.65:
@@ -57,6 +57,7 @@ def init_fireflies(rng, W, H):
     return [{"x": rng.randint(20, W - 20), "y": rng.randint(H // 4, H - 20),
              "phase": rng.uniform(0, 6.28), "speed": rng.uniform(0.3, 0.8)}
             for _ in range(10)]
+
 
 def draw_fireflies(draw, ff, t, W, H):
     for f in ff:
@@ -75,6 +76,7 @@ def init_leaves(rng, W, H):
              "color": rng.choice([(180, 120, 50), (160, 100, 40), (200, 140, 60)])}
             for _ in range(12)]
 
+
 def draw_leaves(draw, leaves, t, W, H):
     for leaf in leaves:
         _px(draw,
@@ -87,6 +89,7 @@ def init_dust_motes(rng, W, H):
     return [{"x": rng.randint(30, W - 30), "y": rng.randint(30, H - 30),
              "phase": rng.uniform(0, 6.28), "speed": rng.uniform(0.2, 0.5),
              "amp": rng.uniform(2, 6)} for _ in range(20)]
+
 
 def draw_dust_motes(draw, motes, t, W, H):
     for m in motes:
@@ -103,6 +106,7 @@ def init_sparkles(rng, W, H):
              rng.choice([(180, 200, 255), (255, 220, 150), (200, 180, 255)]))
             for _ in range(10)]
 
+
 def draw_sparkles(draw, sparkles, t, W, H):
     for sx, sy, phase, color in sparkles:
         if math.sin(t * 1.8 + phase) > 0.6:
@@ -113,6 +117,7 @@ def init_rain(rng, W, H):
     return [{"x": rng.randint(0, W), "y": rng.randint(0, H),
              "speed": rng.uniform(4, 8)} for _ in range(30)]
 
+
 def draw_rain(draw, rain, t, W, H):
     for r in rain:
         y = (r["y"] + t * r["speed"] * 20) % H
@@ -122,6 +127,7 @@ def draw_rain(draw, rain, t, W, H):
 
 def init_lightning(rng, W, H):
     return {"timer": 0, "flash": False, "rng": rng}
+
 
 def draw_lightning(draw, state, t, W, H):
     state["timer"] += 1
@@ -141,6 +147,7 @@ def init_bubbles(rng, W, H):
              "speed": rng.uniform(0.3, 0.8), "size": rng.choice([1, 2, 2])}
             for _ in range(15)]
 
+
 def draw_bubbles(draw, bubbles, t, W, H):
     for b in bubbles:
         x = b["x"] + math.sin(t * 0.5 + b["x"]) * 3
@@ -155,6 +162,7 @@ def init_embers(rng, W, H):
              "color": rng.choice([(255, 150, 30), (255, 100, 20), (255, 200, 50)])}
             for _ in range(18)]
 
+
 def draw_embers(draw, embers, t, W, H):
     for e in embers:
         x = e["x"] + math.sin(t * 0.4 + e["phase"]) * 5
@@ -168,6 +176,7 @@ def init_snowflakes(rng, W, H):
              "speed": rng.uniform(0.3, 0.6), "wobble": rng.uniform(0.04, 0.09),
              "size": rng.choice([2, 2, 3])}
             for _ in range(40)]
+
 
 def draw_snowflakes(draw, flakes, t, W, H):
     for f in flakes:
@@ -184,6 +193,7 @@ def init_neon_pulse(rng, W, H):
              rng.choice([(255, 0, 200), (0, 255, 255), (255, 50, 150)]))
             for _ in range(8)]
 
+
 def draw_neon_pulse(draw, points, t, W, H):
     for x, y, phase, color in points:
         if math.sin(t * 2.5 + phase) > 0.5:
@@ -193,6 +203,7 @@ def draw_neon_pulse(draw, points, t, W, H):
 def init_heat_shimmer(rng, W, H):
     return [{"x": rng.randint(0, W), "y": rng.randint(H // 2, H),
              "phase": rng.uniform(0, 6.28)} for _ in range(12)]
+
 
 def draw_heat_shimmer(draw, points, t, W, H):
     for p in points:
@@ -205,33 +216,33 @@ def draw_heat_shimmer(draw, points, t, W, H):
 # ── Scene → animation mapping ──────────────────────────────────────────
 
 SCENES = {
-    "night":      ["stars", "fireflies", "leaves"],
-    "dusk":       ["fireflies", "sparkles"],
-    "tavern":     ["dust_motes", "sparkles"],
-    "indoor":     ["dust_motes"],
-    "urban":      ["rain", "neon_pulse"],
-    "nature":     ["leaves", "fireflies"],
-    "magic":      ["sparkles", "fireflies"],
-    "storm":      ["rain", "lightning"],
+    "night": ["stars", "fireflies", "leaves"],
+    "dusk": ["fireflies", "sparkles"],
+    "tavern": ["dust_motes", "sparkles"],
+    "indoor": ["dust_motes"],
+    "urban": ["rain", "neon_pulse"],
+    "nature": ["leaves", "fireflies"],
+    "magic": ["sparkles", "fireflies"],
+    "storm": ["rain", "lightning"],
     "underwater": ["bubbles", "sparkles"],
-    "fire":       ["embers", "sparkles"],
-    "snow":       ["snowflakes", "sparkles"],
-    "desert":     ["heat_shimmer", "dust_motes"],
+    "fire": ["embers", "sparkles"],
+    "snow": ["snowflakes", "sparkles"],
+    "desert": ["heat_shimmer", "dust_motes"],
 }
 
 # Map scene layer name to (init_fn, draw_fn).
 _LAYERS = {
-    "stars":        (init_stars, draw_stars),
-    "fireflies":    (init_fireflies, draw_fireflies),
-    "leaves":       (init_leaves, draw_leaves),
-    "dust_motes":   (init_dust_motes, draw_dust_motes),
-    "sparkles":     (init_sparkles, draw_sparkles),
-    "rain":         (init_rain, draw_rain),
-    "lightning":    (init_lightning, draw_lightning),
-    "bubbles":      (init_bubbles, draw_bubbles),
-    "embers":       (init_embers, draw_embers),
-    "snowflakes":   (init_snowflakes, draw_snowflakes),
-    "neon_pulse":   (init_neon_pulse, draw_neon_pulse),
+    "stars": (init_stars, draw_stars),
+    "fireflies": (init_fireflies, draw_fireflies),
+    "leaves": (init_leaves, draw_leaves),
+    "dust_motes": (init_dust_motes, draw_dust_motes),
+    "sparkles": (init_sparkles, draw_sparkles),
+    "rain": (init_rain, draw_rain),
+    "lightning": (init_lightning, draw_lightning),
+    "bubbles": (init_bubbles, draw_bubbles),
+    "embers": (init_embers, draw_embers),
+    "snowflakes": (init_snowflakes, draw_snowflakes),
+    "neon_pulse": (init_neon_pulse, draw_neon_pulse),
     "heat_shimmer": (init_heat_shimmer, draw_heat_shimmer),
 }
 
@@ -283,7 +294,10 @@ def pixel_art_video(
         layers.append((draw_fn, init_fn(rng, W, H)))
 
     n_frames = fps * duration
-    os.makedirs(os.path.dirname(os.path.abspath(output_path)) or ".", exist_ok=True)
+    os.makedirs(
+        os.path.dirname(
+            os.path.abspath(output_path)) or ".",
+        exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="pixelart_frames_") as frames_dir:
         for frame_idx in range(n_frames):
@@ -322,7 +336,8 @@ def pixel_art_video(
 
 def main():
     import argparse
-    p = argparse.ArgumentParser(description="Overlay pixel animations onto an image → MP4.")
+    p = argparse.ArgumentParser(
+        description="Overlay pixel animations onto an image → MP4.")
     p.add_argument("base_image")
     p.add_argument("output")
     p.add_argument("--scene", default="night", choices=sorted(SCENES))

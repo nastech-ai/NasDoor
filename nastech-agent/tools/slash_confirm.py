@@ -81,7 +81,8 @@ def clear(session_key: str) -> None:
         _pending.pop(session_key, None)
 
 
-def clear_if_stale(session_key: str, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> bool:
+def clear_if_stale(session_key: str,
+                   timeout: float = DEFAULT_TIMEOUT_SECONDS) -> bool:
     """Drop the pending confirm if older than ``timeout`` seconds.
 
     Returns True if an entry was dropped.
@@ -117,7 +118,8 @@ async def resolve(
         if not entry:
             return None
         if entry.get("confirm_id") != confirm_id:
-            # Stale confirm_id — superseded by a newer prompt on the same session.
+            # Stale confirm_id — superseded by a newer prompt on the same
+            # session.
             return None
         # Pop before we run the handler to prevent duplicate callbacks
         # (e.g. button double-click) from running it twice.

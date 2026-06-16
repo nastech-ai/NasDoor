@@ -98,7 +98,8 @@ def parse_rate_limit_headers(
     Returns None if no rate limit headers are present.
     """
     # Normalize to lowercase so lookups work regardless of how the server
-    # capitalises headers (HTTP header names are case-insensitive per RFC 7230).
+    # capitalises headers (HTTP header names are case-insensitive per RFC
+    # 7230).
     lowered = {k.lower(): v for k, v in headers.items()}
 
     # Quick check: at least one rate limit header must exist
@@ -164,7 +165,8 @@ def _bar(pct: float, width: int = 20) -> str:
     return f"[{'█' * filled}{'░' * empty}]"
 
 
-def _bucket_line(label: str, bucket: RateLimitBucket, label_width: int = 14) -> str:
+def _bucket_line(label: str, bucket: RateLimitBucket,
+                 label_width: int = 14) -> str:
     """Format one bucket as a single line."""
     if bucket.limit <= 0:
         return f"  {label:<{label_width}}  (no data)"
@@ -214,7 +216,9 @@ def format_rate_limit_display(state: RateLimitState) -> str:
     ]:
         if bucket.limit > 0 and bucket.usage_pct >= 80:
             reset = _fmt_seconds(bucket.remaining_seconds_now)
-            warnings.append(f"  ⚠ {label} at {bucket.usage_pct:.0f}% — resets in {reset}")
+            warnings.append(
+                f"  ⚠ {label} at {
+                    bucket.usage_pct:.0f}% — resets in {reset}")
 
     if warnings:
         lines.append("")
@@ -237,10 +241,24 @@ def format_rate_limit_compact(state: RateLimitState) -> str:
     if rm.limit > 0:
         parts.append(f"RPM: {rm.remaining}/{rm.limit}")
     if rh.limit > 0:
-        parts.append(f"RPH: {_fmt_count(rh.remaining)}/{_fmt_count(rh.limit)} (resets {_fmt_seconds(rh.remaining_seconds_now)})")
+        parts.append(
+            f"RPH: {
+                _fmt_count(
+                    rh.remaining)}/{
+                _fmt_count(
+                    rh.limit)} (resets {
+                        _fmt_seconds(
+                            rh.remaining_seconds_now)})")
     if tm.limit > 0:
         parts.append(f"TPM: {_fmt_count(tm.remaining)}/{_fmt_count(tm.limit)}")
     if th.limit > 0:
-        parts.append(f"TPH: {_fmt_count(th.remaining)}/{_fmt_count(th.limit)} (resets {_fmt_seconds(th.remaining_seconds_now)})")
+        parts.append(
+            f"TPH: {
+                _fmt_count(
+                    th.remaining)}/{
+                _fmt_count(
+                    th.limit)} (resets {
+                        _fmt_seconds(
+                            th.remaining_seconds_now)})")
 
     return " | ".join(parts)

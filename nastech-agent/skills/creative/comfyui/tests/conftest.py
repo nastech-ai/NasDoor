@@ -58,7 +58,8 @@ def pytest_collection_modifyitems(config, items):
     """Auto-skip cloud tests when no API key is set."""
     if os.environ.get("COMFY_CLOUD_API_KEY"):
         return
-    skip_cloud = pytest.mark.skip(reason="Set COMFY_CLOUD_API_KEY to run cloud tests")
+    skip_cloud = pytest.mark.skip(
+        reason="Set COMFY_CLOUD_API_KEY to run cloud tests")
     for item in items:
         if "cloud" in item.keywords:
             item.add_marker(skip_cloud)

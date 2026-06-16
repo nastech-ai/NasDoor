@@ -33,8 +33,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from nastech_constants import get_nastech_home
 from agent.skill_utils import is_excluded_skill_path
+from nastech_constants import get_nastech_home
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,8 @@ _VALID_STATES = {STATE_ACTIVE, STATE_STALE, STATE_ARCHIVED}
 # one turns its slash command into "Unknown command" with no signal to the user.
 # Protection is by skill ``name`` (frontmatter ``name:``), matching the keys used
 # throughout this module. Keep this list tiny and intentional — it is not a
-# substitute for ``curator.prune_builtins: false``, which exempts ALL built-ins.
+# substitute for ``curator.prune_builtins: false``, which exempts ALL
+# built-ins.
 PROTECTED_BUILTIN_SKILLS: Set[str] = {
     "plan",
 }
@@ -220,7 +221,8 @@ def _read_hub_installed_names() -> Set[str]:
                     if not isinstance(entry, dict):
                         continue
                     install_path = entry.get("install_path")
-                    if not isinstance(install_path, str) or not install_path.strip():
+                    if not isinstance(install_path,
+                                      str) or not install_path.strip():
                         continue
                     skill_dir = Path(install_path)
                     if not skill_dir.is_absolute():
@@ -232,7 +234,10 @@ def _read_hub_installed_names() -> Set[str]:
                         continue
                     skill_md = resolved / "SKILL.md"
                     if skill_md.exists():
-                        names.add(_read_skill_name(skill_md, fallback=resolved.name))
+                        names.add(
+                            _read_skill_name(
+                                skill_md,
+                                fallback=resolved.name))
                 return names
     except (OSError, json.JSONDecodeError) as e:
         logger.debug("Failed to read hub lock file: %s", e)
@@ -290,7 +295,8 @@ def _write_suppressed_names(names: Set[str]) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         data = "\n".join(sorted(names)) + ("\n" if names else "")
-        fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".curator_suppressed_", suffix=".tmp")
+        fd, tmp = tempfile.mkstemp(
+            dir=str(path.parent), prefix=".curator_suppressed_", suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(data)
@@ -304,7 +310,10 @@ def _write_suppressed_names(names: Set[str]) -> None:
                 pass
             raise
     except Exception as e:
-        logger.debug("Failed to write curator suppression list: %s", e, exc_info=True)
+        logger.debug(
+            "Failed to write curator suppression list: %s",
+            e,
+            exc_info=True)
 
 
 def add_suppressed_name(skill_name: str) -> None:
@@ -450,7 +459,8 @@ def _is_curator_managed_record(record: Any) -> bool:
     """Return True when a usage record opts a skill into curator management."""
     if not isinstance(record, dict):
         return False
-    return record.get("created_by") == "agent" or record.get("agent_created") is True
+    return record.get("created_by") == "agent" or record.get(
+        "agent_created") is True
 
 
 # ---------------------------------------------------------------------------
@@ -503,7 +513,12 @@ def save_usage(data: Dict[str, Dict[str, Any]]) -> None:
         )
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, sort_keys=True, ensure_ascii=False)
+                json.dump(
+                    data,
+                    f,
+                    indent=2,
+                    sort_keys=True,
+                    ensure_ascii=False)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp_path, path)
@@ -549,10 +564,15 @@ def seed_record_if_missing(skill_name: str) -> None:
             data[skill_name] = _empty_record()
             save_usage(data)
     except Exception as e:
-        logger.debug("skill_usage.seed_record_if_missing(%s) failed: %s", skill_name, e, exc_info=True)
+        logger.debug(
+            "skill_usage.seed_record_if_missing(%s) failed: %s",
+            skill_name,
+            e,
+            exc_info=True)
 
 
-def _mutate(skill_name: str, mutator, *, require_curation_eligible: bool = False) -> None:
+def _mutate(skill_name: str, mutator, *,
+            require_curation_eligible: bool = False) -> None:
     """Load, apply *mutator(record)* in place, save. Best-effort.
 
     By default this records telemetry for ANY skill — bundled, hub-installed,
@@ -577,7 +597,11 @@ def _mutate(skill_name: str, mutator, *, require_curation_eligible: bool = False
             data[skill_name] = rec
             save_usage(data)
     except Exception as e:
-        logger.debug("skill_usage._mutate(%s) failed: %s", skill_name, e, exc_info=True)
+        logger.debug(
+            "skill_usage._mutate(%s) failed: %s",
+            skill_name,
+            e,
+            exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -636,6 +660,7 @@ def set_state(skill_name: str, state: str) -> None:
     if state not in _VALID_STATES:
         logger.debug("set_state: invalid state %r for %s", state, skill_name)
         return
+
     def _apply(rec: Dict[str, Any]) -> None:
         rec["state"] = state
         if state == STATE_ARCHIVED:
@@ -662,7 +687,11 @@ def forget(skill_name: str) -> None:
                 del data[skill_name]
                 save_usage(data)
     except Exception as e:
-        logger.debug("skill_usage.forget(%s) failed: %s", skill_name, e, exc_info=True)
+        logger.debug(
+            "skill_usage.forget(%s) failed: %s",
+            skill_name,
+            e,
+            exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -704,7 +733,8 @@ def archive_skill(skill_name: str) -> Tuple[bool, str]:
     # are simple. If a collision exists, append a timestamp.
     dest = archive_root / skill_dir.name
     if dest.exists():
-        dest = archive_root / f"{skill_dir.name}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        dest = archive_root / \
+            f"{skill_dir.name}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
 
     try:
         skill_dir.rename(dest)
@@ -716,7 +746,8 @@ def archive_skill(skill_name: str) -> Tuple[bool, str]:
         except Exception as e2:
             return False, f"failed to archive: {e2}"
 
-    # Pruning a built-in only sticks if the re-seeder is told to leave it alone.
+    # Pruning a built-in only sticks if the re-seeder is told to leave it
+    # alone.
     if is_bundled(skill_name):
         add_suppressed_name(skill_name)
 
@@ -755,7 +786,8 @@ def restore_skill(skill_name: str) -> Tuple[bool, str]:
     # Try exact name match first, then any prefix match (for timestamped dupes).
     # Recursive walk handles nested archive layouts (e.g. .archive/<category>/<skill>/)
     # left behind by older archive paths or external imports.
-    candidates = [p for p in archive_root.rglob("*") if p.is_dir() and p.name == skill_name]
+    candidates = [p for p in archive_root.rglob(
+        "*") if p.is_dir() and p.name == skill_name]
     if not candidates:
         candidates = sorted(
             [p for p in archive_root.rglob("*")
@@ -779,7 +811,8 @@ def restore_skill(skill_name: str) -> Tuple[bool, str]:
         except Exception as e:
             return False, f"failed to restore: {e}"
 
-    # Restoring a pruned built-in lifts its suppression so updates can manage it.
+    # Restoring a pruned built-in lifts its suppression so updates can manage
+    # it.
     remove_suppressed_name(skill_name)
 
     set_state(skill_name, STATE_ACTIVE)
@@ -798,7 +831,8 @@ def _find_skill_dir(skill_name: str) -> Optional[Path]:
     for skill_md in base.rglob("SKILL.md"):
         if is_excluded_skill_path(skill_md):
             continue
-        if _read_skill_name(skill_md, fallback=skill_md.parent.name) == skill_name:
+        if _read_skill_name(
+                skill_md, fallback=skill_md.parent.name) == skill_name:
             return skill_md.parent
     return None
 

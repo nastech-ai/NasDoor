@@ -28,7 +28,8 @@ def build_config_parser(subparsers, *, cmd_config: Callable) -> None:
     config_subparsers.add_parser("edit", help="Open config file in editor")
 
     # config set
-    config_set = config_subparsers.add_parser("set", help="Set a configuration value")
+    config_set = config_subparsers.add_parser(
+        "set", help="Set a configuration value")
     config_set.add_argument(
         "key", nargs="?", help="Configuration key (e.g., model, terminal.backend)"
     )
@@ -41,9 +42,11 @@ def build_config_parser(subparsers, *, cmd_config: Callable) -> None:
     config_subparsers.add_parser("env-path", help="Print .env file path")
 
     # config check
-    config_subparsers.add_parser("check", help="Check for missing/outdated config")
+    config_subparsers.add_parser(
+        "check", help="Check for missing/outdated config")
 
     # config migrate
-    config_subparsers.add_parser("migrate", help="Update config with new options")
+    config_subparsers.add_parser(
+        "migrate", help="Update config with new options")
 
     config_parser.set_defaults(func=cmd_config)

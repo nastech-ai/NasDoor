@@ -11,12 +11,12 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from nastech_constants import display_nastech_home
+from agent.skill_preprocessing import expand_inline_shell as _expand_inline_shell
+from agent.skill_preprocessing import load_skills_config as _load_skills_config
 from agent.skill_preprocessing import (
-    expand_inline_shell as _expand_inline_shell,
-    load_skills_config as _load_skills_config,
     substitute_template_vars as _substitute_template_vars,
 )
+from nastech_constants import display_nastech_home
 
 logger = logging.getLogger(__name__)
 
@@ -50,15 +50,17 @@ def _resolve_skill_commands_platform() -> Optional[str]:
         resolved_platform = os.getenv("NASTECH_PLATFORM")
     return resolved_platform or None
 
-def _load_skill_payload(skill_identifier: str, task_id: str | None = None) -> tuple[dict[str, Any], Path | None, str] | None:
+
+def _load_skill_payload(skill_identifier: str, task_id: str |
+                        None = None) -> tuple[dict[str, Any], Path | None, str] | None:
     """Load a skill by name/path and return (loaded_payload, skill_dir, display_name)."""
     raw_identifier = (skill_identifier or "").strip()
     if not raw_identifier:
         return None
 
     try:
-        from tools.skills_tool import SKILLS_DIR, skill_view
         from agent.skill_utils import get_external_skills_dirs
+        from tools.skills_tool import SKILLS_DIR, skill_view
 
         identifier_path = Path(raw_identifier).expanduser()
         if identifier_path.is_absolute():
@@ -84,7 +86,9 @@ def _load_skill_payload(skill_identifier: str, task_id: str | None = None) -> tu
 
             if normalized is None:
                 try:
-                    normalized = str(identifier_path.resolve().relative_to(SKILLS_DIR.resolve()))
+                    normalized = str(
+                        identifier_path.resolve().relative_to(
+                            SKILLS_DIR.resolve()))
                 except Exception:
                     normalized = raw_identifier
         else:
@@ -118,7 +122,8 @@ def _load_skill_payload(skill_identifier: str, task_id: str | None = None) -> tu
     return loaded_skill, skill_dir, skill_name
 
 
-def _inject_skill_config(loaded_skill: dict[str, Any], parts: list[str]) -> None:
+def _inject_skill_config(
+        loaded_skill: dict[str, Any], parts: list[str]) -> None:
     """Resolve and inject skill-declared config values into the message parts.
 
     If the loaded skill's frontmatter declares ``metadata.nastech.config``
@@ -133,8 +138,10 @@ def _inject_skill_config(loaded_skill: dict[str, Any], parts: list[str]) -> None
             resolve_skill_config_values,
         )
 
-        # The loaded_skill dict contains the raw content which includes frontmatter
-        raw_content = str(loaded_skill.get("raw_content") or loaded_skill.get("content") or "")
+        # The loaded_skill dict contains the raw content which includes
+        # frontmatter
+        raw_content = str(loaded_skill.get("raw_content")
+                          or loaded_skill.get("content") or "")
         if not raw_content:
             return
 
@@ -147,7 +154,8 @@ def _inject_skill_config(loaded_skill: dict[str, Any], parts: list[str]) -> None
         if not resolved:
             return
 
-        lines = ["", f"[Skill config (from {display_nastech_home()}/config.yaml):"]
+        lines = [
+            "", f"[Skill config (from {display_nastech_home()}/config.yaml):"]
         for key, value in resolved.items():
             display_val = str(value) if value else "(not set)"
             lines.append(f"  {key} = {display_val}")
@@ -251,7 +259,8 @@ def _build_skill_message(
 
     if user_instruction:
         parts.append("")
-        parts.append(f"The user has provided the following instruction alongside the skill invocation: {user_instruction}")
+        parts.append(
+            f"The user has provided the following instruction alongside the skill invocation: {user_instruction}")
 
     if runtime_note:
         parts.append("")
@@ -270,8 +279,14 @@ def scan_skill_commands() -> Dict[str, Dict[str, Any]]:
     _skill_commands_platform = _resolve_skill_commands_platform()
     _skill_commands = {}
     try:
-        from tools.skills_tool import SKILLS_DIR, _parse_frontmatter, skill_matches_platform, skill_matches_environment, _get_disabled_skill_names
         from agent.skill_utils import get_external_skills_dirs, iter_skill_index_files
+        from tools.skills_tool import (
+            SKILLS_DIR,
+            _get_disabled_skill_names,
+            _parse_frontmatter,
+            skill_matches_environment,
+            skill_matches_platform,
+        )
         disabled = _get_disabled_skill_names()
         seen_names: set = set()
 
@@ -283,7 +298,8 @@ def scan_skill_commands() -> Dict[str, Dict[str, Any]]:
 
         for scan_dir in dirs_to_scan:
             for skill_md in iter_skill_index_files(scan_dir, "SKILL.md"):
-                if any(part in {'.git', '.github', '.hub', '.archive'} for part in skill_md.parts):
+                if any(part in {'.git', '.github', '.hub', '.archive'}
+                       for part in skill_md.parts):
                     continue
                 try:
                     content = skill_md.read_text(encoding='utf-8')
@@ -314,7 +330,8 @@ def scan_skill_commands() -> Dict[str, Dict[str, Any]]:
                     # Telegram command names downstream.
                     cmd_name = name.lower().replace(' ', '-').replace('_', '-')
                     cmd_name = _SKILL_INVALID_CHARS.sub('', cmd_name)
-                    cmd_name = _SKILL_MULTI_HYPHEN.sub('-', cmd_name).strip('-')
+                    cmd_name = _SKILL_MULTI_HYPHEN.sub(
+                        '-', cmd_name).strip('-')
                     if not cmd_name:
                         continue
                     _skill_commands[f"/{cmd_name}"] = {

@@ -13,10 +13,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-from nastech_cli.config import get_nastech_home, get_env_path, get_project_root, load_config
+from agent.skill_utils import is_excluded_skill_path
+from nastech_cli.config import (
+    get_env_path,
+    get_nastech_home,
+    get_project_root,
+    load_config,
+)
 from nastech_cli.env_loader import load_nastech_dotenv
 from nastech_constants import display_nastech_home
-from agent.skill_utils import is_excluded_skill_path
 
 
 def _get_git_commit(project_root: Path) -> str:
@@ -82,7 +87,8 @@ def _gateway_status() -> str:
             return f"stopped ({snapshot.manager})"
         return f"stopped ({snapshot.manager})"
     except Exception:
-        return "unknown" if sys.platform.startswith(("linux", "darwin")) else "N/A"
+        return "unknown" if sys.platform.startswith(
+            ("linux", "darwin")) else "N/A"
 
 
 def _count_skills(nastech_home: Path) -> int:
@@ -154,7 +160,8 @@ def _get_model_and_provider(config: dict) -> tuple[str, str]:
     """Extract model and provider from config."""
     model_cfg = config.get("model", "")
     if isinstance(model_cfg, dict):
-        model = model_cfg.get("default") or model_cfg.get("model") or model_cfg.get("name") or "(not set)"
+        model = model_cfg.get("default") or model_cfg.get(
+            "model") or model_cfg.get("name") or "(not set)"
         provider = model_cfg.get("provider") or "(auto)"
     elif isinstance(model_cfg, str):
         model = model_cfg or "(not set)"
@@ -167,7 +174,7 @@ def _get_model_and_provider(config: dict) -> tuple[str, str]:
 
 def _config_overrides(config: dict) -> dict[str, str]:
     """Find non-default config values worth reporting.
-    
+
     Returns a flat dict of dotpath -> value for interesting overrides.
     """
     from nastech_cli.config import DEFAULT_CONFIG
@@ -195,7 +202,8 @@ def _config_overrides(config: dict) -> dict[str, str]:
     for section, key in interesting_paths:
         default_section = DEFAULT_CONFIG.get(section, {})
         user_section = config.get(section, {})
-        if not isinstance(default_section, dict) or not isinstance(user_section, dict):
+        if not isinstance(default_section, dict) or not isinstance(
+                user_section, dict):
             continue
         default_val = default_section.get(key)
         user_val = user_section.get(key)
@@ -231,7 +239,7 @@ def run_dump(args):
     nastech_home = get_nastech_home()
 
     try:
-        from nastech_cli import __version__, __release_date__
+        from nastech_cli import __release_date__, __version__
     except ImportError:
         __version__ = "(unknown)"
         __release_date__ = ""
@@ -320,7 +328,8 @@ def run_dump(args):
             display = "set" if val else "not set"
         # A credential added via `nastech auth add openrouter` lives in the
         # credential pool, not as an env var — surface it so the dump doesn't
-        # misleadingly read "not set" while `nastech auth list` shows it (#42130).
+        # misleadingly read "not set" while `nastech auth list` shows it
+        # (#42130).
         if not val and label == "openrouter":
             try:
                 from agent.credential_pool import load_pool as _load_pool
@@ -336,13 +345,17 @@ def run_dump(args):
     lines.append("features:")
 
     toolsets = config.get("toolsets", ["nastech-cli"])
-    lines.append(f"  toolsets:           {', '.join(toolsets) if toolsets else '(default)'}")
+    lines.append(
+        f"  toolsets:           {
+            ', '.join(toolsets) if toolsets else '(default)'}")
     lines.append(f"  mcp_servers:        {_count_mcp_servers(config)}")
     lines.append(f"  memory_provider:    {_memory_provider(config)}")
     lines.append(f"  gateway:            {_gateway_status()}")
 
     platforms = _configured_platforms()
-    lines.append(f"  platforms:          {', '.join(platforms) if platforms else 'none'}")
+    lines.append(
+        f"  platforms:          {
+            ', '.join(platforms) if platforms else 'none'}")
     lines.append(f"  cron_jobs:          {_cron_summary(nastech_home)}")
     lines.append(f"  skills:             {_count_skills(nastech_home)}")
 

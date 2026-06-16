@@ -19,10 +19,9 @@ import time
 from pathlib import Path
 from typing import Dict
 
+from nastech_cli.config import cfg_get
 from nastech_constants import display_nastech_home
 from utils import atomic_replace
-from nastech_cli.config import cfg_get
-
 
 _SUBSCRIPTIONS_FILENAME = "webhook_subscriptions.json"
 _SUBSCRIPTIONS_FILE_MODE = 0o600
@@ -161,7 +160,8 @@ def webhook_command(args):
 def _cmd_subscribe(args):
     name = args.name.strip().lower().replace(" ", "-")
     if not re.match(r'^[a-z0-9][a-z0-9_-]*$', name):
-        print(f"Error: Invalid name '{name}'. Use lowercase alphanumeric with hyphens/underscores.")
+        print(
+            f"Error: Invalid name '{name}'. Use lowercase alphanumeric with hyphens/underscores.")
         return
 
     subs = _load_subscriptions()
@@ -209,7 +209,8 @@ def _cmd_subscribe(args):
     if route.get("deliver_only"):
         print("  Mode: direct delivery (no agent, zero LLM cost)")
     if route.get("prompt"):
-        prompt_preview = route["prompt"][:80] + ("..." if len(route["prompt"]) > 80 else "")
+        prompt_preview = route["prompt"][:80] + \
+            ("..." if len(route["prompt"]) > 80 else "")
         label = "Message" if route.get("deliver_only") else "Prompt"
         print(f"  {label}: {prompt_preview}")
     print(f"\n  Configure your service to POST to the URL above.")
@@ -271,8 +272,8 @@ def _cmd_test(args):
 
     payload = args.payload or '{"test": true, "event_type": "test", "message": "Hello from nastech webhook test"}'
 
-    import hmac
     import hashlib
+    import hmac
     sig = "sha256=" + hmac.new(
         secret.encode(), payload.encode(), hashlib.sha256
     ).hexdigest()

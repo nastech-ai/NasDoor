@@ -15,8 +15,9 @@ Design:
 """
 
 import json
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
+from tools.registry import registry, tool_error
 
 # Valid status values for todo items
 VALID_STATUSES = {"pending", "in_progress", "completed", "cancelled"}
@@ -46,7 +47,8 @@ class TodoStore:
     def __init__(self):
         self._items: List[Dict[str, str]] = []
 
-    def write(self, todos: List[Dict[str, Any]], merge: bool = False) -> List[Dict[str, str]]:
+    def write(self, todos: List[Dict[str, Any]],
+              merge: bool = False) -> List[Dict[str, str]]:
         """
         Write todos. Returns the full current list after writing.
 
@@ -57,7 +59,8 @@ class TodoStore:
         """
         if not merge:
             # Replace mode: new list entirely
-            self._items = [self._validate(t) for t in self._dedupe_by_id(todos)]
+            self._items = [self._validate(t)
+                           for t in self._dedupe_by_id(todos)]
         else:
             # Merge mode: update existing items by id, append new ones
             existing = {item["id"]: item for item in self._items}
@@ -69,7 +72,8 @@ class TodoStore:
                 if item_id in existing:
                     # Update only the fields the LLM actually provided
                     if "content" in t and t["content"]:
-                        existing[item_id]["content"] = self._cap_content(str(t["content"]).strip())
+                        existing[item_id]["content"] = self._cap_content(
+                            str(t["content"]).strip())
                     if "status" in t and t["status"]:
                         status = str(t["status"]).strip().lower()
                         if status in VALID_STATUSES:
@@ -133,7 +137,8 @@ class TodoStore:
         lines = ["[Your active task list was preserved across context compression]"]
         for item in active_items:
             marker = markers.get(item["status"], "[?]")
-            lines.append(f"- {marker} {item['id']}. {item['content']} ({item['status']})")
+            lines.append(
+                f"- {marker} {item['id']}. {item['content']} ({item['status']})")
 
         return "\n".join(lines)
 
@@ -295,7 +300,6 @@ TODO_SCHEMA = {
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
 
 registry.register(
     name="todo",

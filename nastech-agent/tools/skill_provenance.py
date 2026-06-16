@@ -33,7 +33,6 @@ Usage:
 
 import contextvars
 
-
 _write_origin: contextvars.ContextVar[str] = contextvars.ContextVar(
     "skill_write_origin",
     default="foreground",

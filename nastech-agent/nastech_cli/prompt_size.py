@@ -18,7 +18,9 @@ import re
 from typing import Any, Dict, List, Tuple
 
 # The skills index is wrapped in this tag pair inside the stable tier.
-_SKILLS_BLOCK_RE = re.compile(r"<available_skills>.*?</available_skills>", re.DOTALL)
+_SKILLS_BLOCK_RE = re.compile(
+    r"<available_skills>.*?</available_skills>",
+    re.DOTALL)
 
 
 def _bytes(s: str) -> int:
@@ -32,11 +34,15 @@ def _build_inspection_agent(platform: str) -> Any:
     ``run_agent.py`` (no provider auto-detection, no network). Toolsets and
     platform come from the caller so the breakdown matches a real session.
     """
-    from run_agent import AIAgent
     from nastech_cli.config import load_config
+    from run_agent import AIAgent
 
     cfg = load_config()
-    model_cfg = cfg.get("model", {}) if isinstance(cfg.get("model"), dict) else {}
+    model_cfg = cfg.get(
+        "model",
+        {}) if isinstance(
+        cfg.get("model"),
+        dict) else {}
     model = model_cfg.get("default") or model_cfg.get("model") or ""
 
     return AIAgent(
@@ -117,24 +123,47 @@ def render_breakdown(data: Dict[str, Any]) -> str:
     """Render the breakdown as plain text suitable for a terminal."""
     lines: List[str] = []
     sp = data["system_prompt"]
-    lines.append(f"Prompt-size breakdown (platform={data['platform']}, model={data['model'] or 'unset'})")
+    lines.append(
+        f"Prompt-size breakdown (platform={data['platform']}, model={data['model'] or 'unset'})")
     lines.append("")
-    lines.append(f"  System prompt total : {sp['bytes']:>8,} B  ({_fmt_kb(sp['bytes'])}, {sp['chars']:,} chars)")
+    lines.append(
+        f"  System prompt total : {
+            sp['bytes']:>8,} B  ({
+            _fmt_kb(
+                sp['bytes'])}, {
+                    sp['chars']:,                } chars)")
     lines.append("")
     lines.append("  Major blocks:")
     si = data["skills_index"]
     mem = data["memory"]
     up = data["user_profile"]
-    lines.append(f"    skills index       : {si['bytes']:>8,} B  ({_fmt_kb(si['bytes'])})")
-    lines.append(f"    memory             : {mem['bytes']:>8,} B  ({_fmt_kb(mem['bytes'])})")
-    lines.append(f"    user profile       : {up['bytes']:>8,} B  ({_fmt_kb(up['bytes'])})")
+    lines.append(
+        f"    skills index       : {
+            si['bytes']:>8,} B  ({
+            _fmt_kb(
+                si['bytes'])})")
+    lines.append(
+        f"    memory             : {
+            mem['bytes']:>8,} B  ({
+            _fmt_kb(
+                mem['bytes'])})")
+    lines.append(
+        f"    user profile       : {
+            up['bytes']:>8,} B  ({
+            _fmt_kb(
+                up['bytes'])})")
     lines.append("")
     lines.append("  Prompt tiers:")
     for label, chars, byts in data["sections"]:
         lines.append(f"    {label:<36}: {byts:>8,} B  ({_fmt_kb(byts)})")
     lines.append("")
     tools = data["tools"]
-    lines.append(f"  Tool schemas         : {tools['json_bytes']:>8,} B  ({_fmt_kb(tools['json_bytes'])}, {tools['count']} tools)")
+    lines.append(
+        f"  Tool schemas         : {
+            tools['json_bytes']:>8,} B  ({
+            _fmt_kb(
+                tools['json_bytes'])}, {
+                    tools['count']} tools)")
     return "\n".join(lines)
 
 

@@ -20,14 +20,14 @@ rather than parsing the raw JSON themselves.
 
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from utils import atomic_json_write
-
 import requests
+from utils import atomic_json_write
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,8 @@ class ModelInfo:
         """Human-readable cost string, e.g. '$3.00/M in, $15.00/M out'."""
         if not self.has_cost_data():
             return "unknown"
-        parts = [f"${self.cost_input:.2f}/M in", f"${self.cost_output:.2f}/M out"]
+        parts = [f"${self.cost_input:.2f}/M in",
+                 f"${self.cost_output:.2f}/M out"]
         if self.cost_cache_read is not None:
             parts.append(f"cache read ${self.cost_cache_read:.2f}/M")
         return ", ".join(parts)
@@ -181,7 +182,6 @@ PROVIDER_TO_MODELS_DEV: Dict[str, str] = {
 
 # Reverse mapping: models.dev → NasTech (built lazily)
 _MODELS_DEV_TO_PROVIDER: Optional[Dict[str, str]] = None
-
 
 
 def _get_cache_path() -> Path:
@@ -300,7 +300,8 @@ def fetch_models_dev(force_refresh: bool = False) -> Dict[str, Any]:
             logger.debug(
                 "Fetched models.dev registry: %d providers, %d total models",
                 len(data),
-                sum(len(p.get("models", {})) for p in data.values() if isinstance(p, dict)),
+                sum(len(p.get("models", {}))
+                    for p in data.values() if isinstance(p, dict)),
             )
             return data
     except Exception as e:
@@ -313,7 +314,9 @@ def fetch_models_dev(force_refresh: bool = False) -> Dict[str, Any]:
         _models_dev_cache = _load_disk_cache()
         if _models_dev_cache:
             _models_dev_cache_time = time.time() - _MODELS_DEV_CACHE_TTL + 300
-            logger.debug("Loaded models.dev from disk cache (%d providers)", len(_models_dev_cache))
+            logger.debug(
+                "Loaded models.dev from disk cache (%d providers)",
+                len(_models_dev_cache))
 
     return _models_dev_cache
 
@@ -431,7 +434,8 @@ def _get_provider_models(provider: str) -> Optional[Dict[str, Any]]:
     return models
 
 
-def _find_model_entry(models: Dict[str, Any], model: str) -> Optional[Dict[str, Any]]:
+def _find_model_entry(models: Dict[str, Any],
+                      model: str) -> Optional[Dict[str, Any]]:
     """Find a model entry by exact match, then case-insensitive fallback."""
     # Exact match
     entry = models.get(model)
@@ -447,7 +451,8 @@ def _find_model_entry(models: Dict[str, Any], model: str) -> Optional[Dict[str, 
     return None
 
 
-def get_model_capabilities(provider: str, model: str) -> Optional[ModelCapabilities]:
+def get_model_capabilities(
+        provider: str, model: str) -> Optional[ModelCapabilities]:
     """Look up full capability metadata from models.dev cache.
 
     Uses the existing fetch_models_dev() and PROVIDER_TO_MODELS_DEV mapping.
@@ -491,10 +496,12 @@ def get_model_capabilities(provider: str, model: str) -> Optional[ModelCapabilit
         limit = {}
 
     ctx = limit.get("context")
-    context_window = int(ctx) if isinstance(ctx, (int, float)) and ctx > 0 else 200000
+    context_window = int(ctx) if isinstance(
+        ctx, (int, float)) and ctx > 0 else 200000
 
     out = limit.get("output")
-    max_output_tokens = int(out) if isinstance(out, (int, float)) and out > 0 else 8192
+    max_output_tokens = int(out) if isinstance(
+        out, (int, float)) and out > 0 else 8192
 
     model_family = entry.get("family", "") or ""
 
@@ -515,7 +522,7 @@ def list_provider_models(provider: str) -> List[str]:
     """
     from nastech_cli.models import normalize_provider
     provider = normalize_provider(provider) or provider
-    
+
     models = _get_provider_models(provider)
     if models is None:
         return []
@@ -527,7 +534,6 @@ def list_provider_models(provider: str) -> List[str]:
 
 # Patterns that indicate non-agentic or noise models (TTS, embedding,
 # dated preview snapshots, live/streaming-only, image-only).
-import re
 _NOISE_PATTERNS: re.Pattern = re.compile(
     r"-tts\b|embedding|live-|-(preview|exp)-\d{2,4}[-_]|"
     r"-image\b|-image-preview\b|-customtools\b",
@@ -567,7 +573,8 @@ _GOOGLE_HIDDEN_MODELS = frozenset({
 def _should_hide_from_provider_catalog(provider: str, model_id: str) -> bool:
     provider_lower = (provider or "").strip().lower()
     model_lower = (model_id or "").strip().lower()
-    if provider_lower in {"gemini", "google"} and model_lower in _GOOGLE_HIDDEN_MODELS:
+    if provider_lower in {"gemini",
+                          "google"} and model_lower in _GOOGLE_HIDDEN_MODELS:
         return True
     return False
 
@@ -597,12 +604,12 @@ def list_agentic_models(provider: str) -> List[str]:
     return result
 
 
-
 # ---------------------------------------------------------------------------
 # Rich dataclass constructors — parse raw models.dev JSON into dataclasses
 # ---------------------------------------------------------------------------
 
-def _parse_model_info(model_id: str, raw: Dict[str, Any], provider_id: str) -> ModelInfo:
+def _parse_model_info(
+        model_id: str, raw: Dict[str, Any], provider_id: str) -> ModelInfo:
     """Convert a raw models.dev model entry dict into a ModelInfo dataclass."""
     limit = raw.get("limit") or {}
     if not isinstance(limit, dict):
@@ -637,15 +644,19 @@ def _parse_model_info(model_id: str, raw: Dict[str, Any], provider_id: str) -> M
         temperature=bool(raw.get("temperature", False)),
         structured_output=bool(raw.get("structured_output", False)),
         open_weights=bool(raw.get("open_weights", False)),
-        input_modalities=tuple(input_mods) if isinstance(input_mods, list) else (),
-        output_modalities=tuple(output_mods) if isinstance(output_mods, list) else (),
+        input_modalities=tuple(input_mods) if isinstance(
+            input_mods, list) else (),
+        output_modalities=tuple(output_mods) if isinstance(
+            output_mods, list) else (),
         context_window=ctx_int,
         max_output=out_int,
         max_input=inp_int,
         cost_input=float(cost.get("input", 0) or 0),
         cost_output=float(cost.get("output", 0) or 0),
-        cost_cache_read=float(cost["cache_read"]) if "cache_read" in cost and cost["cache_read"] is not None else None,
-        cost_cache_write=float(cost["cache_write"]) if "cache_write" in cost and cost["cache_write"] is not None else None,
+        cost_cache_read=float(
+            cost["cache_read"]) if "cache_read" in cost and cost["cache_read"] is not None else None,
+        cost_cache_write=float(
+            cost["cache_write"]) if "cache_write" in cost and cost["cache_write"] is not None else None,
         knowledge_cutoff=raw.get("knowledge", "") or "",
         release_date=raw.get("release_date", "") or "",
         status=raw.get("status", "") or "",
@@ -653,7 +664,8 @@ def _parse_model_info(model_id: str, raw: Dict[str, Any], provider_id: str) -> M
     )
 
 
-def _parse_provider_info(provider_id: str, raw: Dict[str, Any]) -> ProviderInfo:
+def _parse_provider_info(
+        provider_id: str, raw: Dict[str, Any]) -> ProviderInfo:
     """Convert a raw models.dev provider entry dict into a ProviderInfo."""
     env = raw.get("env") or []
     models = raw.get("models") or {}

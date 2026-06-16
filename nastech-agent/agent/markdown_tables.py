@@ -102,7 +102,8 @@ def looks_like_table_row(row: str) -> bool:
     return stripped.count("|") >= 2
 
 
-def _render_block(rows: List[List[str]], available_width: int | None = None) -> List[str]:
+def _render_block(rows: List[List[str]],
+                  available_width: int | None = None) -> List[str]:
     """Render ``rows`` (header + body, divider implied) at uniform widths.
 
     If ``available_width`` is given and the rebuilt horizontal table
@@ -125,13 +126,15 @@ def _render_block(rows: List[List[str]], available_width: int | None = None) -> 
     #   `| ` + cell + ` ` for each column, plus the final closing `|`.
     horizontal_width = sum(widths) + 3 * ncols + 1
 
-    if available_width is not None and horizontal_width > max(available_width, 20):
+    if available_width is not None and horizontal_width > max(
+            available_width, 20):
         return _render_vertical(rows, ncols, available_width)
 
     def _row(cells: List[str]) -> str:
         return (
             "| "
-            + " | ".join(_pad_to_width(c, widths[k]) for k, c in enumerate(cells))
+            + " | ".join(_pad_to_width(c, widths[k])
+                         for k, c in enumerate(cells))
             + " |"
         )
 
@@ -229,7 +232,8 @@ def _render_vertical(
 
     labels = [h or f"Column {i + 1}" for i, h in enumerate(headers)]
 
-    sep_width = max(20, min(40, available_width - 2)) if available_width else 30
+    sep_width = max(20, min(40, available_width - 2)
+                    ) if available_width else 30
     separator = "─" * sep_width
     indent = "  "
     indent_w = _disp_width(indent)
@@ -260,7 +264,8 @@ def _render_vertical(
     return out
 
 
-def realign_markdown_tables(text: str, available_width: int | None = None) -> str:
+def realign_markdown_tables(
+        text: str, available_width: int | None = None) -> str:
     """Rewrite every ``| ... |`` + divider block with wcwidth-aware padding.
 
     Lines that are not part of a recognised table are returned verbatim,

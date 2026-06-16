@@ -57,14 +57,17 @@ def finalize_turn(
         # Budget exhausted — ask the model for a summary via one extra
         # API call with tools stripped.  _handle_max_iterations injects a
         # user message and makes a single toolless request.
-        _turn_exit_reason = f"max_iterations_reached({api_call_count}/{agent.max_iterations})"
+        _turn_exit_reason = f"max_iterations_reached({api_call_count}/{
+            agent.max_iterations})"
         agent._emit_status(
-            f"⚠️ Iteration budget exhausted ({api_call_count}/{agent.max_iterations}) "
+            f"⚠️ Iteration budget exhausted ({api_call_count}/{
+                agent.max_iterations}) "
             "— asking model to summarise"
         )
         if not agent.quiet_mode:
             agent._safe_print(
-                f"\n⚠️  Iteration budget exhausted ({api_call_count}/{agent.max_iterations}) "
+                f"\n⚠️  Iteration budget exhausted ({api_call_count}/{
+                    agent.max_iterations}) "
                 "— requesting summary..."
             )
         final_response = agent._handle_max_iterations(messages, api_call_count)
@@ -130,7 +133,10 @@ def finalize_turn(
 
     # Save trajectory if enabled.  ``user_message`` may be a multimodal
     # list of parts; the trajectory format wants a plain string.
-    agent._save_trajectory(messages, _summarize_user_message_for_log(user_message), completed)
+    agent._save_trajectory(
+        messages,
+        _summarize_user_message_for_log(user_message),
+        completed)
 
     # Clean up VM and browser for this task after conversation completes
     agent._cleanup_task_resources(effective_task_id)
@@ -265,7 +271,8 @@ def finalize_turn(
     # Plugin hook: transform_llm_output
     # Fired once per turn after the tool-calling loop completes.
     # Plugins can transform the LLM's output text before it's returned.
-    # First hook to return a string wins; None/empty return leaves text unchanged.
+    # First hook to return a string wins; None/empty return leaves text
+    # unchanged.
     if final_response and not interrupted:
         try:
             from nastech_cli.plugins import invoke_hook as _invoke_hook
@@ -372,7 +379,8 @@ def finalize_turn(
     # Clear stream callback so it doesn't leak into future calls
     agent._stream_callback = None
 
-    # Check skill trigger NOW — based on how many tool iterations THIS turn used.
+    # Check skill trigger NOW — based on how many tool iterations THIS turn
+    # used.
     _should_review_skills = False
     if (agent._skill_nudge_interval > 0
             and agent._iters_since_skill >= agent._skill_nudge_interval
@@ -390,7 +398,8 @@ def finalize_turn(
 
     # Background memory/skill review — runs AFTER the response is delivered
     # so it never competes with the user's task for model attention.
-    if final_response and not interrupted and (_should_review_memory or _should_review_skills):
+    if final_response and not interrupted and (
+            _should_review_memory or _should_review_skills):
         try:
             agent._spawn_background_review(
                 messages_snapshot=list(messages),

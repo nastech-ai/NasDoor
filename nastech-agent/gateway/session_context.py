@@ -41,31 +41,42 @@ from typing import Any
 
 # Sentinel to distinguish "never set in this context" from "explicitly set to empty".
 # When a contextvar holds _UNSET, we fall back to os.environ (CLI/cron compat).
-# When it holds "" (after clear_session_vars resets it), we return "" — no fallback.
+# When it holds "" (after clear_session_vars resets it), we return "" — no
+# fallback.
 _UNSET: Any = object()
 
 # ---------------------------------------------------------------------------
 # Per-task session variables
 # ---------------------------------------------------------------------------
 
-_SESSION_PLATFORM: ContextVar = ContextVar("NASTECH_SESSION_PLATFORM", default=_UNSET)
-_SESSION_CHAT_ID: ContextVar = ContextVar("NASTECH_SESSION_CHAT_ID", default=_UNSET)
-_SESSION_CHAT_NAME: ContextVar = ContextVar("NASTECH_SESSION_CHAT_NAME", default=_UNSET)
-_SESSION_THREAD_ID: ContextVar = ContextVar("NASTECH_SESSION_THREAD_ID", default=_UNSET)
-_SESSION_USER_ID: ContextVar = ContextVar("NASTECH_SESSION_USER_ID", default=_UNSET)
-_SESSION_USER_NAME: ContextVar = ContextVar("NASTECH_SESSION_USER_NAME", default=_UNSET)
+_SESSION_PLATFORM: ContextVar = ContextVar(
+    "NASTECH_SESSION_PLATFORM", default=_UNSET)
+_SESSION_CHAT_ID: ContextVar = ContextVar(
+    "NASTECH_SESSION_CHAT_ID", default=_UNSET)
+_SESSION_CHAT_NAME: ContextVar = ContextVar(
+    "NASTECH_SESSION_CHAT_NAME", default=_UNSET)
+_SESSION_THREAD_ID: ContextVar = ContextVar(
+    "NASTECH_SESSION_THREAD_ID", default=_UNSET)
+_SESSION_USER_ID: ContextVar = ContextVar(
+    "NASTECH_SESSION_USER_ID", default=_UNSET)
+_SESSION_USER_NAME: ContextVar = ContextVar(
+    "NASTECH_SESSION_USER_NAME", default=_UNSET)
 _SESSION_KEY: ContextVar = ContextVar("NASTECH_SESSION_KEY", default=_UNSET)
 _SESSION_ID: ContextVar = ContextVar("NASTECH_SESSION_ID", default=_UNSET)
 # ID of the message that triggered the current turn. Used as a reply anchor
 # so background-process notifications stay inside the originating Telegram
 # private-chat topic (those lanes route only with thread id + reply anchor).
-_SESSION_MESSAGE_ID: ContextVar = ContextVar("NASTECH_SESSION_MESSAGE_ID", default=_UNSET)
+_SESSION_MESSAGE_ID: ContextVar = ContextVar(
+    "NASTECH_SESSION_MESSAGE_ID", default=_UNSET)
 
 # Cron auto-delivery vars — set per-job in run_job() so concurrent jobs
 # don't clobber each other's delivery targets.
-_CRON_AUTO_DELIVER_PLATFORM: ContextVar = ContextVar("NASTECH_CRON_AUTO_DELIVER_PLATFORM", default=_UNSET)
-_CRON_AUTO_DELIVER_CHAT_ID: ContextVar = ContextVar("NASTECH_CRON_AUTO_DELIVER_CHAT_ID", default=_UNSET)
-_CRON_AUTO_DELIVER_THREAD_ID: ContextVar = ContextVar("NASTECH_CRON_AUTO_DELIVER_THREAD_ID", default=_UNSET)
+_CRON_AUTO_DELIVER_PLATFORM: ContextVar = ContextVar(
+    "NASTECH_CRON_AUTO_DELIVER_PLATFORM", default=_UNSET)
+_CRON_AUTO_DELIVER_CHAT_ID: ContextVar = ContextVar(
+    "NASTECH_CRON_AUTO_DELIVER_CHAT_ID", default=_UNSET)
+_CRON_AUTO_DELIVER_THREAD_ID: ContextVar = ContextVar(
+    "NASTECH_CRON_AUTO_DELIVER_THREAD_ID", default=_UNSET)
 
 _VAR_MAP = {
     "NASTECH_SESSION_PLATFORM": _SESSION_PLATFORM,

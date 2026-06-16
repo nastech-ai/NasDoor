@@ -48,7 +48,8 @@ def report_for_file(
     """
     if not diagnostics:
         return ""
-    filtered = [d for d in diagnostics if (d.get("severity") or 1) in severities]
+    filtered = [d for d in diagnostics if (
+        d.get("severity") or 1) in severities]
     if not filtered:
         return ""
     limited = filtered[:max_per_file]

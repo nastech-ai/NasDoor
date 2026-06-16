@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-
 # One consolidated tool with an `action` discriminator. Keeps the schema
 # compact and the per-turn token cost low.
 COMPUTER_USE_SCHEMA: Dict[str, Any] = {
@@ -132,9 +131,9 @@ COMPUTER_USE_SCHEMA: Dict[str, Any] = {
             },
             # ── drag ───────────────────────────────────────────────
             "from_element": {"type": "integer",
-                              "description": "Source element index (drag)."},
+                             "description": "Source element index (drag)."},
             "to_element": {"type": "integer",
-                            "description": "Target element index (drag)."},
+                           "description": "Target element index (drag)."},
             "from_coordinate": {
                 "type": "array",
                 "items": {"type": "integer"},

@@ -90,12 +90,15 @@ class XAIGrokAdapter(UpstreamAdapter):
             if status_code == 429:
                 # Mark the rate-limited key with its 1-hour cooldown and rotate
                 # to the next available credential. Returns None when the pool
-                # has no other key to offer — the 429 will flow back to the client.
-                refreshed = pool.mark_exhausted_and_rotate(status_code=status_code)
+                # has no other key to offer — the 429 will flow back to the
+                # client.
+                refreshed = pool.mark_exhausted_and_rotate(
+                    status_code=status_code)
             else:
                 refreshed = pool.try_refresh_current()
                 if refreshed is None:
-                    refreshed = pool.mark_exhausted_and_rotate(status_code=status_code)
+                    refreshed = pool.mark_exhausted_and_rotate(
+                        status_code=status_code)
             if refreshed is None:
                 return None
 
@@ -112,10 +115,12 @@ class XAIGrokAdapter(UpstreamAdapter):
         try:
             return load_pool(_POOL_PROVIDER)
         except Exception as exc:
-            logger.warning("proxy: failed to load xAI OAuth credential pool: %s", exc)
+            logger.warning(
+                "proxy: failed to load xAI OAuth credential pool: %s", exc)
             return None
 
-    def _credential_from_entry(self, entry: PooledCredential) -> UpstreamCredential:
+    def _credential_from_entry(
+            self, entry: PooledCredential) -> UpstreamCredential:
         bearer = (
             getattr(entry, "runtime_api_key", None)
             or getattr(entry, "access_token", "")
@@ -133,7 +138,8 @@ class XAIGrokAdapter(UpstreamAdapter):
             or getattr(entry, "base_url", None)
             or DEFAULT_XAI_OAUTH_BASE_URL
         )
-        base_url = str(base_url or DEFAULT_XAI_OAUTH_BASE_URL).strip().rstrip("/")
+        base_url = str(
+            base_url or DEFAULT_XAI_OAUTH_BASE_URL).strip().rstrip("/")
 
         return UpstreamCredential(
             bearer=bearer,

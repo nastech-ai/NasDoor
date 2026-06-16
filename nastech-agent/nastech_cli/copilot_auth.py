@@ -164,8 +164,8 @@ def copilot_device_code_login(
 
     This replicates the flow used by opencode and the Copilot CLI.
     """
-    import urllib.request
     import urllib.parse
+    import urllib.request
 
     domain = host.rstrip("/")
     device_code_url = f"https://{domain}/login/device/code"
@@ -195,7 +195,9 @@ def copilot_device_code_login(
         print(f"  ✗ Failed to start device authorization: {exc}")
         return None
 
-    verification_uri = device_data.get("verification_uri", "https://github.com/login/device")
+    verification_uri = device_data.get(
+        "verification_uri",
+        "https://github.com/login/device")
     user_code = device_data.get("user_code", "")
     device_code = device_data.get("device_code", "")
     interval = max(device_data.get("interval", _DEVICE_CODE_POLL_INTERVAL), 1)
@@ -251,7 +253,8 @@ def copilot_device_code_login(
         elif error == "slow_down":
             # RFC 8628: add 5 seconds to polling interval
             server_interval = result.get("interval")
-            if isinstance(server_interval, (int, float)) and server_interval > 0:
+            if isinstance(server_interval, (int, float)
+                          ) and server_interval > 0:
                 interval = int(server_interval)
             else:
                 interval += 5
@@ -294,7 +297,8 @@ def _token_fingerprint(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode()).hexdigest()[:16]
 
 
-def exchange_copilot_token(raw_token: str, *, timeout: float = 10.0) -> tuple[str, float]:
+def exchange_copilot_token(
+        raw_token: str, *, timeout: float = 10.0) -> tuple[str, float]:
     """Exchange a raw GitHub token for a short-lived Copilot API token.
 
     Calls ``GET https://api.github.com/copilot_internal/v2/token`` with

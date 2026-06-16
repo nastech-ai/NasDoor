@@ -30,7 +30,6 @@ from typing import Optional
 
 from utils import base_url_hostname, normalize_proxy_url
 
-
 # Cached at module level so we only pay the OpenAI SDK import cost once
 # per process (after the first lazy load).
 _OPENAI_CLS_CACHE = None

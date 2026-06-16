@@ -13,13 +13,14 @@ Usage:
     python extract_marker.py document.pdf --json        # Structured output
     python extract_marker.py document.pdf --use_llm     # LLM-boosted accuracy
 """
-import sys
 import os
+import sys
+
 
 def convert(path, output_dir=None, output_format="markdown", use_llm=False):
+    from marker.config.parser import ConfigParser
     from marker.converters.pdf import PdfConverter
     from marker.models import create_model_dict
-    from marker.config.parser import ConfigParser
 
     config_dict = {}
     if use_llm:
@@ -27,7 +28,9 @@ def convert(path, output_dir=None, output_format="markdown", use_llm=False):
 
     config_parser = ConfigParser(config_dict)
     models = create_model_dict()
-    converter = PdfConverter(config=config_parser.generate_config_dict(), artifact_dict=models)
+    converter = PdfConverter(
+        config=config_parser.generate_config_dict(),
+        artifact_dict=models)
     rendered = converter(path)
 
     if output_format == "json":
@@ -47,7 +50,8 @@ def convert(path, output_dir=None, output_format="markdown", use_llm=False):
             img_path = os.path.join(output_dir, name)
             with open(img_path, "wb") as f:
                 f.write(img_data)
-        print(f"\nSaved {len(rendered.images)} image(s) to {output_dir}/", file=sys.stderr)
+        print(
+            f"\nSaved {len(rendered.images)} image(s) to {output_dir}/", file=sys.stderr)
 
 
 def check_requirements():
@@ -55,7 +59,9 @@ def check_requirements():
     import shutil
     free_gb = shutil.disk_usage("/").free / (1024**3)
     if free_gb < 5:
-        print(f"⚠️  Only {free_gb:.1f}GB free. marker-pdf needs ~5GB for PyTorch + models.")
+        print(
+            f"⚠️  Only {
+                free_gb:.1f}GB free. marker-pdf needs ~5GB for PyTorch + models.")
         print("Use pymupdf instead (scripts/extract_pymupdf.py) or free up disk space.")
         sys.exit(1)
     print(f"✓ {free_gb:.1f}GB free — sufficient for marker-pdf")
@@ -84,4 +90,8 @@ if __name__ == "__main__":
     if "--use_llm" in args:
         use_llm = True
 
-    convert(path, output_dir=output_dir, output_format=output_format, use_llm=use_llm)
+    convert(
+        path,
+        output_dir=output_dir,
+        output_format=output_format,
+        use_llm=use_llm)

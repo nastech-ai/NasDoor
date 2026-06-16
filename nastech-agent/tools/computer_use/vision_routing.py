@@ -94,7 +94,8 @@ def _lookup_supports_vision(provider: str, model: str) -> Optional[bool]:
     return bool(getattr(caps, "supports_vision", False))
 
 
-def _provider_accepts_multimodal_tool_result(provider: str, model: str) -> Optional[bool]:
+def _provider_accepts_multimodal_tool_result(
+        provider: str, model: str) -> Optional[bool]:
     """Return whether *provider*+*model* carries images inside tool-result messages.
 
     Reuses ``tools.vision_tools._supports_media_in_tool_results`` so the
@@ -137,7 +138,8 @@ def should_route_capture_to_aux_vision(
     if _explicit_aux_vision_override(cfg):
         return True
 
-    accepts_tool_image = _provider_accepts_multimodal_tool_result(provider, model)
+    accepts_tool_image = _provider_accepts_multimodal_tool_result(
+        provider, model)
     if accepts_tool_image is None or accepts_tool_image is False:
         return True
 

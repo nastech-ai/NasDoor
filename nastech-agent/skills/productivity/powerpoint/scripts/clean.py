@@ -15,13 +15,11 @@ This script removes:
 - Content-Type overrides for deleted files
 """
 
+import re
 import sys
 from pathlib import Path
 
 import defusedxml.minidom
-
-
-import re
 
 
 def get_slides_in_sldidlst(unpacked_dir: Path) -> set[str]:
@@ -41,9 +39,13 @@ def get_slides_in_sldidlst(unpacked_dir: Path) -> set[str]:
             rid_to_slide[rid] = target.replace("slides/", "")
 
     pres_content = pres_path.read_text(encoding="utf-8")
-    referenced_rids = set(re.findall(r'<p:sldId[^>]*r:id="([^"]+)"', pres_content))
+    referenced_rids = set(
+        re.findall(
+            r'<p:sldId[^>]*r:id="([^"]+)"',
+            pres_content))
 
-    return {rid_to_slide[rid] for rid in referenced_rids if rid in rid_to_slide}
+    return {rid_to_slide[rid]
+            for rid in referenced_rids if rid in rid_to_slide}
 
 
 def remove_orphaned_slides(unpacked_dir: Path) -> list[str]:
@@ -136,7 +138,8 @@ def remove_orphaned_rels_files(unpacked_dir: Path) -> list[str]:
             continue
 
         for rels_file in rels_dir.glob("*.rels"):
-            resource_file = rels_dir.parent / rels_file.name.replace(".rels", "")
+            resource_file = rels_dir.parent / \
+                rels_file.name.replace(".rels", "")
             try:
                 resource_rel_path = resource_file.resolve().relative_to(unpacked_dir.resolve())
             except ValueError:
@@ -169,7 +172,14 @@ def get_referenced_files(unpacked_dir: Path) -> set:
 
 
 def remove_orphaned_files(unpacked_dir: Path, referenced: set) -> list[str]:
-    resource_dirs = ["media", "embeddings", "charts", "diagrams", "tags", "drawings", "ink"]
+    resource_dirs = [
+        "media",
+        "embeddings",
+        "charts",
+        "diagrams",
+        "tags",
+        "drawings",
+        "ink"]
     removed = []
 
     for dir_name in resource_dirs:

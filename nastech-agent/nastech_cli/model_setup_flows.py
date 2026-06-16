@@ -27,8 +27,6 @@ import subprocess
 
 def _model_flow_openrouter(config, current_model=""):
     """OpenRouter provider: ensure API key, then pick model."""
-    from nastech_cli.main import _prompt_api_key
-    from nastech_constants import OPENROUTER_BASE_URL
     from nastech_cli.auth import (
         ProviderConfig,
         _prompt_model_selection,
@@ -36,6 +34,8 @@ def _model_flow_openrouter(config, current_model=""):
         deactivate_provider,
     )
     from nastech_cli.config import get_env_value
+    from nastech_cli.main import _prompt_api_key
+    from nastech_constants import OPENROUTER_BASE_URL
 
     # Route through _prompt_api_key so users can replace a stale/broken key
     # in-flow (K/R/C) instead of having to edit ~/.nastech/.env by hand. The
@@ -52,11 +52,12 @@ def _model_flow_openrouter(config, current_model=""):
     if not existing_key:
         print("Get one at: https://openrouter.ai/keys")
         print()
-    _resolved, abort = _prompt_api_key(pconfig, existing_key, provider_id="openrouter")
+    _resolved, abort = _prompt_api_key(
+        pconfig, existing_key, provider_id="openrouter")
     if abort:
         return
 
-    from nastech_cli.models import model_ids, get_pricing_for_provider
+    from nastech_cli.models import get_pricing_for_provider, model_ids
 
     openrouter_models = model_ids(force_refresh=True)
 
@@ -86,18 +87,19 @@ def _model_flow_openrouter(config, current_model=""):
     else:
         print("No change.")
 
+
 def _model_flow_nous(config, current_model="", args=None):
     """Nous Portal provider: ensure logged in, then pick model."""
     from nastech_cli.auth import (
-        get_provider_auth_state,
+        PROVIDER_REGISTRY,
+        AuthError,
+        _login_nous,
         _prompt_model_selection,
         _save_model_choice,
         _update_config_for_provider,
-        resolve_nastech_runtime_credentials,
-        AuthError,
         format_auth_error,
-        _login_nous,
-        PROVIDER_REGISTRY,
+        get_provider_auth_state,
+        resolve_nastech_runtime_credentials,
     )
     from nastech_cli.config import (
         get_env_value,
@@ -142,9 +144,9 @@ def _model_flow_nous(config, current_model="", args=None):
     # The live /models endpoint returns hundreds of models; the curated list
     # shows only agentic models users recognize from OpenRouter.
     from nastech_cli.models import (
+        check_nastech_free_tier,
         get_curated_nastech_model_ids,
         get_pricing_for_provider,
-        check_nastech_free_tier,
         partition_nastech_models_by_tier,
         union_with_portal_free_recommendations,
         union_with_portal_paid_recommendations,
@@ -160,7 +162,8 @@ def _model_flow_nous(config, current_model="", args=None):
         creds = resolve_nastech_runtime_credentials()
     except Exception as exc:
         relogin = isinstance(exc, AuthError) and exc.relogin_required
-        msg = format_auth_error(exc) if isinstance(exc, AuthError) else str(exc)
+        msg = format_auth_error(exc) if isinstance(
+            exc, AuthError) else str(exc)
         if relogin:
             print(f"Session expired: {msg}")
             print("Re-authenticating with Nous Portal...\n")
@@ -259,11 +262,13 @@ def _model_flow_nous(config, current_model="", args=None):
             from nastech_cli.auth import DEFAULT_NASTECH_PORTAL_URL
 
             _url = (_nastech_portal_url or DEFAULT_NASTECH_PORTAL_URL).rstrip("/")
-            print(unavailable_message or f"Upgrade at {_url} to access paid models.")
+            print(
+                unavailable_message or f"Upgrade at {_url} to access paid models.")
         return
 
     print(
-        f'Showing {len(model_ids)} curated models — use "Enter custom model name" for others.'
+        f'Showing {
+            len(model_ids)} curated models — use "Enter custom model name" for others.'
     )
 
     selected = _prompt_model_selection(
@@ -304,16 +309,17 @@ def _model_flow_nous(config, current_model="", args=None):
     else:
         print("No change.")
 
+
 def _model_flow_openai_codex(config, current_model=""):
     """OpenAI Codex provider: ensure logged in, then pick model."""
     from nastech_cli.auth import (
-        get_codex_auth_status,
+        DEFAULT_CODEX_BASE_URL,
+        PROVIDER_REGISTRY,
+        _login_openai_codex,
         _prompt_model_selection,
         _save_model_choice,
         _update_config_for_provider,
-        _login_openai_codex,
-        PROVIDER_REGISTRY,
-        DEFAULT_CODEX_BASE_URL,
+        get_codex_auth_status,
     )
     from nastech_cli.codex_models import get_codex_model_ids
 
@@ -385,7 +391,8 @@ def _model_flow_openai_codex(config, current_model=""):
 
     codex_models = get_codex_model_ids(access_token=_codex_token)
 
-    selected = _prompt_model_selection(codex_models, current_model=current_model)
+    selected = _prompt_model_selection(
+        codex_models, current_model=current_model)
     if selected:
         _save_model_choice(selected)
         _update_config_for_provider("openai-codex", DEFAULT_CODEX_BASE_URL)
@@ -393,17 +400,18 @@ def _model_flow_openai_codex(config, current_model=""):
     else:
         print("No change.")
 
+
 def _model_flow_xai_oauth(_config, current_model="", *, args=None):
     """xAI Grok OAuth (SuperGrok / Premium+) provider: ensure logged in, then pick model."""
     from nastech_cli.auth import (
-        get_xai_oauth_auth_status,
+        DEFAULT_XAI_OAUTH_BASE_URL,
+        PROVIDER_REGISTRY,
+        _login_xai_oauth,
         _prompt_model_selection,
         _save_model_choice,
         _update_config_for_provider,
+        get_xai_oauth_auth_status,
         resolve_xai_oauth_runtime_credentials,
-        _login_xai_oauth,
-        DEFAULT_XAI_OAUTH_BASE_URL,
-        PROVIDER_REGISTRY,
     )
     from nastech_cli.models import _PROVIDER_MODELS
 
@@ -472,30 +480,36 @@ def _model_flow_xai_oauth(_config, current_model="", *, args=None):
     base_url = DEFAULT_XAI_OAUTH_BASE_URL
     try:
         creds = resolve_xai_oauth_runtime_credentials()
-        base_url = (creds.get("base_url") or "").strip().rstrip("/") or base_url
+        base_url = (creds.get("base_url") or "").strip().rstrip(
+            "/") or base_url
     except Exception:
         pass
 
-    models = list(_PROVIDER_MODELS.get("xai-oauth") or _PROVIDER_MODELS.get("xai") or [])
-    selected = _prompt_model_selection(models, current_model=current_model or (models[0] if models else "grok-4.3"))
+    models = list(_PROVIDER_MODELS.get("xai-oauth")
+                  or _PROVIDER_MODELS.get("xai") or [])
+    selected = _prompt_model_selection(
+        models, current_model=current_model or (
+            models[0] if models else "grok-4.3"))
     if selected:
         _save_model_choice(selected)
         _update_config_for_provider("xai-oauth", base_url)
-        print(f"Default model set to: {selected} (via xAI Grok OAuth — SuperGrok / Premium+)")
+        print(
+            f"Default model set to: {selected} (via xAI Grok OAuth — SuperGrok / Premium+)")
     else:
         print("No change.")
 
+
 def _model_flow_qwen_oauth(_config, current_model=""):
     """Qwen OAuth provider: reuse local Qwen CLI login, then pick model."""
-    from nastech_cli.main import _DEFAULT_QWEN_PORTAL_MODELS
     from nastech_cli.auth import (
-        get_qwen_auth_status,
-        resolve_qwen_runtime_credentials,
+        DEFAULT_QWEN_BASE_URL,
         _prompt_model_selection,
         _save_model_choice,
         _update_config_for_provider,
-        DEFAULT_QWEN_BASE_URL,
+        get_qwen_auth_status,
+        resolve_qwen_runtime_credentials,
     )
+    from nastech_cli.main import _DEFAULT_QWEN_PORTAL_MODELS
     from nastech_cli.models import fetch_api_models
 
     status = get_qwen_auth_status()
@@ -528,18 +542,19 @@ def _model_flow_qwen_oauth(_config, current_model=""):
     else:
         print("No change.")
 
+
 def _model_flow_minimax_oauth(config, current_model="", args=None):
     """MiniMax OAuth provider: ensure logged in, then pick model."""
     from nastech_cli.auth import (
-        get_provider_auth_state,
+        PROVIDER_REGISTRY,
+        AuthError,
+        _login_minimax_oauth,
         _prompt_model_selection,
         _save_model_choice,
         _update_config_for_provider,
-        resolve_minimax_oauth_runtime_credentials,
-        AuthError,
         format_auth_error,
-        _login_minimax_oauth,
-        PROVIDER_REGISTRY,
+        get_provider_auth_state,
+        resolve_minimax_oauth_runtime_credentials,
     )
 
     state = get_provider_auth_state("minimax-oauth")
@@ -576,6 +591,7 @@ def _model_flow_minimax_oauth(config, current_model="", args=None):
     _update_config_for_provider("minimax-oauth", creds["base_url"])
     print(f"\u2713 Using MiniMax model: {selected}")
 
+
 def _model_flow_google_gemini_cli(_config, current_model=""):
     """Google Gemini OAuth (PKCE) via Cloud Code Assist — supports free AND paid tiers.
 
@@ -588,11 +604,11 @@ def _model_flow_google_gemini_cli(_config, current_model=""):
     """
     from nastech_cli.auth import (
         DEFAULT_GEMINI_CLOUDCODE_BASE_URL,
-        get_gemini_oauth_auth_status,
-        resolve_gemini_oauth_runtime_credentials,
         _prompt_model_selection,
         _save_model_choice,
         _update_config_for_provider,
+        get_gemini_oauth_auth_status,
+        resolve_gemini_oauth_runtime_credentials,
     )
     from nastech_cli.models import _PROVIDER_MODELS
 
@@ -637,7 +653,8 @@ def _model_flow_google_gemini_cli(_config, current_model=""):
         return
 
     models = list(_PROVIDER_MODELS.get("google-gemini-cli") or [])
-    default = current_model or (models[0] if models else "gemini-3-flash-preview")
+    default = current_model or (
+        models[0] if models else "gemini-3-flash-preview")
     selected = _prompt_model_selection(models, current_model=default)
     if selected:
         _save_model_choice(selected)
@@ -650,15 +667,20 @@ def _model_flow_google_gemini_cli(_config, current_model=""):
     else:
         print("No change.")
 
+
 def _model_flow_custom(config):
     """Custom endpoint: collect URL, API key, and model name.
 
     Automatically saves the endpoint to ``custom_providers`` in config.yaml
     so it appears in the provider menu on subsequent runs.
     """
-    from nastech_cli.main import _auto_provider_name, _prompt_custom_api_mode_selection, _save_custom_provider
     from nastech_cli.auth import _save_model_choice, deactivate_provider
     from nastech_cli.config import get_env_value, load_config, save_config
+    from nastech_cli.main import (
+        _auto_provider_name,
+        _prompt_custom_api_mode_selection,
+        _save_custom_provider,
+    )
     from nastech_cli.secret_prompt import masked_secret_prompt
 
     current_url = get_env_value("OPENAI_BASE_URL") or ""
@@ -673,10 +695,12 @@ def _model_flow_custom(config):
 
     try:
         base_url = input(
-            f"API base URL [{current_url or 'e.g. https://api.example.com/v1'}]: "
+            f"API base URL [{
+                current_url or 'e.g. https://api.example.com/v1'}]: "
         ).strip()
         api_key = masked_secret_prompt(
-            f"API key [{current_key[:8] + '...' if current_key else 'optional'}]: "
+            f"API key [{current_key[:8] +
+                        '...' if current_key else 'optional'}]: "
         ).strip()
     except (KeyboardInterrupt, EOFError):
         print("\nCancelled.")
@@ -689,7 +713,8 @@ def _model_flow_custom(config):
     # Validate URL format
     effective_url = base_url or current_url
     if not effective_url.startswith(("http://", "https://")):
-        print(f"Invalid URL: {effective_url} (must start with http:// or https://)")
+        print(
+            f"Invalid URL: {effective_url} (must start with http:// or https://)")
         return
 
     effective_key = api_key or current_key
@@ -723,7 +748,8 @@ def _model_flow_custom(config):
     probe = probe_api_models(effective_key, effective_url)
     if probe.get("used_fallback") and probe.get("resolved_base_url"):
         print(
-            f"Warning: endpoint verification worked at {probe['resolved_base_url']}/models, "
+            f"Warning: endpoint verification worked at {
+                probe['resolved_base_url']}/models, "
             f"not the exact URL you entered. Saving the working base URL instead."
         )
         effective_url = probe["resolved_base_url"]
@@ -736,7 +762,8 @@ def _model_flow_custom(config):
         )
     else:
         print(
-            f"Warning: could not verify this endpoint via {probe.get('probed_url')}. "
+            f"Warning: could not verify this endpoint via {
+                probe.get('probed_url')}. "
             f"NasTech will still save it."
         )
         if probe.get("suggested_base_url"):
@@ -746,7 +773,8 @@ def _model_flow_custom(config):
                     f"  If this server expects /v1 in the path, try base URL: {suggested}"
                 )
             else:
-                print(f"  If /v1 should not be in the base URL, try: {suggested}")
+                print(
+                    f"  If /v1 should not be in the base URL, try: {suggested}")
 
     # Prompt for API compatibility mode explicitly so codex-compatible custom
     # providers don't silently fall back to chat_completions.
@@ -763,7 +791,8 @@ def _model_flow_custom(config):
     else:
         print("  API mode: auto-detect")
 
-    # Select model — use probe results when available, fall back to manual input
+    # Select model — use probe results when available, fall back to manual
+    # input
     model_name = ""
     detected_models = probe.get("models") or []
     try:
@@ -773,7 +802,8 @@ def _model_flow_custom(config):
             if confirm in {"", "y", "yes"}:
                 model_name = detected_models[0]
             else:
-                model_name = input("Model name (e.g. gpt-4, llama-3-70b): ").strip()
+                model_name = input(
+                    "Model name (e.g. gpt-4, llama-3-70b): ").strip()
         elif len(detected_models) > 1:
             print("  Available models:")
             for i, m in enumerate(detected_models, 1):
@@ -786,7 +816,8 @@ def _model_flow_custom(config):
             elif pick:
                 model_name = pick
         else:
-            model_name = input("Model name (e.g. gpt-4, llama-3-70b): ").strip()
+            model_name = input(
+                "Model name (e.g. gpt-4, llama-3-70b): ").strip()
 
         context_length_str = input(
             "Context length in tokens [leave blank for auto-detect]: "
@@ -794,7 +825,8 @@ def _model_flow_custom(config):
 
         # Prompt for a display name — shown in the provider menu on future runs
         default_name = _auto_provider_name(effective_url)
-        display_name = input(f"Display name [{default_name}]: ").strip() or default_name
+        display_name = input(
+            f"Display name [{default_name}]: ").strip() or default_name
     except (KeyboardInterrupt, EOFError):
         print("\nCancelled.")
         return
@@ -810,7 +842,8 @@ def _model_flow_custom(config):
             if context_length <= 0:
                 context_length = None
         except ValueError:
-            print(f"Invalid context length: {context_length_str} — will auto-detect.")
+            print(
+                f"Invalid context length: {context_length_str} — will auto-detect.")
             context_length = None
 
     if model_name:
@@ -869,6 +902,7 @@ def _model_flow_custom(config):
         api_mode=api_mode,
     )
 
+
 def _model_flow_azure_foundry(config, current_model=""):
     """Azure Foundry provider: configure endpoint, auth mode, API mode, and model.
 
@@ -902,21 +936,23 @@ def _model_flow_azure_foundry(config, current_model=""):
     :func:`agent.model_metadata.get_model_context_length` chain
     (models.dev, provider metadata, hardcoded family fallbacks).
     """
+    from nastech_cli import azure_detect
     from nastech_cli.auth import _save_model_choice, deactivate_provider  # noqa: F401
     from nastech_cli.config import (
         get_env_value,
-        save_env_value,
         load_config,
         save_config,
+        save_env_value,
     )
-    from nastech_cli import azure_detect
 
     # ── Load current Azure Foundry configuration ─────────────────────
     model_cfg = config.get("model", {})
-    if isinstance(model_cfg, dict) and model_cfg.get("provider") == "azure-foundry":
+    if isinstance(model_cfg, dict) and model_cfg.get(
+            "provider") == "azure-foundry":
         current_base_url = str(model_cfg.get("base_url", "") or "")
         current_api_mode = str(model_cfg.get("api_mode", "") or "")
-        current_auth_mode = str(model_cfg.get("auth_mode") or "api_key").strip().lower() or "api_key"
+        current_auth_mode = str(
+            model_cfg.get("auth_mode") or "api_key").strip().lower() or "api_key"
         _cur_entra = model_cfg.get("entra") or {}
         current_entra = _cur_entra if isinstance(_cur_entra, dict) else {}
     else:
@@ -957,7 +993,7 @@ def _model_flow_azure_foundry(config, current_model=""):
         _placeholder = (
             current_base_url
             or "e.g. https://<resource>.openai.azure.com/openai/v1 "
-              "or https://<resource>.services.ai.azure.com/anthropic"
+            "or https://<resource>.services.ai.azure.com/anthropic"
         )
         base_url = input(
             f"API endpoint URL [{_placeholder}]: "
@@ -971,7 +1007,8 @@ def _model_flow_azure_foundry(config, current_model=""):
         print("No endpoint URL provided. Cancelled.")
         return
     if not effective_url.startswith(("http://", "https://")):
-        print(f"Invalid URL: {effective_url} (must start with http:// or https://)")
+        print(
+            f"Invalid URL: {effective_url} (must start with http:// or https://)")
         return
 
     # ── Step 2: authentication mode ──────────────────────────────────
@@ -1002,8 +1039,8 @@ def _model_flow_azure_foundry(config, current_model=""):
     if use_entra:
         try:
             from agent.azure_identity_adapter import (
-                EntraIdentityConfig,
                 SCOPE_AI_AZURE_DEFAULT,
+                EntraIdentityConfig,
                 build_token_provider,
                 describe_active_credential,
                 has_azure_identity_installed,
@@ -1028,7 +1065,8 @@ def _model_flow_azure_foundry(config, current_model=""):
         # Preserve only the optional scope override. Identity selection
         # (tenant, user-assigned MI, workload identity, service principal)
         # stays in Azure SDK env vars such as AZURE_CLIENT_ID.
-        _persisted_scope_override = str(current_entra.get("scope") or "").strip()
+        _persisted_scope_override = str(
+            current_entra.get("scope") or "").strip()
         entra_scope = _persisted_scope_override or SCOPE_AI_AZURE_DEFAULT
 
         entra_overrides = {}
@@ -1054,7 +1092,8 @@ def _model_flow_azure_foundry(config, current_model=""):
             print(f"⚠ {err}")
             print(f"  Hint: {hint}")
             try:
-                ans = input("Save Entra config anyway and validate later? [Y/n]: ").strip().lower()
+                ans = input(
+                    "Save Entra config anyway and validate later? [Y/n]: ").strip().lower()
             except (KeyboardInterrupt, EOFError):
                 print("\nCancelled.")
                 return
@@ -1076,7 +1115,8 @@ def _model_flow_azure_foundry(config, current_model=""):
 
         try:
             api_key = masked_secret_prompt(
-                f"API key [{current_api_key[:8] + '...' if current_api_key else 'required'}]: "
+                f"API key [{current_api_key[:8] +
+                            '...' if current_api_key else 'required'}]: "
             ).strip()
         except (KeyboardInterrupt, EOFError):
             print("\nCancelled.")
@@ -1108,7 +1148,8 @@ def _model_flow_azure_foundry(config, current_model=""):
             print(f"    ({detection.reason})")
         if discovered_models:
             print(
-                f"✓ Found {len(discovered_models)} deployed model(s) on this endpoint"
+                f"✓ Found {
+                    len(discovered_models)} deployed model(s) on this endpoint"
             )
     else:
         print(f"⚠ Auto-detection incomplete: {detection.reason}")
@@ -1138,12 +1179,15 @@ def _model_flow_azure_foundry(config, current_model=""):
             print(f"  {i:>2}. {mid}")
         if len(discovered_models) > 30:
             print(
-                f"  ... and {len(discovered_models) - 30} more (type name manually if not shown)"
+                f"  ... and {
+                    len(discovered_models) -
+                    30} more (type name manually if not shown)"
             )
         print()
         try:
             pick = input(
-                f"Pick by number, or type a deployment name [{current_model or discovered_models[0]}]: "
+                f"Pick by number, or type a deployment name [{
+                    current_model or discovered_models[0]}]: "
             ).strip()
         except (KeyboardInterrupt, EOFError):
             print("\nCancelled.")
@@ -1157,7 +1201,8 @@ def _model_flow_azure_foundry(config, current_model=""):
     else:
         try:
             model_name = input(
-                f"Model / deployment name [{current_model or 'e.g. gpt-5.4, claude-sonnet-4-6'}]: "
+                f"Model / deployment name [{
+                    current_model or 'e.g. gpt-5.4, claude-sonnet-4-6'}]: "
             ).strip()
         except (KeyboardInterrupt, EOFError):
             print("\nCancelled.")
@@ -1236,6 +1281,7 @@ def _model_flow_azure_foundry(config, current_model=""):
         print("    Context length: not auto-detected (will fall back at runtime)")
     print()
 
+
 def _model_flow_named_custom(config, provider_info):
     """Handle a named custom provider from config.yaml custom_providers list.
 
@@ -1243,9 +1289,13 @@ def _model_flow_named_custom(config, provider_info):
     If a model was previously saved, it is pre-selected in the menu.
     Falls back to the saved model if probing fails.
     """
-    from nastech_cli.main import _custom_provider_api_key_config_value, _custom_provider_base_url_config_value, _save_custom_provider
     from nastech_cli.auth import _save_model_choice, deactivate_provider
     from nastech_cli.config import load_config, save_config
+    from nastech_cli.main import (
+        _custom_provider_api_key_config_value,
+        _custom_provider_base_url_config_value,
+        _save_custom_provider,
+    )
     from nastech_cli.models import fetch_api_models
 
     name = provider_info["name"]
@@ -1259,7 +1309,8 @@ def _model_flow_named_custom(config, provider_info):
     # Resolve key from env var if api_key not set directly
     if not api_key and key_env:
         api_key = os.environ.get(key_env, "")
-    config_api_key = _custom_provider_api_key_config_value(provider_info, api_key)
+    config_api_key = _custom_provider_api_key_config_value(
+        provider_info, api_key)
 
     # Honor ``discover_models: false`` (default True) — when discovery is
     # disabled, use the configured ``models:`` list verbatim and skip the
@@ -1288,7 +1339,9 @@ def _model_flow_named_custom(config, provider_info):
 
     if not discover and configured_models:
         # Discovery disabled with an explicit list — use it verbatim, no probe.
-        print(f"Using configured models (discover_models: false): {len(configured_models)}")
+        print(
+            f"Using configured models (discover_models: false): {
+                len(configured_models)}")
         models = configured_models
     else:
         print("Fetching available models...")
@@ -1347,7 +1400,8 @@ def _model_flow_named_custom(config, provider_info):
     elif saved_model:
         print("Could not fetch models from endpoint.")
         try:
-            model_name = input(f"Model name [{saved_model}]: ").strip() or saved_model
+            model_name = input(
+                f"Model name [{saved_model}]: ").strip() or saved_model
         except (KeyboardInterrupt, EOFError):
             print("\nCancelled.")
             return
@@ -1409,28 +1463,36 @@ def _model_flow_named_custom(config, provider_info):
                 original_api_key_ref = str(
                     provider_info.get("api_key_ref", "") or ""
                 ).strip()
-                original_api_key = str(provider_info.get("api_key", "") or "").strip()
-                had_inline_api_key = bool(original_api_key_ref or original_api_key)
+                original_api_key = str(
+                    provider_info.get(
+                        "api_key", "") or "").strip()
+                had_inline_api_key = bool(
+                    original_api_key_ref or original_api_key)
                 if (
                     had_inline_api_key
                     and config_api_key
                     and not str(provider_entry.get("api_key", "") or "").strip()
                 ):
                     provider_entry["api_key"] = config_api_key
-                if key_env and not str(provider_entry.get("key_env", "") or "").strip():
+                if key_env and not str(provider_entry.get(
+                        "key_env", "") or "").strip():
                     provider_entry["key_env"] = key_env
                 cfg["providers"] = providers_cfg
                 save_config(cfg)
     else:
         # Save model name to the custom_providers entry for next time
-        _save_custom_provider(base_url, config_api_key, model_name, api_mode=api_mode)
+        _save_custom_provider(
+            base_url,
+            config_api_key,
+            model_name,
+            api_mode=api_mode)
 
     print(f"\n✅ Model set to: {model_name}")
     print(f"   Provider: {name} ({base_url})")
 
+
 def _model_flow_copilot(config, current_model=""):
     """GitHub Copilot flow using env vars, gh CLI, or OAuth device code."""
-    from nastech_cli.main import _current_reasoning_effort, _prompt_reasoning_effort_selection, _set_reasoning_effort
     from nastech_cli.auth import (
         PROVIDER_REGISTRY,
         _prompt_model_selection,
@@ -1438,13 +1500,18 @@ def _model_flow_copilot(config, current_model=""):
         deactivate_provider,
         resolve_api_key_provider_credentials,
     )
-    from nastech_cli.config import save_env_value, load_config, save_config
+    from nastech_cli.config import load_config, save_config, save_env_value
+    from nastech_cli.main import (
+        _current_reasoning_effort,
+        _prompt_reasoning_effort_selection,
+        _set_reasoning_effort,
+    )
     from nastech_cli.models import (
         _PROVIDER_MODELS,
+        copilot_model_api_mode,
         fetch_api_models,
         fetch_github_model_catalog,
         github_model_reasoning_efforts,
-        copilot_model_api_mode,
         normalize_copilot_model_id,
     )
 
@@ -1496,7 +1563,8 @@ def _model_flow_copilot(config, current_model=""):
             from nastech_cli.secret_prompt import masked_secret_prompt
 
             try:
-                new_key = masked_secret_prompt("  Token (COPILOT_GITHUB_TOKEN): ").strip()
+                new_key = masked_secret_prompt(
+                    "  Token (COPILOT_GITHUB_TOKEN): ").strip()
             except (KeyboardInterrupt, EOFError):
                 print()
                 return
@@ -1622,6 +1690,7 @@ def _model_flow_copilot(config, current_model=""):
     else:
         print("No change.")
 
+
 def _model_flow_copilot_acp(config, current_model=""):
     """GitHub Copilot ACP flow using the local Copilot CLI."""
     from nastech_cli.auth import (
@@ -1633,12 +1702,12 @@ def _model_flow_copilot_acp(config, current_model=""):
         resolve_api_key_provider_credentials,
         resolve_external_process_provider_credentials,
     )
+    from nastech_cli.config import load_config, save_config
     from nastech_cli.models import (
         _PROVIDER_MODELS,
         fetch_github_model_catalog,
         normalize_copilot_model_id,
     )
-    from nastech_cli.config import load_config, save_config
 
     del config
 
@@ -1735,6 +1804,7 @@ def _model_flow_copilot_acp(config, current_model=""):
 
     print(f"Default model set to: {selected} (via {pconfig.name})")
 
+
 def _model_flow_kimi(config, current_model=""):
     """Kimi / Moonshot model selection with automatic endpoint routing.
 
@@ -1743,20 +1813,20 @@ def _model_flow_kimi(config, current_model=""):
 
     No manual base URL prompt — endpoint is determined by key prefix.
     """
-    from nastech_cli.main import _prompt_api_key
     from nastech_cli.auth import (
-        PROVIDER_REGISTRY,
         KIMI_CODE_BASE_URL,
+        PROVIDER_REGISTRY,
         _prompt_model_selection,
         _save_model_choice,
         deactivate_provider,
     )
     from nastech_cli.config import (
         get_env_value,
-        save_env_value,
         load_config,
         save_config,
+        save_env_value,
     )
+    from nastech_cli.main import _prompt_api_key
     from nastech_cli.models import _PROVIDER_MODELS
 
     provider_id = "kimi-coding"
@@ -1805,7 +1875,8 @@ def _model_flow_kimi(config, current_model=""):
         model_list = _PROVIDER_MODELS.get("moonshot", [])
 
     if model_list:
-        selected = _prompt_model_selection(model_list, current_model=current_model)
+        selected = _prompt_model_selection(
+            model_list, current_model=current_model)
     else:
         try:
             selected = input("Enter model name: ").strip()
@@ -1832,9 +1903,9 @@ def _model_flow_kimi(config, current_model=""):
     else:
         print("No change.")
 
+
 def _model_flow_stepfun(config, current_model=""):
     """StepFun Step Plan flow with region-specific endpoints."""
-    from nastech_cli.main import _infer_stepfun_region, _prompt_api_key, _prompt_provider_choice, _stepfun_base_url_for_region
     from nastech_cli.auth import (
         PROVIDER_REGISTRY,
         _prompt_model_selection,
@@ -1843,9 +1914,15 @@ def _model_flow_stepfun(config, current_model=""):
     )
     from nastech_cli.config import (
         get_env_value,
-        save_env_value,
         load_config,
         save_config,
+        save_env_value,
+    )
+    from nastech_cli.main import (
+        _infer_stepfun_region,
+        _prompt_api_key,
+        _prompt_provider_choice,
+        _stepfun_base_url_for_region,
     )
     from nastech_cli.models import _PROVIDER_MODELS, fetch_api_models
 
@@ -1868,12 +1945,14 @@ def _model_flow_stepfun(config, current_model=""):
 
     current_base = ""
     if base_url_env:
-        current_base = get_env_value(base_url_env) or os.getenv(base_url_env, "")
+        current_base = get_env_value(
+            base_url_env) or os.getenv(base_url_env, "")
     if not current_base:
         model_cfg = config.get("model")
         if isinstance(model_cfg, dict):
             current_base = str(model_cfg.get("base_url") or "").strip()
-    current_region = _infer_stepfun_region(current_base or pconfig.inference_base_url)
+    current_region = _infer_stepfun_region(
+        current_base or pconfig.inference_base_url)
 
     region_choices = [
         (
@@ -1885,12 +1964,14 @@ def _model_flow_stepfun(config, current_model=""):
     ordered_regions = []
     for region_key, label in region_choices:
         if region_key == current_region:
-            ordered_regions.insert(0, (region_key, f"{label}  ← currently active"))
+            ordered_regions.insert(
+                0, (region_key, f"{label}  ← currently active"))
         else:
             ordered_regions.append((region_key, label))
     ordered_regions.append(("cancel", "Cancel"))
 
-    region_idx = _prompt_provider_choice([label for _, label in ordered_regions])
+    region_idx = _prompt_provider_choice(
+        [label for _, label in ordered_regions])
     if region_idx is None or ordered_regions[region_idx][0] == "cancel":
         print("No change.")
         return
@@ -1913,7 +1994,8 @@ def _model_flow_stepfun(config, current_model=""):
             )
 
     if model_list:
-        selected = _prompt_model_selection(model_list, current_model=current_model)
+        selected = _prompt_model_selection(
+            model_list, current_model=current_model)
     else:
         try:
             selected = input("Model name: ").strip()
@@ -1939,6 +2021,7 @@ def _model_flow_stepfun(config, current_model=""):
     else:
         print("No change.")
 
+
 def _model_flow_bedrock_api_key(config, region, current_model=""):
     """Bedrock API Key mode — uses the OpenAI-compatible bedrock-mantle endpoint.
 
@@ -1951,9 +2034,9 @@ def _model_flow_bedrock_api_key(config, region, current_model=""):
         deactivate_provider,
     )
     from nastech_cli.config import (
+        get_env_value,
         load_config,
         save_config,
-        get_env_value,
         save_env_value,
     )
     from nastech_cli.models import _PROVIDER_MODELS
@@ -1984,12 +2067,14 @@ def _model_flow_bedrock_api_key(config, region, current_model=""):
         print("  ✓ API key saved.")
     print()
 
-    # Model selection — use static list (mantle doesn't need boto3 for discovery)
+    # Model selection — use static list (mantle doesn't need boto3 for
+    # discovery)
     model_list = _PROVIDER_MODELS.get("bedrock", [])
     print(f"  Showing {len(model_list)} curated models")
 
     if model_list:
-        selected = _prompt_model_selection(model_list, current_model=current_model)
+        selected = _prompt_model_selection(
+            model_list, current_model=current_model)
     else:
         try:
             selected = input("  Model ID: ").strip()
@@ -2023,10 +2108,12 @@ def _model_flow_bedrock_api_key(config, region, current_model=""):
         save_config(cfg)
         deactivate_provider()
 
-        print(f"  Default model set to: {selected} (via Bedrock API Key, {region})")
+        print(
+            f"  Default model set to: {selected} (via Bedrock API Key, {region})")
         print(f"  Endpoint: {mantle_base_url}")
     else:
         print("  No change.")
+
 
 def _model_flow_bedrock(config, current_model=""):
     """AWS Bedrock provider: verify credentials, pick region, discover models.
@@ -2046,10 +2133,10 @@ def _model_flow_bedrock(config, current_model=""):
     # 1. Check for AWS credentials
     try:
         from agent.bedrock_adapter import (
+            discover_bedrock_models,
             has_aws_credentials,
             resolve_aws_auth_env_var,
             resolve_bedrock_region,
-            discover_bedrock_models,
         )
     except ImportError:
         print("  ✗ boto3 is not installed. Install it with:")
@@ -2134,7 +2221,8 @@ def _model_flow_bedrock(config, current_model=""):
         deduped = []
         for m in filtered:
             mid = m["id"]
-            if not mid.startswith(("us.", "global.")) and mid in profile_base_ids:
+            if not mid.startswith(("us.", "global.")
+                                  ) and mid in profile_base_ids:
                 continue
             deduped.append(m)
 
@@ -2162,13 +2250,16 @@ def _model_flow_bedrock(config, current_model=""):
         deduped.sort(key=_sort_key)
         model_list = [m["id"] for m in deduped]
         print(
-            f"  Found {len(model_list)} text model(s) (filtered from {len(live_models)} total)"
+            f"  Found {
+                len(model_list)} text model(s) (filtered from {
+                len(live_models)} total)"
         )
     else:
         model_list = _PROVIDER_MODELS.get("bedrock", [])
         if model_list:
             print(
-                f"  Using {len(model_list)} curated models (live discovery unavailable)"
+                f"  Using {
+                    len(model_list)} curated models (live discovery unavailable)"
             )
         else:
             print(
@@ -2178,7 +2269,8 @@ def _model_flow_bedrock(config, current_model=""):
 
     # 4. Model selection
     if model_list:
-        selected = _prompt_model_selection(model_list, current_model=current_model)
+        selected = _prompt_model_selection(
+            model_list, current_model=current_model)
     else:
         try:
             selected = input("  Model ID: ").strip()
@@ -2206,13 +2298,14 @@ def _model_flow_bedrock(config, current_model=""):
         save_config(cfg)
         deactivate_provider()
 
-        print(f"  Default model set to: {selected} (via AWS Bedrock, {region})")
+        print(
+            f"  Default model set to: {selected} (via AWS Bedrock, {region})")
     else:
         print("  No change.")
 
+
 def _model_flow_api_key_provider(config, provider_id, current_model=""):
     """Generic flow for API-key providers (z.ai, MiniMax, OpenCode, etc.)."""
-    from nastech_cli.main import _prompt_api_key
     from nastech_cli.auth import (
         PROVIDER_REGISTRY,
         _prompt_model_selection,
@@ -2221,15 +2314,16 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
     )
     from nastech_cli.config import (
         get_env_value,
-        save_env_value,
         load_config,
         save_config,
+        save_env_value,
     )
+    from nastech_cli.main import _prompt_api_key
     from nastech_cli.models import (
         _PROVIDER_MODELS,
         fetch_api_models,
-        opencode_model_api_mode,
         normalize_opencode_model_id,
+        opencode_model_api_mode,
     )
 
     pconfig = PROVIDER_REGISTRY[provider_id]
@@ -2314,7 +2408,8 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
     # presses Enter at the prompt below.
     current_base = ""
     if base_url_env:
-        current_base = get_env_value(base_url_env) or os.getenv(base_url_env, "")
+        current_base = get_env_value(
+            base_url_env) or os.getenv(base_url_env, "")
     if not current_base:
         try:
             _m = load_config().get("model") or {}
@@ -2349,7 +2444,8 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
         from nastech_cli.auth import AuthError
         from nastech_cli.models import fetch_lmstudio_models
 
-        api_key_for_probe = existing_key or (get_env_value(key_env) if key_env else "")
+        api_key_for_probe = existing_key or (
+            get_env_value(key_env) if key_env else "")
         try:
             model_list = fetch_lmstudio_models(
                 api_key=api_key_for_probe, base_url=effective_base
@@ -2363,7 +2459,8 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
     elif provider_id == "ollama-cloud":
         from nastech_cli.models import fetch_ollama_cloud_models
 
-        api_key_for_probe = existing_key or (get_env_value(key_env) if key_env else "")
+        api_key_for_probe = existing_key or (
+            get_env_value(key_env) if key_env else "")
         # During setup, force a live refresh so the picker reflects newly
         # released models (e.g. deepseek v4 flash, kimi k2.6) the moment
         # the user enters their key — not an hour later when the disk
@@ -2378,12 +2475,16 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
     elif provider_id == "novita":
         from nastech_cli.models import fetch_api_models
 
-        api_key_for_probe = existing_key or (get_env_value(key_env) if key_env else "")
+        api_key_for_probe = existing_key or (
+            get_env_value(key_env) if key_env else "")
         curated = _PROVIDER_MODELS.get(provider_id, [])
         live_models = fetch_api_models(api_key_for_probe, effective_base)
         if live_models:
             model_list = live_models
-            print(f"  Found {len(model_list)} model(s) from {pconfig.name} API")
+            print(
+                f"  Found {
+                    len(model_list)} model(s) from {
+                    pconfig.name} API")
         else:
             mdev_models: list = []
             try:
@@ -2399,17 +2500,21 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
                     if m.lower() not in seen:
                         model_list.append(m)
                         seen.add(m.lower())
-                print(f"  Found {len(model_list)} model(s) from models.dev registry")
+                print(
+                    f"  Found {
+                        len(model_list)} model(s) from models.dev registry")
             else:
                 model_list = curated
                 if model_list:
                     print(
-                        f'  Showing {len(model_list)} curated models — use "Enter custom model name" for others.'
+                        f'  Showing {
+                            len(model_list)} curated models — use "Enter custom model name" for others.'
                     )
     else:
         curated = _PROVIDER_MODELS.get(provider_id, [])
 
-        # Try models.dev first — returns tool-capable models, filtered for noise
+        # Try models.dev first — returns tool-capable models, filtered for
+        # noise
         mdev_models: list = []
         try:
             from agent.models_dev import list_agentic_models
@@ -2431,12 +2536,15 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
                 model_list = merged
             else:
                 model_list = mdev_models
-            print(f"  Found {len(model_list)} model(s) from models.dev registry")
+            print(
+                f"  Found {
+                    len(model_list)} model(s) from models.dev registry")
         elif curated and len(curated) >= 8:
             # Curated list is substantial — use it directly, skip live probe
             model_list = curated
             print(
-                f'  Showing {len(model_list)} curated models — use "Enter custom model name" for others.'
+                f'  Showing {
+                    len(model_list)} curated models — use "Enter custom model name" for others.'
             )
         else:
             api_key_for_probe = existing_key or (
@@ -2445,12 +2553,16 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
             live_models = fetch_api_models(api_key_for_probe, effective_base)
             if live_models and len(live_models) >= len(curated):
                 model_list = live_models
-                print(f"  Found {len(model_list)} model(s) from {pconfig.name} API")
+                print(
+                    f"  Found {
+                        len(model_list)} model(s) from {
+                        pconfig.name} API")
             else:
                 model_list = curated
                 if model_list:
                     print(
-                        f'  Showing {len(model_list)} curated models — use "Enter custom model name" for others.'
+                        f'  Showing {
+                            len(model_list)} curated models — use "Enter custom model name" for others.'
                     )
             # else: no defaults either, will fall through to raw input
 
@@ -2462,7 +2574,8 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
         model_list = list(dict.fromkeys(mid for mid in model_list if mid))
 
     if model_list:
-        selected = _prompt_model_selection(model_list, current_model=current_model)
+        selected = _prompt_model_selection(
+            model_list, current_model=current_model)
     else:
         try:
             selected = input("Model name: ").strip()
@@ -2494,32 +2607,32 @@ def _model_flow_api_key_provider(config, provider_id, current_model=""):
     else:
         print("No change.")
 
+
 def _model_flow_anthropic(config, current_model=""):
     """Flow for Anthropic provider — OAuth subscription, API key, or Claude Code creds."""
-    from nastech_cli.main import _run_anthropic_oauth_flow
+    # Check ALL credential sources
     from nastech_cli.auth import (
         _prompt_model_selection,
         _save_model_choice,
         deactivate_provider,
+        get_anthropic_key,
     )
     from nastech_cli.config import (
-        save_env_value,
         load_config,
-        save_config,
         save_anthropic_api_key,
+        save_config,
+        save_env_value,
     )
+    from nastech_cli.main import _run_anthropic_oauth_flow
     from nastech_cli.models import _PROVIDER_MODELS
-
-    # Check ALL credential sources
-    from nastech_cli.auth import get_anthropic_key
 
     existing_key = get_anthropic_key()
     cc_available = False
     try:
         from agent.anthropic_adapter import (
-            read_claude_code_credentials,
-            is_claude_code_token_valid,
             _is_oauth_token,
+            is_claude_code_token_valid,
+            read_claude_code_credentials,
         )
 
         cc_creds = read_claude_code_credentials()
@@ -2535,14 +2648,15 @@ def _model_flow_anthropic(config, current_model=""):
     if existing_key and _is_oauth_token(existing_key) and not cc_available:
         existing_is_stale_oauth = True
 
-    has_creds = (bool(existing_key) and not existing_is_stale_oauth) or cc_available
+    has_creds = (bool(existing_key)
+                 and not existing_is_stale_oauth) or cc_available
     needs_auth = not has_creds
 
     if has_creds:
         # Show what we found
         if existing_key:
-            from nastech_cli.env_loader import format_secret_source_suffix
             from nastech_cli.auth import PROVIDER_REGISTRY
+            from nastech_cli.env_loader import format_secret_source_suffix
 
             # Surface which env var supplied the key so users with
             # Bitwarden see "(from Bitwarden)" — without this, a detected
@@ -2601,7 +2715,8 @@ def _model_flow_anthropic(config, current_model=""):
             from nastech_cli.secret_prompt import masked_secret_prompt
 
             try:
-                api_key = masked_secret_prompt("  API key (sk-ant-...): ").strip()
+                api_key = masked_secret_prompt(
+                    "  API key (sk-ant-...): ").strip()
             except (KeyboardInterrupt, EOFError):
                 print()
                 return
@@ -2619,10 +2734,12 @@ def _model_flow_anthropic(config, current_model=""):
     # Model selection
     model_list = _PROVIDER_MODELS.get("anthropic", [])
     if model_list:
-        selected = _prompt_model_selection(model_list, current_model=current_model)
+        selected = _prompt_model_selection(
+            model_list, current_model=current_model)
     else:
         try:
-            selected = input("Model name (e.g., claude-sonnet-4-20250514): ").strip()
+            selected = input(
+                "Model name (e.g., claude-sonnet-4-20250514): ").strip()
         except (KeyboardInterrupt, EOFError):
             selected = None
 

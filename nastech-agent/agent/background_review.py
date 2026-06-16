@@ -233,7 +233,6 @@ _COMBINED_REVIEW_PROMPT = (
 )
 
 
-
 def summarize_background_review_actions(
     review_messages: List[Dict],
     prior_snapshot: List[Dict],
@@ -271,7 +270,8 @@ def summarize_background_review_actions(
             continue
         if not tcid:
             content_str = msg.get("content")
-            if isinstance(content_str, str) and content_str in existing_tool_contents:
+            if isinstance(content_str,
+                          str) and content_str in existing_tool_contents:
                 continue
         try:
             data = json.loads(msg.get("content", "{}"))
@@ -359,8 +359,8 @@ def _run_review_in_thread(
     review_messages: List[Dict] = []
     try:
         with open(os.devnull, "w", encoding="utf-8") as _devnull, \
-             contextlib.redirect_stdout(_devnull), \
-             contextlib.redirect_stderr(_devnull):
+                contextlib.redirect_stdout(_devnull), \
+                contextlib.redirect_stderr(_devnull):
             # Inherit the parent agent's live runtime (provider, model,
             # base_url, api_key, api_mode) so the fork uses the exact
             # same credentials the main turn is using.  Without this,
@@ -463,8 +463,8 @@ def _run_review_in_thread(
 
             from model_tools import get_tool_definitions
             from nastech_cli.plugins import (
-                set_thread_tool_whitelist,
                 clear_thread_tool_whitelist,
+                set_thread_tool_whitelist,
             )
 
             review_whitelist = {
@@ -497,7 +497,11 @@ def _run_review_in_thread(
             # Snapshot review actions before teardown. close() is allowed to
             # clean per-session state, but the user-visible self-improvement
             # summary still needs the completed review agent's tool results.
-            review_messages = list(getattr(review_agent, "_session_messages", []))
+            review_messages = list(
+                getattr(
+                    review_agent,
+                    "_session_messages",
+                    []))
 
             # Tear down memory providers while stdout is still
             # redirected so background thread teardown (Honcho flush,
@@ -550,8 +554,8 @@ def _run_review_in_thread(
         if review_agent is not None:
             try:
                 with open(os.devnull, "w", encoding="utf-8") as _fn, \
-                     contextlib.redirect_stdout(_fn), \
-                     contextlib.redirect_stderr(_fn):
+                        contextlib.redirect_stdout(_fn), \
+                        contextlib.redirect_stderr(_fn):
                     try:
                         review_agent.shutdown_memory_provider()
                     except Exception:
@@ -586,7 +590,10 @@ def spawn_background_review_thread(
     # override (the prompts moved to module-level constants but old code paths
     # that set agent._MEMORY_REVIEW_PROMPT etc. directly keep working).
     if review_memory and review_skills:
-        prompt = getattr(agent, "_COMBINED_REVIEW_PROMPT", _COMBINED_REVIEW_PROMPT)
+        prompt = getattr(
+            agent,
+            "_COMBINED_REVIEW_PROMPT",
+            _COMBINED_REVIEW_PROMPT)
     elif review_memory:
         prompt = getattr(agent, "_MEMORY_REVIEW_PROMPT", _MEMORY_REVIEW_PROMPT)
     else:

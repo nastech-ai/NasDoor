@@ -49,12 +49,23 @@ import tempfile
 import threading
 import uuid
 from pathlib import Path
-from typing import Callable, Dict, Any, Optional
+from typing import Any, Callable, Dict, Optional
 from urllib.parse import urljoin
 
 from nastech_constants import display_nastech_home
+from tools.managed_tool_gateway import resolve_managed_tool_gateway
+from tools.registry import registry, tool_error
+from tools.tool_backend_helpers import (
+    managed_nastech_tools_enabled,
+    nastech_tool_gateway_unavailable_message,
+    prefers_gateway,
+    resolve_openai_audio_api_key,
+)
+from tools.xai_http import nastech_xai_user_agent
 
 logger = logging.getLogger(__name__)
+
+
 def get_env_value(name, default=None):
     """Read env values through the live config module.
 
@@ -68,19 +79,13 @@ def get_env_value(name, default=None):
         return os.getenv(name, default)
     value = _get_env_value(name)
     return default if value is None else value
-from tools.managed_tool_gateway import resolve_managed_tool_gateway
-from tools.tool_backend_helpers import (
-    managed_nastech_tools_enabled,
-    nastech_tool_gateway_unavailable_message,
-    prefers_gateway,
-    resolve_openai_audio_api_key,
-)
-from tools.xai_http import nastech_xai_user_agent
+
 
 # ---------------------------------------------------------------------------
 # Lazy imports -- providers are imported only when actually used to avoid
 # crashing in headless environments (SSH, Docker, WSL, no PortAudio).
 # ---------------------------------------------------------------------------
+
 
 def _import_edge_tts():
     """Lazy import edge_tts. Returns the module or raises ImportError."""
@@ -93,6 +98,7 @@ def _import_edge_tts():
         raise ImportError(str(e))
     import edge_tts
     return edge_tts
+
 
 def _import_elevenlabs():
     """Lazy import ElevenLabs client. Returns the class or raises ImportError.
@@ -115,10 +121,12 @@ def _import_elevenlabs():
     from elevenlabs.client import ElevenLabs
     return ElevenLabs
 
+
 def _import_openai_client():
     """Lazy import OpenAI client. Returns the class or raises ImportError."""
     from openai import OpenAI as OpenAIClient
     return OpenAIClient
+
 
 def _import_mistral_client():
     """Lazy import Mistral client. Returns the class or raises ImportError.
@@ -137,6 +145,7 @@ def _import_mistral_client():
         raise ImportError(str(e))
     from mistralai.client import Mistral
     return Mistral
+
 
 def _import_sounddevice():
     """Lazy import sounddevice. Returns the module or raises ImportError/OSError."""
@@ -209,9 +218,11 @@ GEMINI_TTS_SAMPLE_RATE = 24000
 GEMINI_TTS_CHANNELS = 1
 GEMINI_TTS_SAMPLE_WIDTH = 2  # 16-bit PCM (L16)
 
+
 def _get_default_output_dir() -> str:
     from nastech_constants import get_nastech_dir
     return str(get_nastech_dir("cache/audio", "audio_cache"))
+
 
 DEFAULT_OUTPUT_DIR = _get_default_output_dir()
 
@@ -226,10 +237,12 @@ PROVIDER_MAX_TEXT_LENGTH: Dict[str, int] = {
     "edge": 5000,         # edge-tts practical sync limit
     "openai": 4096,       # https://platform.openai.com/docs/guides/text-to-speech
     "xai": 15000,         # https://docs.x.ai/developers/model-capabilities/audio/text-to-speech
-    "minimax": 10000,     # https://platform.minimax.io/docs/api-reference/speech-t2a-http (sync)
+    # https://platform.minimax.io/docs/api-reference/speech-t2a-http (sync)
+    "minimax": 10000,
     "mistral": 4000,      # conservative; no published per-request cap
     "gemini": 5000,       # Gemini TTS caps at ~8k input tokens / ~655s audio
-    "elevenlabs": 10000,  # fallback when model-aware lookup can't resolve (multilingual_v2)
+    # fallback when model-aware lookup can't resolve (multilingual_v2)
+    "elevenlabs": 10000,
     "neutts": 2000,       # local model, quality falls off on long text
     "kittentts": 2000,    # local 25MB model
     "piper": 5000,        # local VITS model, phoneme-based; practical cap
@@ -288,7 +301,8 @@ def _resolve_max_text_length(
         return override
 
     if key == "elevenlabs":
-        model_id = (prov_cfg or {}).get("model_id") or DEFAULT_ELEVENLABS_MODEL_ID
+        model_id = (prov_cfg or {}).get(
+            "model_id") or DEFAULT_ELEVENLABS_MODEL_ID
         mapped = ELEVENLABS_MODEL_MAX_TEXT_LENGTH.get(str(model_id).strip())
         if mapped:
             return mapped
@@ -325,7 +339,8 @@ def _load_tts_config() -> Dict[str, Any]:
         config = load_config()
         return config.get("tts", {})
     except ImportError:
-        logger.debug("nastech_cli.config not available, using default TTS config")
+        logger.debug(
+            "nastech_cli.config not available, using default TTS config")
         return {}
     except Exception as e:
         logger.warning("Failed to load TTS config: %s", e, exc_info=True)
@@ -387,7 +402,8 @@ COMMAND_TTS_OUTPUT_FORMATS = frozenset({"mp3", "wav", "ogg", "flac"})
 DEFAULT_COMMAND_TTS_MAX_TEXT_LENGTH = 5000
 
 
-def _get_provider_section(tts_config: Dict[str, Any], name: str) -> Dict[str, Any]:
+def _get_provider_section(
+        tts_config: Dict[str, Any], name: str) -> Dict[str, Any]:
     """Return a provider config block if it's a dict, else an empty dict."""
     if not isinstance(tts_config, dict):
         return {}
@@ -490,7 +506,8 @@ def _dispatch_to_plugin_provider(
     # Defense in depth: command-provider check should already have
     # short-circuited the caller. If a same-name command config exists,
     # bail so the command path wins.
-    if _is_command_provider_config(_get_named_provider_config(tts_config, key)):
+    if _is_command_provider_config(
+            _get_named_provider_config(tts_config, key)):
         return None
     try:
         from agent.tts_registry import get_provider
@@ -581,7 +598,11 @@ def _iter_command_providers(tts_config: Dict[str, Any]):
 
 def _get_command_tts_timeout(config: Dict[str, Any]) -> float:
     """Return timeout in seconds, falling back when invalid."""
-    raw = config.get("timeout", config.get("timeout_seconds", DEFAULT_COMMAND_TTS_TIMEOUT_SECONDS))
+    raw = config.get(
+        "timeout",
+        config.get(
+            "timeout_seconds",
+            DEFAULT_COMMAND_TTS_TIMEOUT_SECONDS))
     try:
         value = float(raw)
     except (TypeError, ValueError):
@@ -617,7 +638,8 @@ def _is_command_tts_voice_compatible(config: Dict[str, Any]) -> bool:
     return bool(value)
 
 
-def _shell_quote_context(command_template: str, position: int) -> Optional[str]:
+def _shell_quote_context(command_template: str,
+                         position: int) -> Optional[str]:
     """Return the shell quote character active right before *position*.
 
     Returns ``"'"`` / ``'"'`` when inside a single- / double-quoted region
@@ -648,7 +670,8 @@ def _shell_quote_context(command_template: str, position: int) -> Optional[str]:
     return quote
 
 
-def _quote_command_tts_placeholder(value: str, quote_context: Optional[str]) -> str:
+def _quote_command_tts_placeholder(
+        value: str, quote_context: Optional[str]) -> str:
     """Quote a placeholder value for its position in a shell command template."""
     if quote_context == "'":
         return value.replace("'", r"'\''")
@@ -747,7 +770,8 @@ def _terminate_command_tts_process_tree(proc: subprocess.Popen) -> None:
         proc.kill()
 
 
-def _run_command_tts(command: str, timeout: float) -> subprocess.CompletedProcess:
+def _run_command_tts(
+        command: str, timeout: float) -> subprocess.CompletedProcess:
     """Run a command-provider shell command with process-tree timeout cleanup."""
     popen_kwargs: Dict[str, Any] = {
         "shell": True,
@@ -756,7 +780,8 @@ def _run_command_tts(command: str, timeout: float) -> subprocess.CompletedProces
         "text": True,
     }
     if os.name == "nt":
-        popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        popen_kwargs["creationflags"] = getattr(
+            subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     else:
         popen_kwargs["start_new_session"] = True
 
@@ -784,10 +809,12 @@ def _run_command_tts(command: str, timeout: float) -> subprocess.CompletedProces
             output=stdout,
             stderr=stderr,
         )
-    return subprocess.CompletedProcess(command, proc.returncode, stdout, stderr)
+    return subprocess.CompletedProcess(
+        command, proc.returncode, stdout, stderr)
 
 
-def _configured_command_tts_output_path(path: Path, config: Dict[str, Any]) -> Path:
+def _configured_command_tts_output_path(
+        path: Path, config: Dict[str, Any]) -> Path:
     """Return an output path whose extension matches the provider's output_format."""
     fmt = _get_command_tts_output_format(config)
     return path.with_suffix(f".{fmt}")
@@ -861,7 +888,8 @@ def _generate_command_tts(
     return str(output)
 
 
-def _has_any_command_tts_provider(tts_config: Optional[Dict[str, Any]] = None) -> bool:
+def _has_any_command_tts_provider(
+        tts_config: Optional[Dict[str, Any]] = None) -> bool:
     """Return True when any command-type TTS provider is configured."""
     if tts_config is None:
         tts_config = _load_tts_config()
@@ -900,8 +928,8 @@ def _convert_to_opus(mp3_path: str) -> Optional[str]:
             stdin=subprocess.DEVNULL,
         )
         if result.returncode != 0:
-            logger.warning("ffmpeg conversion failed with return code %d: %s", 
-                          result.returncode, result.stderr.decode('utf-8', errors='ignore')[:200])
+            logger.warning("ffmpeg conversion failed with return code %d: %s",
+                           result.returncode, result.stderr.decode('utf-8', errors='ignore')[:200])
             return None
         if os.path.exists(ogg_path) and os.path.getsize(ogg_path) > 0:
             return ogg_path
@@ -917,7 +945,8 @@ def _convert_to_opus(mp3_path: str) -> Optional[str]:
 # ===========================================================================
 # Provider: Edge TTS (free)
 # ===========================================================================
-async def _generate_edge_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+async def _generate_edge_tts(
+        text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
     """
     Generate audio using Edge TTS.
 
@@ -947,7 +976,8 @@ async def _generate_edge_tts(text: str, output_path: str, tts_config: Dict[str, 
 # ===========================================================================
 # Provider: ElevenLabs (premium)
 # ===========================================================================
-def _generate_elevenlabs(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+def _generate_elevenlabs(text: str, output_path: str,
+                         tts_config: Dict[str, Any]) -> str:
     """
     Generate audio using ElevenLabs.
 
@@ -961,7 +991,8 @@ def _generate_elevenlabs(text: str, output_path: str, tts_config: Dict[str, Any]
     """
     api_key = (get_env_value("ELEVENLABS_API_KEY") or "")
     if not api_key:
-        raise ValueError("ELEVENLABS_API_KEY not set. Get one at https://elevenlabs.io/")
+        raise ValueError(
+            "ELEVENLABS_API_KEY not set. Get one at https://elevenlabs.io/")
 
     el_config = tts_config.get("elevenlabs", {})
     voice_id = el_config.get("voice_id", DEFAULT_ELEVENLABS_VOICE_ID)
@@ -993,7 +1024,8 @@ def _generate_elevenlabs(text: str, output_path: str, tts_config: Dict[str, Any]
 # ===========================================================================
 # Provider: OpenAI TTS
 # ===========================================================================
-def _generate_openai_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+def _generate_openai_tts(text: str, output_path: str,
+                         tts_config: Dict[str, Any]) -> str:
     """
     Generate audio using OpenAI TTS.
 
@@ -1076,10 +1108,13 @@ _XAI_WRAPPING_SPEECH_TAGS = (
     "emphasis",
 )
 _XAI_SPEECH_TAG_RE = re.compile(
-    r"(\[(?:" + "|".join(_XAI_INLINE_SPEECH_TAGS) + r")\]|</?(?:" + "|".join(_XAI_WRAPPING_SPEECH_TAGS) + r")>)",
+    r"(\[(?:" + "|".join(_XAI_INLINE_SPEECH_TAGS) + r")\]|</?(?:" +
+    "|".join(_XAI_WRAPPING_SPEECH_TAGS) + r")>)",
     flags=re.IGNORECASE,
 )
-_XAI_FIRST_SENTENCE_RE = re.compile(r"^(.{12,120}?[.!?…])\s+(?=\S)", flags=re.DOTALL)
+_XAI_FIRST_SENTENCE_RE = re.compile(
+    r"^(.{12,120}?[.!?…])\s+(?=\S)",
+    flags=re.DOTALL)
 
 
 def _xai_bool_config(value: Any, default: bool = False) -> bool:
@@ -1118,7 +1153,8 @@ def _apply_xai_auto_speech_tags(text: str) -> str:
     return clean
 
 
-def _generate_xai_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+def _generate_xai_tts(text: str, output_path: str,
+                      tts_config: Dict[str, Any]) -> str:
     """
     Generate audio using xAI TTS.
 
@@ -1126,17 +1162,23 @@ def _generate_xai_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -
     API shape, so this is implemented as a separate backend.
     """
     import requests
-
     from tools.xai_http import resolve_xai_http_credentials
 
     creds = resolve_xai_http_credentials()
     api_key = str(creds.get("api_key") or "").strip()
     if not api_key:
-        raise ValueError("No xAI credentials found. Configure xAI OAuth in `nastech model` or set XAI_API_KEY.")
+        raise ValueError(
+            "No xAI credentials found. Configure xAI OAuth in `nastech model` or set XAI_API_KEY.")
 
     xai_config = tts_config.get("xai", {})
-    voice_id = str(xai_config.get("voice_id", DEFAULT_XAI_VOICE_ID)).strip() or DEFAULT_XAI_VOICE_ID
-    language = str(xai_config.get("language", DEFAULT_XAI_LANGUAGE)).strip() or DEFAULT_XAI_LANGUAGE
+    voice_id = str(
+        xai_config.get(
+            "voice_id",
+            DEFAULT_XAI_VOICE_ID)).strip() or DEFAULT_XAI_VOICE_ID
+    language = str(
+        xai_config.get(
+            "language",
+            DEFAULT_XAI_LANGUAGE)).strip() or DEFAULT_XAI_LANGUAGE
     sample_rate = int(xai_config.get("sample_rate", DEFAULT_XAI_SAMPLE_RATE))
     bit_rate = int(xai_config.get("bit_rate", DEFAULT_XAI_BIT_RATE))
     auto_speech_tags = _xai_bool_config(
@@ -1193,7 +1235,8 @@ def _generate_xai_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -
 # ===========================================================================
 # Provider: MiniMax TTS
 # ===========================================================================
-def _generate_minimax_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+def _generate_minimax_tts(text: str, output_path: str,
+                          tts_config: Dict[str, Any]) -> str:
     """
     Generate audio using MiniMax TTS API.
 
@@ -1213,7 +1256,8 @@ def _generate_minimax_tts(text: str, output_path: str, tts_config: Dict[str, Any
 
     api_key = (get_env_value("MINIMAX_API_KEY") or "")
     if not api_key:
-        raise ValueError("MINIMAX_API_KEY not set. Get one at https://platform.minimax.io/")
+        raise ValueError(
+            "MINIMAX_API_KEY not set. Get one at https://platform.minimax.io/")
 
     mm_config = tts_config.get("minimax", {})
     model = mm_config.get("model", DEFAULT_MINIMAX_MODEL)
@@ -1273,7 +1317,11 @@ def _generate_minimax_tts(text: str, output_path: str, tts_config: Dict[str, Any
             "voice_id": voice_id,
         }
 
-    response = requests.post(base_url, json=payload, headers=headers, timeout=60)
+    response = requests.post(
+        base_url,
+        json=payload,
+        headers=headers,
+        timeout=60)
 
     if is_t2a_v2:
         # t2a_v2 returns JSON with hex-encoded audio
@@ -1284,7 +1332,8 @@ def _generate_minimax_tts(text: str, output_path: str, tts_config: Dict[str, Any
 
         if status_code != 0:
             status_msg = base_resp.get("status_msg", "unknown error")
-            raise RuntimeError(f"MiniMax TTS API error (code {status_code}): {status_msg}")
+            raise RuntimeError(
+                f"MiniMax TTS API error (code {status_code}): {status_msg}")
 
         hex_audio = result.get("data", {}).get("audio", "")
         if not hex_audio:
@@ -1311,7 +1360,8 @@ def _generate_minimax_tts(text: str, output_path: str, tts_config: Dict[str, Any
             status_code = base_resp.get("status_code", -1)
             if status_code != 0:
                 status_msg = base_resp.get("status_msg", "unknown error")
-                raise RuntimeError(f"MiniMax TTS API error (code {status_code}): {status_msg}")
+                raise RuntimeError(
+                    f"MiniMax TTS API error (code {status_code}): {status_msg}")
         except Exception:
             response.raise_for_status()
             raise RuntimeError(
@@ -1325,7 +1375,8 @@ def _generate_minimax_tts(text: str, output_path: str, tts_config: Dict[str, Any
 # ===========================================================================
 # Provider: Mistral (Voxtral TTS)
 # ===========================================================================
-def _generate_mistral_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+def _generate_mistral_tts(text: str, output_path: str,
+                          tts_config: Dict[str, Any]) -> str:
     """Generate audio using Mistral Voxtral TTS API.
 
     The API returns base64-encoded audio; this function decodes it
@@ -1334,7 +1385,8 @@ def _generate_mistral_tts(text: str, output_path: str, tts_config: Dict[str, Any
     """
     api_key = (get_env_value("MISTRAL_API_KEY") or "")
     if not api_key:
-        raise ValueError("MISTRAL_API_KEY not set. Get one at https://console.mistral.ai/")
+        raise ValueError(
+            "MISTRAL_API_KEY not set. Get one at https://console.mistral.ai/")
 
     mi_config = tts_config.get("mistral", {})
     model = mi_config.get("model", DEFAULT_MISTRAL_TTS_MODEL)
@@ -1408,7 +1460,8 @@ def _wrap_pcm_as_wav(
     return riff_header + fmt_chunk + data_chunk_header + pcm_bytes
 
 
-def _generate_gemini_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+def _generate_gemini_tts(text: str, output_path: str,
+                         tts_config: Dict[str, Any]) -> str:
     """Generate audio using Google Gemini TTS.
 
     Gemini's generateContent endpoint with responseModalities=["AUDIO"] returns
@@ -1427,15 +1480,18 @@ def _generate_gemini_tts(text: str, output_path: str, tts_config: Dict[str, Any]
     """
     import requests
 
-    api_key = (get_env_value("GEMINI_API_KEY") or get_env_value("GOOGLE_API_KEY") or "").strip()
+    api_key = (get_env_value("GEMINI_API_KEY")
+               or get_env_value("GOOGLE_API_KEY") or "").strip()
     if not api_key:
         raise ValueError(
             "GEMINI_API_KEY not set. Get one at https://aistudio.google.com/app/apikey"
         )
 
     gemini_config = tts_config.get("gemini", {})
-    model = str(gemini_config.get("model", DEFAULT_GEMINI_TTS_MODEL)).strip() or DEFAULT_GEMINI_TTS_MODEL
-    voice = str(gemini_config.get("voice", DEFAULT_GEMINI_TTS_VOICE)).strip() or DEFAULT_GEMINI_TTS_VOICE
+    model = str(gemini_config.get("model", DEFAULT_GEMINI_TTS_MODEL)
+                ).strip() or DEFAULT_GEMINI_TTS_MODEL
+    voice = str(gemini_config.get("voice", DEFAULT_GEMINI_TTS_VOICE)
+                ).strip() or DEFAULT_GEMINI_TTS_VOICE
     base_url = str(
         gemini_config.get("base_url")
         or get_env_value("GEMINI_BASE_URL")
@@ -1476,10 +1532,12 @@ def _generate_gemini_tts(text: str, output_path: str, tts_config: Dict[str, Any]
     try:
         data = response.json()
         parts = data["candidates"][0]["content"]["parts"]
-        audio_part = next((p for p in parts if "inlineData" in p or "inline_data" in p), None)
+        audio_part = next(
+            (p for p in parts if "inlineData" in p or "inline_data" in p), None)
         if audio_part is None:
             raise RuntimeError("Gemini TTS response contained no audio data")
-        inline = audio_part.get("inlineData") or audio_part.get("inline_data") or {}
+        inline = audio_part.get(
+            "inlineData") or audio_part.get("inline_data") or {}
         audio_b64 = inline.get("data", "")
     except (KeyError, IndexError, TypeError) as e:
         raise RuntimeError(f"Gemini TTS response was malformed: {e}") from e
@@ -1519,8 +1577,19 @@ def _generate_gemini_tts(text: str, output_path: str, tts_config: Dict[str, Any]
                     output_path,
                 ]
             else:
-                cmd = [ffmpeg, "-i", wav_path, "-y", "-loglevel", "error", output_path]
-            result = subprocess.run(cmd, capture_output=True, timeout=30, stdin=subprocess.DEVNULL)
+                cmd = [
+                    ffmpeg,
+                    "-i",
+                    wav_path,
+                    "-y",
+                    "-loglevel",
+                    "error",
+                    output_path]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                timeout=30,
+                stdin=subprocess.DEVNULL)
             if result.returncode != 0:
                 stderr = result.stderr.decode("utf-8", errors="ignore")[:300]
                 raise RuntimeError(f"ffmpeg conversion failed: {stderr}")
@@ -1571,7 +1640,8 @@ def _default_neutts_ref_text() -> str:
     return str(Path(__file__).parent / "neutts_samples" / "jo.txt")
 
 
-def _generate_neutts(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+def _generate_neutts(text: str, output_path: str,
+                     tts_config: Dict[str, Any]) -> str:
     """Generate speech using the local NeuTTS engine.
 
     Runs synthesis in a subprocess via tools/neutts_synth.py to keep the
@@ -1581,7 +1651,8 @@ def _generate_neutts(text: str, output_path: str, tts_config: Dict[str, Any]) ->
     import sys
 
     neutts_config = tts_config.get("neutts", {})
-    ref_audio = neutts_config.get("ref_audio", "") or _default_neutts_ref_audio()
+    ref_audio = neutts_config.get(
+        "ref_audio", "") or _default_neutts_ref_audio()
     ref_text = neutts_config.get("ref_text", "") or _default_neutts_ref_text()
     model = neutts_config.get("model", "neuphonic/neutts-air-q4-gguf")
     device = neutts_config.get("device", "cpu")
@@ -1603,19 +1674,38 @@ def _generate_neutts(text: str, output_path: str, tts_config: Dict[str, Any]) ->
         "--device", device,
     ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        stdin=subprocess.DEVNULL)
     if result.returncode != 0:
         stderr = result.stderr.strip()
         # Filter out the "OK:" line from stderr
-        error_lines = [l for l in stderr.splitlines() if not l.startswith("OK:")]
-        raise RuntimeError(f"NeuTTS synthesis failed: {chr(10).join(error_lines) or 'unknown error'}")
+        error_lines = [
+            l for l in stderr.splitlines() if not l.startswith("OK:")]
+        raise RuntimeError(
+            f"NeuTTS synthesis failed: {
+                chr(10).join(error_lines) or 'unknown error'}")
 
     # If the caller wanted .mp3 or .ogg, convert from WAV
     if wav_path != output_path:
         ffmpeg = shutil.which("ffmpeg")
         if ffmpeg:
-            conv_cmd = [ffmpeg, "-i", wav_path, "-y", "-loglevel", "error", output_path]
-            subprocess.run(conv_cmd, check=True, timeout=30, stdin=subprocess.DEVNULL)
+            conv_cmd = [
+                ffmpeg,
+                "-i",
+                wav_path,
+                "-y",
+                "-loglevel",
+                "error",
+                output_path]
+            subprocess.run(
+                conv_cmd,
+                check=True,
+                timeout=30,
+                stdin=subprocess.DEVNULL)
             os.remove(wav_path)
         else:
             # No ffmpeg — just rename the WAV to the expected path
@@ -1680,7 +1770,10 @@ def _resolve_piper_voice_path(voice: str, download_dir: Path) -> str:
 
     # Case 3: download the voice. piper ships a download helper module.
     import sys as _sys
-    logger.info("[Piper] Downloading voice '%s' to %s (first use)", voice, download_dir)
+    logger.info(
+        "[Piper] Downloading voice '%s' to %s (first use)",
+        voice,
+        download_dir)
     try:
         result = subprocess.run(
             [_sys.executable, "-m", "piper.download_voices", voice,
@@ -1708,7 +1801,8 @@ def _resolve_piper_voice_path(voice: str, download_dir: Path) -> str:
     return str(cached)
 
 
-def _generate_piper_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+def _generate_piper_tts(text: str, output_path: str,
+                        tts_config: Dict[str, Any]) -> str:
     """Generate speech using the local Piper engine.
 
     Loads the voice model once per process (cached by absolute path) and
@@ -1718,9 +1812,14 @@ def _generate_piper_tts(text: str, output_path: str, tts_config: Dict[str, Any])
     PiperVoice = _import_piper()
     import wave
 
-    piper_config = tts_config.get("piper", {}) if isinstance(tts_config, dict) else {}
+    piper_config = tts_config.get(
+        "piper",
+        {}) if isinstance(
+        tts_config,
+        dict) else {}
     voice_name = piper_config.get("voice") or DEFAULT_PIPER_VOICE
-    download_dir = Path(piper_config.get("voices_dir") or _get_piper_voices_dir()).expanduser()
+    download_dir = Path(piper_config.get("voices_dir")
+                        or _get_piper_voices_dir()).expanduser()
     download_dir.mkdir(parents=True, exist_ok=True)
     use_cuda = bool(piper_config.get("use_cuda", False))
 
@@ -1730,7 +1829,8 @@ def _generate_piper_tts(text: str, output_path: str, tts_config: Dict[str, Any])
     global _piper_voice_cache
     if cache_key not in _piper_voice_cache:
         logger.info("[Piper] Loading voice: %s", model_path)
-        _piper_voice_cache[cache_key] = PiperVoice.load(model_path, use_cuda=use_cuda)
+        _piper_voice_cache[cache_key] = PiperVoice.load(
+            model_path, use_cuda=use_cuda)
         logger.info("[Piper] Voice loaded")
     voice = _piper_voice_cache[cache_key]
 
@@ -1750,7 +1850,9 @@ def _generate_piper_tts(text: str, output_path: str, tts_config: Dict[str, Any])
                 noise_scale=float(piper_config.get("noise_scale", 0.667)),
                 noise_w_scale=float(piper_config.get("noise_w_scale", 0.8)),
                 volume=float(piper_config.get("volume", 1.0)),
-                normalize_audio=bool(piper_config.get("normalize_audio", True)),
+                normalize_audio=bool(
+                    piper_config.get(
+                        "normalize_audio", True)),
             )
         except ImportError:
             logger.warning(
@@ -1773,8 +1875,19 @@ def _generate_piper_tts(text: str, output_path: str, tts_config: Dict[str, Any])
     if wav_path != output_path:
         ffmpeg = shutil.which("ffmpeg")
         if ffmpeg:
-            conv_cmd = [ffmpeg, "-i", wav_path, "-y", "-loglevel", "error", output_path]
-            subprocess.run(conv_cmd, check=True, timeout=30, stdin=subprocess.DEVNULL)
+            conv_cmd = [
+                ffmpeg,
+                "-i",
+                wav_path,
+                "-y",
+                "-loglevel",
+                "error",
+                output_path]
+            subprocess.run(
+                conv_cmd,
+                check=True,
+                timeout=30,
+                stdin=subprocess.DEVNULL)
             try:
                 os.remove(wav_path)
             except OSError:
@@ -1794,7 +1907,8 @@ def _generate_piper_tts(text: str, output_path: str, tts_config: Dict[str, Any])
 _kittentts_model_cache: Dict[str, Any] = {}
 
 
-def _generate_kittentts(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+def _generate_kittentts(text: str, output_path: str,
+                        tts_config: Dict[str, Any]) -> str:
     """Generate speech using KittenTTS local ONNX model.
 
     KittenTTS is a lightweight TTS engine (25-80MB models) that runs
@@ -1825,7 +1939,11 @@ def _generate_kittentts(text: str, output_path: str, tts_config: Dict[str, Any])
     model = _kittentts_model_cache[model_name]
 
     # Generate audio (returns numpy array at 24kHz)
-    audio = model.generate(text, voice=voice, speed=speed, clean_text=clean_text)
+    audio = model.generate(
+        text,
+        voice=voice,
+        speed=speed,
+        clean_text=clean_text)
 
     # Save as WAV
     import soundfile as sf
@@ -1839,8 +1957,19 @@ def _generate_kittentts(text: str, output_path: str, tts_config: Dict[str, Any])
     if wav_path != output_path:
         ffmpeg = shutil.which("ffmpeg")
         if ffmpeg:
-            conv_cmd = [ffmpeg, "-i", wav_path, "-y", "-loglevel", "error", output_path]
-            subprocess.run(conv_cmd, check=True, timeout=30, stdin=subprocess.DEVNULL)
+            conv_cmd = [
+                ffmpeg,
+                "-i",
+                wav_path,
+                "-y",
+                "-loglevel",
+                "error",
+                output_path]
+            subprocess.run(
+                conv_cmd,
+                check=True,
+                timeout=30,
+                stdin=subprocess.DEVNULL)
             os.remove(wav_path)
         else:
             # No ffmpeg — rename the WAV to the expected path
@@ -1883,7 +2012,8 @@ def text_to_speech_tool(
     # resolves BEFORE the built-in dispatch. Built-in names short-circuit here
     # so a user's ``tts.providers.openai.command`` can't override the real
     # OpenAI handler.
-    command_provider_config = _resolve_command_provider_config(provider, tts_config)
+    command_provider_config = _resolve_command_provider_config(
+        provider, tts_config)
 
     # Truncate very long text with a warning. The cap is per-provider
     # (OpenAI 4096, xAI 15k, MiniMax 10k, ElevenLabs model-aware, etc.).
@@ -1939,7 +2069,8 @@ def text_to_speech_tool(
             fmt = _get_command_tts_output_format(command_provider_config)
             file_path = out_dir / f"tts_{timestamp}.{fmt}"
         # Use .ogg for Telegram with providers that support native Opus output,
-        # otherwise fall back to .mp3 (Edge TTS will attempt ffmpeg conversion later).
+        # otherwise fall back to .mp3 (Edge TTS will attempt ffmpeg conversion
+        # later).
         elif want_opus and provider in {"openai", "elevenlabs", "mistral", "gemini"}:
             file_path = out_dir / f"tts_{timestamp}.ogg"
         else:
@@ -2070,12 +2201,15 @@ def text_to_speech_tool(
                     import concurrent.futures
                     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                         pool.submit(
-                            lambda: asyncio.run(_generate_edge_tts(text, file_str, tts_config))
+                            lambda: asyncio.run(
+                                _generate_edge_tts(
+                                    text, file_str, tts_config))
                         ).result(timeout=60)
                 except RuntimeError:
                     asyncio.run(_generate_edge_tts(text, file_str, tts_config))
             elif _check_neutts_available():
-                logger.info("Edge TTS not available, falling back to NeuTTS (local)...")
+                logger.info(
+                    "Edge TTS not available, falling back to NeuTTS (local)...")
                 provider = "neutts"
                 _generate_neutts(text, file_str, tts_config)
             else:
@@ -2112,7 +2246,8 @@ def text_to_speech_tool(
             # delivery opts in via ``TTSProvider.voice_compatible``
             # (mirrors the command-provider opt-in). Plugins that
             # already write Opus skip the ffmpeg conversion.
-            plugin_voice_compatible = _plugin_provider_is_voice_compatible(provider)
+            plugin_voice_compatible = _plugin_provider_is_voice_compatible(
+                provider)
             if plugin_voice_compatible:
                 if not file_str.endswith(".ogg"):
                     opus_path = _convert_to_opus(file_str)
@@ -2132,7 +2267,8 @@ def text_to_speech_tool(
             voice_compatible = want_opus and file_str.endswith(".ogg")
 
         file_size = os.path.getsize(file_str)
-        logger.info("TTS audio saved: %s (%s bytes, provider: %s)", file_str, f"{file_size:,}", provider)
+        logger.info("TTS audio saved: %s (%s bytes, provider: %s)",
+                    file_str, f"{file_size:,}", provider)
 
         # Build response with MEDIA tag for platform delivery
         media_tag = f"MEDIA:{file_str}"
@@ -2253,7 +2389,8 @@ def _resolve_openai_audio_client_config() -> tuple[str, str]:
 
 def _has_openai_audio_backend() -> bool:
     """Return True when OpenAI audio can use direct credentials or the managed gateway."""
-    return bool(resolve_openai_audio_api_key() or resolve_managed_tool_gateway("openai-audio"))
+    return bool(resolve_openai_audio_api_key()
+                or resolve_managed_tool_gateway("openai-audio"))
 
 
 # ===========================================================================
@@ -2332,13 +2469,15 @@ def stream_tts_to_speaker(
 
         api_key = (get_env_value("ELEVENLABS_API_KEY") or "")
         if not api_key:
-            logger.warning("ELEVENLABS_API_KEY not set; streaming TTS audio disabled")
+            logger.warning(
+                "ELEVENLABS_API_KEY not set; streaming TTS audio disabled")
         else:
             try:
                 ElevenLabs = _import_elevenlabs()
                 client = ElevenLabs(api_key=api_key)
             except ImportError:
-                logger.warning("elevenlabs package not installed; streaming TTS disabled")
+                logger.warning(
+                    "elevenlabs package not installed; streaming TTS disabled")
 
             # Open a single sounddevice output stream for the lifetime of
             # this function.  ElevenLabs pcm_24000 produces signed 16-bit
@@ -2361,9 +2500,11 @@ def stream_tts_to_speaker(
         min_sentence_len = 20
         long_flush_len = 100
         queue_timeout = 0.5
-        _spoken_sentences: list[str] = []  # track spoken sentences to skip duplicates
+        # track spoken sentences to skip duplicates
+        _spoken_sentences: list[str] = []
         # Regex to strip complete <think>...</think> blocks from buffer
-        _think_block_re = re.compile(r'<think[\s>].*?</think>', flags=re.DOTALL)
+        _think_block_re = re.compile(
+            r'<think[\s>].*?</think>', flags=re.DOTALL)
 
         def _speak_sentence(sentence: str):
             """Display sentence and optionally generate + play audio."""
@@ -2402,7 +2543,8 @@ def stream_tts_to_speaker(
                         audio_array = _np.frombuffer(chunk, dtype=_np.int16)
                         output_stream.write(audio_array.reshape(-1, 1))
                 else:
-                    # Fallback: write chunks to temp file and play via system player
+                    # Fallback: write chunks to temp file and play via system
+                    # player
                     _play_via_tempfile(audio_iter, stop_event)
             except Exception as exc:
                 logger.warning("Streaming TTS sentence failed: %s", exc)
@@ -2514,17 +2656,37 @@ if __name__ == "__main__":
             return False
 
     print("\nProvider availability:")
-    print(f"  Edge TTS:   {'installed' if _check(_import_edge_tts, 'edge') else 'not installed (pip install edge-tts)'}")
-    print(f"  ElevenLabs: {'installed' if _check(_import_elevenlabs, 'el') else 'not installed (pip install elevenlabs)'}")
-    print(f"    API Key:  {'set' if get_env_value('ELEVENLABS_API_KEY') else 'not set'}")
-    print(f"  OpenAI:     {'installed' if _check(_import_openai_client, 'oai') else 'not installed'}")
+    print(
+        f"  Edge TTS:   {
+            'installed' if _check(
+                _import_edge_tts,
+                'edge') else 'not installed (pip install edge-tts)'}")
+    print(
+        f"  ElevenLabs: {
+            'installed' if _check(
+                _import_elevenlabs,
+                'el') else 'not installed (pip install elevenlabs)'}")
+    print(
+        f"    API Key:  {
+            'set' if get_env_value('ELEVENLABS_API_KEY') else 'not set'}")
+    print(
+        f"  OpenAI:     {
+            'installed' if _check(
+                _import_openai_client,
+                'oai') else 'not installed'}")
     print(
         "    API Key:  "
         f"{'set' if resolve_openai_audio_api_key() else 'not set (VOICE_TOOLS_OPENAI_KEY or OPENAI_API_KEY)'}"
     )
-    print(f"  MiniMax:    {'API key set' if get_env_value('MINIMAX_API_KEY') else 'not set (MINIMAX_API_KEY)'}")
-    print(f"  Piper:      {'installed' if _check_piper_available() else 'not installed (pip install piper-tts)'}")
-    print(f"  ffmpeg:     {'✅ found' if _has_ffmpeg() else '❌ not found (needed for Telegram Opus)'}")
+    print(
+        f"  MiniMax:    {
+            'API key set' if get_env_value('MINIMAX_API_KEY') else 'not set (MINIMAX_API_KEY)'}")
+    print(
+        f"  Piper:      {
+            'installed' if _check_piper_available() else 'not installed (pip install piper-tts)'}")
+    print(
+        f"  ffmpeg:     {
+            '✅ found' if _has_ffmpeg() else '❌ not found (needed for Telegram Opus)'}")
     print(f"\n  Output dir: {DEFAULT_OUTPUT_DIR}")
 
     config = _load_tts_config()
@@ -2535,7 +2697,6 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
-from tools.registry import registry, tool_error
 
 TTS_SCHEMA = {
     "name": "text_to_speech",

@@ -35,7 +35,11 @@ def _dbg(label: str, data: bytes) -> None:
     if DEBUG_MODE:
         hex_str = " ".join(f"{b:02x}" for b in data[:64])
         ellipsis = "..." if len(data) > 64 else ""
-        logger.debug("[yuanbao_proto] %s (%dB): %s", label, len(data), hex_str + ellipsis)
+        logger.debug(
+            "[yuanbao_proto] %s (%dB): %s",
+            label,
+            len(data),
+            hex_str + ellipsis)
 
 
 # ============================================================
@@ -76,7 +80,8 @@ MODULE = {
 }
 
 # biz 层服务/方法映射
-# TS client uses the short name 'yuanbao_openclaw_proxy' (not the full package path)
+# TS client uses the short name 'yuanbao_openclaw_proxy' (not the full
+# package path)
 _BIZ_PKG = "yuanbao_openclaw_proxy"
 BIZ_SERVICES = {
     "InboundMessagePush": f"{_BIZ_PKG}.InboundMessagePush",
@@ -314,7 +319,9 @@ def _encode_head(
     if need_ack:
         buf += _encode_field(6, WT_VARINT, _encode_varint(1))
     if status != 0:
-        buf += _encode_field(10, WT_VARINT, _encode_varint(status & 0xFFFFFFFFFFFFFFFF))
+        buf += _encode_field(10,
+                             WT_VARINT,
+                             _encode_varint(status & 0xFFFFFFFFFFFFFFFF))
     return buf
 
 
@@ -426,7 +433,8 @@ def encode_conn_msg_full(
 #   buildBusinessConnMsg(cmd, module, bizData, msgId) -> ConnMsg bytes
 
 
-def encode_biz_msg(service: str, method: str, req_id: str, body: bytes) -> bytes:
+def encode_biz_msg(service: str, method: str, req_id: str,
+                   body: bytes) -> bytes:
     """
     将业务 payload 包装为 ConnMsg bytes。
 
@@ -498,7 +506,7 @@ def decode_biz_msg(data: bytes) -> dict:
 #         field 2: value (string)
 #       key format: wexin_forward_msg_[forward_msg_id]_[userid]
 #       value: base64(ForwardMsgData protobuf)  ← NOT JSON; it is base64-encoded
-#              protobuf bytes that must be parsed with decode_forward_msg_data().
+# protobuf bytes that must be parsed with decode_forward_msg_data().
 
 
 def _encode_map_entry(key: str, value: str) -> bytes:
@@ -533,10 +541,12 @@ def _encode_msg_content(content: dict) -> bytes:
     # image_info_array (repeated)
     for img in content.get("image_info_array") or []:
         img_buf = b""
-        for ifn, ikey in [(1, "type"), (2, "size"), (3, "width"), (4, "height")]:
+        for ifn, ikey in [(1, "type"), (2, "size"),
+                          (3, "width"), (4, "height")]:
             iv = img.get(ikey, 0)
             if iv:
-                img_buf += _encode_field(ifn, WT_VARINT, _encode_varint(int(iv)))
+                img_buf += _encode_field(ifn, WT_VARINT,
+                                         _encode_varint(int(iv)))
         url = img.get("url", "")
         if url:
             img_buf += _encode_field(5, WT_LEN, _encode_string(url))
@@ -568,7 +578,8 @@ def _decode_msg_content(data: bytes) -> dict:
     for img_bytes in _get_repeated_bytes(fdict, 8):
         ifdict = _fields_to_dict(_parse_fields(img_bytes))
         img = {}
-        for ifn, ikey in [(1, "type"), (2, "size"), (3, "width"), (4, "height")]:
+        for ifn, ikey in [(1, "type"), (2, "size"),
+                          (3, "width"), (4, "height")]:
             iv = _get_varint(ifdict, ifn)
             if iv:
                 img[ikey] = iv
@@ -711,10 +722,12 @@ def decode_inbound_push(data: bytes) -> Optional[dict]:
             msg_body.append(_decode_msg_body_element(el_bytes))
 
         log_ext_bytes = _get_bytes(fdict, 20)
-        trace_id = _decode_log_ext(log_ext_bytes).get("trace_id", "") if log_ext_bytes else ""
+        trace_id = _decode_log_ext(log_ext_bytes).get(
+            "trace_id", "") if log_ext_bytes else ""
 
         recall_seq_raw = _get_repeated_bytes(fdict, 17)
-        recall_msg_seq_list = [_decode_im_msg_seq(b) for b in recall_seq_raw] or None
+        recall_msg_seq_list = [_decode_im_msg_seq(
+            b) for b in recall_seq_raw] or None
 
         result: dict = {
             "callback_command": _get_string(fdict, 1),
@@ -739,7 +752,8 @@ def decode_inbound_push(data: bytes) -> Optional[dict]:
             "trace_id": trace_id,
         }
         # 过滤空值（保持 API 整洁）
-        return {k: v for k, v in result.items() if v or k in {"msg_body", "msg_seq"}}
+        return {k: v for k, v in result.items() if v or k in {
+            "msg_body", "msg_seq"}}
     except Exception as e:
         if DEBUG_MODE:
             logger.debug("[yuanbao_proto] decode_inbound_push failed: %s", e)
@@ -855,13 +869,15 @@ def decode_forward_msg_data(data: bytes) -> Optional[dict]:
         }
     except Exception as e:
         if DEBUG_MODE:
-            logger.debug("[yuanbao_proto] decode_forward_msg_data failed: %s", e)
+            logger.debug(
+                "[yuanbao_proto] decode_forward_msg_data failed: %s", e)
         return None
 
 
 def _encode_forward_multimedia(media: dict) -> bytes:
     buf = b""
-    for fn, key in [(1, "type"), (2, "url"), (4, "file_name"), (15, "media_id")]:
+    for fn, key in [(1, "type"), (2, "url"),
+                    (4, "file_name"), (15, "media_id")]:
         v = media.get(key, "")
         if v:
             buf += _encode_field(fn, WT_LEN, _encode_string(str(v)))
@@ -873,12 +889,15 @@ def _encode_forward_multimedia(media: dict) -> bytes:
 
 
 def _encode_forward_msg_content(content: dict) -> bytes:
-    buf = _encode_field(1, WT_VARINT, _encode_varint(int(content.get("type", 0))))
+    buf = _encode_field(1, WT_VARINT, _encode_varint(
+        int(content.get("type", 0))))
     text = content.get("text", "")
     if text:
         buf += _encode_field(2, WT_LEN, _encode_string(str(text)))
     for media in content.get("multimedia") or []:
-        buf += _encode_field(3, WT_LEN, _encode_message(_encode_forward_multimedia(media)))
+        buf += _encode_field(3,
+                             WT_LEN,
+                             _encode_message(_encode_forward_multimedia(media)))
     return buf
 
 
@@ -894,7 +913,9 @@ def _encode_forward_msg(msg: dict) -> bytes:
     if plain:
         buf += _encode_field(3, WT_LEN, _encode_string(str(plain)))
     for mc in msg.get("msgContent") or []:
-        buf += _encode_field(4, WT_LEN, _encode_message(_encode_forward_msg_content(mc)))
+        buf += _encode_field(4,
+                             WT_LEN,
+                             _encode_message(_encode_forward_msg_content(mc)))
     return buf
 
 
@@ -903,7 +924,8 @@ def encode_forward_msg_data(data: dict) -> bytes:
 
     Mainly used to build mock / test data; production code never needs to encode this.
     """
-    buf = _encode_field(1, WT_VARINT, _encode_varint(int(data.get("sub_type", 0))))
+    buf = _encode_field(1, WT_VARINT, _encode_varint(
+        int(data.get("sub_type", 0))))
     for fn, key in [(2, "begin_time"), (3, "end_time")]:
         v = data.get(key, 0)
         if v:
@@ -912,7 +934,9 @@ def encode_forward_msg_data(data: dict) -> bytes:
     if nick:
         buf += _encode_field(4, WT_LEN, _encode_string(str(nick)))
     for msg in data.get("msg") or []:
-        buf += _encode_field(5, WT_LEN, _encode_message(_encode_forward_msg(msg)))
+        buf += _encode_field(5,
+                             WT_LEN,
+                             _encode_message(_encode_forward_msg(msg)))
     return buf
 
 
@@ -1150,7 +1174,9 @@ def encode_auth_bind(
         dev_buf += _encode_field(1, WT_LEN, _encode_string(app_version))
     if operation_system:
         dev_buf += _encode_field(2, WT_LEN, _encode_string(operation_system))
-    dev_buf += _encode_field(10, WT_LEN, _encode_string(str(NASTECH_INSTANCE_ID)))
+    dev_buf += _encode_field(10,
+                             WT_LEN,
+                             _encode_string(str(NASTECH_INSTANCE_ID)))
     if bot_version:
         dev_buf += _encode_field(24, WT_LEN, _encode_string(bot_version))
 
@@ -1247,7 +1273,8 @@ def encode_send_group_heartbeat(
     ts = send_time or int(_time.time() * 1000)
     buf = (
         _encode_field(1, WT_LEN, _encode_string(from_account))
-        + _encode_field(2, WT_LEN, _encode_string(""))  # to_account empty for group
+        # to_account empty for group
+        + _encode_field(2, WT_LEN, _encode_string(""))
         + _encode_field(3, WT_LEN, _encode_string(group_code))
         + _encode_field(4, WT_VARINT, _encode_varint(ts))
         + _encode_field(5, WT_VARINT, _encode_varint(heartbeat))
@@ -1405,7 +1432,8 @@ def decode_get_group_member_list_rsp(data: bytes) -> Optional[dict]:
                 "join_time": _get_varint(mdict, 4),
                 "name_card": _get_string(mdict, 5),
             }
-            members.append({k: v for k, v in member.items() if v or k == "role"})
+            members.append(
+                {k: v for k, v in member.items() if v or k == "role"})
 
         return {
             "code": code,

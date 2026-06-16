@@ -57,9 +57,9 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from nastech_constants import get_nastech_home
 from typing import Dict, List, Optional, Set, Tuple
 
+from nastech_constants import get_nastech_home
 from utils import env_int
 
 logger = logging.getLogger(__name__)
@@ -289,11 +289,21 @@ def _run_git(
     normalized_working_dir = _normalize_path(working_dir)
     if not normalized_working_dir.exists():
         msg = f"working directory not found: {normalized_working_dir}"
-        logger.error("Git command skipped: %s (%s)", " ".join(["git"] + list(args)), msg)
+        logger.error(
+            "Git command skipped: %s (%s)",
+            " ".join(
+                ["git"] +
+                list(args)),
+            msg)
         return False, "", msg
     if not normalized_working_dir.is_dir():
         msg = f"working directory is not a directory: {normalized_working_dir}"
-        logger.error("Git command skipped: %s (%s)", " ".join(["git"] + list(args)), msg)
+        logger.error(
+            "Git command skipped: %s (%s)",
+            " ".join(
+                ["git"] +
+                list(args)),
+            msg)
         return False, "", msg
 
     env = _git_env(store, str(normalized_working_dir), index_file=index_file)
@@ -325,13 +335,21 @@ def _run_git(
     except FileNotFoundError as exc:
         missing_target = getattr(exc, "filename", None)
         if missing_target == "git":
-            logger.error("Git executable not found: %s", " ".join(cmd), exc_info=True)
+            logger.error(
+                "Git executable not found: %s",
+                " ".join(cmd),
+                exc_info=True)
             return False, "", "git not found"
         msg = f"working directory not found: {normalized_working_dir}"
-        logger.error("Git command failed before execution: %s (%s)", " ".join(cmd), msg, exc_info=True)
+        logger.error(
+            "Git command failed before execution: %s (%s)",
+            " ".join(cmd),
+            msg,
+            exc_info=True)
         return False, "", msg
     except Exception as exc:
-        logger.error("Unexpected git error running %s: %s", " ".join(cmd), exc, exc_info=True)
+        logger.error("Unexpected git error running %s: %s",
+                     " ".join(cmd), exc, exc_info=True)
         return False, "", str(exc)
 
 
@@ -375,7 +393,8 @@ def _migrate_legacy_store(base: Path) -> Optional[Path]:
         try:
             shutil.move(str(child), str(dest))
         except OSError as exc:
-            logger.warning("Could not archive legacy checkpoint %s: %s", child, exc)
+            logger.warning(
+                "Could not archive legacy checkpoint %s: %s", child, exc)
     # If the store still hasn't been created, create it here.
     _ = store
     if legacy_root is not None:
@@ -494,7 +513,10 @@ def _touch_project(store: Path, working_dir: str) -> None:
     try:
         meta_path.write_text(json.dumps(meta), encoding="utf-8")
     except OSError as exc:
-        logger.debug("Could not update project metadata %s: %s", meta_path, exc)
+        logger.debug(
+            "Could not update project metadata %s: %s",
+            meta_path,
+            exc)
 
 
 def _list_projects(store: Path) -> List[Dict]:
@@ -624,7 +646,8 @@ class CheckpointManager:
     # Public API
     # ------------------------------------------------------------------
 
-    def ensure_checkpoint(self, working_dir: str, reason: str = "auto") -> bool:
+    def ensure_checkpoint(self, working_dir: str,
+                          reason: str = "auto") -> bool:
         """Take a checkpoint if enabled and not already done this turn.
 
         Returns True if a checkpoint was taken, False otherwise.
@@ -644,7 +667,9 @@ class CheckpointManager:
 
         # Skip root, home, and other overly broad directories
         if abs_dir in {"/", str(Path.home())}:
-            logger.debug("Checkpoint skipped: directory too broad (%s)", abs_dir)
+            logger.debug(
+                "Checkpoint skipped: directory too broad (%s)",
+                abs_dir)
             return False
 
         if abs_dir in self._checkpointed_dirs:
@@ -668,7 +693,8 @@ class CheckpointManager:
 
         ref = _ref_name(_project_hash(abs_dir))
         ok, stdout, _ = _run_git(
-            ["log", ref, f"--format=%H|%h|%aI|%s", "-n", str(self.max_snapshots)],
+            ["log", ref, f"--format=%H|%h|%aI|%s",
+                "-n", str(self.max_snapshots)],
             store, abs_dir,
             allowed_returncodes={128, 129},
         )
@@ -722,13 +748,15 @@ class CheckpointManager:
         store = _store_path(CHECKPOINT_BASE)
 
         if not (store / "HEAD").exists():
-            return {"success": False, "error": "No checkpoints exist for this directory"}
+            return {"success": False,
+                    "error": "No checkpoints exist for this directory"}
 
         ok, _, err = _run_git(
             ["cat-file", "-t", commit_hash], store, abs_dir,
         )
         if not ok:
-            return {"success": False, "error": f"Checkpoint '{commit_hash}' not found"}
+            return {"success": False,
+                    "error": f"Checkpoint '{commit_hash}' not found"}
 
         dir_hash = _project_hash(abs_dir)
         index_file = _index_path(store, dir_hash)
@@ -762,7 +790,8 @@ class CheckpointManager:
             "diff": diff_out if ok_diff else "",
         }
 
-    def restore(self, working_dir: str, commit_hash: str, file_path: str = None) -> Dict:
+    def restore(self, working_dir: str, commit_hash: str,
+                file_path: str = None) -> Dict:
         """Restore files to a checkpoint state."""
         hash_err = _validate_commit_hash(commit_hash)
         if hash_err:
@@ -778,7 +807,8 @@ class CheckpointManager:
         store = _store_path(CHECKPOINT_BASE)
 
         if not (store / "HEAD").exists():
-            return {"success": False, "error": "No checkpoints exist for this directory"}
+            return {"success": False,
+                    "error": "No checkpoints exist for this directory"}
 
         ok, _, err = _run_git(
             ["cat-file", "-t", commit_hash], store, abs_dir,
@@ -788,7 +818,8 @@ class CheckpointManager:
                     "debug": err or None}
 
         # Take a pre-rollback snapshot so you can undo the undo.
-        self._take(abs_dir, f"pre-rollback snapshot (restoring to {commit_hash[:8]})")
+        self._take(abs_dir,
+                   f"pre-rollback snapshot (restoring to {commit_hash[:8]})")
 
         dir_hash = _project_hash(abs_dir)
         index_file = _index_path(store, dir_hash)
@@ -828,7 +859,7 @@ class CheckpointManager:
             candidate = path.parent
 
         markers = {".git", "pyproject.toml", "package.json", "Cargo.toml",
-                    "go.mod", "Makefile", "pom.xml", ".hg", "Gemfile"}
+                   "go.mod", "Makefile", "pom.xml", ".hg", "Gemfile"}
         check = candidate
         while check != check.parent:
             if any((check / m).exists() for m in markers):
@@ -854,7 +885,10 @@ class CheckpointManager:
 
         # Quick size guard — don't try to snapshot enormous directories
         if _dir_file_count(working_dir) > _MAX_FILES:
-            logger.debug("Checkpoint skipped: >%d files in %s", _MAX_FILES, working_dir)
+            logger.debug(
+                "Checkpoint skipped: >%d files in %s",
+                _MAX_FILES,
+                working_dir)
             return False
 
         dir_hash = _project_hash(working_dir)
@@ -920,7 +954,9 @@ class CheckpointManager:
                 index_file=index_file,
             )
             if ok_diff:
-                logger.debug("Checkpoint skipped: no changes in %s", working_dir)
+                logger.debug(
+                    "Checkpoint skipped: no changes in %s",
+                    working_dir)
                 return False
         else:
             # No ref yet — skip only if the index is empty.
@@ -930,7 +966,9 @@ class CheckpointManager:
                 index_file=index_file,
             )
             if ok_ls and not ls_out.strip():
-                logger.debug("Checkpoint skipped: empty tree in %s", working_dir)
+                logger.debug(
+                    "Checkpoint skipped: empty tree in %s",
+                    working_dir)
                 return False
 
         # Write tree from per-project index.
@@ -945,7 +983,14 @@ class CheckpointManager:
         # Build commit (parent = current ref tip, if any).
         commit_args = ["commit-tree", tree_sha, "-m", reason, "--no-gpg-sign"]
         if has_ref:
-            commit_args = ["commit-tree", tree_sha, "-p", ref_commit, "-m", reason, "--no-gpg-sign"]
+            commit_args = [
+                "commit-tree",
+                tree_sha,
+                "-p",
+                ref_commit,
+                "-m",
+                reason,
+                "--no-gpg-sign"]
         ok_commit, new_sha, err = _run_git(
             commit_args, store, working_dir,
             index_file=index_file,
@@ -965,7 +1010,8 @@ class CheckpointManager:
             logger.debug("Checkpoint update-ref failed: %s", err)
             return False
 
-        logger.debug("Checkpoint taken in %s: %s (%s)", working_dir, reason, new_sha[:8])
+        logger.debug("Checkpoint taken in %s: %s (%s)",
+                     working_dir, reason, new_sha[:8])
 
         # Real pruning — drop old commits beyond max_snapshots.
         self._prune(store, working_dir, ref)
@@ -1140,27 +1186,36 @@ class CheckpointManager:
                 fail = False
                 for sha in keep:
                     ok_tree, tree_sha, _ = _run_git(
-                        ["rev-parse", f"{sha}^{{tree}}"], store, str(store.parent),
+                        ["rev-parse",
+                            f"{sha}^{{tree}}"], store, str(store.parent),
                     )
                     if not ok_tree or not tree_sha:
                         fail = True
                         break
                     ok_msg, msg, _ = _run_git(
-                        ["log", "--format=%s", "-1", sha], store, str(store.parent),
+                        ["log", "--format=%s", "-1",
+                            sha], store, str(store.parent),
                     )
                     commit_msg = msg if ok_msg and msg else "checkpoint"
-                    args = ["commit-tree", tree_sha, "-m", commit_msg, "--no-gpg-sign"]
+                    args = [
+                        "commit-tree",
+                        tree_sha,
+                        "-m",
+                        commit_msg,
+                        "--no-gpg-sign"]
                     if new_parent is not None:
                         args = ["commit-tree", tree_sha, "-p", new_parent,
                                 "-m", commit_msg, "--no-gpg-sign"]
-                    ok_commit, new_sha, _ = _run_git(args, store, str(store.parent))
+                    ok_commit, new_sha, _ = _run_git(
+                        args, store, str(store.parent))
                     if not ok_commit or not new_sha:
                         fail = True
                         break
                     new_parent = new_sha
                 if fail or new_parent is None:
                     continue
-                _run_git(["update-ref", ref, new_parent], store, str(store.parent))
+                _run_git(["update-ref", ref, new_parent],
+                         store, str(store.parent))
                 any_dropped = True
             if not any_dropped:
                 break
@@ -1192,15 +1247,18 @@ def format_checkpoint_list(checkpoints: List[Dict], directory: str) -> str:
         ins = cp.get("insertions", 0)
         dele = cp.get("deletions", 0)
         if files:
-            stat = f"  ({files} file{'s' if files != 1 else ''}, +{ins}/-{dele})"
+            stat = f"  ({files} file{
+                's' if files != 1 else ''}, +{ins}/-{dele})"
         else:
             stat = ""
 
         lines.append(f"  {i}. {cp['short_hash']}  {ts}  {cp['reason']}{stat}")
 
     lines.append("\n  /rollback <N>             restore to checkpoint N")
-    lines.append("  /rollback diff <N>        preview changes since checkpoint N")
-    lines.append("  /rollback <N> <file>      restore a single file from checkpoint N")
+    lines.append(
+        "  /rollback diff <N>        preview changes since checkpoint N")
+    lines.append(
+        "  /rollback <N> <file>      restore a single file from checkpoint N")
     return "\n".join(lines)
 
 
@@ -1293,7 +1351,8 @@ def prune_checkpoints(
                 result["deleted_stale"] += 1
             except OSError as exc:
                 result["errors"] += 1
-                logger.warning("Failed to delete legacy archive %s: %s", child, exc)
+                logger.warning(
+                    "Failed to delete legacy archive %s: %s", child, exc)
             continue
         # Only count as a pre-v2 shadow repo if it has a HEAD.
         if not (child / "HEAD").exists():
@@ -1335,7 +1394,10 @@ def prune_checkpoints(
                 result["deleted_stale"] += 1
         except OSError as exc:
             result["errors"] += 1
-            logger.warning("Failed to prune checkpoint repo %s: %s", child.name, exc)
+            logger.warning(
+                "Failed to prune checkpoint repo %s: %s",
+                child.name,
+                exc)
 
     # --- v2 shared store: per-project ref pruning via metadata ---
     store = _store_path(base)
@@ -1397,7 +1459,8 @@ def prune_checkpoints(
                     store, str(base),
                     allowed_returncodes={128},
                 )
-                refs = [r for r in stdout.splitlines() if r.strip()] if ok else []
+                refs = [r for r in stdout.splitlines() if r.strip()
+                        ] if ok else []
                 if not refs:
                     break
                 any_drop = False
@@ -1429,10 +1492,12 @@ def prune_checkpoints(
                             fail = True
                             break
                         ok_m, m, _ = _run_git(
-                            ["log", "--format=%s", "-1", sha], store, str(base),
+                            ["log", "--format=%s", "-1",
+                                sha], store, str(base),
                         )
                         msg = m if ok_m and m else "checkpoint"
-                        args = ["commit-tree", tsha, "-m", msg, "--no-gpg-sign"]
+                        args = [
+                            "commit-tree", tsha, "-m", msg, "--no-gpg-sign"]
                         if new_parent is not None:
                             args = ["commit-tree", tsha, "-p", new_parent,
                                     "-m", msg, "--no-gpg-sign"]
@@ -1638,5 +1703,6 @@ def clear_legacy(checkpoint_base: Optional[Path] = None) -> Dict[str, int]:
             out["bytes_freed"] += size
             out["deleted"] += 1
         except OSError as exc:
-            logger.warning("Could not delete legacy archive %s: %s", child, exc)
+            logger.warning(
+                "Could not delete legacy archive %s: %s", child, exc)
     return out

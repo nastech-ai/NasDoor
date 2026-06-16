@@ -39,7 +39,6 @@ import secrets
 import sys
 from typing import Optional
 
-
 # ---------------------------------------------------------------------------
 # Field-shape validators
 # ---------------------------------------------------------------------------
@@ -162,7 +161,8 @@ def _validate_access_token(value: str) -> tuple[bool, Optional[str]]:
 # ---------------------------------------------------------------------------
 
 
-def _prompt(message: str, default: Optional[str] = None, secret: bool = False) -> str:
+def _prompt(
+        message: str, default: Optional[str] = None, secret: bool = False) -> str:
     """Read one line of input. Returns "" on EOF / Ctrl+C / empty input.
 
     The ``default`` parameter is shown to the user but NOT auto-applied
@@ -178,7 +178,8 @@ def _prompt(message: str, default: Optional[str] = None, secret: bool = False) -
         if secret and sys.stdin.isatty():
             import getpass
 
-            raw = getpass.getpass(f"{message}{suffix} (input hidden): ").strip()
+            raw = getpass.getpass(
+                f"{message}{suffix} (input hidden): ").strip()
         else:
             raw = input(f"{message}{suffix}: ").strip()
     except (EOFError, KeyboardInterrupt):
@@ -260,7 +261,8 @@ def run_whatsapp_cloud_setup() -> int:
     print("     start; switch to a System User permanent token later)")
     print()
     try:
-        proceed = input("Press Enter to continue, or Ctrl+C to abort... ").strip()
+        proceed = input(
+            "Press Enter to continue, or Ctrl+C to abort... ").strip()
     except (EOFError, KeyboardInterrupt):
         print("\nSetup cancelled.")
         return 1
@@ -340,7 +342,8 @@ def run_whatsapp_cloud_setup() -> int:
     print("STEP 3 — App Secret (required for webhook signature verification)")
     print("─" * 50)
     current_secret = get_env_value("WHATSAPP_CLOUD_APP_SECRET") or None
-    current_secret_display = (current_secret[:8] + "...") if current_secret else None
+    current_secret_display = (
+        current_secret[:8] + "...") if current_secret else None
     app_secret = _prompt_validated(
         "App Secret",
         _validate_app_secret,
@@ -411,7 +414,8 @@ def run_whatsapp_cloud_setup() -> int:
     print("─" * 50)
     current_verify = get_env_value("WHATSAPP_CLOUD_VERIFY_TOKEN") or None
     if current_verify:
-        print(f"  An existing verify token is already set ({current_verify[:8]}...).")
+        print(
+            f"  An existing verify token is already set ({current_verify[:8]}...).")
         try:
             regen = input("  Generate a new one? [y/N]: ").strip().lower()
         except (EOFError, KeyboardInterrupt):
@@ -445,7 +449,8 @@ def run_whatsapp_cloud_setup() -> int:
     allow_default = current_allow if current_allow else None
     try:
         allowed = input(
-            f"  → Allowed users{' [' + allow_default + ']' if allow_default else ''}: "
+            f"  → Allowed users{
+                ' [' + allow_default + ']' if allow_default else ''}: "
         ).strip() or (allow_default or "")
     except (EOFError, KeyboardInterrupt):
         allowed = ""
@@ -488,7 +493,8 @@ def run_whatsapp_cloud_setup() -> int:
     print("       terminal, with the tunnel URL substituted:")
     print()
     print("         curl 'https://YOUR-TUNNEL.trycloudflare.com/whatsapp/webhook?\\")
-    print(f"               hub.mode=subscribe&hub.verify_token={verify_token}&\\")
+    print(
+        f"               hub.mode=subscribe&hub.verify_token={verify_token}&\\")
     print("               hub.challenge=hello'")
     print()
     print("       Expected: HTTP 200 with body 'hello'.")

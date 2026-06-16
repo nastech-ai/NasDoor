@@ -11,8 +11,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from tools.environments.base import BaseEnvironment, _pipe_stdin
 from nastech_cli._subprocess_compat import windows_hide_flags
+from tools.environments.base import BaseEnvironment, _pipe_stdin
 
 _IS_WINDOWS = platform.system() == "Windows"
 
@@ -30,13 +30,15 @@ def _msys_to_windows_path(cwd: str) -> str:
     """
     if not _IS_WINDOWS or not cwd:
         return cwd
-    # Match leading "/<single letter>/" or exactly "/<letter>" (bare drive root).
+    # Match leading "/<single letter>/" or exactly "/<letter>" (bare drive
+    # root).
     m = re.match(r'^/([a-zA-Z])(/.*)?$', cwd)
     if not m:
         return cwd
     drive = m.group(1).upper()
     tail = (m.group(2) or "").replace('/', '\\')
-    return f"{drive}:{tail or chr(92)}"  # chr(92) = backslash, avoid raw-string escape
+    # chr(92) = backslash, avoid raw-string escape
+    return f"{drive}:{tail or chr(92)}"
 
 
 def _resolve_safe_cwd(cwd: str) -> str:
@@ -202,12 +204,13 @@ def _inject_context_nastech_home(env: dict) -> None:
         pass
 
 
-def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = None) -> dict:
+def _sanitize_subprocess_env(base_env: dict | None,
+                             extra_env: dict | None = None) -> dict:
     """Filter NasTech-managed secrets from a subprocess environment."""
     try:
         from tools.env_passthrough import is_env_passthrough as _is_passthrough
     except Exception:
-        _is_passthrough = lambda _: False  # noqa: E731
+        def _is_passthrough(_): return False  # noqa: E731
 
     sanitized: dict[str, str] = {}
 
@@ -226,7 +229,8 @@ def _sanitize_subprocess_env(base_env: dict | None, extra_env: dict | None = Non
 
     _inject_context_nastech_home(sanitized)
 
-    # Per-profile HOME isolation for background processes (same as _make_run_env).
+    # Per-profile HOME isolation for background processes (same as
+    # _make_run_env).
     from nastech_constants import get_subprocess_home
     _profile_home = get_subprocess_home()
     if _profile_home:
@@ -258,13 +262,24 @@ def _find_bash() -> str:
     # Layouts (both checked so upgrades between MinGit and PortableGit
     # installs work transparently):
     #   PortableGit: %LOCALAPPDATA%\nastech\git\bin\bash.exe   (primary)
-    #   MinGit:      %LOCALAPPDATA%\nastech\git\usr\bin\bash.exe (legacy/32-bit fallback)
+    # MinGit:      %LOCALAPPDATA%\nastech\git\usr\bin\bash.exe (legacy/32-bit
+    # fallback)
     _local_appdata = os.environ.get("LOCALAPPDATA", "")
-    _nastech_portable_git = os.path.join(_local_appdata, "nastech", "git") if _local_appdata else ""
+    _nastech_portable_git = os.path.join(
+        _local_appdata, "nastech", "git") if _local_appdata else ""
     if _nastech_portable_git:
         for candidate in (
-            os.path.join(_nastech_portable_git, "bin", "bash.exe"),        # PortableGit (primary)
-            os.path.join(_nastech_portable_git, "usr", "bin", "bash.exe"), # MinGit fallback
+            os.path.join(
+                _nastech_portable_git,
+                "bin",
+                "bash.exe"),
+            # PortableGit (primary)
+            os.path.join(
+                _nastech_portable_git,
+                "usr",
+                "bin",
+                "bash.exe"),
+            # MinGit fallback
         ):
             if os.path.isfile(candidate):
                 return candidate
@@ -274,8 +289,20 @@ def _find_bash() -> str:
         return found
 
     for candidate in (
-        os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "Git", "bin", "bash.exe"),
-        os.path.join(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"), "Git", "bin", "bash.exe"),
+        os.path.join(
+            os.environ.get(
+                "ProgramFiles",
+                r"C:\Program Files"),
+            "Git",
+            "bin",
+            "bash.exe"),
+        os.path.join(
+            os.environ.get(
+                "ProgramFiles(x86)",
+                r"C:\Program Files (x86)"),
+            "Git",
+            "bin",
+            "bash.exe"),
         os.path.join(_local_appdata, "Programs", "Git", "bin", "bash.exe"),
     ):
         if candidate and os.path.isfile(candidate):
@@ -304,7 +331,7 @@ def _make_run_env(env: dict) -> dict:
     try:
         from tools.env_passthrough import is_env_passthrough as _is_passthrough
     except Exception:
-        _is_passthrough = lambda _: False  # noqa: E731
+        def _is_passthrough(_): return False  # noqa: E731
 
     merged = dict(os.environ | env)
     run_env = {}
@@ -428,7 +455,8 @@ def _prepend_shell_init(cmd_string: str, files: list[str]) -> str:
         # comes from os.path.expanduser output so it's a concrete absolute
         # path.  Escape single quotes defensively anyway.
         safe = path.replace("'", "'\\''")
-        prelude_parts.append(f"[ -r '{safe}' ] && . '{safe}' 2>/dev/null || true")
+        prelude_parts.append(
+            f"[ -r '{safe}' ] && . '{safe}' 2>/dev/null || true")
     prelude = "\n".join(prelude_parts) + "\n"
     return prelude + cmd_string
 
@@ -509,7 +537,14 @@ class LocalEnvironment(BaseEnvironment):
             init_files = _resolve_shell_init_files()
             if init_files:
                 cmd_string = _prepend_shell_init(cmd_string, init_files)
-        args = [bash, "-l", "-c", cmd_string] if login else [bash, "-c", cmd_string]
+        args = [
+            bash,
+            "-l",
+            "-c",
+            cmd_string] if login else [
+            bash,
+            "-c",
+            cmd_string]
         run_env = _make_run_env(self.env)
 
         # Recover when the cwd has been deleted out from under us — usually by
@@ -527,7 +562,8 @@ class LocalEnvironment(BaseEnvironment):
             # MSYS → Windows translation alone shouldn't surface as a warning
             # (it's a benign normalization, not a recovery). Only warn when
             # the directory really doesn't exist on disk.
-            normalized = _msys_to_windows_path(self.cwd) if _IS_WINDOWS else self.cwd
+            normalized = _msys_to_windows_path(
+                self.cwd) if _IS_WINDOWS else self.cwd
             if safe_cwd != normalized:
                 logger.warning(
                     "LocalEnvironment cwd %r is missing on disk; "
@@ -539,7 +575,8 @@ class LocalEnvironment(BaseEnvironment):
 
         _popen_cwd = self.cwd
 
-        _popen_kwargs = {"creationflags": windows_hide_flags()} if _IS_WINDOWS else {}
+        _popen_kwargs = {
+            "creationflags": windows_hide_flags()} if _IS_WINDOWS else {}
 
         proc = subprocess.Popen(
             args,
@@ -570,8 +607,10 @@ class LocalEnvironment(BaseEnvironment):
 
         def _group_alive(pgid: int) -> bool:
             try:
-                # POSIX-only: _IS_WINDOWS is handled before this helper is used.
-                os.killpg(pgid, 0)  # windows-footgun: ok — POSIX process-group alive probe
+                # POSIX-only: _IS_WINDOWS is handled before this helper is
+                # used.
+                # windows-footgun: ok — POSIX process-group alive probe
+                os.killpg(pgid, 0)
                 return True
             except ProcessLookupError:
                 return False
@@ -609,7 +648,9 @@ class LocalEnvironment(BaseEnvironment):
                         raise
 
                 try:
-                    os.killpg(pgid, signal.SIGTERM)  # windows-footgun: ok — POSIX process-group SIGTERM (guarded by _IS_WINDOWS above)
+                    # windows-footgun: ok — POSIX process-group SIGTERM
+                    # (guarded by _IS_WINDOWS above)
+                    os.killpg(pgid, signal.SIGTERM)
                 except ProcessLookupError:
                     return
 
@@ -621,7 +662,8 @@ class LocalEnvironment(BaseEnvironment):
 
                 try:
                     # POSIX-only: _IS_WINDOWS is handled by the outer branch.
-                    os.killpg(pgid, signal.SIGKILL)  # windows-footgun: ok — POSIX process-group SIGKILL
+                    # windows-footgun: ok — POSIX process-group SIGKILL
+                    os.killpg(pgid, signal.SIGKILL)
                 except ProcessLookupError:
                     return
                 _wait_for_group_exit(pgid, 2.0)
@@ -679,7 +721,8 @@ class LocalEnvironment(BaseEnvironment):
         prev_cwd = self.cwd
         super()._extract_cwd_from_output(result)
         if self.cwd != prev_cwd:
-            normalized = _msys_to_windows_path(self.cwd) if _IS_WINDOWS else self.cwd
+            normalized = _msys_to_windows_path(
+                self.cwd) if _IS_WINDOWS else self.cwd
             if normalized and os.path.isdir(normalized):
                 self.cwd = normalized
             else:

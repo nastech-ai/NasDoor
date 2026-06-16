@@ -73,7 +73,8 @@ class _ProviderEntry:
     provider: Optional[Any] = None
     last_mtime_ns: int = 0
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
-    pending_401: dict[str, "asyncio.Future[bool]"] = field(default_factory=dict)
+    pending_401: dict[str, "asyncio.Future[bool]"] = field(
+        default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -407,8 +408,8 @@ class MCPOAuthManager:
 
         # Local imports avoid circular deps at module import time.
         from tools.mcp_oauth import (
-            NasTechTokenStorage,
             _OAUTH_AVAILABLE,
+            NasTechTokenStorage,
             _build_client_metadata,
             _configure_callback_port,
             _is_interactive,
@@ -479,7 +480,8 @@ class MCPOAuthManager:
             return False
 
         async with entry.lock:
-            tokens_path = _get_token_dir() / f"{_safe_filename(server_name)}.json"
+            tokens_path = _get_token_dir(
+            ) / f"{_safe_filename(server_name)}.json"
             try:
                 mtime_ns = tokens_path.stat().st_mtime_ns
             except (FileNotFoundError, OSError):
@@ -552,7 +554,8 @@ class MCPOAuthManager:
                         ctx = getattr(provider, "context", None)
                         can_refresh = False
                         if ctx is not None:
-                            can_refresh_fn = getattr(ctx, "can_refresh_token", None)
+                            can_refresh_fn = getattr(
+                                ctx, "can_refresh_token", None)
                             if callable(can_refresh_fn):
                                 try:
                                     can_refresh = bool(can_refresh_fn())

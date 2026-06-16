@@ -56,7 +56,8 @@ class BlueprintCommandResult:
     agent_seed: Optional[str] = None
 
 
-def _resolve_origin(explicit: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def _resolve_origin(
+        explicit: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if explicit is not None:
         return explicit
     try:
@@ -166,7 +167,8 @@ def build_blueprint_seed(blueprint) -> str:
 
     lines: List[str] = []
     lines.append(
-        f"Set up the '{blueprint.title}' automation for me (automation blueprint "
+        f"Set up the '{
+            blueprint.title}' automation for me (automation blueprint "
         f"'{blueprint.key}'). {blueprint.description}"
     )
     lines.append("")
@@ -194,7 +196,8 @@ def build_blueprint_seed(blueprint) -> str:
         "(fill {minute}/{hour} from the chosen time, {dow} from the weekday "
         f"choice using {dict(WEEKDAY_PRESETS)}, {{interval_min}} from any "
         "interval). Use this exact prompt for the job (substituting my "
-        f"answers into any {{slot}} placeholders): \"{blueprint.prompt_template}\". "
+        f"answers into any {{slot}} placeholders): \"{
+            blueprint.prompt_template}\". "
         "Confirm the schedule and what it will do before you create it."
     )
     return "\n".join(lines)
@@ -203,7 +206,8 @@ def build_blueprint_seed(blueprint) -> str:
 def _fmt_catalog() -> str:
     from cron.blueprint_catalog import CATALOG
 
-    lines = ["Automation Blueprints — `/blueprint <name>` and I'll ask you what I need:\n"]
+    lines = [
+        "Automation Blueprints — `/blueprint <name>` and I'll ask you what I need:\n"]
     for r in CATALOG:
         lines.append(f"  • {r.key} — {r.title}")
         lines.append(f"    {r.description}")
@@ -226,7 +230,8 @@ def _fmt_no_match(query: str) -> str:
     from cron.blueprint_catalog import CATALOG
 
     keys = [r.key for r in CATALOG]
-    close = difflib.get_close_matches((query or "").lower(), keys, n=3, cutoff=0.4)
+    close = difflib.get_close_matches(
+        (query or "").lower(), keys, n=3, cutoff=0.4)
     msg = f"No automation blueprint matches '{query}'."
     if close:
         msg += " Did you mean: " + ", ".join(close) + "?"
@@ -261,10 +266,11 @@ def handle_blueprint_command(
     ``/cron`` only exists on the CLI.
     """
     try:
-        from cron.blueprint_catalog import fill_blueprint, BlueprintFillError
+        from cron.blueprint_catalog import BlueprintFillError, fill_blueprint
     except Exception as e:  # pragma: no cover - import guard
         logger.debug("blueprint catalog import failed: %s", e)
-        return BlueprintCommandResult("Automation Blueprints are unavailable in this build.")
+        return BlueprintCommandResult(
+            "Automation Blueprints are unavailable in this build.")
 
     try:
         tokens = shlex.split(args or "")
@@ -288,18 +294,24 @@ def handle_blueprint_command(
     if not values:
         seed = build_blueprint_seed(blueprint)
         text = (
-            f"Setting up '{blueprint.title}' ({_humanize_schedule(blueprint)}). "
+            f"Setting up '{
+                blueprint.title}' ({
+                _humanize_schedule(blueprint)}). "
             "I'll ask you a couple of things…"
         )
         return BlueprintCommandResult(text, agent_seed=seed)
 
     # `<name> slot=val …` -> fill + create directly (deterministic shortcut).
     try:
-        spec = fill_blueprint(blueprint, values, origin=_resolve_origin(origin))
+        spec = fill_blueprint(
+            blueprint,
+            values,
+            origin=_resolve_origin(origin))
     except BlueprintFillError as e:
         return BlueprintCommandResult(
             f"Can't set up '{blueprint.title}': {e}\n"
-            f"Or just run /blueprint {blueprint.key} and I'll ask you for the values."
+            f"Or just run /blueprint {
+                blueprint.key} and I'll ask you for the values."
         )
 
     try:
@@ -314,5 +326,6 @@ def handle_blueprint_command(
     return BlueprintCommandResult(
         f"Scheduled '{blueprint.title}'"
         + (f" ({sched})" if sched else "")
-        + f", delivering to {spec.get('deliver', 'origin')}. {_manage_hint(surface)}"
+        + f", delivering to {spec.get('deliver',
+                                      'origin')}. {_manage_hint(surface)}"
     )

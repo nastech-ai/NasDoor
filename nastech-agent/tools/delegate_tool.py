@@ -19,26 +19,28 @@ never the child's intermediate tool calls or reasoning.
 import enum
 import json
 import logging
-
-logger = logging.getLogger(__name__)
 import os
 import threading
 import time
 from concurrent.futures import (
     ThreadPoolExecutor,
-    TimeoutError as FuturesTimeoutError,
 )
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from typing import Any, Dict, List, Optional
 
+from tools import file_state
+from tools.registry import registry, tool_error
+from tools.terminal_tool import set_approval_callback as _set_subagent_approval_cb
 from toolsets import TOOLSETS
+from utils import base_url_hostname, is_truthy_value
+
+logger = logging.getLogger(__name__)
+
 
 # Sentinel value used by the runtime provider system for providers that are
 # not natively known (named custom providers, third-party aggregators, etc.).
 # Must match nastech_cli.runtime_provider.RUNTIME_PROVIDER_TYPE_CUSTOM.
 _RUNTIME_PROVIDER_CUSTOM = "custom"
-from tools import file_state
-from tools.terminal_tool import set_approval_callback as _set_subagent_approval_cb
-from utils import base_url_hostname, is_truthy_value
 
 
 # Tools that children must never have access to
@@ -110,6 +112,7 @@ def _get_subagent_approval_callback():
         return _subagent_auto_approve
     return _subagent_auto_deny
 
+
 # Build a description fragment listing toolsets available for subagents.
 # Excludes toolsets where ALL tools are blocked, composite/platform toolsets
 # (nastech-* prefixed), and scenario toolsets.
@@ -119,7 +122,8 @@ def _get_subagent_approval_callback():
 # toolset to request explicitly — the correct mechanism for nested
 # delegation is role='orchestrator', which re-adds "delegation" in
 # _build_child_agent regardless of this exclusion.
-_EXCLUDED_TOOLSET_NAMES = frozenset({"debugging", "safe", "delegation", "moa", "rl"})
+_EXCLUDED_TOOLSET_NAMES = frozenset(
+    {"debugging", "safe", "delegation", "moa", "rl"})
 _SUBAGENT_TOOLSETS = sorted(
     name
     for name, defn in TOOLSETS.items()
@@ -130,7 +134,9 @@ _SUBAGENT_TOOLSETS = sorted(
 _TOOLSET_LIST_STR = ", ".join(f"'{n}'" for n in _SUBAGENT_TOOLSETS)
 
 _DEFAULT_MAX_CONCURRENT_CHILDREN = 3
-MAX_DEPTH = 1  # flat by default: parent (0) -> child (1); grandchild rejected unless max_spawn_depth raised.
+# flat by default: parent (0) -> child (1); grandchild rejected unless
+# max_spawn_depth raised.
+MAX_DEPTH = 1
 # Configurable depth cap consulted by _get_max_spawn_depth; MAX_DEPTH
 # stays as the default fallback and is still the symbol tests import.
 _MIN_SPAWN_DEPTH = 1
@@ -267,12 +273,14 @@ def _extract_output_tail(
         # mislabel a block-wrapped "Error: ..." result as is_error=False.
         content = _stringify_tool_content(msg.get("content") or "")
         is_error = _looks_like_error_output(content)
-        tool_name = pending_call_by_id.get(msg.get("tool_call_id") or "", "tool")
+        tool_name = pending_call_by_id.get(
+            msg.get("tool_call_id") or "", "tool")
         # Preserve line structure so the overlay's wrapped scroll region can
         # show real output rather than a whitespace-collapsed blob. We still
         # cap the payload size to keep events bounded.
         preview = content[:max_chars]
-        tail.append({"tool": tool_name, "preview": preview, "is_error": is_error})
+        tail.append(
+            {"tool": tool_name, "preview": preview, "is_error": is_error})
 
     tail.reverse()  # restore chronological order for display
     return tail
@@ -297,7 +305,11 @@ def _stringify_tool_content(content: Any) -> str:
                 if isinstance(text, str):
                     parts.append(text)
                 else:
-                    parts.append(json.dumps(item, ensure_ascii=False, default=str))
+                    parts.append(
+                        json.dumps(
+                            item,
+                            ensure_ascii=False,
+                            default=str))
             else:
                 parts.append(str(item))
         return "\n".join(parts)
@@ -333,7 +345,8 @@ def _looks_like_error_output(content: Any) -> bool:
         except Exception:
             pass
 
-    first = content.splitlines()[0].strip().lower() if content.splitlines() else ""
+    first = content.splitlines()[0].strip(
+    ).lower() if content.splitlines() else ""
     return (
         first.startswith("error:")
         or first.startswith("failed:")
@@ -538,7 +551,8 @@ def _preserve_parent_mcp_toolsets(
     """Append any parent MCP toolsets that are missing from a narrowed child."""
     preserved = list(child_toolsets)
     for toolset_name in sorted(parent_toolsets):
-        if _is_mcp_toolset_name(toolset_name) and toolset_name not in preserved:
+        if _is_mcp_toolset_name(
+                toolset_name) and toolset_name not in preserved:
             preserved.append(toolset_name)
     return preserved
 
@@ -554,7 +568,8 @@ _HEARTBEAT_INTERVAL = 30  # seconds between parent activity heartbeats during de
 # timeout. The in-tool ceiling is much higher so legit long-running tools get
 # time to finish; child_timeout_seconds (default 600s) is still the hard cap.
 _HEARTBEAT_STALE_CYCLES_IDLE = 15  # 15 * 30s = 450s idle between turns → stale
-_HEARTBEAT_STALE_CYCLES_IN_TOOL = 40  # 40 * 30s = 1200s stuck on same tool → stale
+# 40 * 30s = 1200s stuck on same tool → stale
+_HEARTBEAT_STALE_CYCLES_IN_TOOL = 40
 DEFAULT_TOOLSETS = ["terminal", "file", "web"]
 
 
@@ -686,7 +701,8 @@ def _resolve_workspace_hint(parent_agent) -> Optional[str]:
     candidates = [
         os.getenv("TERMINAL_CWD"),
         getattr(
-            getattr(parent_agent, "_subdirectory_hints", None), "working_dir", None
+            getattr(parent_agent, "_subdirectory_hints",
+                    None), "working_dir", None
         ),
         getattr(parent_agent, "terminal_cwd", None),
         getattr(parent_agent, "cwd", None),
@@ -754,7 +770,8 @@ def _build_child_progress_callback(
     # Gateway: batch tool names, flush periodically
     _BATCH_SIZE = 5
     _batch: List[str] = []
-    _tool_count = [0]  # per-subagent running counter (list for closure mutation)
+    # per-subagent running counter (list for closure mutation)
+    _tool_count = [0]
 
     def _identity_kwargs() -> Dict[str, Any]:
         kw: Dict[str, Any] = {
@@ -781,7 +798,8 @@ def _build_child_progress_callback(
         if not parent_cb:
             return
         payload = _identity_kwargs()
-        payload.update(kwargs)  # caller overrides (e.g. status, duration_seconds)
+        # caller overrides (e.g. status, duration_seconds)
+        payload.update(kwargs)
         try:
             parent_cb(event_type, tool_name, preview, args, **payload)
         except Exception as e:
@@ -795,13 +813,17 @@ def _build_child_progress_callback(
         if event_type == "subagent.start":
             if spinner and goal_label:
                 short = (
-                    (goal_label[:55] + "...") if len(goal_label) > 55 else goal_label
+                    (goal_label[:55] +
+                     "...") if len(goal_label) > 55 else goal_label
                 )
                 try:
                     spinner.print_above(f" {prefix}├─ 🔀 {short}")
                 except Exception as e:
                     logger.debug("Spinner print_above failed: %s", e)
-            _relay("subagent.start", preview=preview or goal_label or "", **kwargs)
+            _relay(
+                "subagent.start",
+                preview=preview or goal_label or "",
+                **kwargs)
             return
 
         if event_type == "subagent.complete":
@@ -932,8 +954,9 @@ def _build_child_agent(
     routing subagents to a different provider:model pair (e.g. cheap/fast
     model on OpenRouter while the parent runs on Nous Portal).
     """
-    from run_agent import AIAgent
     import uuid as _uuid
+
+    from run_agent import AIAgent
 
     # ── Role resolution ─────────────────────────────────────────────────
     # Honor the caller's role only when BOTH the kill switch and the
@@ -944,7 +967,8 @@ def _build_child_agent(
     child_depth = getattr(parent_agent, "_delegate_depth", 0) + 1
     max_spawn = _get_max_spawn_depth()
     orchestrator_ok = _get_orchestrator_enabled() and child_depth < max_spawn
-    effective_role = role if (role == "orchestrator" and orchestrator_ok) else "leaf"
+    effective_role = role if (
+        role == "orchestrator" and orchestrator_ok) else "leaf"
 
     # ── Subagent identity (stable across events, 0-indexed for TUI) ─────
     # subagent_id is generated here so the progress callback, the
@@ -979,7 +1003,8 @@ def _build_child_agent(
     if toolsets:
         # Intersect with parent — subagent must not gain tools the parent lacks.
         # Expand composite toolsets (e.g. nastech-cli) so that individual
-        # toolset names (e.g. web, terminal) are recognised during intersection.
+        # toolset names (e.g. web, terminal) are recognised during
+        # intersection.
         expanded_parent = _expand_parent_toolsets(parent_toolsets)
         child_toolsets = [t for t in toolsets if t in expanded_parent]
         if _get_inherit_mcp_toolsets():
@@ -997,7 +1022,8 @@ def _build_child_agent(
     # Orchestrators retain the 'delegation' toolset that _strip_blocked_tools
     # removed.  The re-add is unconditional on parent-toolset membership because
     # orchestrator capability is granted by role, not inherited — see the
-    # test_intersection_preserves_delegation_bound test for the design rationale.
+    # test_intersection_preserves_delegation_bound test for the design
+    # rationale.
     if effective_role == "orchestrator" and "delegation" not in child_toolsets:
         child_toolsets.append("delegation")
 
@@ -1053,14 +1079,16 @@ def _build_child_agent(
 
     # Resolve effective credentials: config override > parent inherit
     effective_model = model or parent_agent.model
-    effective_provider = override_provider or getattr(parent_agent, "provider", None)
+    effective_provider = override_provider or getattr(
+        parent_agent, "provider", None)
     effective_base_url = override_base_url or parent_agent.base_url
     effective_api_key = override_api_key or parent_api_key
     # Bug #20558 / PR #20563: api_mode must NOT be inherited when the child uses a
     # different provider than the parent — each provider has its own API surface
     # (e.g. MiniMax uses anthropic_messages, DeepSeek uses chat_completions).
     # Inheriting the parent's mode causes 404 errors when the child routes to the
-    # wrong endpoint.  Derive the mode from the target provider when it differs.
+    # wrong endpoint.  Derive the mode from the target provider when it
+    # differs.
     _parent_provider = getattr(parent_agent, "provider", None) or ""
     if override_api_mode is not None:
         effective_api_mode = override_api_mode
@@ -1095,7 +1123,8 @@ def _build_child_agent(
     parent_reasoning = getattr(parent_agent, "reasoning_config", None)
     child_reasoning = parent_reasoning
     try:
-        delegation_effort = str(delegation_cfg.get("reasoning_effort") or "").strip()
+        delegation_effort = str(
+            delegation_cfg.get("reasoning_effort") or "").strip()
         if delegation_effort:
             from nastech_constants import parse_reasoning_effort
 
@@ -1127,7 +1156,8 @@ def _build_child_agent(
     child_providers_ignored = getattr(parent_agent, "providers_ignored", None)
     child_providers_order = getattr(parent_agent, "providers_order", None)
     child_provider_sort = getattr(parent_agent, "provider_sort", None)
-    child_openrouter_min_coding_score = getattr(parent_agent, "openrouter_min_coding_score", None)
+    child_openrouter_min_coding_score = getattr(
+        parent_agent, "openrouter_min_coding_score", None)
     if override_provider:
         child_providers_allowed = None
         child_providers_ignored = None
@@ -1247,10 +1277,11 @@ def _dump_subagent_timeout_diagnostic(
     Returns the absolute path to the diagnostic file, or None on failure.
     """
     try:
-        from nastech_constants import get_nastech_home
         import datetime as _dt
         import sys as _sys
         import traceback as _traceback
+
+        from nastech_constants import get_nastech_home
 
         nastech_home = get_nastech_home()
         logs_dir = nastech_home / "logs"
@@ -1259,11 +1290,15 @@ def _dump_subagent_timeout_diagnostic(
         except Exception:
             return None
 
-        subagent_id = getattr(child, "_subagent_id", None) or f"idx{task_index}"
+        subagent_id = getattr(
+            child,
+            "_subagent_id",
+            None) or f"idx{task_index}"
         ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
         dump_path = logs_dir / f"subagent-timeout-{subagent_id}-{ts}.log"
 
         lines: List[str] = []
+
         def _w(line: str = "") -> None:
             lines.append(line)
 
@@ -1318,7 +1353,11 @@ def _dump_subagent_timeout_diagnostic(
                 or getattr(child, "system_prompt", None) \
                 or ""
             _w(f"  system_prompt_bytes: {len(sys_prompt.encode('utf-8')) if isinstance(sys_prompt, str) else 'n/a'}")
-            _w(f"  system_prompt_chars: {len(sys_prompt) if isinstance(sys_prompt, str) else 'n/a'}")
+            _w(
+                f"  system_prompt_chars: {
+                    len(sys_prompt) if isinstance(
+                        sys_prompt,
+                        str) else 'n/a'}")
         except Exception as exc:
             _w(f"  system_prompt: <error: {exc}>")
         try:
@@ -1391,7 +1430,8 @@ def _run_single_child(
     import model_tools
 
     _saved_tool_names = getattr(
-        child, "_delegate_saved_tool_names", list(model_tools._last_resolved_tool_names)
+        child, "_delegate_saved_tool_names", list(
+            model_tools._last_resolved_tool_names)
     )
 
     child_pool = getattr(child, "_credential_pool", None)
@@ -1401,10 +1441,12 @@ def _run_single_child(
         if leased_cred_id is not None:
             try:
                 leased_entry = child_pool.current()
-                if leased_entry is not None and hasattr(child, "_swap_credential"):
+                if leased_entry is not None and hasattr(
+                        child, "_swap_credential"):
                     child._swap_credential(leased_entry)
             except Exception as exc:
-                logger.debug("Failed to bind child to leased credential: %s", exc)
+                logger.debug(
+                    "Failed to bind child to leased credential: %s", exc)
 
     # Heartbeat: periodically propagate child activity to the parent so the
     # gateway inactivity timeout doesn't fire while the subagent is working.
@@ -1497,7 +1539,12 @@ def _run_single_child(
     _subagent_id = _raw_sid if isinstance(_raw_sid, str) else None
     if _subagent_id:
         _raw_depth = getattr(child, "_delegate_depth", 1)
-        _tui_depth = max(0, _raw_depth - 1) if isinstance(_raw_depth, int) else 0
+        _tui_depth = max(
+            0,
+            _raw_depth -
+            1) if isinstance(
+            _raw_depth,
+            int) else 0
         _parent_sid = getattr(child, "_parent_subagent_id", None)
         _register_subagent(
             {
@@ -1535,7 +1582,8 @@ def _run_single_child(
         parent_task_id = getattr(parent_agent, "_current_task_id", None)
         wall_start = time.time()
         parent_reads_snapshot = (
-            list(file_state.known_reads(parent_task_id)) if parent_task_id else []
+            list(file_state.known_reads(parent_task_id)
+                 ) if parent_task_id else []
         )
 
         # Run child with a hard timeout to prevent indefinite blocking
@@ -1546,13 +1594,15 @@ def _run_single_child(
             # Install a non-interactive approval callback in the worker thread
             # so dangerous-command prompts from the subagent don't fall back to
             # input() and deadlock the parent's prompt_toolkit TUI.
-            # Callback (deny vs approve) is governed by delegation.subagent_auto_approve.
+            # Callback (deny vs approve) is governed by
+            # delegation.subagent_auto_approve.
             initializer=_set_subagent_approval_cb,
             initargs=(_get_subagent_approval_callback(),),
         )
         # Capture the worker thread so the timeout diagnostic can dump its
         # Python stack (see #14726 — 0-API-call hangs are opaque without it).
-        _worker_thread_holder: Dict[str, Optional[threading.Thread]] = {"t": None}
+        _worker_thread_holder: Dict[str,
+                                    Optional[threading.Thread]] = {"t": None}
 
         def _run_with_thread_capture():
             _worker_thread_holder["t"] = threading.current_thread()
@@ -1574,12 +1624,14 @@ def _run_single_child(
             except Exception:
                 pass
 
-            is_timeout = isinstance(_timeout_exc, (FuturesTimeoutError, TimeoutError))
+            is_timeout = isinstance(
+                _timeout_exc, (FuturesTimeoutError, TimeoutError))
             duration = round(time.monotonic() - child_start, 2)
             logger.warning(
                 "Subagent %d %s after %.1fs",
                 task_index,
-                "timed out" if is_timeout else f"raised {type(_timeout_exc).__name__}",
+                "timed out" if is_timeout else f"raised {
+                    type(_timeout_exc).__name__}",
                 duration,
             )
 
@@ -1743,10 +1795,12 @@ def _run_single_child(
             "exit_reason": exit_reason,
             "tokens": {
                 "input": (
-                    _input_tokens if isinstance(_input_tokens, (int, float)) else 0
+                    _input_tokens if isinstance(
+                        _input_tokens, (int, float)) else 0
                 ),
                 "output": (
-                    _output_tokens if isinstance(_output_tokens, (int, float)) else 0
+                    _output_tokens if isinstance(
+                        _output_tokens, (int, float)) else 0
                 ),
             },
             "tool_trace": tool_trace,
@@ -1769,7 +1823,8 @@ def _run_single_child(
             ),
         }
         if status == "failed":
-            entry["error"] = result.get("error", "Subagent did not produce a response.")
+            entry["error"] = result.get(
+                "error", "Subagent did not produce a response.")
 
         # Cross-agent file-state reminder.  If this subagent wrote any
         # files the parent had already read, surface it so the parent
@@ -1803,7 +1858,9 @@ def _run_single_child(
                         else:
                             entry["stale_paths"] = mod_paths
         except Exception:
-            logger.debug("file_state sibling-write check failed", exc_info=True)
+            logger.debug(
+                "file_state sibling-write check failed",
+                exc_info=True)
 
         # Per-branch observability payload: tokens, cost, files touched, and
         # a tail of tool-call results.  Fed into the TUI's overlay detail
@@ -1830,7 +1887,8 @@ def _run_single_child(
             }
         )[:40]
 
-        _output_tail = _extract_output_tail(result, max_entries=8, max_chars=600)
+        _output_tail = _extract_output_tail(
+            result, max_entries=8, max_chars=600)
 
         complete_kwargs: Dict[str, Any] = {
             "preview": summary[:160] if summary else entry.get("error", ""),
@@ -1838,10 +1896,12 @@ def _run_single_child(
             "duration_seconds": duration,
             "summary": summary[:500] if summary else entry.get("error", ""),
             "input_tokens": (
-                int(_input_tokens) if isinstance(_input_tokens, (int, float)) else 0
+                int(_input_tokens) if isinstance(
+                    _input_tokens, (int, float)) else 0
             ),
             "output_tokens": (
-                int(_output_tokens) if isinstance(_output_tokens, (int, float)) else 0
+                int(_output_tokens) if isinstance(
+                    _output_tokens, (int, float)) else 0
             ),
             "reasoning_tokens": (
                 int(_reasoning_tokens)
@@ -1932,7 +1992,8 @@ def _run_single_child(
                 else:
                     parent_agent._active_children.remove(child)
             except (ValueError, UnboundLocalError) as e:
-                logger.debug("Could not remove child from active_children: %s", e)
+                logger.debug(
+                    "Could not remove child from active_children: %s", e)
 
         # Close tool resources (terminal sandboxes, browser daemons,
         # background processes, httpx clients) so subagent subprocesses
@@ -2070,10 +2131,14 @@ def delegate_task(
         task_list = tasks
     elif goal and isinstance(goal, str) and goal.strip():
         task_list = [
-            {"goal": goal, "context": context, "toolsets": toolsets, "role": top_role}
+            {"goal": goal,
+             "context": context,
+             "toolsets": toolsets,
+             "role": top_role}
         ]
     else:
-        return tool_error("Provide either 'goal' (single task) or 'tasks' (batch).")
+        return tool_error(
+            "Provide either 'goal' (single task) or 'tasks' (batch).")
 
     if not task_list:
         return tool_error("No tasks provided.")
@@ -2096,7 +2161,8 @@ def delegate_task(
 
     # Save parent tool names BEFORE any child construction mutates the global.
     # _build_child_agent() calls AIAgent() which calls get_tool_definitions(),
-    # which overwrites model_tools._last_resolved_tool_names with child's toolset.
+    # which overwrites model_tools._last_resolved_tool_names with child's
+    # toolset.
     import model_tools as _model_tools
 
     _parent_tool_names = list(_model_tools._last_resolved_tool_names)
@@ -2134,11 +2200,13 @@ def delegate_task(
                 ),
                 role=effective_role,
             )
-            # Override with correct parent tool names (before child construction mutated global)
+            # Override with correct parent tool names (before child
+            # construction mutated global)
             child._delegate_saved_tool_names = _parent_tool_names
             children.append((i, t, child))
     finally:
-        # Authoritative restore: reset global to parent's tool names after all children built
+        # Authoritative restore: reset global to parent's tool names after all
+        # children built
         _model_tools._last_resolved_tool_names = _parent_tool_names
 
     if n_tasks == 1:
@@ -2174,7 +2242,8 @@ def delegate_task(
 
             pending = set(futures.keys())
             while pending:
-                if getattr(parent_agent, "_interrupt_requested", False) is True:
+                if getattr(parent_agent, "_interrupt_requested",
+                           False) is True:
                     # Parent interrupted — collect whatever finished and
                     # abandon the rest.  Children already received the
                     # interrupt signal; we just can't wait forever.
@@ -2192,7 +2261,8 @@ def delegate_task(
                                     "api_calls": 0,
                                     "duration_seconds": 0,
                                     "_child_role": getattr(
-                                        _child_by_index.get(idx), "_delegate_role", None
+                                        _child_by_index.get(
+                                            idx), "_delegate_role", None
                                     ),
                                 }
                         else:
@@ -2204,14 +2274,16 @@ def delegate_task(
                                 "api_calls": 0,
                                 "duration_seconds": 0,
                                 "_child_role": getattr(
-                                    _child_by_index.get(idx), "_delegate_role", None
+                                    _child_by_index.get(
+                                        idx), "_delegate_role", None
                                 ),
                             }
                         results.append(entry)
                         completed_count += 1
                     break
 
-                from concurrent.futures import wait as _cf_wait, FIRST_COMPLETED
+                from concurrent.futures import FIRST_COMPLETED
+                from concurrent.futures import wait as _cf_wait
 
                 done, pending = _cf_wait(
                     pending, timeout=0.5, return_when=FIRST_COMPLETED
@@ -2229,7 +2301,8 @@ def delegate_task(
                             "api_calls": 0,
                             "duration_seconds": 0,
                             "_child_role": getattr(
-                                _child_by_index.get(idx), "_delegate_role", None
+                                _child_by_index.get(
+                                    idx), "_delegate_role", None
                             ),
                         }
                     results.append(entry)
@@ -2238,13 +2311,15 @@ def delegate_task(
                     # Print per-task completion line above the spinner
                     idx = entry["task_index"]
                     label = (
-                        task_labels[idx] if idx < len(task_labels) else f"Task {idx}"
+                        task_labels[idx] if idx < len(
+                            task_labels) else f"Task {idx}"
                     )
                     dur = entry.get("duration_seconds", 0)
                     status = entry.get("status", "?")
                     icon = "✓" if status == "completed" else "✗"
                     remaining = n_tasks - completed_count
-                    completion_line = f"{icon} [{idx+1}/{n_tasks}] {label}  ({dur}s)"
+                    completion_line = f"{icon} [{
+                        idx + 1}/{n_tasks}] {label}  ({dur}s)"
                     if spinner_ref:
                         try:
                             spinner_ref.print_above(completion_line)
@@ -2257,7 +2332,8 @@ def delegate_task(
                     if spinner_ref and remaining > 0:
                         try:
                             spinner_ref.update_text(
-                                f"🔀 {remaining} task{'s' if remaining != 1 else ''} remaining"
+                                f"🔀 {remaining} task{
+                                    's' if remaining != 1 else ''} remaining"
                             )
                         except Exception as e:
                             logger.debug("Spinner update_text failed: %s", e)
@@ -2282,7 +2358,8 @@ def delegate_task(
                     task=_task_goal,
                     result=entry.get("summary", "") or "",
                     child_session_id=(
-                        getattr(children[entry["task_index"]][2], "session_id", "")
+                        getattr(children[entry["task_index"]]
+                                [2], "session_id", "")
                         if entry["task_index"] < len(children)
                         else ""
                     ),
@@ -2327,7 +2404,8 @@ def delegate_task(
             _invoke_hook(
                 "subagent_stop",
                 parent_session_id=_parent_session_id,
-                parent_turn_id=getattr(parent_agent, "_current_turn_id", "") or "",
+                parent_turn_id=getattr(
+                    parent_agent, "_current_turn_id", "") or "",
                 child_session_id=getattr(_child_agent, "session_id", None),
                 child_role=child_role,
                 child_summary=entry.get("summary"),
@@ -2346,15 +2424,21 @@ def delegate_task(
     # fixtures, etc.).
     if _children_cost_total > 0.0:
         try:
-            current = float(getattr(parent_agent, "session_estimated_cost_usd", 0.0) or 0.0)
+            current = float(
+                getattr(
+                    parent_agent,
+                    "session_estimated_cost_usd",
+                    0.0) or 0.0)
             parent_agent.session_estimated_cost_usd = current + _children_cost_total
             # Upgrade the cost_source so the UI doesn't label a partially-real
             # total as "none" when the parent itself hadn't billed any calls
             # yet (rare but possible when the parent's only action this turn
             # was delegate_task).
-            if getattr(parent_agent, "session_cost_source", "none") in {None, "", "none"}:
+            if getattr(parent_agent, "session_cost_source",
+                       "none") in {None, "", "none"}:
                 parent_agent.session_cost_source = "subagent"
-            if getattr(parent_agent, "session_cost_status", "unknown") in {None, "", "unknown"}:
+            if getattr(parent_agent, "session_cost_status",
+                       "unknown") in {None, "", "unknown"}:
                 parent_agent.session_cost_status = "estimated"
         except Exception:
             logger.debug("Subagent cost rollup failed", exc_info=True)
@@ -2480,7 +2564,8 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
     configured_provider = str(cfg.get("provider") or "").strip() or None
     configured_base_url = str(cfg.get("base_url") or "").strip() or None
     configured_api_key = str(cfg.get("api_key") or "").strip() or None
-    configured_api_mode = str(cfg.get("api_mode") or "").strip().lower() or None
+    configured_api_mode = str(
+        cfg.get("api_mode") or "").strip().lower() or None
 
     if configured_base_url:
         # When delegation.api_key is not set, return None so _build_child_agent
@@ -2501,7 +2586,8 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
 
         base_lower = configured_base_url.lower()
         provider = "custom"
-        api_mode = _detect_api_mode_for_url(configured_base_url) or "chat_completions"
+        api_mode = _detect_api_mode_for_url(
+            configured_base_url) or "chat_completions"
         if (
             base_url_hostname(configured_base_url) == "chatgpt.com"
             and "/backend-api/codex" in base_lower
@@ -2516,8 +2602,10 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
             api_mode = "anthropic_messages"
 
         # Explicit delegation.api_mode in config always wins. Lets users force
-        # a transport for non-standard endpoints the URL heuristic can't detect.
-        if configured_api_mode in {"chat_completions", "codex_responses", "anthropic_messages"}:
+        # a transport for non-standard endpoints the URL heuristic can't
+        # detect.
+        if configured_api_mode in {"chat_completions",
+                                   "codex_responses", "anthropic_messages"}:
             api_mode = configured_api_mode
 
         return {
@@ -2542,7 +2630,9 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
     try:
         from nastech_cli.runtime_provider import resolve_runtime_provider
 
-        runtime = resolve_runtime_provider(requested=configured_provider, target_model=configured_model)
+        runtime = resolve_runtime_provider(
+            requested=configured_provider,
+            target_model=configured_model)
     except Exception as exc:
         raise ValueError(
             f"Cannot resolve delegation provider '{configured_provider}': {exc}. "
@@ -2725,7 +2815,8 @@ def _build_role_param_description() -> str:
     if max_depth >= 2 and orchestrator_on:
         nesting_note = (
             f"Nesting IS enabled for this user (max_spawn_depth={max_depth}): "
-            f"orchestrator children can themselves delegate up to {max_depth - 1} "
+            f"orchestrator children can themselves delegate up to {
+                max_depth - 1} "
             "more level(s) deep."
         )
     elif max_depth >= 2 and not orchestrator_on:
@@ -2891,7 +2982,6 @@ DELEGATE_TASK_SCHEMA = {
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
 
 registry.register(
     name="delegate_task",

@@ -37,7 +37,6 @@ import os
 import re
 from typing import Any, Dict, Optional
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -52,7 +51,8 @@ class WhatsAppBehaviorMixin:
     # WhatsApp message limits — practical UX limit, not protocol max.
     # WhatsApp allows ~65K but long messages are unreadable on mobile.
     MAX_MESSAGE_LENGTH: int = 4096
-    supports_code_blocks = True  # WhatsApp renders fenced code blocks (monospace)
+    # WhatsApp renders fenced code blocks (monospace)
+    supports_code_blocks = True
 
     DEFAULT_REPLY_PREFIX: str = "⚕ *NasTech Agent*\n────────────\n"
 
@@ -207,7 +207,8 @@ class WhatsAppBehaviorMixin:
                 )
         if compiled:
             logger.info(
-                "[%s] Loaded %d WhatsApp mention pattern(s)", self.name, len(compiled)
+                "[%s] Loaded %d WhatsApp mention pattern(s)", self.name, len(
+                    compiled)
             )
         return compiled
 
@@ -220,7 +221,8 @@ class WhatsAppBehaviorMixin:
         return bot_ids
 
     def _message_is_reply_to_bot(self, data: Dict[str, Any]) -> bool:
-        quoted_participant = self._normalize_whatsapp_id(data.get("quotedParticipant"))
+        quoted_participant = self._normalize_whatsapp_id(
+            data.get("quotedParticipant"))
         if not quoted_participant:
             return False
         return quoted_participant in self._bot_ids_from_message(data)
@@ -241,7 +243,8 @@ class WhatsAppBehaviorMixin:
         lower_body = body.lower()
         for bot_id in bot_ids:
             bare_id = bot_id.split("@", 1)[0].lower()
-            if bare_id and (f"@{bare_id}" in lower_body or bare_id in lower_body):
+            if bare_id and (
+                    f"@{bare_id}" in lower_body or bare_id in lower_body):
                 return True
         return False
 
@@ -347,7 +350,8 @@ class WhatsAppBehaviorMixin:
         # which WhatsApp renders with literal asterisks).
         def _header_to_bold(m: re.Match) -> str:
             inner = m.group(1).strip()
-            while len(inner) > 1 and inner.startswith("*") and inner.endswith("*"):
+            while len(inner) > 1 and inner.startswith(
+                    "*") and inner.endswith("*"):
                 inner = inner[1:-1].strip()
             return f"*{inner}*"
 

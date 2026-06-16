@@ -26,7 +26,8 @@ _SKIP_VALUES = {"1", "true", "yes", "on"}
 
 
 def _skip_ssl_guard_enabled() -> bool:
-    return os.getenv("NASTECH_SKIP_SSL_GUARD", "").strip().lower() in _SKIP_VALUES
+    return os.getenv("NASTECH_SKIP_SSL_GUARD",
+                     "").strip().lower() in _SKIP_VALUES
 
 
 def _repair_hint() -> str:
@@ -42,7 +43,8 @@ def _ssl_err(message: str) -> SSLConfigurationError:
     return SSLConfigurationError(f"{message}\n{_repair_hint()}")
 
 
-def _validate_bundle_path(label: str, value: str, *, require_substantial: bool = False) -> None:
+def _validate_bundle_path(label: str, value: str, *,
+                          require_substantial: bool = False) -> None:
     path = Path(value).expanduser()
     if not path.exists():
         raise _ssl_err(f"{label} points to a missing CA bundle: {value}")
@@ -53,9 +55,11 @@ def _validate_bundle_path(label: str, value: str, *, require_substantial: bool =
     try:
         ctx = ssl.create_default_context(cafile=str(path))
     except Exception as exc:
-        raise _ssl_err(f"{label} CA bundle at {value} cannot be loaded: {exc}") from exc
+        raise _ssl_err(
+            f"{label} CA bundle at {value} cannot be loaded: {exc}") from exc
     if not ctx.get_ca_certs():
-        raise _ssl_err(f"{label} CA bundle at {value} did not load any certificates")
+        raise _ssl_err(
+            f"{label} CA bundle at {value} did not load any certificates")
 
 
 def verify_ca_bundle() -> None:

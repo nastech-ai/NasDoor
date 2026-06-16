@@ -78,7 +78,8 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     # ─── Inference providers ───────────────────────────────────────────────
     # Native Anthropic SDK — needed when provider=anthropic (not via
     # OpenRouter / aggregators which use the openai SDK).
-    "provider.anthropic": ("anthropic==0.87.0",),  # CVE-2026-34450, CVE-2026-34452
+    # CVE-2026-34450, CVE-2026-34452
+    "provider.anthropic": ("anthropic==0.87.0",),
     # AWS Bedrock provider
     "provider.bedrock": ("boto3==1.42.89",),
     # Microsoft Foundry — Entra ID auth (managed identity, workload identity,
@@ -178,7 +179,9 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     "tool.dashboard": (
         "fastapi==0.133.1",
         "uvicorn[standard]==0.41.0",
-        "starlette==1.0.1",  # CVE-2026-48710 (BadHost) — keep lazy-install in sync with pyproject [web]
+        "starlette==1.0.1",
+        # CVE-2026-48710 (BadHost) — keep lazy-install in sync with pyproject
+        # [web]
     ),
     # Vision image-resize recovery (Pillow). Pillow is now a CORE dependency
     # (pyproject `dependencies`), so this entry is a belt-and-suspenders fallback
@@ -257,7 +260,8 @@ def _spec_is_safe(spec: str) -> bool:
     """Reject pip specs that contain URLs, paths, or shell metacharacters."""
     if not spec or len(spec) > 200:
         return False
-    if any(ch in spec for ch in (";", "|", "&", "`", "$", "\n", "\r", "\t", "\\")):
+    if any(ch in spec for ch in (";", "|", "&",
+           "`", "$", "\n", "\r", "\t", "\\")):
         return False
     if spec.startswith(("-", "/", ".")) or "://" in spec or "@" in spec:
         return False
@@ -282,7 +286,9 @@ def _specifier_from_spec(spec: str) -> str:
     ``"package"`` → ``""`` (no version constraint)
     """
     # Strip the package name + optional [extras] block.
-    m = re.match(r"^[A-Za-z0-9_][A-Za-z0-9_.\-]*(?:\[[A-Za-z0-9_,\-]+\])?", spec)
+    m = re.match(
+        r"^[A-Za-z0-9_][A-Za-z0-9_.\-]*(?:\[[A-Za-z0-9_,\-]+\])?",
+        spec)
     if not m:
         return ""
     return spec[m.end():]
@@ -352,7 +358,8 @@ def _is_present(spec: str) -> bool:
         return False
 
 
-def _venv_pip_install(specs: tuple[str, ...], *, timeout: int = 300) -> _InstallResult:
+def _venv_pip_install(specs: tuple[str, ...], *,
+                      timeout: int = 300) -> _InstallResult:
     """Install ``specs`` into the active venv using uv → pip → ensurepip ladder.
 
     Mirrors the strategy in ``nastech_cli.tools_config._pip_install`` but
@@ -406,7 +413,8 @@ def _venv_pip_install(specs: tuple[str, ...], *, timeout: int = 300) -> _Install
             capture_output=True, text=True, timeout=timeout,
             stdin=subprocess.DEVNULL,
         )
-        return _InstallResult(r.returncode == 0, r.stdout or "", r.stderr or "")
+        return _InstallResult(
+            r.returncode == 0, r.stdout or "", r.stderr or "")
     except subprocess.TimeoutExpired as e:
         return _InstallResult(False, "", f"pip install timed out: {e}")
     except Exception as e:
@@ -478,7 +486,8 @@ def ensure(feature: str, *, prompt: bool = True) -> None:
         try:
             from prompt_toolkit.application.current import get_app_or_none
             _app = get_app_or_none()
-            _pt_active = _app is not None and getattr(_app, "is_running", False)
+            _pt_active = _app is not None and getattr(
+                _app, "is_running", False)
         except Exception:
             _pt_active = False
 
@@ -496,14 +505,18 @@ def ensure(feature: str, *, prompt: bool = True) -> None:
                 feature, missing, "user declined install at prompt"
             )
 
-    logger.info("Lazy-installing %s for feature %r", " ".join(missing), feature)
+    logger.info(
+        "Lazy-installing %s for feature %r",
+        " ".join(missing),
+        feature)
     result = _venv_pip_install(missing)
     if not result.success:
         # Surface the actual pip error so the user can debug PyPI-side
         # issues (404 quarantine, network down, etc.).
         snippet = (result.stderr or result.stdout or "").strip()
         if snippet:
-            # Clip to a readable size — pip can dump pages of resolution traces.
+            # Clip to a readable size — pip can dump pages of resolution
+            # traces.
             snippet = snippet[-2000:]
         raise FeatureUnavailable(
             feature, missing,

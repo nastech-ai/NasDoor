@@ -19,16 +19,15 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
 import httpx
-
 from gateway.config import Platform, PlatformConfig
 from gateway.platforms.base import (
     BasePlatformAdapter,
     MessageEvent,
     MessageType,
     SendResult,
-    cache_image_from_bytes,
     cache_audio_from_bytes,
     cache_document_from_bytes,
+    cache_image_from_bytes,
 )
 from gateway.platforms.helpers import strip_markdown
 
@@ -90,9 +89,6 @@ def _normalize_server_url(raw: str) -> str:
     return value.rstrip("/")
 
 
-
-
-
 # ---------------------------------------------------------------------------
 # Adapter
 # ---------------------------------------------------------------------------
@@ -108,7 +104,8 @@ class BlueBubblesAdapter(BasePlatformAdapter):
         self.server_url = _normalize_server_url(
             extra.get("server_url") or os.getenv("BLUEBUBBLES_SERVER_URL", "")
         )
-        self.password = extra.get("password") or os.getenv("BLUEBUBBLES_PASSWORD", "")
+        self.password = extra.get("password") or os.getenv(
+            "BLUEBUBBLES_PASSWORD", "")
         self.webhook_host = (
             extra.get("webhook_host")
             or os.getenv("BLUEBUBBLES_WEBHOOK_HOST", DEFAULT_WEBHOOK_HOST)
@@ -144,7 +141,8 @@ class BlueBubblesAdapter(BasePlatformAdapter):
         res.raise_for_status()
         return res.json()
 
-    async def _api_post(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    async def _api_post(
+            self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         assert self.client is not None
         res = await self.client.post(self._api_url(path), json=payload)
         res.raise_for_status()
@@ -164,7 +162,8 @@ class BlueBubblesAdapter(BasePlatformAdapter):
 
         # Tighter keepalive so idle CLOSE_WAIT drains promptly (#18451).
         from gateway.platforms._http_client_limits import platform_httpx_limits
-        self.client = httpx.AsyncClient(timeout=30.0, limits=platform_httpx_limits())
+        self.client = httpx.AsyncClient(
+            timeout=30.0, limits=platform_httpx_limits())
         try:
             await self._api_get("/api/v1/ping")
             info = await self._api_get("/api/v1/server/info")
@@ -373,7 +372,8 @@ class BlueBubblesAdapter(BasePlatformAdapter):
             )
             for chat in payload.get("data", []) or []:
                 guid = chat.get("guid") or chat.get("chatGuid")
-                identifier = chat.get("chatIdentifier") or chat.get("identifier")
+                identifier = chat.get(
+                    "chatIdentifier") or chat.get("identifier")
                 if identifier == target:
                     if guid:
                         self._guid_cache[target] = guid
@@ -399,7 +399,8 @@ class BlueBubblesAdapter(BasePlatformAdapter):
             res = await self._api_post("/api/v1/chat/new", payload)
             data = res.get("data") or {}
             msg_id = data.get("guid") or data.get("messageGuid") or "ok"
-            return SendResult(success=True, message_id=str(msg_id), raw_response=res)
+            return SendResult(success=True, message_id=str(
+                msg_id), raw_response=res)
         except Exception as exc:
             return SendResult(success=False, error=str(exc))
 
@@ -408,7 +409,8 @@ class BlueBubblesAdapter(BasePlatformAdapter):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def truncate_message(content: str, max_length: int = MAX_TEXT_LENGTH) -> List[str]:
+    def truncate_message(
+            content: str, max_length: int = MAX_TEXT_LENGTH) -> List[str]:
         # Use the base splitter but skip pagination indicators — iMessage
         # bubbles flow naturally without "(1/3)" suffixes.
         chunks = BasePlatformAdapter.truncate_message(content, max_length)
@@ -423,17 +425,23 @@ class BlueBubblesAdapter(BasePlatformAdapter):
     ) -> SendResult:
         text = self.format_message(content)
         if not text:
-            return SendResult(success=False, error="BlueBubbles send requires text")
+            return SendResult(
+                success=False, error="BlueBubbles send requires text")
         # Split on paragraph breaks first (double newlines) so each thought
         # becomes its own iMessage bubble, then truncate any that are still
         # too long.
-        paragraphs = [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
+        paragraphs = [
+            p.strip() for p in re.split(
+                r'\n\s*\n',
+                text) if p.strip()]
         chunks: List[str] = []
         for para in (paragraphs or [text]):
             if len(para) <= self.MAX_MESSAGE_LENGTH:
                 chunks.append(para)
             else:
-                chunks.extend(self.truncate_message(para, max_length=self.MAX_MESSAGE_LENGTH))
+                chunks.extend(
+                    self.truncate_message(
+                        para, max_length=self.MAX_MESSAGE_LENGTH))
         last = SendResult(success=True)
         for chunk in chunks:
             guid = await self._resolve_chat_guid(chat_id)
@@ -483,11 +491,13 @@ class BlueBubblesAdapter(BasePlatformAdapter):
         if not self.client:
             return SendResult(success=False, error="Not connected")
         if not os.path.isfile(file_path):
-            return SendResult(success=False, error=f"File not found: {file_path}")
+            return SendResult(
+                success=False, error=f"File not found: {file_path}")
 
         guid = await self._resolve_chat_guid(chat_id)
         if not guid:
-            return SendResult(success=False, error=f"Chat not found: {chat_id}")
+            return SendResult(
+                success=False, error=f"Chat not found: {chat_id}")
 
         fname = filename or os.path.basename(file_path)
         try:
@@ -810,7 +820,9 @@ class BlueBubblesAdapter(BasePlatformAdapter):
             logger.error("[bluebubbles] webhook parse error: %s", exc)
             return web.json_response({"error": "invalid payload"}, status=400)
 
-        event_type = self._value(payload.get("type"), payload.get("event")) or ""
+        event_type = self._value(
+            payload.get("type"),
+            payload.get("event")) or ""
         # Only process message events; silently acknowledge everything else
         if event_type and event_type not in _MESSAGE_EVENTS:
             return web.Response(text="ok")
@@ -909,7 +921,8 @@ class BlueBubblesAdapter(BasePlatformAdapter):
         if not (chat_guid or chat_identifier) and sender:
             chat_identifier = sender
         if not sender or not (chat_guid or chat_identifier) or not text:
-            return web.json_response({"error": "missing message fields"}, status=400)
+            return web.json_response(
+                {"error": "missing message fields"}, status=400)
 
         session_chat_id = chat_guid or chat_identifier
         is_group = bool(record.get("isGroup")) or (";+;" in (chat_guid or ""))

@@ -22,12 +22,13 @@ import sqlite3
 import threading
 import time
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 from agent.memory_manager import sanitize_context
 from nastech_constants import get_nastech_home
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 logger = logging.getLogger(__name__)
+
 
 def _delegate_from_json(col: str = "model_config") -> str:
     return f"json_extract(COALESCE({col}, '{{}}'), '$._delegate_from')"
@@ -52,7 +53,9 @@ _COMPRESSION_CHILD_SQL = (
 
 # Rows that surface in pickers: roots + branch children (subagent runs and
 # compression continuations stay hidden).
-_LISTABLE_CHILD_SQL = f"(s.parent_session_id IS NULL OR {_BRANCH_CHILD_SQL.format(a='s')})"
+_LISTABLE_CHILD_SQL = f"(s.parent_session_id IS NULL OR {
+    _BRANCH_CHILD_SQL.format(
+        a='s')})"
 
 
 def _ephemeral_child_sql(alias: str = "s") -> str:
@@ -84,7 +87,8 @@ def _collect_delegate_child_ids(conn, parent_ids: List[str]) -> List[str]:
             f"OR (parent_session_id IN ({ph}) AND {df} IS NOT NULL)",
             frontier + frontier,
         )
-        frontier = [row["id"] for row in cursor.fetchall() if row["id"] not in found]
+        frontier = [row["id"]
+                    for row in cursor.fetchall() if row["id"] not in found]
         found.update(frontier)
     return list(found)
 
@@ -102,6 +106,7 @@ def _delete_delegate_children(conn, parent_ids: List[str]) -> List[str]:
         )
         conn.execute(f"DELETE FROM sessions WHERE id IN ({ph})", ids)
     return ids
+
 
 T = TypeVar("T")
 
@@ -184,7 +189,8 @@ def get_last_init_error() -> Optional[str]:
     return _last_init_error
 
 
-def format_session_db_unavailable(prefix: str = "Session database not available") -> str:
+def format_session_db_unavailable(
+        prefix: str = "Session database not available") -> str:
     """Format a user-facing 'session DB unavailable' message with cause.
 
     When ``SessionDB()`` init fails, callers set ``_session_db = None`` and
@@ -220,7 +226,8 @@ def _on_disk_journal_mode(conn: sqlite3.Connection) -> Optional[str]:
     if row is None:
         return None
     mode = row[0]
-    if isinstance(mode, bytes):  # defensive: sqlite3 occasionally returns bytes
+    if isinstance(
+            mode, bytes):  # defensive: sqlite3 occasionally returns bytes
         try:
             mode = mode.decode("ascii")
         except UnicodeDecodeError:
@@ -254,7 +261,8 @@ def apply_wal_with_fallback(
     Never downgrades to DELETE if the on-disk DB header reports WAL — see _on_disk_journal_mode.
     """
     # Read-only probe — no flock, no checkpoint, no WAL/SHM unlink.
-    # Skipping the set-pragma prevents WAL-init from unlinking files other connections hold open.
+    # Skipping the set-pragma prevents WAL-init from unlinking files other
+    # connections hold open.
     try:
         current_mode = conn.execute("PRAGMA journal_mode").fetchone()
         if current_mode and current_mode[0] == "wal":
@@ -300,6 +308,7 @@ def _log_wal_fallback_once(db_label: str, exc: Exception) -> None:
         exc,
     )
 
+
 # ---------------------------------------------------------------------------
 # Malformed-schema recovery
 # ---------------------------------------------------------------------------
@@ -343,7 +352,8 @@ def is_malformed_db_error(exc: BaseException) -> bool:
     """
     if not isinstance(exc, sqlite3.DatabaseError):
         return False
-    return any(marker in str(exc).lower() for marker in _MALFORMED_SCHEMA_MARKERS)
+    return any(marker in str(exc).lower()
+               for marker in _MALFORMED_SCHEMA_MARKERS)
 
 
 def _claim_repair_attempt(db_path: Path) -> bool:
@@ -378,7 +388,9 @@ def _backup_db_file(db_path: Path) -> Optional[Path]:
         for suffix in ("-wal", "-shm"):
             sidecar = db_path.with_name(db_path.name + suffix)
             if sidecar.exists():
-                shutil.copy2(sidecar, backup_path.with_name(backup_path.name + suffix))
+                shutil.copy2(
+                    sidecar, backup_path.with_name(
+                        backup_path.name + suffix))
         return backup_path
     except Exception as exc:  # pragma: no cover - best effort
         logger.warning("Could not back up malformed DB %s: %s", db_path, exc)
@@ -407,7 +419,8 @@ def _db_opens_cleanly(db_path: Path) -> Optional[str]:
         conn.close()
 
 
-def repair_state_db_schema(db_path: Path, *, backup: bool = True) -> Dict[str, Any]:
+def repair_state_db_schema(
+        db_path: Path, *, backup: bool = True) -> Dict[str, Any]:
     """Repair a state.db whose ``sqlite_master`` schema is malformed.
 
     Handles the "duplicate object definition" / malformed-schema class where
@@ -478,7 +491,8 @@ def repair_state_db_schema(db_path: Path, *, backup: bool = True) -> Dict[str, A
         conn = sqlite3.connect(str(db_path), isolation_level=None)
         try:
             conn.execute("PRAGMA writable_schema=ON")
-            conn.execute("DELETE FROM sqlite_master WHERE name LIKE 'messages_fts%'")
+            conn.execute(
+                "DELETE FROM sqlite_master WHERE name LIKE 'messages_fts%'")
             conn.execute("PRAGMA writable_schema=OFF")
             conn.commit()
             conn.execute("VACUUM")
@@ -736,7 +750,8 @@ class SessionDB:
                 # place (backup first; canonical sessions/messages preserved),
                 # then reopen once. This is what lets Desktop/Dashboard
                 # self-heal instead of silently showing "no sessions".
-                if not is_malformed_db_error(exc) or not _claim_repair_attempt(self.db_path):
+                if not is_malformed_db_error(
+                        exc) or not _claim_repair_attempt(self.db_path):
                     raise
                 logger.error(
                     "state.db schema is malformed (%s) — attempting automatic "
@@ -790,7 +805,8 @@ class SessionDB:
 
     def _sqlite_supports_fts5(self, cursor: sqlite3.Cursor) -> bool:
         try:
-            cursor.execute("CREATE VIRTUAL TABLE temp._nastech_fts5_probe USING fts5(x)")
+            cursor.execute(
+                "CREATE VIRTUAL TABLE temp._nastech_fts5_probe USING fts5(x)")
             cursor.execute("DROP TABLE temp._nastech_fts5_probe")
             return True
         except sqlite3.OperationalError as exc:
@@ -838,7 +854,8 @@ class SessionDB:
             "FROM messages"
         )
 
-    def _fts_table_probe(self, cursor: sqlite3.Cursor, table_name: str) -> Optional[bool]:
+    def _fts_table_probe(self, cursor: sqlite3.Cursor,
+                         table_name: str) -> Optional[bool]:
         try:
             cursor.execute(f"SELECT * FROM {table_name} LIMIT 0")
             return True
@@ -1000,7 +1017,8 @@ class SessionDB:
                     notnull = row[3]
                     default = row[4]
                     pk = row[5]
-                    # Reconstruct the type expression for ALTER TABLE ADD COLUMN
+                    # Reconstruct the type expression for ALTER TABLE ADD
+                    # COLUMN
                     parts = [col_type] if col_type else []
                     if notnull and not pk:
                         parts.append("NOT NULL")
@@ -1033,11 +1051,15 @@ class SessionDB:
                     f'PRAGMA table_info("{table_name}")'
                 ).fetchall()
             except sqlite3.OperationalError:
-                continue  # Table doesn't exist yet (shouldn't happen after executescript)
+                # Table doesn't exist yet (shouldn't happen after
+                # executescript)
+                continue
             live_cols = set()
             for row in rows:
-                # PRAGMA table_info returns (cid, name, type, notnull, dflt_value, pk)
-                name = row[1] if isinstance(row, (tuple, list)) else row["name"]
+                # PRAGMA table_info returns (cid, name, type, notnull,
+                # dflt_value, pk)
+                name = row[1] if isinstance(
+                    row, (tuple, list)) else row["name"]
                 live_cols.add(name)
 
             for col_name, col_type in declared_cols.items():
@@ -1091,7 +1113,8 @@ class SessionDB:
                 "WHERE platform_message_id IS NOT NULL"
             )
         except sqlite3.OperationalError as exc:
-            logger.debug("idx_messages_platform_msg_id create skipped: %s", exc)
+            logger.debug(
+                "idx_messages_platform_msg_id create skipped: %s", exc)
 
         # Deferred indexes that reference the reconciler-added ``active``
         # column (idx_messages_session_active) — same ordering constraint.
@@ -1118,7 +1141,8 @@ class SessionDB:
                 (SCHEMA_VERSION,),
             )
         else:
-            current_version = row["version"] if isinstance(row, sqlite3.Row) else row[0]
+            current_version = row["version"] if isinstance(
+                row, sqlite3.Row) else row[0]
             # Data migrations that can't be expressed declaratively (row
             # backfills, index changes tied to a specific version step) stay
             # in a version-gated chain. Column additions are handled by
@@ -1152,7 +1176,8 @@ class SessionDB:
                 # old-schema FTS tables and triggers that IF NOT EXISTS won't
                 # overwrite, so we drop them explicitly and let the post-migration
                 # existence checks (below) recreate them from FTS_SQL /
-                # FTS_TRIGRAM_SQL, then backfill every message row. Fixes #16751.
+                # FTS_TRIGRAM_SQL, then backfill every message row. Fixes
+                # #16751.
                 if fts5_available:
                     self._drop_fts_triggers(cursor)
                     for _tbl in ("messages_fts", "messages_fts_trigram"):
@@ -1168,14 +1193,17 @@ class SessionDB:
 
                     if fts5_available:
                         # Recreate virtual tables + triggers with the new inline-mode
-                        # schema that indexes content || tool_name || tool_calls.
+                        # schema that indexes content || tool_name ||
+                        # tool_calls.
                         if (
-                            self._ensure_fts_schema(cursor, "messages_fts", FTS_SQL)
+                            self._ensure_fts_schema(
+                                cursor, "messages_fts", FTS_SQL)
                             and self._ensure_fts_schema(
                                 cursor, "messages_fts_trigram", FTS_TRIGRAM_SQL
                             )
                         ):
-                            # Backfill both indexes from every existing messages row.
+                            # Backfill both indexes from every existing
+                            # messages row.
                             cursor.execute(
                                 "INSERT INTO messages_fts(rowid, content) "
                                 "SELECT id, "
@@ -1210,7 +1238,8 @@ class SessionDB:
                     pass
             if current_version < 16:
                 # v16: tag delegate subagent rows so pickers stay clean after
-                # parent deletes that used to orphan them (parent_session_id → NULL).
+                # parent deletes that used to orphan them (parent_session_id →
+                # NULL).
                 try:
                     cursor.execute(
                         "UPDATE sessions SET model_config = json_set("
@@ -1253,8 +1282,10 @@ class SessionDB:
             # FTS5 setup. Run the DDL even when the virtual table exists so
             # CREATE TRIGGER IF NOT EXISTS repairs trigger-only degradation from
             # an earlier no-FTS5 runtime.
-            triggers_need_repair = self._fts_trigger_count(cursor) < len(_FTS_TRIGGERS)
-            self._fts_enabled = self._ensure_fts_schema(cursor, "messages_fts", FTS_SQL)
+            triggers_need_repair = self._fts_trigger_count(
+                cursor) < len(_FTS_TRIGGERS)
+            self._fts_enabled = self._ensure_fts_schema(
+                cursor, "messages_fts", FTS_SQL)
 
             # Trigram FTS5 for CJK/substring search. This is optional relative
             # to the main FTS table; if it cannot be created, CJK search falls
@@ -1307,6 +1338,7 @@ class SessionDB:
         """Create a new session record. Returns the session_id."""
         self._insert_session_row(session_id, source, **kwargs)
         return session_id
+
     def end_session(self, session_id: str, end_reason: str) -> None:
         """Mark a session as ended.
 
@@ -1340,7 +1372,8 @@ class SessionDB:
             return
 
         def _do(conn):
-            conn.execute("UPDATE sessions SET cwd = ? WHERE id = ?", (cwd, session_id))
+            conn.execute(
+                "UPDATE sessions SET cwd = ? WHERE id = ?", (cwd, session_id))
 
         self._execute_write(_do)
     # ──────────────────────────────────────────────────────────────────────
@@ -1364,6 +1397,7 @@ class SessionDB:
     # the compress() call plus the rotation. ``holder`` identifies the
     # current owner (pid:tid:nonce) for diagnostics; the lock is recovered
     # via ``expires_at`` if the holder process crashed without releasing.
+
     def try_acquire_compression_lock(
         self,
         session_id: str,
@@ -1488,7 +1522,8 @@ class SessionDB:
             )
         self._execute_write(_do)
 
-    def update_system_prompt(self, session_id: str, system_prompt: str) -> None:
+    def update_system_prompt(self, session_id: str,
+                             system_prompt: str) -> None:
         """Store the full assembled system prompt snapshot."""
         def _do(conn):
             conn.execute(
@@ -1606,6 +1641,7 @@ class SessionDB:
             api_call_count,
             session_id,
         )
+
         def _do(conn):
             conn.execute(sql, params)
         self._execute_write(_do)
@@ -1621,7 +1657,8 @@ class SessionDB:
         self._insert_session_row(session_id, source, model=model, **kwargs)
         return session_id
 
-    def prune_empty_ghost_sessions(self, sessions_dir: "Optional[Path]" = None) -> int:
+    def prune_empty_ghost_sessions(
+            self, sessions_dir: "Optional[Path]" = None) -> int:
         """Remove empty TUI ghost sessions (no messages, no title, >24hr old)."""
         cutoff = time.time() - 86400  # Only sessions older than 24 hours
 
@@ -1636,7 +1673,9 @@ class SessionDB:
                       SELECT 1 FROM messages WHERE messages.session_id = sessions.id
                   )
             """, (cutoff,)).fetchall()
-            ids = [r[0] if isinstance(r, (tuple, list)) else r["id"] for r in rows]
+            ids = [
+                r[0] if isinstance(
+                    r, (tuple, list)) else r["id"] for r in rows]
             if ids:
                 placeholders = ",".join("?" * len(ids))
                 conn.execute(
@@ -1768,7 +1807,9 @@ class SessionDB:
 
         if len(cleaned) > SessionDB.MAX_TITLE_LENGTH:
             raise ValueError(
-                f"Title too long ({len(cleaned)} chars, max {SessionDB.MAX_TITLE_LENGTH})"
+                f"Title too long ({
+                    len(cleaned)} chars, max {
+                    SessionDB.MAX_TITLE_LENGTH})"
             )
 
         return cleaned
@@ -1782,9 +1823,11 @@ class SessionDB:
         Empty/whitespace-only strings are normalized to None (clearing the title).
         """
         title = self.sanitize_title(title)
+
         def _do(conn):
             if title:
-                # Check uniqueness (allow the same session to keep its own title)
+                # Check uniqueness (allow the same session to keep its own
+                # title)
                 cursor = conn.execute(
                     "SELECT id FROM sessions WHERE title = ? AND id != ?",
                     (title, session_id),
@@ -1792,7 +1835,8 @@ class SessionDB:
                 conflict = cursor.fetchone()
                 if conflict:
                     raise ValueError(
-                        f"Title '{title}' is already in use by session {conflict['id']}"
+                        f"Title '{title}' is already in use by session {
+                            conflict['id']}"
                     )
             cursor = conn.execute(
                 "UPDATE sessions SET title = ? WHERE id = ?",
@@ -1884,8 +1928,15 @@ class SessionDB:
         exact = self.get_session_by_title(title)
 
         # Also search for numbered variants: "title #2", "title #3", etc.
-        # Escape SQL LIKE wildcards (%, _) in the title to prevent false matches
-        escaped = title.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        # Escape SQL LIKE wildcards (%, _) in the title to prevent false
+        # matches
+        escaped = title.replace(
+            "\\",
+            "\\\\").replace(
+            "%",
+            "\\%").replace(
+            "_",
+            "\\_")
         with self._lock:
             cursor = self._conn.execute(
                 "SELECT id, title, started_at FROM sessions "
@@ -1916,7 +1967,13 @@ class SessionDB:
 
         # Find all existing numbered variants
         # Escape SQL LIKE wildcards (%, _) in the base to prevent false matches
-        escaped = base.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        escaped = base.replace(
+            "\\",
+            "\\\\").replace(
+            "%",
+            "\\%").replace(
+            "_",
+            "\\_")
         with self._lock:
             cursor = self._conn.execute(
                 "SELECT title FROM sessions WHERE title = ? OR title LIKE ? ESCAPE '\\'",
@@ -2032,7 +2089,8 @@ class SessionDB:
             #      child started), covering branch sessions created before the
             #      marker existed.
             where_clauses.append(_LISTABLE_CHILD_SQL)
-            where_clauses.append(f"{_delegate_from_json('s.model_config')} IS NULL")
+            where_clauses.append(
+                f"{_delegate_from_json('s.model_config')} IS NULL")
 
         if source:
             where_clauses.append("s.source = ?")
@@ -2049,7 +2107,8 @@ class SessionDB:
         elif not include_archived:
             where_clauses.append("s.archived = 0")
 
-        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        where_sql = f"WHERE {
+            ' AND '.join(where_clauses)}" if where_clauses else ""
 
         # Optional session-id filter, pushed into SQL so callers (Desktop
         # session-id search) don't have to fetch every row and filter in
@@ -2087,7 +2146,10 @@ class SessionDB:
                 )
                 like_pattern = (
                     "%"
-                    + id_needle.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                    + id_needle.replace("\\",
+                                        "\\\\").replace("%",
+                                                        "\\%").replace("_",
+                                                                       "\\_")
                     + "%"
                 )
                 id_params = [like_pattern]
@@ -2261,7 +2323,8 @@ class SessionDB:
             LIMIT ? OFFSET ?
         """
         with self._lock:
-            cursor = self._conn.execute(query, (prefix, prefix_hi, limit, offset))
+            cursor = self._conn.execute(
+                query, (prefix, prefix_hi, limit, offset))
             rows = cursor.fetchall()
 
         runs: List[Dict[str, Any]] = []
@@ -2276,7 +2339,8 @@ class SessionDB:
             runs.append(s)
         return runs
 
-    def _get_session_rich_row(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def _get_session_rich_row(
+            self, session_id: str) -> Optional[Dict[str, Any]]:
         """Fetch a single session with the same enriched columns as
         ``list_sessions_rich`` (preview + last_active). Returns None if the
         session doesn't exist.
@@ -2346,7 +2410,8 @@ class SessionDB:
     @classmethod
     def _decode_content(cls, content: Any) -> Any:
         """Reverse :meth:`_encode_content`; returns scalars unchanged."""
-        if isinstance(content, str) and content.startswith(cls._CONTENT_JSON_PREFIX):
+        if isinstance(content, str) and content.startswith(
+                cls._CONTENT_JSON_PREFIX):
             try:
                 return json.loads(content[len(cls._CONTENT_JSON_PREFIX):])
             except (json.JSONDecodeError, TypeError):
@@ -2408,7 +2473,8 @@ class SessionDB:
         # Pre-compute tool call count
         num_tool_calls = 0
         if tool_calls is not None:
-            num_tool_calls = len(tool_calls) if isinstance(tool_calls, list) else 1
+            num_tool_calls = len(tool_calls) if isinstance(
+                tool_calls, list) else 1
 
         def _do(conn):
             cursor = conn.execute(
@@ -2454,7 +2520,8 @@ class SessionDB:
 
         return self._execute_write(_do)
 
-    def replace_messages(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
+    def replace_messages(self, session_id: str,
+                         messages: List[Dict[str, Any]]) -> None:
         """Atomically replace every message for a session.
 
         Used by transcript-rewrite flows such as /retry, /undo, and /compress.
@@ -2477,24 +2544,30 @@ class SessionDB:
             for msg in messages:
                 role = msg.get("role", "unknown")
                 tool_calls = msg.get("tool_calls")
-                reasoning_details = msg.get("reasoning_details") if role == "assistant" else None
+                reasoning_details = msg.get(
+                    "reasoning_details") if role == "assistant" else None
                 codex_reasoning_items = (
-                    msg.get("codex_reasoning_items") if role == "assistant" else None
+                    msg.get(
+                        "codex_reasoning_items") if role == "assistant" else None
                 )
                 codex_message_items = (
                     msg.get("codex_message_items") if role == "assistant" else None
                 )
 
                 reasoning_details_json = (
-                    json.dumps(reasoning_details) if reasoning_details else None
+                    json.dumps(
+                        reasoning_details) if reasoning_details else None
                 )
                 codex_items_json = (
-                    json.dumps(codex_reasoning_items) if codex_reasoning_items else None
+                    json.dumps(
+                        codex_reasoning_items) if codex_reasoning_items else None
                 )
                 codex_message_items_json = (
-                    json.dumps(codex_message_items) if codex_message_items else None
+                    json.dumps(
+                        codex_message_items) if codex_message_items else None
                 )
-                tool_calls_json = json.dumps(tool_calls) if tool_calls else None
+                tool_calls_json = json.dumps(
+                    tool_calls) if tool_calls else None
                 # Accept either `platform_message_id` (new explicit name) or
                 # `message_id` (yuanbao's existing convention on message dicts).
                 platform_msg_id = (
@@ -2518,7 +2591,8 @@ class SessionDB:
                         msg.get("token_count"),
                         msg.get("finish_reason"),
                         msg.get("reasoning") if role == "assistant" else None,
-                        msg.get("reasoning_content") if role == "assistant" else None,
+                        msg.get(
+                            "reasoning_content") if role == "assistant" else None,
                         reasoning_details_json,
                         codex_items_json,
                         codex_message_items_json,
@@ -2570,7 +2644,8 @@ class SessionDB:
                 try:
                     msg["tool_calls"] = json.loads(msg["tool_calls"])
                 except (json.JSONDecodeError, TypeError):
-                    logger.warning("Failed to deserialize tool_calls in get_messages, falling back to []")
+                    logger.warning(
+                        "Failed to deserialize tool_calls in get_messages, falling back to []")
                     msg["tool_calls"] = []
             result.append(msg)
         return result
@@ -2626,7 +2701,8 @@ class SessionDB:
                 (session_id, around_message_id, window),
             ).fetchall()
 
-        # before_rows is DESC; reverse so it's ASC, then concatenate after_rows.
+        # before_rows is DESC; reverse so it's ASC, then concatenate
+        # after_rows.
         rows = list(reversed(before_rows)) + list(after_rows)
         result = []
         for row in rows:
@@ -2822,7 +2898,8 @@ class SessionDB:
                     return session_id
                 if child_row is None:
                     return session_id
-                child_id = child_row["id"] if hasattr(child_row, "keys") else child_row[0]
+                child_id = child_row["id"] if hasattr(
+                    child_row, "keys") else child_row[0]
                 if not child_id or child_id in seen:
                     return session_id
                 seen.add(child_id)
@@ -2871,7 +2948,8 @@ class SessionDB:
         messages = []
         for row in rows:
             content = self._decode_content(row["content"])
-            if row["role"] in {"user", "assistant"} and isinstance(content, str):
+            if row["role"] in {
+                    "user", "assistant"} and isinstance(content, str):
                 content = sanitize_context(content).strip()
             msg = {"role": row["role"], "content": content}
             if row["tool_call_id"]:
@@ -2882,7 +2960,8 @@ class SessionDB:
                 try:
                     msg["tool_calls"] = json.loads(row["tool_calls"])
                 except (json.JSONDecodeError, TypeError):
-                    logger.warning("Failed to deserialize tool_calls in conversation replay, falling back to []")
+                    logger.warning(
+                        "Failed to deserialize tool_calls in conversation replay, falling back to []")
                     msg["tool_calls"] = []
             # Surface the platform-side message id (e.g. yuanbao msg_id,
             # telegram update_id) so platform-specific flows like recall
@@ -2905,23 +2984,30 @@ class SessionDB:
                     msg["reasoning_content"] = row["reasoning_content"]
                 if row["reasoning_details"]:
                     try:
-                        msg["reasoning_details"] = json.loads(row["reasoning_details"])
+                        msg["reasoning_details"] = json.loads(
+                            row["reasoning_details"])
                     except (json.JSONDecodeError, TypeError):
-                        logger.warning("Failed to deserialize reasoning_details, falling back to None")
+                        logger.warning(
+                            "Failed to deserialize reasoning_details, falling back to None")
                         msg["reasoning_details"] = None
                 if row["codex_reasoning_items"]:
                     try:
-                        msg["codex_reasoning_items"] = json.loads(row["codex_reasoning_items"])
+                        msg["codex_reasoning_items"] = json.loads(
+                            row["codex_reasoning_items"])
                     except (json.JSONDecodeError, TypeError):
-                        logger.warning("Failed to deserialize codex_reasoning_items, falling back to None")
+                        logger.warning(
+                            "Failed to deserialize codex_reasoning_items, falling back to None")
                         msg["codex_reasoning_items"] = None
                 if row["codex_message_items"]:
                     try:
-                        msg["codex_message_items"] = json.loads(row["codex_message_items"])
+                        msg["codex_message_items"] = json.loads(
+                            row["codex_message_items"])
                     except (json.JSONDecodeError, TypeError):
-                        logger.warning("Failed to deserialize codex_message_items, falling back to None")
+                        logger.warning(
+                            "Failed to deserialize codex_message_items, falling back to None")
                         msg["codex_message_items"] = None
-            if include_ancestors and self._is_duplicate_replayed_user_message(messages, msg):
+            if include_ancestors and self._is_duplicate_replayed_user_message(
+                    messages, msg):
                 continue
             messages.append(msg)
         return messages
@@ -2945,11 +3031,13 @@ class SessionDB:
                 ).fetchone()
                 if row is None:
                     break
-                current = row["parent_session_id"] if hasattr(row, "keys") else row[0]
+                current = row["parent_session_id"] if hasattr(
+                    row, "keys") else row[0]
         return list(reversed(chain)) or [session_id]
 
     @staticmethod
-    def _is_duplicate_replayed_user_message(messages: List[Dict[str, Any]], msg: Dict[str, Any]) -> bool:
+    def _is_duplicate_replayed_user_message(
+            messages: List[Dict[str, Any]], msg: Dict[str, Any]) -> bool:
         if msg.get("role") != "user":
             return False
         content = msg.get("content")
@@ -2958,7 +3046,8 @@ class SessionDB:
         for prev in reversed(messages):
             if prev.get("role") == "user" and prev.get("content") == content:
                 return True
-            if prev.get("role") == "assistant" and (prev.get("content") or prev.get("tool_calls")):
+            if prev.get("role") == "assistant" and (
+                    prev.get("content") or prev.get("tool_calls")):
                 return False
         return False
 
@@ -3193,7 +3282,6 @@ class SessionDB:
 
         return sanitized.strip()
 
-
     @staticmethod
     def _is_cjk_codepoint(cp: int) -> bool:
         return (0x4E00 <= cp <= 0x9FFF or    # CJK Unified Ideographs
@@ -3215,7 +3303,7 @@ class SessionDB:
                 0x3000 <= cp <= 0x303F or    # CJK Symbols
                 0x3040 <= cp <= 0x309F or    # Hiragana
                 0x30A0 <= cp <= 0x30FF or    # Katakana
-                0xAC00 <= cp <= 0xD7AF):     # Hangul Syllables
+                    0xAC00 <= cp <= 0xD7AF):     # Hangul Syllables
                 return True
         return False
 
@@ -3375,13 +3463,18 @@ class SessionDB:
                 if not include_inactive:
                     tri_where.append("m.active = 1")
                 if source_filter is not None:
-                    tri_where.append(f"s.source IN ({','.join('?' for _ in source_filter)})")
+                    tri_where.append(
+                        f"s.source IN ({','.join('?' for _ in source_filter)})")
                     tri_params.extend(source_filter)
                 if exclude_sources is not None:
-                    tri_where.append(f"s.source NOT IN ({','.join('?' for _ in exclude_sources)})")
+                    tri_where.append(
+                        f"s.source NOT IN ({
+                            ','.join(
+                                '?' for _ in exclude_sources)})")
                     tri_params.extend(exclude_sources)
                 if role_filter:
-                    tri_where.append(f"m.role IN ({','.join('?' for _ in role_filter)})")
+                    tri_where.append(
+                        f"m.role IN ({','.join('?' for _ in role_filter)})")
                     tri_params.extend(role_filter)
                 tri_sql = f"""
                     SELECT
@@ -3423,20 +3516,31 @@ class SessionDB:
                 token_clauses = []
                 like_params: list = []
                 for tok in non_op_tokens:
-                    esc = tok.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                    esc = tok.replace(
+                        "\\",
+                        "\\\\").replace(
+                        "%",
+                        "\\%").replace(
+                        "_",
+                        "\\_")
                     token_clauses.append(
                         "(m.content LIKE ? ESCAPE '\\' OR m.tool_name LIKE ? ESCAPE '\\' OR m.tool_calls LIKE ? ESCAPE '\\')"
                     )
                     like_params += [f"%{esc}%", f"%{esc}%", f"%{esc}%"]
                 like_where = [f"({' OR '.join(token_clauses)})"]
                 if source_filter is not None:
-                    like_where.append(f"s.source IN ({','.join('?' for _ in source_filter)})")
+                    like_where.append(
+                        f"s.source IN ({','.join('?' for _ in source_filter)})")
                     like_params.extend(source_filter)
                 if exclude_sources is not None:
-                    like_where.append(f"s.source NOT IN ({','.join('?' for _ in exclude_sources)})")
+                    like_where.append(
+                        f"s.source NOT IN ({
+                            ','.join(
+                                '?' for _ in exclude_sources)})")
                     like_params.extend(exclude_sources)
                 if role_filter:
-                    like_where.append(f"m.role IN ({','.join('?' for _ in role_filter)})")
+                    like_where.append(
+                        f"m.role IN ({','.join('?' for _ in role_filter)})")
                     like_params.extend(role_filter)
                 like_sql = f"""
                     SELECT m.id, m.session_id, m.role,
@@ -3462,13 +3566,15 @@ class SessionDB:
                 try:
                     cursor = self._conn.execute(sql, params)
                 except sqlite3.OperationalError:
-                    # FTS5 query syntax error despite sanitization — return empty
+                    # FTS5 query syntax error despite sanitization — return
+                    # empty
                     return []
                 else:
                     matches = [dict(row) for row in cursor.fetchall()]
 
         # Add surrounding context (1 message before + after each match).
-        # Done outside the lock so we don't hold it across N sequential queries.
+        # Done outside the lock so we don't hold it across N sequential
+        # queries.
         for match in matches:
             try:
                 with self._lock:
@@ -3568,7 +3674,8 @@ class SessionDB:
         )
 
         def score(row: Dict[str, Any]) -> int:
-            ids = [str(row.get("id") or ""), str(row.get("_lineage_root_id") or "")]
+            ids = [str(row.get("id") or ""),
+                   str(row.get("_lineage_root_id") or "")]
             normalized = [value.lower() for value in ids if value]
             if any(value == needle for value in normalized):
                 return 0
@@ -3653,7 +3760,8 @@ class SessionDB:
             # count lines up with the rows: roots (no parent) plus branch
             # children (parent ended with end_reason='branched').
             where_clauses.append(_LISTABLE_CHILD_SQL)
-            where_clauses.append(f"{_delegate_from_json('s.model_config')} IS NULL")
+            where_clauses.append(
+                f"{_delegate_from_json('s.model_config')} IS NULL")
         if source:
             where_clauses.append("s.source = ?")
             params.append(source)
@@ -3669,10 +3777,12 @@ class SessionDB:
         elif not include_archived:
             where_clauses.append("s.archived = 0")
 
-        where_sql = f" WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+        where_sql = f" WHERE {
+            ' AND '.join(where_clauses)}" if where_clauses else ""
 
         with self._lock:
-            cursor = self._conn.execute(f"SELECT COUNT(*) FROM sessions s{where_sql}", params)
+            cursor = self._conn.execute(
+                f"SELECT COUNT(*) FROM sessions s{where_sql}", params)
             return cursor.fetchone()[0]
 
     def message_count(self, session_id: str = None) -> int:
@@ -3723,7 +3833,8 @@ class SessionDB:
         self._execute_write(_do)
 
     @staticmethod
-    def _remove_session_files(sessions_dir: Optional[Path], session_id: str) -> None:
+    def _remove_session_files(
+            sessions_dir: Optional[Path], session_id: str) -> None:
         """Remove on-disk transcript files for a session.
 
         Cleans up ``{session_id}.json``, ``{session_id}.jsonl``, and any
@@ -3772,14 +3883,18 @@ class SessionDB:
             )
             if cursor.fetchone()[0] == 0:
                 return False
-            removed_delegate_ids.extend(_delete_delegate_children(conn, [session_id]))
-            # Orphan remaining child sessions (branches, etc.) so FK is satisfied.
+            removed_delegate_ids.extend(
+                _delete_delegate_children(
+                    conn, [session_id]))
+            # Orphan remaining child sessions (branches, etc.) so FK is
+            # satisfied.
             conn.execute(
                 "UPDATE sessions SET parent_session_id = NULL "
                 "WHERE parent_session_id = ?",
                 (session_id,),
             )
-            conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            conn.execute(
+                "DELETE FROM messages WHERE session_id = ?", (session_id,))
             conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
             return True
 
@@ -3866,7 +3981,8 @@ class SessionDB:
         # Dedup + drop any non-string entries up-front. Avoids
         # double-counting in the WHERE-IN list and protects against
         # callers that pass a list with stray ``None`` values.
-        unique_ids = list({sid for sid in session_ids if isinstance(sid, str) and sid})
+        unique_ids = list(
+            {sid for sid in session_ids if isinstance(sid, str) and sid})
         if not unique_ids:
             return 0
 
@@ -3886,7 +4002,9 @@ class SessionDB:
                 return 0
 
             existing_placeholders = ",".join("?" * len(existing))
-            removed_delegate_ids.extend(_delete_delegate_children(conn, existing))
+            removed_delegate_ids.extend(
+                _delete_delegate_children(
+                    conn, existing))
             # Orphan remaining children whose parent is in the kill list so the
             # FK constraint stays satisfied. Pin children whose parent
             # is itself in the kill list rather than NULL-ing parents
@@ -4051,7 +4169,8 @@ class SessionDB:
             )
 
             for sid in session_ids:
-                conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
+                conn.execute(
+                    "DELETE FROM messages WHERE session_id = ?", (sid,))
                 conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
                 removed_ids.append(sid)
             return len(session_ids)
@@ -4140,7 +4259,9 @@ class SessionDB:
                 "SELECT value FROM state_meta WHERE key = ?",
                 ("telegram_dm_topic_schema_version",),
             ).fetchone()
-            current_version = int(current[0]) if current and str(current[0]).isdigit() else 0
+            current_version = int(
+                current[0]) if current and str(
+                current[0]).isdigit() else 0
             if current_version < 2:
                 fk_rows = conn.execute(
                     "PRAGMA foreign_key_list('telegram_dm_topic_bindings')"
@@ -4266,7 +4387,8 @@ class SessionDB:
                 return
         self._execute_write(_do)
 
-    def is_telegram_topic_mode_enabled(self, *, chat_id: str, user_id: str) -> bool:
+    def is_telegram_topic_mode_enabled(
+            self, *, chat_id: str, user_id: str) -> bool:
         """Return whether Telegram DM topic mode is enabled for this chat/user."""
         with self._lock:
             try:
@@ -4382,10 +4504,14 @@ class SessionDB:
                 (session_id,),
             ).fetchone()
             if existing_session is not None:
-                linked_chat = existing_session["chat_id"] if isinstance(existing_session, sqlite3.Row) else existing_session[0]
-                linked_thread = existing_session["thread_id"] if isinstance(existing_session, sqlite3.Row) else existing_session[1]
-                if str(linked_chat) != chat_id or str(linked_thread) != thread_id:
-                    raise ValueError("session is already linked to another Telegram topic")
+                linked_chat = existing_session["chat_id"] if isinstance(
+                    existing_session, sqlite3.Row) else existing_session[0]
+                linked_thread = existing_session["thread_id"] if isinstance(
+                    existing_session, sqlite3.Row) else existing_session[1]
+                if str(linked_chat) != chat_id or str(
+                        linked_thread) != thread_id:
+                    raise ValueError(
+                        "session is already linked to another Telegram topic")
 
             conn.execute(
                 """
@@ -4507,7 +4633,8 @@ class SessionDB:
         for row in rows:
             session = dict(row)
             raw = str(session.pop("_preview_raw", "") or "").strip()
-            session["preview"] = raw[:60] + ("..." if len(raw) > 60 else "") if raw else ""
+            session["preview"] = raw[:60] + \
+                ("..." if len(raw) > 60 else "") if raw else ""
             sessions.append(session)
         return sessions
 
@@ -4629,7 +4756,8 @@ class SessionDB:
           - ``"vacuumed"`` (bool) — true if VACUUM ran
           - ``"error"`` (str, optional) — present only on failure
         """
-        result: Dict[str, Any] = {"skipped": False, "pruned": 0, "vacuumed": False}
+        result: Dict[str, Any] = {
+            "skipped": False, "pruned": 0, "vacuumed": False}
         try:
             # Skip if another process/call did maintenance recently.
             last_raw = self.get_meta("last_auto_prune")
@@ -4670,7 +4798,8 @@ class SessionDB:
                     " + VACUUM" if result["vacuumed"] else "",
                 )
         except Exception as exc:
-            # Maintenance must never block startup. Log and return error marker.
+            # Maintenance must never block startup. Log and return error
+            # marker.
             logger.warning("state.db auto-maintenance failed: %s", exc)
             result["error"] = str(exc)
 

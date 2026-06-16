@@ -59,7 +59,8 @@ class TelegramBotSetupResult:
 def _api_url(api_url: str | None = None) -> str:
     """Resolve the onboarding API URL, honoring the PoC env override."""
     return (
-        api_url or os.environ.get(TELEGRAM_ONBOARDING_URL_ENV) or DEFAULT_API_URL
+        api_url or os.environ.get(
+            TELEGRAM_ONBOARDING_URL_ENV) or DEFAULT_API_URL
     ).rstrip("/")
 
 
@@ -119,7 +120,8 @@ def generate_username_slug(length: int = 16) -> str:
     Sixteen characters from a 32-symbol alphabet gives 80 bits of entropy while
     keeping ``nastech_<slug>_bot`` under Telegram's 32-character username limit.
     """
-    return "".join(secrets.choice(_USERNAME_SLUG_ALPHABET) for _ in range(length))
+    return "".join(secrets.choice(_USERNAME_SLUG_ALPHABET)
+                   for _ in range(length))
 
 
 def generate_bot_username(profile_name: Optional[str] = None) -> str:
@@ -187,7 +189,8 @@ def create_pairing(
         return None
 
     required = ("pairing_id", "poll_token", "suggested_username", "deep_link")
-    if not all(isinstance(data.get(key), str) and data.get(key) for key in required):
+    if not all(isinstance(data.get(key), str) and data.get(key)
+               for key in required):
         return None
 
     qr_payload = data.get("qr_payload") or data["deep_link"]
@@ -272,7 +275,11 @@ def poll_for_token(
     interval: float = POLL_INTERVAL,
 ) -> Optional[str]:
     """Poll the pairing API until the bot token is available or timeout."""
-    result = poll_for_setup_result(api_url, pairing, timeout=timeout, interval=interval)
+    result = poll_for_setup_result(
+        api_url,
+        pairing,
+        timeout=timeout,
+        interval=interval)
     return result.token if result else None
 
 
@@ -286,7 +293,8 @@ def auto_setup_telegram_bot_result(
     _ = manager_bot, profile_name
     resolved_api_url = _api_url(api_url)
     print()
-    print(f"  Contacting NasTech Telegram onboarding service: {resolved_api_url}")
+    print(
+        f"  Contacting NasTech Telegram onboarding service: {resolved_api_url}")
     sys.stdout.flush()
     pairing = create_pairing(resolved_api_url)
     if not pairing:
@@ -335,7 +343,8 @@ def auto_setup_telegram_bot_result(
             pass
         time.sleep(POLL_INTERVAL)
 
-    sys.stdout.write("\r  ✗ Timed out waiting for bot creation.                    \n")
+    sys.stdout.write(
+        "\r  ✗ Timed out waiting for bot creation.                    \n")
     sys.stdout.flush()
     print("    The bot may still be created — check Telegram.")
     print("    You can paste the token manually below, or re-run setup.")

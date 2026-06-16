@@ -378,7 +378,9 @@ def render_login_html(*, next_path: str = "") -> str:
     for p in providers:
         buttons.append(
             f'      <a class="provider-btn" '
-            f'href="/auth/login?provider={html.escape(p.name, quote=True)}{next_qs}">'
+            f'href="/auth/login?provider={
+                html.escape(
+                    p.name, quote=True)}{next_qs}">'
             f'Sign in with {html.escape(p.display_name)}</a>'
         )
     return _LOGIN_HTML_TEMPLATE.format(provider_buttons="\n".join(buttons))

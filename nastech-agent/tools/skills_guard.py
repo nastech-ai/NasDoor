@@ -22,16 +22,13 @@ Usage:
         print(format_scan_report(result))
 """
 
-import re
 import fnmatch
 import hashlib
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Tuple
-
-
-
 
 # ---------------------------------------------------------------------------
 # Hardcoded trust configuration
@@ -50,14 +47,14 @@ TRUSTED_REPOS = {
 
 INSTALL_POLICY = {
     #                  safe      caution    dangerous
-    "builtin":       ("allow",  "allow",   "allow"),
-    "trusted":       ("allow",  "allow",   "block"),
-    "community":     ("allow",  "block",   "block"),
+    "builtin": ("allow", "allow", "allow"),
+    "trusted": ("allow", "allow", "block"),
+    "community": ("allow", "block", "block"),
     # Agent-created: "ask" on dangerous surfaces as an error to the agent,
     # which can retry without the flagged content. This gate only runs when
     # skills.guard_agent_created is enabled (off by default) — see
     # tools/skill_manager_tool.py::_guard_agent_created_enabled.
-    "agent-created": ("allow",  "allow",   "ask"),
+    "agent-created": ("allow", "allow", "ask"),
 }
 
 VERDICT_INDEX = {"safe": 0, "caution": 1, "dangerous": 2}
@@ -71,7 +68,8 @@ VERDICT_INDEX = {"safe": 0, "caution": 1, "dangerous": 2}
 class Finding:
     pattern_id: str
     severity: str       # "critical" | "high" | "medium" | "low"
-    category: str       # "exfiltration" | "injection" | "destructive" | "persistence" | "network" | "obfuscation"
+    # "exfiltration" | "injection" | "destructive" | "persistence" | "network" | "obfuscation"
+    category: str
     file: str
     line: int
     match: str
@@ -670,7 +668,12 @@ def scan_skill(skill_path: Path, source: str = "community") -> ScanResult:
         all_findings.extend(scan_file(skill_path, skill_path.name))
 
     verdict = _determine_verdict(all_findings)
-    summary = _build_summary(skill_name, source, trust_level, verdict, all_findings)
+    summary = _build_summary(
+        skill_name,
+        source,
+        trust_level,
+        verdict,
+        all_findings)
 
     return ScanResult(
         skill_name=skill_name,
@@ -683,7 +686,8 @@ def scan_skill(skill_path: Path, source: str = "community") -> ScanResult:
     )
 
 
-def should_allow_install(result: ScanResult, force: bool = False) -> Tuple[bool, str]:
+def should_allow_install(
+        result: ScanResult, force: bool = False) -> Tuple[bool, str]:
     """
     Determine whether a skill should be installed based on scan result and trust.
 
@@ -694,14 +698,17 @@ def should_allow_install(result: ScanResult, force: bool = False) -> Tuple[bool,
     Returns:
         (allowed, reason) tuple
     """
-    policy = INSTALL_POLICY.get(result.trust_level, INSTALL_POLICY["community"])
+    policy = INSTALL_POLICY.get(
+        result.trust_level,
+        INSTALL_POLICY["community"])
     vi = VERDICT_INDEX.get(result.verdict, 2)
     decision = policy[vi]
 
     if decision == "allow":
         return True, f"Allowed ({result.trust_level} source, {result.verdict} verdict)"
 
-    if force and not (result.verdict == "dangerous" and result.trust_level in ("community", "trusted")):
+    if force and not (result.verdict == "dangerous" and result.trust_level in (
+            "community", "trusted")):
         return True, (
             f"Force-installed despite {result.verdict} verdict "
             f"({len(result.findings)} findings)"
@@ -710,13 +717,16 @@ def should_allow_install(result: ScanResult, force: bool = False) -> Tuple[bool,
     if decision == "ask":
         # Return None to signal "needs user confirmation"
         return None, (
-            f"Requires confirmation ({result.trust_level} source + {result.verdict} verdict, "
+            f"Requires confirmation ({
+                result.trust_level} source + {
+                result.verdict} verdict, "
             f"{len(result.findings)} findings)"
         )
 
     # Dangerous verdicts cannot be overridden by --force (community/trusted);
     # other blocks can.
-    if result.verdict == "dangerous" and result.trust_level in ("community", "trusted"):
+    if result.verdict == "dangerous" and result.trust_level in (
+            "community", "trusted"):
         return False, (
             f"Blocked ({result.trust_level} source + dangerous verdict, "
             f"{len(result.findings)} findings). --force does not override a dangerous verdict."
@@ -736,12 +746,20 @@ def format_scan_report(result: ScanResult) -> str:
     lines = []
 
     verdict_display = result.verdict.upper()
-    lines.append(f"Scan: {result.skill_name} ({result.source}/{result.trust_level})  Verdict: {verdict_display}")
+    lines.append(
+        f"Scan: {
+            result.skill_name} ({
+            result.source}/{
+                result.trust_level})  Verdict: {verdict_display}")
 
     if result.findings:
         # Group and sort: critical first, then high, medium, low
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-        sorted_findings = sorted(result.findings, key=lambda f: severity_order.get(f.severity, 4))
+        sorted_findings = sorted(
+            result.findings,
+            key=lambda f: severity_order.get(
+                f.severity,
+                4))
 
         for f in sorted_findings:
             sev = f.severity.upper().ljust(8)
@@ -811,7 +829,7 @@ def _check_structure(skill_dir: Path, ignore=None) -> List[Finding]:
             or any structural finding.
     """
     if ignore is None:
-        ignore = lambda _rel: False  # noqa: E731
+        def ignore(_rel): return False  # noqa: E731
 
     findings = []
     file_count = 0
@@ -868,7 +886,8 @@ def _check_structure(skill_dir: Path, ignore=None) -> List[Finding]:
                 file=rel,
                 line=0,
                 match=f"{size // 1024}KB",
-                description=f"file is {size // 1024}KB (limit: {MAX_SINGLE_FILE_KB}KB)",
+                description=f"file is {
+                    size // 1024}KB (limit: {MAX_SINGLE_FILE_KB}KB)",
             ))
 
         # Binary/executable files
@@ -885,7 +904,8 @@ def _check_structure(skill_dir: Path, ignore=None) -> List[Finding]:
             ))
 
         # Executable permission on non-script files
-        if ext not in {'.sh', '.bash', '.py', '.rb', '.pl'} and f.stat().st_mode & 0o111:
+        if ext not in {'.sh', '.bash', '.py', '.rb',
+                       '.pl'} and f.stat().st_mode & 0o111:
             findings.append(Finding(
                 pattern_id="unexpected_executable",
                 severity="medium",
@@ -917,7 +937,8 @@ def _check_structure(skill_dir: Path, ignore=None) -> List[Finding]:
             file="(directory)",
             line=0,
             match=f"{total_size // 1024}KB total",
-            description=f"skill is {total_size // 1024}KB total (limit: {MAX_TOTAL_SIZE_KB}KB)",
+            description=f"skill is {
+                total_size // 1024}KB total (limit: {MAX_TOTAL_SIZE_KB}KB)",
         ))
 
     return findings
@@ -947,11 +968,9 @@ def _unicode_char_name(char: str) -> str:
     return names.get(char, f"U+{ord(char):04X}")
 
 
-
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
 # Ignore-file names a skill may ship to exclude dev/docs artifacts from the
 # scan. `.skillignore` is the NasTech-native name; `.clawhubignore` is honored
 # for compatibility with skills published through ClawHub.
@@ -1008,7 +1027,8 @@ def _load_skill_ignore(skill_dir: Path):
                 # Directory pattern: match the dir itself or anything under it.
                 if rel_posix == p or rel_posix.startswith(p + "/"):
                     return True
-                if not anchored and ("/" + rel_posix + "/").find("/" + p + "/") != -1:
+                if not anchored and (
+                        "/" + rel_posix + "/").find("/" + p + "/") != -1:
                     return True
                 continue
 
@@ -1056,7 +1076,8 @@ def _resolve_trust_level(source: str) -> str:
     # Check if source matches any trusted repo exactly, or a skill path inside
     # that repo. Do not trust sibling repositories that merely share a prefix.
     for trusted in TRUSTED_REPOS:
-        if normalized_source == trusted or normalized_source.startswith(f"{trusted}/"):
+        if normalized_source == trusted or normalized_source.startswith(
+                f"{trusted}/"):
             return "trusted"
     return "community"
 
@@ -1077,7 +1098,8 @@ def _determine_verdict(findings: List[Finding]) -> str:
     return "safe"
 
 
-def _build_summary(name: str, source: str, trust: str, verdict: str, findings: List[Finding]) -> str:
+def _build_summary(name: str, source: str, trust: str,
+                   verdict: str, findings: List[Finding]) -> str:
     """Build a one-line summary of the scan result."""
     if not findings:
         return f"{name}: clean scan, no threats detected"

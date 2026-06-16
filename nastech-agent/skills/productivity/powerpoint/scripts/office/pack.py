@@ -11,15 +11,15 @@ Examples:
 """
 
 import argparse
-import sys
 import shutil
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
 
 import defusedxml.minidom
-
 from validators import DOCXSchemaValidator, PPTXSchemaValidator, RedliningValidator
+
 
 def pack(
     input_directory: str,
@@ -81,7 +81,9 @@ def _run_validation(
             try:
                 author = infer_author_func(unpacked_dir, original_file)
             except ValueError as e:
-                print(f"Warning: {e} Using default author 'Claude'.", file=sys.stderr)
+                print(
+                    f"Warning: {e} Using default author 'Claude'.",
+                    file=sys.stderr)
 
         validators = [
             DOCXSchemaValidator(unpacked_dir, original_file),
@@ -132,8 +134,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Pack a directory into a DOCX, PPTX, or XLSX file"
     )
-    parser.add_argument("input_directory", help="Unpacked Office document directory")
-    parser.add_argument("output_file", help="Output Office file (.docx/.pptx/.xlsx)")
+    parser.add_argument(
+        "input_directory",
+        help="Unpacked Office document directory")
+    parser.add_argument(
+        "output_file",
+        help="Output Office file (.docx/.pptx/.xlsx)")
     parser.add_argument(
         "--original",
         help="Original file for validation comparison",

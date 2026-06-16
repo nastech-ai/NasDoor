@@ -53,9 +53,15 @@ def register_provider(provider: VideoGenProvider) -> None:
         existing = _providers.get(name)
         _providers[name] = provider
     if existing is not None:
-        logger.debug("Video gen provider '%s' re-registered (was %r)", name, type(existing).__name__)
+        logger.debug(
+            "Video gen provider '%s' re-registered (was %r)",
+            name,
+            type(existing).__name__)
     else:
-        logger.debug("Registered video gen provider '%s' (%s)", name, type(provider).__name__)
+        logger.debug(
+            "Registered video gen provider '%s' (%s)",
+            name,
+            type(provider).__name__)
 
 
 def list_providers() -> List[VideoGenProvider]:

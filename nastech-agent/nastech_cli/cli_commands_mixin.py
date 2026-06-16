@@ -23,16 +23,16 @@ import uuid
 from datetime import datetime
 from urllib.parse import urlparse
 
-from rich import box as rich_box
-from rich.markup import escape as _escape
-from rich.panel import Panel
-
-from nastech_constants import display_nastech_home, is_termux as _is_termux_environment
 from nastech_cli.browser_connect import (
     DEFAULT_BROWSER_CDP_URL,
     is_browser_debug_ready,
     manual_chrome_debug_command,
 )
+from nastech_constants import display_nastech_home
+from nastech_constants import is_termux as _is_termux_environment
+from rich import box as rich_box
+from rich.markup import escape as _escape
+from rich.panel import Panel
 
 
 class CLICommandsMixin:
@@ -101,7 +101,10 @@ class CLICommandsMixin:
                         diff_lines = diff.splitlines()
                         if len(diff_lines) > 80:
                             print("\n".join(diff_lines[:80]))
-                            print(f"\n  ... ({len(diff_lines) - 80} more lines, showing first 80)")
+                            print(
+                                f"\n  ... ({
+                                    len(diff_lines) -
+                                    80} more lines, showing first 80)")
                         else:
                             print(f"\n{diff}")
             else:
@@ -124,9 +127,15 @@ class CLICommandsMixin:
         result = mgr.restore(cwd, target_hash, file_path=file_path)
         if result["success"]:
             if file_path:
-                print(f"  ✅ Restored {file_path} from checkpoint {result['restored_to']}: {result['reason']}")
+                print(
+                    f"  ✅ Restored {file_path} from checkpoint {
+                        result['restored_to']}: {
+                        result['reason']}")
             else:
-                print(f"  ✅ Restored to checkpoint {result['restored_to']}: {result['reason']}")
+                print(
+                    f"  ✅ Restored to checkpoint {
+                        result['restored_to']}: {
+                        result['reason']}")
             print("  A pre-rollback snapshot was saved automatically.")
 
             # Also undo the last conversation turn so the agent's context
@@ -147,8 +156,10 @@ class CLICommandsMixin:
             /snapshot prune [N]        — prune to N snapshots (default 20)
         """
         from nastech_cli.backup import (
-            create_quick_snapshot, list_quick_snapshots,
-            restore_quick_snapshot, prune_quick_snapshots,
+            create_quick_snapshot,
+            list_quick_snapshots,
+            prune_quick_snapshots,
+            restore_quick_snapshot,
         )
         from nastech_constants import display_nastech_home
 
@@ -161,9 +172,16 @@ class CLICommandsMixin:
                 print("  No state snapshots yet.")
                 print("  Create one: /snapshot create [label]")
                 return
-            print(f"  State snapshots ({display_nastech_home()}/state-snapshots/):\n")
-            print(f"  {'#':>3}  {'ID':<35} {'Files':>5} {'Size':>10} {'Label'}")
-            print(f"  {'─'*3}  {'─'*35} {'─'*5} {'─'*10} {'─'*20}")
+            print(
+                f"  State snapshots ({
+                    display_nastech_home()}/state-snapshots/):\n")
+            print(
+                f"  {
+                    '#':>3}  {
+                    'ID':<35} {
+                    'Files':>5} {
+                    'Size':>10} {'Label'}")
+            print(f"  {'─' * 3}  {'─' * 35} {'─' * 5} {'─' * 10} {'─' * 20}")
             for i, s in enumerate(snaps, 1):
                 size = s.get("total_size", 0)
                 if size < 1024:
@@ -173,7 +191,14 @@ class CLICommandsMixin:
                 else:
                     size_str = f"{size / 1024 / 1024:.1f} MB"
                 label = s.get("label") or ""
-                print(f"  {i:3}  {s['id']:<35} {s.get('file_count', 0):>5} {size_str:>10} {label}")
+                print(
+                    f"  {
+                        i:3}  {
+                        s['id']:<35} {
+                        s.get(
+                            'file_count',
+                            0):>5} {
+                        size_str:>10} {label}")
 
         elif subcmd == "create":
             label = " ".join(parts[2:]) if len(parts) > 2 else None
@@ -222,7 +247,8 @@ class CLICommandsMixin:
 
         else:
             print(f"  Unknown subcommand: {subcmd}")
-            print("  Usage: /snapshot [list|create [label]|restore <id>|prune [N]]")
+            print(
+                "  Usage: /snapshot [list|create [label]|restore <id>|prune [N]]")
 
     def _handle_stop_command(self):
         """Handle /stop — kill all running background processes.
@@ -286,7 +312,8 @@ class CLICommandsMixin:
                 n = len(self._attached_images)
                 _cprint(f"  📎 Image #{n} attached from clipboard")
             else:
-                _cprint(f"  {_DIM}(>_<) Clipboard has an image but extraction failed{_RST}")
+                _cprint(
+                    f"  {_DIM}(>_<) Clipboard has an image but extraction failed{_RST}")
         else:
             _cprint(f"  {_DIM}(._.) No image found in clipboard{_RST}")
 
@@ -296,7 +323,8 @@ class CLICommandsMixin:
         parts = cmd_original.split(maxsplit=1)
         arg = parts[1].strip() if len(parts) > 1 else ""
 
-        assistant = [m for m in self.conversation_history if m.get("role") == "assistant"]
+        assistant = [
+            m for m in self.conversation_history if m.get("role") == "assistant"]
         if not assistant:
             _cprint("  Nothing to copy yet.")
             return
@@ -312,7 +340,8 @@ class CLICommandsMixin:
                 return
         else:
             idx = len(assistant) - 1
-            while idx >= 0 and not _assistant_copy_text(assistant[idx].get("content")):
+            while idx >= 0 and not _assistant_copy_text(
+                    assistant[idx].get("content")):
                 idx -= 1
             if idx < 0:
                 _cprint("  Nothing to copy in assistant responses yet.")
@@ -331,8 +360,19 @@ class CLICommandsMixin:
 
     def _handle_image_command(self, cmd_original: str):
         """Handle /image <path> — attach a local image file for the next prompt."""
-        from cli import _DIM, _IMAGE_EXTENSIONS, _RST, _cprint, _resolve_attachment_path, _split_path_input, _termux_example_image_path
-        raw_args = (cmd_original.split(None, 1)[1].strip() if " " in cmd_original else "")
+        from cli import (
+            _DIM,
+            _IMAGE_EXTENSIONS,
+            _RST,
+            _cprint,
+            _resolve_attachment_path,
+            _split_path_input,
+            _termux_example_image_path,
+        )
+        raw_args = (
+            cmd_original.split(
+                None,
+                1)[1].strip() if " " in cmd_original else "")
         if not raw_args:
             hint = _termux_example_image_path() if _is_termux_environment() else "/path/to/image.png"
             _cprint(f"  {_DIM}Usage: /image <path>  e.g. /image {hint}{_RST}")
@@ -344,15 +384,21 @@ class CLICommandsMixin:
             _cprint(f"  {_DIM}(>_<) File not found: {path_token}{_RST}")
             return
         if image_path.suffix.lower() not in _IMAGE_EXTENSIONS:
-            _cprint(f"  {_DIM}(._.) Not a supported image file: {image_path.name}{_RST}")
+            _cprint(
+                f"  {_DIM}(._.) Not a supported image file: {
+                    image_path.name}{_RST}")
             return
 
         self._attached_images.append(image_path)
         _cprint(f"  📎 Attached image: {image_path.name}")
         if _remainder:
-            _cprint(f"  {_DIM}Now type your prompt (or use --image in single-query mode): {_remainder}{_RST}")
+            _cprint(
+                f"  {_DIM}Now type your prompt (or use --image in single-query mode): {_remainder}{_RST}")
         elif _is_termux_environment():
-            _cprint(f"  {_DIM}Tip: type your next message, or run nastech chat -q --image {_termux_example_image_path(image_path.name)} \"What do you see?\"{_RST}")
+            _cprint(
+                f"  {_DIM}Tip: type your next message, or run nastech chat -q --image {
+                    _termux_example_image_path(
+                        image_path.name)} \"What do you see?\"{_RST}")
 
     def _handle_tools_command(self, cmd: str):
         """Handle /tools [list|disable|enable] slash commands.
@@ -363,11 +409,12 @@ class CLICommandsMixin:
         the session so the new tool set takes effect cleanly (no
         prompt-cache breakage mid-conversation).
         """
-        from cli import _ACCENT, _DIM, _RST, _cprint
         import shlex
         from argparse import Namespace
         from contextlib import redirect_stdout
         from io import StringIO
+
+        from cli import _ACCENT, _DIM, _RST, _cprint
         from nastech_cli.tools_config import tools_disable_enable_command
 
         def _run_capture(ns: Namespace) -> None:
@@ -415,7 +462,8 @@ class CLICommandsMixin:
         if not names:
             print(f"(._.) Usage: /tools {subcommand} <name> [name ...]")
             print(f"  Built-in toolset:  /tools {subcommand} web")
-            print(f"  MCP tool:          /tools {subcommand} github:create_issue")
+            print(
+                f"  MCP tool:          /tools {subcommand} github:create_issue")
             return
 
         # Apply the change directly — the user typing the command is implicit
@@ -425,19 +473,23 @@ class CLICommandsMixin:
         label = ", ".join(names)
         _cprint(f"{_ACCENT}{verb} {label}...{_RST}")
 
-        _run_capture(Namespace(tools_action=subcommand, names=names, platform="cli"))
+        _run_capture(
+            Namespace(
+                tools_action=subcommand,
+                names=names,
+                platform="cli"))
 
         # Reset session so the new tool config is picked up from a clean state
-        from nastech_cli.tools_config import _get_platform_tools
         from nastech_cli.config import load_config
+        from nastech_cli.tools_config import _get_platform_tools
         self.enabled_toolsets = _get_platform_tools(load_config(), "cli")
         self.new_session()
         _cprint(f"{_DIM}Session reset. New tool configuration is active.{_RST}")
 
     def _handle_profile_command(self):
         """Display active profile name and home directory."""
-        from nastech_constants import display_nastech_home
         from nastech_cli.profiles import get_active_profile_name
+        from nastech_constants import display_nastech_home
 
         display = display_nastech_home()
         profile_name = get_active_profile_name()
@@ -470,7 +522,8 @@ class CLICommandsMixin:
         parts = cmd_original.split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip():
             _cprint("  Usage: /handoff <platform>")
-            _cprint("  Hands the current session off to that platform's home channel.")
+            _cprint(
+                "  Hands the current session off to that platform's home channel.")
             _cprint("  The CLI session ends here; resume it later with /resume.")
             return True
 
@@ -478,7 +531,7 @@ class CLICommandsMixin:
 
         # Validate platform name + home channel via the live gateway config.
         try:
-            from gateway.config import load_gateway_config, Platform
+            from gateway.config import Platform, load_gateway_config
         except Exception as exc:  # pragma: no cover — gateway pkg always shipped
             _cprint(f"  Could not load gateway config: {exc}")
             return True
@@ -497,7 +550,8 @@ class CLICommandsMixin:
 
         pcfg = gw_config.platforms.get(platform)
         if not pcfg or not pcfg.enabled:
-            _cprint(f"  Platform '{platform_name}' is not configured/enabled in the gateway.")
+            _cprint(
+                f"  Platform '{platform_name}' is not configured/enabled in the gateway.")
             return True
 
         home = gw_config.get_home_channel(platform)
@@ -509,7 +563,8 @@ class CLICommandsMixin:
         # Refuse mid-turn: an in-flight agent run would race with the
         # gateway's switch_session and the synthetic turn dispatch.
         if getattr(self, "_agent_running", False):
-            _cprint("  Agent is busy. Wait for the current turn to finish, then retry /handoff.")
+            _cprint(
+                "  Agent is busy. Wait for the current turn to finish, then retry /handoff.")
             return True
 
         # Make sure we have a SessionDB handle.
@@ -535,7 +590,8 @@ class CLICommandsMixin:
                 # is the simplest path because set_session_title's INSERT OR
                 # IGNORE creates the row.
                 placeholder_title = f"handoff-{self.session_id[:8]}"
-                self._session_db.set_session_title(self.session_id, placeholder_title)
+                self._session_db.set_session_title(
+                    self.session_id, placeholder_title)
         except Exception as exc:
             _cprint(f"  Could not ensure session row in state.db: {exc}")
             return True
@@ -554,10 +610,13 @@ class CLICommandsMixin:
         # Mark pending — gateway watcher will pick this up.
         ok = self._session_db.request_handoff(self.session_id, platform_name)
         if not ok:
-            _cprint("  Session is already in flight for handoff. Wait for it to settle, then retry.")
+            _cprint(
+                "  Session is already in flight for handoff. Wait for it to settle, then retry.")
             return True
 
-        _cprint(f"  Queued handoff of '{session_title}' → {platform_name} (home: {home.name}).")
+        _cprint(
+            f"  Queued handoff of '{session_title}' → {platform_name} (home: {
+                home.name}).")
         _cprint(f"  Waiting for the gateway to pick it up...")
 
         # Poll-block on terminal state. Tick every 0.5s; bail at ~60s.
@@ -576,8 +635,10 @@ class CLICommandsMixin:
                 last_state = current
             if current == "completed":
                 _cprint("")
-                _cprint(f"  ↻ Handoff complete. The session is now active on {platform_name}.")
-                _cprint(f"  Resume it on this CLI later with: /resume {session_title}")
+                _cprint(
+                    f"  ↻ Handoff complete. The session is now active on {platform_name}.")
+                _cprint(
+                    f"  Resume it on this CLI later with: /resume {session_title}")
                 _cprint("")
                 # End the CLI cleanly — same exit semantics as /quit.
                 self._should_exit = True
@@ -585,13 +646,15 @@ class CLICommandsMixin:
             if current == "failed":
                 err = (state_row or {}).get("error") or "unknown error"
                 _cprint(f"  Handoff failed: {err}")
-                _cprint("  Your CLI session is intact. Try /handoff again, or /resume on the platform manually.")
+                _cprint(
+                    "  Your CLI session is intact. Try /handoff again, or /resume on the platform manually.")
                 return True
             _time.sleep(0.5)
 
         # Timed out. Clear the pending flag so the user can retry.
         try:
-            self._session_db.fail_handoff(self.session_id, "timed out waiting for gateway")
+            self._session_db.fail_handoff(
+                self.session_id, "timed out waiting for gateway")
         except Exception:
             pass
         _cprint("  Timed out waiting for the gateway. Is `nastech gateway` running?")
@@ -626,9 +689,11 @@ class CLICommandsMixin:
                 # _show_recent_sessions and used for index resolution below —
                 # all three go through _list_recent_sessions(limit=10). See
                 # #34584.
-                self._pending_resume_sessions = self._list_recent_sessions(limit=10)
+                self._pending_resume_sessions = self._list_recent_sessions(
+                    limit=10)
                 return
-            _cprint("  Tip:   Use /history or `nastech sessions list` to find sessions.")
+            _cprint(
+                "  Tip:   Use /history or `nastech sessions list` to find sessions.")
             return
 
         # Any explicit /resume <target> supersedes a previously-armed bare
@@ -658,7 +723,8 @@ class CLICommandsMixin:
         session_meta = self._session_db.get_session(target_id)
         if not session_meta:
             _cprint(f"  Session not found: {target}")
-            _cprint("  Use /history or `nastech sessions list` to see available sessions.")
+            _cprint(
+                "  Use /history or `nastech sessions list` to see available sessions.")
             return
 
         # If the target is the empty head of a compression chain, redirect to
@@ -696,7 +762,8 @@ class CLICommandsMixin:
 
         # Load conversation history (strip transcript-only metadata entries)
         restored = self._session_db.get_messages_as_conversation(target_id)
-        restored = [m for m in (restored or []) if m.get("role") != "session_meta"]
+        restored = [m for m in (restored or []) if m.get(
+            "role") != "session_meta"]
         self.conversation_history = restored
 
         # Re-open the target session so it's not marked as ended
@@ -710,7 +777,8 @@ class CLICommandsMixin:
             self.agent.session_id = target_id
             self.agent.reset_session_state()
             if hasattr(self.agent, "_last_flushed_db_idx"):
-                self.agent._last_flushed_db_idx = len(self.conversation_history)
+                self.agent._last_flushed_db_idx = len(
+                    self.conversation_history)
             if hasattr(self.agent, "_todo_store"):
                 try:
                     from tools.todo_tool import TodoStore
@@ -736,8 +804,10 @@ class CLICommandsMixin:
             except Exception:
                 pass
 
-        title_part = f" \"{session_meta['title']}\"" if session_meta.get("title") else ""
-        msg_count = len([m for m in self.conversation_history if m.get("role") == "user"])
+        title_part = f" \"{
+            session_meta['title']}\"" if session_meta.get("title") else ""
+        msg_count = len(
+            [m for m in self.conversation_history if m.get("role") == "user"])
         if self.conversation_history:
             _cprint(
                 f"  ↻ Resumed session {target_id}{title_part}"
@@ -746,7 +816,8 @@ class CLICommandsMixin:
             )
             self._display_resumed_history()
         else:
-            _cprint(f"  ↻ Resumed session {target_id}{title_part} — no messages, starting fresh.")
+            _cprint(
+                f"  ↻ Resumed session {target_id}{title_part} — no messages, starting fresh.")
 
     def _handle_sessions_command(self, cmd_original: str) -> None:
         """Handle /sessions [list|<id_or_title>] — browse or resume previous sessions.
@@ -814,7 +885,8 @@ class CLICommandsMixin:
             # Auto-generate from the current session title
             current_title = None
             if self._session_db:
-                current_title = self._session_db.get_session_title(self.session_id)
+                current_title = self._session_db.get_session_title(
+                    self.session_id)
             base = current_title or "branch"
             branch_title = self._session_db.get_next_title_in_lineage(base)
 
@@ -883,7 +955,8 @@ class CLICommandsMixin:
             self.agent.session_start = now
             self.agent.reset_session_state()
             if hasattr(self.agent, "_last_flushed_db_idx"):
-                self.agent._last_flushed_db_idx = len(self.conversation_history)
+                self.agent._last_flushed_db_idx = len(
+                    self.conversation_history)
             if hasattr(self.agent, "_todo_store"):
                 try:
                     from tools.todo_tool import TodoStore
@@ -909,7 +982,8 @@ class CLICommandsMixin:
             except Exception:
                 pass
 
-        msg_count = len([m for m in self.conversation_history if m.get("role") == "user"])
+        msg_count = len(
+            [m for m in self.conversation_history if m.get("role") == "user"])
         _cprint(
             f"  ⑂ Branched session \"{branch_title}\""
             f" ({msg_count} user message{'s' if msg_count != 1 else ''})"
@@ -920,8 +994,12 @@ class CLICommandsMixin:
     def _handle_gquota_command(self, cmd_original: str) -> None:
         """Show Google Gemini Code Assist quota usage for the current OAuth account."""
         try:
-            from agent.google_oauth import get_valid_access_token, GoogleOAuthError, load_credentials
-            from agent.google_code_assist import retrieve_user_quota, CodeAssistError
+            from agent.google_code_assist import CodeAssistError, retrieve_user_quota
+            from agent.google_oauth import (
+                GoogleOAuthError,
+                get_valid_access_token,
+                load_credentials,
+            )
         except ImportError as exc:
             self._console_print(f"  [red]Gemini modules unavailable: {exc}[/]")
             return
@@ -930,7 +1008,8 @@ class CLICommandsMixin:
             access_token = get_valid_access_token()
         except GoogleOAuthError as exc:
             self._console_print(f"  [yellow]{exc}[/]")
-            self._console_print("  Run [bold]/model[/] and pick 'Google Gemini (OAuth)' to sign in.")
+            self._console_print(
+                "  Run [bold]/model[/] and pick 'Google Gemini (OAuth)' to sign in.")
             return
 
         creds = load_credentials()
@@ -943,13 +1022,15 @@ class CLICommandsMixin:
             return
 
         if not buckets:
-            self._console_print("  [dim]No quota buckets reported (account may be on legacy/unmetered tier).[/]")
+            self._console_print(
+                "  [dim]No quota buckets reported (account may be on legacy/unmetered tier).[/]")
             return
 
         # Sort for stable display, group by model
         buckets.sort(key=lambda b: (b.model_id, b.token_type))
         self._console_print()
-        self._console_print(f"  [bold]Gemini Code Assist quota[/]  (project: {project_id or '(auto / free-tier)'})")
+        self._console_print(
+            f"  [bold]Gemini Code Assist quota[/]  (project: {project_id or '(auto / free-tier)'})")
         self._console_print()
         for b in buckets:
             pct = max(0.0, min(1.0, b.remaining_fraction))
@@ -967,11 +1048,11 @@ class CLICommandsMixin:
         """Handle the /personality command to set predefined personalities."""
         from cli import save_config_value
         parts = cmd.split(maxsplit=1)
-        
+
         if len(parts) > 1:
             # Set personality
             personality_name = parts[1].strip().lower()
-            
+
             if personality_name in {"none", "default", "neutral"}:
                 self.system_prompt = ""
                 self.agent = None  # Force re-init
@@ -981,16 +1062,24 @@ class CLICommandsMixin:
                     print("(^_^) Personality cleared (session only)")
                 print("  No personality overlay — using base agent behavior.")
             elif personality_name in self.personalities:
-                self.system_prompt = self._resolve_personality_prompt(self.personalities[personality_name])
+                self.system_prompt = self._resolve_personality_prompt(
+                    self.personalities[personality_name])
                 self.agent = None  # Force re-init
-                if save_config_value("agent.system_prompt", self.system_prompt):
-                    print(f"(^_^)b Personality set to '{personality_name}' (saved to config)")
+                if save_config_value("agent.system_prompt",
+                                     self.system_prompt):
+                    print(
+                        f"(^_^)b Personality set to '{personality_name}' (saved to config)")
                 else:
-                    print(f"(^_^) Personality set to '{personality_name}' (session only)")
-                print(f"  \"{self.system_prompt[:60]}{'...' if len(self.system_prompt) > 60 else ''}\"")
+                    print(
+                        f"(^_^) Personality set to '{personality_name}' (session only)")
+                print(
+                    f"  \"{self.system_prompt[:60]}{'...' if len(self.system_prompt) > 60 else ''}\"")
             else:
                 print(f"(._.) Unknown personality: {personality_name}")
-                print(f"  Available: none, {', '.join(self.personalities.keys())}")
+                print(
+                    f"  Available: none, {
+                        ', '.join(
+                            self.personalities.keys())}")
         else:
             # Show available personalities
             print()
@@ -1001,7 +1090,8 @@ class CLICommandsMixin:
             print(f"  {'none':<12} - (no personality overlay)")
             for name, prompt in self.personalities.items():
                 if isinstance(prompt, dict):
-                    preview = prompt.get("description") or prompt.get("system_prompt", "")[:50]
+                    preview = prompt.get("description") or prompt.get(
+                        "system_prompt", "")[:50]
                 else:
                     preview = str(prompt)[:50]
                 print(f"  {name:<12} - {preview}")
@@ -1011,8 +1101,9 @@ class CLICommandsMixin:
 
     def _handle_cron_command(self, cmd: str):
         """Handle the /cron command to manage scheduled tasks."""
-        from cli import get_job
         import shlex
+
+        from cli import get_job
         from tools.cronjob_tools import cronjob as cronjob_tool
 
         def _cron_api(**kwargs):
@@ -1092,7 +1183,8 @@ class CLICommandsMixin:
             print()
             print("  Commands:")
             print("    /cron list")
-            print('    /cron add "every 2h" "Check server status" [--skill blogwatcher]')
+            print(
+                '    /cron add "every 2h" "Check server status" [--skill blogwatcher]')
             print('    /cron edit <job_id> --schedule "every 4h" --prompt "New task"')
             print("    /cron edit <job_id> --skill blogwatcher --skill maps")
             print("    /cron edit <job_id> --remove-skill blogwatcher")
@@ -1109,7 +1201,8 @@ class CLICommandsMixin:
                 print("  " + "-" * 63)
                 for job in jobs:
                     repeat_str = job.get("repeat", "?")
-                    print(f"    {job['job_id'][:12]:<12} | {job['schedule']:<15} | {repeat_str:<8}")
+                    print(
+                        f"    {job['job_id'][:12]:<12} | {job['schedule']:<15} | {repeat_str:<8}")
                     if job.get("skills"):
                         print(f"      Skills: {', '.join(job['skills'])}")
                     print(f"      {job.get('prompt_preview', '')}")
@@ -1140,13 +1233,23 @@ class CLICommandsMixin:
                 print(f"  ID: {job['job_id']}")
                 print(f"  Name: {job['name']}")
                 print(f"  State: {job.get('state', '?')}")
-                print(f"  Schedule: {job['schedule']} ({job.get('repeat', '?')})")
+                print(
+                    f"  Schedule: {
+                        job['schedule']} ({
+                        job.get(
+                            'repeat',
+                            '?')})")
                 print(f"  Next run: {job.get('next_run_at', 'N/A')}")
                 if job.get("skills"):
                     print(f"  Skills: {', '.join(job['skills'])}")
                 print(f"  Prompt: {job.get('prompt_preview', '')}")
                 if job.get("last_run_at"):
-                    print(f"  Last run: {job['last_run_at']} ({job.get('last_status', '?')})")
+                    print(
+                        f"  Last run: {
+                            job['last_run_at']} ({
+                            job.get(
+                                'last_status',
+                                '?')})")
                 print()
             return
 
@@ -1183,7 +1286,8 @@ class CLICommandsMixin:
         if subcommand == "edit":
             positionals = opts["positionals"]
             if not positionals:
-                print("(._.) Usage: /cron edit <job_id> [--schedule ...] [--prompt ...] [--skill ...]")
+                print(
+                    "(._.) Usage: /cron edit <job_id> [--schedule ...] [--prompt ...] [--skill ...]")
                 return
             job_id = positionals[0]
             existing = get_job(job_id)
@@ -1195,13 +1299,17 @@ class CLICommandsMixin:
             replacement_skills = _normalize_skills(opts["skills"])
             add_skills = _normalize_skills(opts["add_skills"])
             remove_skills = set(_normalize_skills(opts["remove_skills"]))
-            existing_skills = list(existing.get("skills") or ([] if not existing.get("skill") else [existing.get("skill")]))
+            existing_skills = list(
+                existing.get("skills") or (
+                    [] if not existing.get("skill") else [
+                        existing.get("skill")]))
             if opts["clear_skills"]:
                 final_skills = []
             elif replacement_skills:
                 final_skills = replacement_skills
             elif add_skills or remove_skills:
-                final_skills = [skill for skill in existing_skills if skill not in remove_skills]
+                final_skills = [
+                    skill for skill in existing_skills if skill not in remove_skills]
                 for skill in add_skills:
                     if skill not in final_skills:
                         final_skills.append(skill)
@@ -1234,22 +1342,34 @@ class CLICommandsMixin:
                 print(f"(._.) Usage: /cron {subcommand} <job_id>")
                 return
             job_id = positionals[0]
-            action = "remove" if subcommand in {"remove", "rm", "delete"} else subcommand
-            result = _cron_api(action=action, job_id=job_id, reason="paused from /cron" if action == "pause" else None)
+            action = "remove" if subcommand in {
+                "remove", "rm", "delete"} else subcommand
+            result = _cron_api(
+                action=action,
+                job_id=job_id,
+                reason="paused from /cron" if action == "pause" else None)
             if not result.get("success"):
                 print(f"(x_x) Failed to {action} job: {result.get('error')}")
                 return
             if action == "pause":
                 print(f"(^_^)b Paused job: {result['job']['name']} ({job_id})")
             elif action == "resume":
-                print(f"(^_^)b Resumed job: {result['job']['name']} ({job_id})")
+                print(
+                    f"(^_^)b Resumed job: {
+                        result['job']['name']} ({job_id})")
                 print(f"  Next run: {result['job'].get('next_run_at')}")
             elif action == "run":
-                print(f"(^_^)b Triggered job: {result['job']['name']} ({job_id})")
+                print(
+                    f"(^_^)b Triggered job: {
+                        result['job']['name']} ({job_id})")
                 print("  It will run on the next scheduler tick.")
             else:
                 removed = result.get("removed_job", {})
-                print(f"(^_^)b Removed job: {removed.get('name', job_id)} ({job_id})")
+                print(
+                    f"(^_^)b Removed job: {
+                        removed.get(
+                            'name',
+                            job_id)} ({job_id})")
             return
 
         print(f"(._.) Unknown cron command: {subcommand}")
@@ -1311,12 +1431,23 @@ class CLICommandsMixin:
         When it completes, prints the result to the CLI without modifying
         the active session's conversation history.
         """
-        from cli import AIAgent, ChatConsole, _accent_hex, _cprint, _maybe_remap_for_light_mode, _render_final_assistant_content, set_approval_callback, set_secret_capture_callback, set_sudo_password_callback
+        from cli import (
+            AIAgent,
+            ChatConsole,
+            _accent_hex,
+            _cprint,
+            _maybe_remap_for_light_mode,
+            _render_final_assistant_content,
+            set_approval_callback,
+            set_secret_capture_callback,
+            set_sudo_password_callback,
+        )
         parts = cmd.strip().split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip():
             _cprint("  Usage: /background <prompt>")
             _cprint("  Example: /background Summarize the top HN stories today")
-            _cprint("  The task runs in a separate session and results display here when done.")
+            _cprint(
+                "  The task runs in a separate session and results display here when done.")
             return
 
         prompt = parts[1].strip()
@@ -1329,7 +1460,8 @@ class CLICommandsMixin:
             _cprint("  (>_<) Cannot start background task: no valid credentials.")
             return
 
-        _cprint(f"  🔄 Background task #{task_num} started: \"{prompt[:60]}{'...' if len(prompt) > 60 else ''}\"")
+        _cprint(
+            f"  🔄 Background task #{task_num} started: \"{prompt[:60]}{'...' if len(prompt) > 60 else ''}\"")
         _cprint(f"  Task ID: {task_id}")
         _cprint("  You can continue chatting — results will appear when done.\n")
 
@@ -1371,11 +1503,13 @@ class CLICommandsMixin:
                     openrouter_min_coding_score=self._openrouter_min_coding_score,
                     fallback_model=self._fallback_model,
                 )
-                # Silence raw spinner; route thinking through TUI widget when no foreground agent is active.
+                # Silence raw spinner; route thinking through TUI widget when
+                # no foreground agent is active.
                 bg_agent._print_fn = lambda *_a, **_kw: None
 
                 def _bg_thinking(text: str) -> None:
-                    # Concurrent bg tasks may race on _spinner_text; acceptable for best-effort UI.
+                    # Concurrent bg tasks may race on _spinner_text; acceptable
+                    # for best-effort UI.
                     if not self._agent_running:
                         self._spinner_text = text
                         if self._app:
@@ -1401,15 +1535,19 @@ class CLICommandsMixin:
                 print()
                 ChatConsole().print(f"[{_accent_hex()}]{'─' * 40}[/]")
                 _cprint(f"  ✅ Background task #{task_num} complete")
-                _cprint(f"  Prompt: \"{prompt[:60]}{'...' if len(prompt) > 60 else ''}\"")
+                _cprint(
+                    f"  Prompt: \"{prompt[:60]}{'...' if len(prompt) > 60 else ''}\"")
                 ChatConsole().print(f"[{_accent_hex()}]{'─' * 40}[/]")
                 if response:
                     try:
                         from nastech_cli.skin_engine import get_active_skin
                         _skin = get_active_skin()
-                        label = _skin.get_branding("response_label", "⚕ NasTech")
-                        _resp_color = _maybe_remap_for_light_mode(_skin.get_color("response_border", "#CD7F32"))
-                        _resp_text = _maybe_remap_for_light_mode(_skin.get_color("banner_text", "#FFF8DC"))
+                        label = _skin.get_branding(
+                            "response_label", "⚕ NasTech")
+                        _resp_color = _maybe_remap_for_light_mode(
+                            _skin.get_color("response_border", "#CD7F32"))
+                        _resp_text = _maybe_remap_for_light_mode(
+                            _skin.get_color("banner_text", "#FFF8DC"))
                     except Exception:
                         label = "⚕ NasTech"
                         _resp_color = "#CD7F32"
@@ -1417,7 +1555,8 @@ class CLICommandsMixin:
 
                     _chat_console = ChatConsole()
                     _chat_console.print(Panel(
-                        _render_final_assistant_content(response, mode=self.final_response_markdown),
+                        _render_final_assistant_content(
+                            response, mode=self.final_response_markdown),
                         title=f"[{_resp_color} bold]{label} (background #{task_num})[/]",
                         title_align="left",
                         border_style=_resp_color,
@@ -1455,7 +1594,10 @@ class CLICommandsMixin:
                 if self._app:
                     self._invalidate(min_interval=0)
 
-        thread = threading.Thread(target=run_background, daemon=True, name=f"bg-task-{task_id}")
+        thread = threading.Thread(
+            target=run_background,
+            daemon=True,
+            name=f"bg-task-{task_id}")
         self._background_tasks[task_id] = thread
         thread.start()
 
@@ -1466,9 +1608,9 @@ class CLICommandsMixin:
         CLI so users can discover what's available without dropping out
         of their session. Bundles are loaded via ``/<bundle-name>``.
         """
-        from cli import ChatConsole, _BOLD, _DIM, _RST, _accent_hex, _cprint
+        from cli import _BOLD, _DIM, _RST, ChatConsole, _accent_hex, _cprint
         try:
-            from agent.skill_bundles import list_bundles, _bundles_dir
+            from agent.skill_bundles import _bundles_dir, list_bundles
         except Exception as exc:
             _cprint(f"\033[1;31mBundle subsystem unavailable: {exc}{_RST}")
             return
@@ -1483,7 +1625,9 @@ class CLICommandsMixin:
             _cprint(f"  {_DIM}Directory: {_bundles_dir()}{_RST}")
             return
 
-        _cprint(f"\n  ▣ {_BOLD}Skill Bundles{_RST} ({len(bundles)} installed):")
+        _cprint(
+            f"\n  ▣ {_BOLD}Skill Bundles{_RST} ({
+                len(bundles)} installed):")
         for info in bundles:
             skill_count = len(info.get("skills", []))
             desc = info.get("description") or f"Load {skill_count} skills"
@@ -1509,20 +1653,27 @@ class CLICommandsMixin:
         current = os.environ.get("BROWSER_CDP_URL", "").strip()
 
         if sub.startswith("connect"):
-            # Optionally accept a custom CDP URL: /browser connect ws://host:port
-            connect_parts = cmd.strip().split(None, 2)  # ["/browser", "connect", "ws://..."]
-            cdp_url = connect_parts[2].strip() if len(connect_parts) > 2 else _DEFAULT_CDP
-            parsed_cdp = urlparse(cdp_url if "://" in cdp_url else f"http://{cdp_url}")
+            # Optionally accept a custom CDP URL: /browser connect
+            # ws://host:port
+            # ["/browser", "connect", "ws://..."]
+            connect_parts = cmd.strip().split(None, 2)
+            cdp_url = connect_parts[2].strip() if len(
+                connect_parts) > 2 else _DEFAULT_CDP
+            parsed_cdp = urlparse(
+                cdp_url if "://" in cdp_url else f"http://{cdp_url}")
             if parsed_cdp.scheme not in {"http", "https", "ws", "wss"}:
                 print()
                 print(
-                    f"   ⚠ Unsupported browser url scheme: {parsed_cdp.scheme or '(missing)'} "
+                    f"   ⚠ Unsupported browser url scheme: {
+                        parsed_cdp.scheme or '(missing)'} "
                     "(expected one of: http, https, ws, wss)"
                 )
                 print()
                 return
             try:
-                _port = parsed_cdp.port or (443 if parsed_cdp.scheme in {"https", "wss"} else 80)
+                _port = parsed_cdp.port or (
+                    443 if parsed_cdp.scheme in {
+                        "https", "wss"} else 80)
             except ValueError:
                 print()
                 print(f"   ⚠ Invalid port in browser url: {cdp_url}")
@@ -1544,7 +1695,8 @@ class CLICommandsMixin:
                     fragment="",
                 ).geturl()
 
-            # Clear any existing browser sessions so the next tool call uses the new backend
+            # Clear any existing browser sessions so the next tool call uses
+            # the new backend
             try:
                 from tools.browser_tool import cleanup_all_browsers
                 cleanup_all_browsers()
@@ -1553,15 +1705,20 @@ class CLICommandsMixin:
 
             print()
 
-            # Check if a Chromium-family browser is already serving CDP on the debug port
+            # Check if a Chromium-family browser is already serving CDP on the
+            # debug port
             _already_open = is_browser_debug_ready(cdp_url, timeout=1.0)
 
             if _already_open:
-                print(f"   ✓ Chromium-family browser is already listening on port {_port}")
+                print(
+                    f"   ✓ Chromium-family browser is already listening on port {_port}")
             elif cdp_url == _DEFAULT_CDP:
-                # Try to auto-launch a Chromium-family browser with remote debugging
-                print("   Chromium-family browser isn't running with remote debugging — attempting to launch...")
-                _launched = self._try_launch_chrome_debug(_port, _plat.system())
+                # Try to auto-launch a Chromium-family browser with remote
+                # debugging
+                print(
+                    "   Chromium-family browser isn't running with remote debugging — attempting to launch...")
+                _launched = self._try_launch_chrome_debug(
+                    _port, _plat.system())
                 if _launched:
                     # Wait for the DevTools discovery endpoint to come up
                     for _wait in range(10):
@@ -1570,25 +1727,31 @@ class CLICommandsMixin:
                             break
                         time.sleep(0.5)
                     if _already_open:
-                        print(f"   ✓ Chromium-family browser launched and listening on port {_port}")
+                        print(
+                            f"   ✓ Chromium-family browser launched and listening on port {_port}")
                     else:
-                        print(f"   ⚠ Browser launched but port {_port} isn't responding yet")
-                        print("     Try again in a few seconds — the debug instance may still be starting")
+                        print(
+                            f"   ⚠ Browser launched but port {_port} isn't responding yet")
+                        print(
+                            "     Try again in a few seconds — the debug instance may still be starting")
                 else:
                     print("   ⚠ Could not auto-launch a Chromium-family browser")
                     sys_name = _plat.system()
                     chrome_cmd = manual_chrome_debug_command(_port, sys_name)
                     if chrome_cmd:
-                        print(f"     Launch a Chromium-family browser manually:")
+                        print(
+                            f"     Launch a Chromium-family browser manually:")
                         print(f"     {chrome_cmd}")
                     else:
-                        print("     No supported Chromium-family browser executable found in this environment")
+                        print(
+                            "     No supported Chromium-family browser executable found in this environment")
             else:
                 print(f"   ⚠ Port {_port} is not reachable at {cdp_url}")
 
             if not _already_open:
                 print()
-                print("Browser not connected — start a Chromium-family browser with remote debugging and retry /browser connect")
+                print(
+                    "Browser not connected — start a Chromium-family browser with remote debugging and retry /browser connect")
                 print()
                 return
 
@@ -1596,7 +1759,8 @@ class CLICommandsMixin:
             # Eagerly start the CDP supervisor so pending_dialogs + frame_tree
             # show up in the next browser_snapshot.  No-op if already started.
             try:
-                from tools.browser_tool import _ensure_cdp_supervisor  # type: ignore[import-not-found]
+                # type: ignore[import-not-found]
+                from tools.browser_tool import _ensure_cdp_supervisor
                 _ensure_cdp_supervisor("default")
             except Exception:
                 pass
@@ -1624,14 +1788,18 @@ class CLICommandsMixin:
             if current:
                 os.environ.pop("BROWSER_CDP_URL", None)
                 try:
-                    from tools.browser_tool import cleanup_all_browsers, _stop_cdp_supervisor
+                    from tools.browser_tool import (
+                        _stop_cdp_supervisor,
+                        cleanup_all_browsers,
+                    )
                     _stop_cdp_supervisor("default")
                     cleanup_all_browsers()
                 except Exception:
                     pass
                 print()
                 print("🌐 Browser disconnected from live Chromium-family browser")
-                print("   Browser tools reverted to default mode (local headless or cloud provider)")
+                print(
+                    "   Browser tools reverted to default mode (local headless or cloud provider)")
                 print()
 
                 if hasattr(self, '_pending_input'):
@@ -1641,7 +1809,8 @@ class CLICommandsMixin:
                     )
             else:
                 print()
-                print("Browser is not connected to a live Chromium-family browser (already using default mode)")
+                print(
+                    "Browser is not connected to a live Chromium-family browser (already using default mode)")
                 print()
 
         elif sub == "status":
@@ -1681,15 +1850,20 @@ class CLICommandsMixin:
                     except Exception:
                         engine = "auto"
                     if engine == "lightpanda":
-                        print("🌐 Browser: local Lightpanda (agent-browser --engine lightpanda)")
-                        print("   ⚡ Lightpanda: faster navigation, no screenshot support")
-                        print("   Automatic Chromium fallback for screenshots and failed commands")
+                        print(
+                            "🌐 Browser: local Lightpanda (agent-browser --engine lightpanda)")
+                        print(
+                            "   ⚡ Lightpanda: faster navigation, no screenshot support")
+                        print(
+                            "   Automatic Chromium fallback for screenshots and failed commands")
                     elif engine == "chrome":
-                        print("🌐 Browser: local headless Chromium (agent-browser --engine chrome)")
+                        print(
+                            "🌐 Browser: local headless Chromium (agent-browser --engine chrome)")
                     else:
                         print("🌐 Browser: local headless Chromium (agent-browser)")
             print()
-            print("   /browser connect      — connect to your live Chromium-family browser")
+            print(
+                "   /browser connect      — connect to your live Chromium-family browser")
             print("   /browser disconnect   — revert to default")
             print()
 
@@ -1697,7 +1871,8 @@ class CLICommandsMixin:
             print()
             print("Usage: /browser connect|disconnect|status")
             print()
-            print("   connect      Connect browser tools to your live Chromium-family browser session")
+            print(
+                "   connect      Connect browser tools to your live Chromium-family browser session")
             print("   disconnect   Revert to default browser backend")
             print("   status       Show current browser mode")
             print()
@@ -1794,7 +1969,8 @@ class CLICommandsMixin:
             return
 
         if not mgr.has_goal():
-            _cprint(f"  {_DIM}No active goal. Set one with /goal <text>.{_RST}")
+            _cprint(
+                f"  {_DIM}No active goal. Set one with /goal <text>.{_RST}")
             return
 
         # No args → list current subgoals.
@@ -1831,7 +2007,9 @@ class CLICommandsMixin:
                 _cprint(f"  /subgoal clear: {exc}")
                 return
             if prev:
-                _cprint(f"  ✓ Cleared {prev} subgoal{'s' if prev != 1 else ''}.")
+                _cprint(
+                    f"  ✓ Cleared {prev} subgoal{
+                        's' if prev != 1 else ''}.")
             else:
                 _cprint(f"  {_DIM}No subgoals to clear.{_RST}")
             return
@@ -1849,7 +2027,11 @@ class CLICommandsMixin:
         """Handle /skin [name] — show or change the display skin."""
         from cli import _ACCENT, save_config_value
         try:
-            from nastech_cli.skin_engine import list_skins, set_active_skin, get_active_skin_name
+            from nastech_cli.skin_engine import (
+                get_active_skin_name,
+                list_skins,
+                set_active_skin,
+            )
         except ImportError:
             print("Skin engine not available.")
             return
@@ -1866,7 +2048,9 @@ class CLICommandsMixin:
                 source = f" ({s['source']})" if s["source"] == "user" else ""
                 print(f"   {marker} {s['name']}{source} — {s['description']}")
             print("\n  Usage: /skin <name>")
-            print(f"  Custom skins: drop a YAML file in {display_nastech_home()}/skins/\n")
+            print(
+                f"  Custom skins: drop a YAML file in {
+                    display_nastech_home()}/skins/\n")
             return
 
         new_skin = parts[1].strip().lower()
@@ -1897,8 +2081,8 @@ class CLICommandsMixin:
             /footer status    → show current state
         """
         from cli import _cprint, save_config_value
-        from nastech_cli.config import load_config
         from nastech_cli.colors import Colors as _Colors
+        from nastech_cli.config import load_config
 
         # Parse arg
         arg = ""
@@ -1950,7 +2134,14 @@ class CLICommandsMixin:
             /reasoning show|on      Show model thinking/reasoning in output
             /reasoning hide|off     Hide model thinking/reasoning from output
         """
-        from cli import _ACCENT, _DIM, _RST, _cprint, _parse_reasoning_config, save_config_value
+        from cli import (
+            _ACCENT,
+            _DIM,
+            _RST,
+            _cprint,
+            _parse_reasoning_config,
+            save_config_value,
+        )
         parts = cmd.strip().split(maxsplit=1)
 
         if len(parts) < 2:
@@ -1965,7 +2156,8 @@ class CLICommandsMixin:
             display_state = "on ✓" if self.show_reasoning else "off"
             _cprint(f"  {_ACCENT}Reasoning effort:  {level}{_RST}")
             _cprint(f"  {_ACCENT}Reasoning display: {display_state}{_RST}")
-            _cprint(f"  {_DIM}Usage: /reasoning <none|minimal|low|medium|high|xhigh|show|hide>{_RST}")
+            _cprint(
+                f"  {_DIM}Usage: /reasoning <none|minimal|low|medium|high|xhigh|show|hide>{_RST}")
             return
 
         arg = parts[1].strip().lower()
@@ -1977,7 +2169,8 @@ class CLICommandsMixin:
                 self.agent.reasoning_callback = self._current_reasoning_callback()
             save_config_value("display.show_reasoning", True)
             _cprint(f"  {_ACCENT}✓ Reasoning display: ON (saved){_RST}")
-            _cprint(f"  {_DIM}  Model thinking will be shown during and after each response.{_RST}")
+            _cprint(
+                f"  {_DIM}  Model thinking will be shown during and after each response.{_RST}")
             return
         if arg in {"hide", "off"}:
             self.show_reasoning = False
@@ -1991,7 +2184,8 @@ class CLICommandsMixin:
         parsed = _parse_reasoning_config(arg)
         if parsed is None:
             _cprint(f"  {_DIM}(._.) Unknown argument: {arg}{_RST}")
-            _cprint(f"  {_DIM}Valid levels: none, minimal, low, medium, high, xhigh{_RST}")
+            _cprint(
+                f"  {_DIM}Valid levels: none, minimal, low, medium, high, xhigh{_RST}")
             _cprint(f"  {_DIM}Display:      show, hide{_RST}")
             return
 
@@ -1999,9 +2193,11 @@ class CLICommandsMixin:
         self.agent = None  # Force agent re-init with new reasoning config
 
         if save_config_value("agent.reasoning_effort", arg):
-            _cprint(f"  {_ACCENT}✓ Reasoning effort set to '{arg}' (saved to config){_RST}")
+            _cprint(
+                f"  {_ACCENT}✓ Reasoning effort set to '{arg}' (saved to config){_RST}")
         else:
-            _cprint(f"  {_ACCENT}✓ Reasoning effort set to '{arg}' (session only){_RST}")
+            _cprint(
+                f"  {_ACCENT}✓ Reasoning effort set to '{arg}' (session only){_RST}")
 
     def _handle_busy_command(self, cmd: str):
         """Handle /busy — control what Enter does while NasTech is working.
@@ -2016,7 +2212,9 @@ class CLICommandsMixin:
         from cli import _ACCENT, _DIM, _RST, _cprint, save_config_value
         parts = cmd.strip().split(maxsplit=1)
         if len(parts) < 2 or parts[1].strip().lower() == "status":
-            _cprint(f"  {_ACCENT}Busy input mode: {self.busy_input_mode}{_RST}")
+            _cprint(
+                f"  {_ACCENT}Busy input mode: {
+                    self.busy_input_mode}{_RST}")
             if self.busy_input_mode == "queue":
                 _behavior = "queues for next turn"
             elif self.busy_input_mode == "steer":
@@ -2024,13 +2222,15 @@ class CLICommandsMixin:
             else:
                 _behavior = "interrupts current run"
             _cprint(f"  {_DIM}Enter while busy: {_behavior}{_RST}")
-            _cprint(f"  {_DIM}Usage: /busy [queue|steer|interrupt|status]{_RST}")
+            _cprint(
+                f"  {_DIM}Usage: /busy [queue|steer|interrupt|status]{_RST}")
             return
 
         arg = parts[1].strip().lower()
         if arg not in {"queue", "interrupt", "steer"}:
             _cprint(f"  {_DIM}(._.) Unknown argument: {arg}{_RST}")
-            _cprint(f"  {_DIM}Usage: /busy [queue|steer|interrupt|status]{_RST}")
+            _cprint(
+                f"  {_DIM}Usage: /busy [queue|steer|interrupt|status]{_RST}")
             return
 
         self.busy_input_mode = arg
@@ -2041,10 +2241,12 @@ class CLICommandsMixin:
                 behavior = "Enter will steer your message into the current run (after the next tool call)."
             else:
                 behavior = "Enter will interrupt the current run while NasTech is busy."
-            _cprint(f"  {_ACCENT}✓ Busy input mode set to '{arg}' (saved to config){_RST}")
+            _cprint(
+                f"  {_ACCENT}✓ Busy input mode set to '{arg}' (saved to config){_RST}")
             _cprint(f"  {_DIM}{behavior}{_RST}")
         else:
-            _cprint(f"  {_ACCENT}✓ Busy input mode set to '{arg}' (session only){_RST}")
+            _cprint(
+                f"  {_ACCENT}✓ Busy input mode set to '{arg}' (session only){_RST}")
 
     def _handle_fast_command(self, cmd: str):
         """Handle /fast — toggle fast mode (OpenAI Priority Processing / Anthropic Fast Mode)."""
@@ -2057,8 +2259,15 @@ class CLICommandsMixin:
         try:
             from nastech_cli.models import _is_anthropic_fast_model
             agent = getattr(self, "agent", None)
-            model = getattr(agent, "model", None) or getattr(self, "model", None)
-            feature_name = "Anthropic Fast Mode" if _is_anthropic_fast_model(model) else "Priority Processing"
+            model = getattr(
+                agent,
+                "model",
+                None) or getattr(
+                self,
+                "model",
+                None)
+            feature_name = "Anthropic Fast Mode" if _is_anthropic_fast_model(
+                model) else "Priority Processing"
         except Exception:
             feature_name = "Fast mode"
 
@@ -2086,14 +2295,17 @@ class CLICommandsMixin:
 
         self.agent = None  # Force agent re-init with new service-tier config
         if save_config_value("agent.service_tier", saved_value):
-            _cprint(f"  {_ACCENT}✓ {feature_name} set to {label} (saved to config){_RST}")
+            _cprint(
+                f"  {_ACCENT}✓ {feature_name} set to {label} (saved to config){_RST}")
         else:
-            _cprint(f"  {_ACCENT}✓ {feature_name} set to {label} (session only){_RST}")
+            _cprint(
+                f"  {_ACCENT}✓ {feature_name} set to {label} (session only){_RST}")
 
     def _handle_debug_command(self):
         """Handle /debug — upload debug report + logs and print paste URLs."""
-        from nastech_cli.debug import run_debug_share
         from types import SimpleNamespace
+
+        from nastech_cli.debug import run_debug_share
 
         args = SimpleNamespace(lines=200, expire=7, local=False)
         run_debug_share(args)
@@ -2110,7 +2322,7 @@ class CLICommandsMixin:
         prompt_toolkit cleans up terminal modes).  Returns ``False`` / falsy
         when cancelled.
         """
-        from nastech_cli.config import is_managed, format_managed_message
+        from nastech_cli.config import format_managed_message, is_managed
 
         if is_managed():
             print(f"  ✗ {format_managed_message('update NasTech Agent')}")

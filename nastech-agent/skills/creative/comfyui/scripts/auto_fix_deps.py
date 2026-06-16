@@ -31,11 +31,15 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import unwrap_workflow  # noqa: E402
 from _common import (  # noqa: E402
-    DEFAULT_LOCAL_HOST, ENV_API_KEY, emit_json, log, resolve_api_key,
+    DEFAULT_LOCAL_HOST,
+    ENV_API_KEY,
+    emit_json,
+    log,
+    resolve_api_key,
 )
 from check_deps import check_deps  # noqa: E402
-from _common import unwrap_workflow  # noqa: E402
 
 
 def comfy_cli_available() -> str | None:
@@ -56,7 +60,8 @@ def run_cmd(cmd: list[str], *, dry_run: bool = False) -> tuple[int, str]:
     return proc.returncode, out
 
 
-def install_node(package: str, *, dry_run: bool = False, comfy_cmd: str = "comfy") -> bool:
+def install_node(package: str, *, dry_run: bool = False,
+                 comfy_cmd: str = "comfy") -> bool:
     cmd = comfy_cmd.split() + ["--skip-prompt", "node", "install", package]
     code, _ = run_cmd(cmd, dry_run=dry_run)
     return code == 0
@@ -81,7 +86,8 @@ def install_model(url: str, folder: str, filename: str | None = None,
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Run check_deps and install whatever is missing")
+    p = argparse.ArgumentParser(
+        description="Run check_deps and install whatever is missing")
     p.add_argument("workflow")
     p.add_argument("--host", default=DEFAULT_LOCAL_HOST)
     p.add_argument("--api-key", help=f"or set ${ENV_API_KEY}")
@@ -143,7 +149,10 @@ def main(argv: list[str] | None = None) -> int:
             if package in seen_packages:
                 continue
             seen_packages.add(package)
-            ok = install_node(package, dry_run=args.dry_run, comfy_cmd=comfy_cmd)
+            ok = install_node(
+                package,
+                dry_run=args.dry_run,
+                comfy_cmd=comfy_cmd)
             (actions if ok else failures).append({
                 "kind": "node", "package": package, "node_class": entry["class_type"],
                 "ok": ok,

@@ -19,7 +19,8 @@ class BedrockTransport(ProviderTransport):
     def api_mode(self) -> str:
         return "bedrock_converse"
 
-    def convert_messages(self, messages: List[Dict[str, Any]], **kwargs) -> Any:
+    def convert_messages(
+            self, messages: List[Dict[str, Any]], **kwargs) -> Any:
         """Convert OpenAI messages to Bedrock Converse format."""
         from agent.bedrock_adapter import convert_messages_to_converse
         return convert_messages_to_converse(messages)
@@ -64,7 +65,8 @@ class BedrockTransport(ProviderTransport):
         kwargs["__bedrock_region__"] = region
         return kwargs
 
-    def normalize_response(self, response: Any, **kwargs) -> NormalizedResponse:
+    def normalize_response(self, response: Any, **
+                           kwargs) -> NormalizedResponse:
         """Normalize Bedrock response to NormalizedResponse.
 
         Handles two shapes:
@@ -105,7 +107,9 @@ class BedrockTransport(ProviderTransport):
                 total_tokens=getattr(u, "total_tokens", 0) or 0,
             )
 
-        reasoning = getattr(msg, "reasoning", None) or getattr(msg, "reasoning_content", None)
+        reasoning = getattr(
+            msg, "reasoning", None) or getattr(
+            msg, "reasoning_content", None)
 
         return NormalizedResponse(
             content=msg.content,

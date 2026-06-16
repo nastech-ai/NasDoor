@@ -25,22 +25,22 @@ import re
 from dataclasses import dataclass
 from typing import List, NamedTuple, Optional
 
-from nastech_cli.providers import (
-    custom_provider_slug,
-    determine_api_mode,
-    get_label,
-    is_aggregator,
-    resolve_provider_full,
-)
-from nastech_cli.model_normalize import (
-    normalize_model_for_provider,
-)
 from agent.models_dev import (
     ModelCapabilities,
     ModelInfo,
     get_model_capabilities,
     get_model_info,
     list_provider_models,
+)
+from nastech_cli.model_normalize import (
+    normalize_model_for_provider,
+)
+from nastech_cli.providers import (
+    custom_provider_slug,
+    determine_api_mode,
+    get_label,
+    is_aggregator,
+    resolve_provider_full,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,53 +104,53 @@ class ModelIdentity(NamedTuple):
 
 MODEL_ALIASES: dict[str, ModelIdentity] = {
     # Anthropic
-    "sonnet":    ModelIdentity("anthropic", "claude-sonnet"),
-    "opus":      ModelIdentity("anthropic", "claude-opus"),
-    "haiku":     ModelIdentity("anthropic", "claude-haiku"),
-    "claude":    ModelIdentity("anthropic", "claude"),
+    "sonnet": ModelIdentity("anthropic", "claude-sonnet"),
+    "opus": ModelIdentity("anthropic", "claude-opus"),
+    "haiku": ModelIdentity("anthropic", "claude-haiku"),
+    "claude": ModelIdentity("anthropic", "claude"),
 
     # OpenAI
-    "gpt5":      ModelIdentity("openai", "gpt-5"),
-    "gpt":       ModelIdentity("openai", "gpt"),
-    "codex":     ModelIdentity("openai", "codex"),
-    "o3":        ModelIdentity("openai", "o3"),
-    "o4":        ModelIdentity("openai", "o4"),
+    "gpt5": ModelIdentity("openai", "gpt-5"),
+    "gpt": ModelIdentity("openai", "gpt"),
+    "codex": ModelIdentity("openai", "codex"),
+    "o3": ModelIdentity("openai", "o3"),
+    "o4": ModelIdentity("openai", "o4"),
 
     # Google
-    "gemini":    ModelIdentity("google", "gemini"),
+    "gemini": ModelIdentity("google", "gemini"),
 
     # DeepSeek
-    "deepseek":  ModelIdentity("deepseek", "deepseek-chat"),
+    "deepseek": ModelIdentity("deepseek", "deepseek-chat"),
 
     # X.AI
-    "grok":      ModelIdentity("x-ai", "grok"),
+    "grok": ModelIdentity("x-ai", "grok"),
 
     # Meta
-    "llama":     ModelIdentity("meta-llama", "llama"),
+    "llama": ModelIdentity("meta-llama", "llama"),
 
     # Qwen / Alibaba
-    "qwen":      ModelIdentity("qwen", "qwen"),
+    "qwen": ModelIdentity("qwen", "qwen"),
 
     # MiniMax
-    "minimax":   ModelIdentity("minimax", "minimax"),
+    "minimax": ModelIdentity("minimax", "minimax"),
 
     # Nvidia
-    "nemotron":  ModelIdentity("nvidia", "nemotron"),
+    "nemotron": ModelIdentity("nvidia", "nemotron"),
 
     # Moonshot / Kimi
-    "kimi":      ModelIdentity("moonshotai", "kimi"),
+    "kimi": ModelIdentity("moonshotai", "kimi"),
 
     # Z.AI / GLM
-    "glm":       ModelIdentity("z-ai", "glm"),
+    "glm": ModelIdentity("z-ai", "glm"),
 
     # Step Plan (StepFun)
-    "step":      ModelIdentity("stepfun", "step"),
+    "step": ModelIdentity("stepfun", "step"),
 
     # Xiaomi
-    "mimo":      ModelIdentity("xiaomi", "mimo"),
+    "mimo": ModelIdentity("xiaomi", "mimo"),
 
     # Arcee
-    "trinity":   ModelIdentity("arcee-ai", "trinity"),
+    "trinity": ModelIdentity("arcee-ai", "trinity"),
 }
 
 
@@ -281,6 +281,7 @@ class ModelSwitchResult:
 # Flag parsing
 # ---------------------------------------------------------------------------
 
+
 def parse_model_flags(raw_args: str) -> tuple[str, str, bool, bool]:
     """Parse --provider, --global, and --refresh flags from /model command args.
 
@@ -302,7 +303,10 @@ def parse_model_flags(raw_args: str) -> tuple[str, str, bool, bool]:
     # Normalize Unicode dashes (Telegram/iOS auto-converts -- to em/en dash)
     # A single Unicode dash before a flag keyword becomes "--"
     import re as _re
-    raw_args = _re.sub(r'[\u2012\u2013\u2014\u2015](provider|global|refresh)', r'--\1', raw_args)
+    raw_args = _re.sub(
+        r'[\u2012\u2013\u2014\u2015](provider|global|refresh)',
+        r'--\1',
+        raw_args)
 
     # Extract --global
     if "--global" in raw_args:
@@ -657,8 +661,8 @@ def switch_model(
     from nastech_cli.models import (
         copilot_model_api_mode,
         detect_provider_for_model,
-        validate_requested_model,
         opencode_model_api_mode,
+        validate_requested_model,
     )
     from nastech_cli.runtime_provider import resolve_runtime_provider
 
@@ -682,7 +686,8 @@ def switch_model(
                 f"Check 'nastech model' for available providers, or define it "
                 f"in config.yaml under 'providers:'."
             )
-            # Check for common config issues that cause provider resolution failures
+            # Check for common config issues that cause provider resolution
+            # failures
             try:
                 from nastech_cli.config import validate_config_structure
                 _cfg_issues = validate_config_structure()
@@ -756,7 +761,9 @@ def switch_model(
                         provider_label=pdef.name,
                         is_global=is_global,
                         error_message=(
-                            f"No model detected on {pdef.name} ({pdef.base_url}). "
+                            f"No model detected on {
+                                pdef.name} ({
+                                pdef.base_url}). "
                             f"Specify the model explicitly: /model <model-name> --provider {explicit_provider}"
                         ),
                     )
@@ -823,7 +830,8 @@ def switch_model(
                 # is already in vendor/model format and the colon is a variant
                 # tag (:free, :extended, :fast) that must be preserved.
                 colon_pos = raw_input.find(":")
-                if colon_pos > 0 and "/" not in raw_input and is_aggregator(current_provider):
+                if colon_pos > 0 and "/" not in raw_input and is_aggregator(
+                        current_provider):
                     left = raw_input[:colon_pos].strip().lower()
                     right = raw_input[colon_pos + 1:].strip()
                     if left and right:
@@ -897,6 +905,7 @@ def switch_model(
 
     if provider_changed or explicit_provider:
         import os
+
         # User-config providers (providers.<name> in config.yaml) carry their
         # own base_url + transport + key reference. resolve_runtime_provider()
         # resolves by provider NAME and doesn't know user-config slugs (e.g. a
@@ -905,7 +914,9 @@ def switch_model(
         _user_pdef = None
         if explicit_provider and user_providers:
             from nastech_cli.providers import resolve_user_provider as _ruser
-            _user_pdef = _ruser(explicit_provider.strip().lower(), user_providers)
+            _user_pdef = _ruser(
+                explicit_provider.strip().lower(),
+                user_providers)
             if _user_pdef is None:
                 _user_pdef = _ruser(target_provider, user_providers)
         if _user_pdef is not None and _user_pdef.base_url:
@@ -999,7 +1010,8 @@ def switch_model(
         }
 
     # Override rejection if model is in the user's saved provider config.
-    # API /v1/models may not list cloud/aliased models even though the server supports them.
+    # API /v1/models may not list cloud/aliased models even though the server
+    # supports them.
     if not validation.get("accepted"):
         override = False
         if user_providers:
@@ -1007,18 +1019,22 @@ def switch_model(
             for slug, cfg in user_providers.items():
                 if slug == target_provider:
                     cfg_models = cfg.get("models", {})
-                    # Direct membership works for dict (keys) and list (strings)
+                    # Direct membership works for dict (keys) and list
+                    # (strings)
                     if new_model in cfg_models:
                         override = True
                         break
-                    # Also accept if models is a list of dicts with 'name' field
+                    # Also accept if models is a list of dicts with 'name'
+                    # field
                     if isinstance(cfg_models, list):
-                        if any(m.get("name") == new_model for m in cfg_models if isinstance(m, dict)):
+                        if any(
+                                m.get("name") == new_model for m in cfg_models if isinstance(m, dict)):
                             override = True
                             break
         # Also check custom_providers list — models declared there should be accepted
         # even if the remote /v1/models endpoint doesn't list them.
-        if not override and custom_providers and isinstance(custom_providers, list):
+        if not override and custom_providers and isinstance(
+                custom_providers, list):
             for entry in custom_providers:
                 if not isinstance(entry, dict):
                     continue
@@ -1033,11 +1049,18 @@ def switch_model(
                     if new_model == entry_model:
                         override = True
                         break
-                    if isinstance(entry_models, dict) and new_model in entry_models:
+                    if isinstance(entry_models,
+                                  dict) and new_model in entry_models:
                         override = True
                         break
         if override:
-            validation = {"accepted": True, "persist": True, "recognized": False, "message": validation.get("message", "")}
+            validation = {
+                "accepted": True,
+                "persist": True,
+                "recognized": False,
+                "message": validation.get(
+                    "message",
+                    "")}
         else:
             msg = validation.get("message", "Invalid model")
             return ModelSwitchResult(
@@ -1072,7 +1095,8 @@ def switch_model(
     # Mirrors the same logic in nastech_cli.runtime_provider.resolve_runtime_provider;
     # without it, /model switches into an anthropic_messages-routed OpenCode
     # model (e.g. `/model minimax-m2.7` on opencode-go, `/model claude-sonnet-4-6`
-    # on opencode-zen) hit a double /v1 and returned OpenCode's website 404 page.
+    # on opencode-zen) hit a double /v1 and returned OpenCode's website 404
+    # page.
     if (
         api_mode == "anthropic_messages"
         and target_provider in {"opencode-zen", "opencode-go"}
@@ -1168,7 +1192,10 @@ def prewarm_picker_cache_async() -> Optional["_threading.Thread"]:
             # Best-effort warmup — never surface errors into the session.
             logger.debug("picker cache prewarm failed", exc_info=True)
 
-    t = _threading.Thread(target=_warm, daemon=True, name="picker-cache-prewarm")
+    t = _threading.Thread(
+        target=_warm,
+        daemon=True,
+        name="picker-cache-prewarm")
     t.start()
     return t
 
@@ -1204,21 +1231,26 @@ def list_authenticated_providers(
     not block on fresh Portal/account checks every time.
     """
     import os
+
     from agent.models_dev import (
         PROVIDER_TO_MODELS_DEV,
         fetch_models_dev,
-        get_provider_info as _mdev_pinfo,
     )
+    from agent.models_dev import get_provider_info as _mdev_pinfo
     from nastech_cli.auth import PROVIDER_REGISTRY
     from nastech_cli.models import (
-        OPENROUTER_MODELS, _PROVIDER_MODELS,
-        _MODELS_DEV_PREFERRED, _merge_with_models_dev, cached_provider_model_ids,
+        _MODELS_DEV_PREFERRED,
+        _PROVIDER_MODELS,
+        OPENROUTER_MODELS,
+        _merge_with_models_dev,
+        cached_provider_model_ids,
         get_curated_nastech_model_ids,
     )
 
     results: List[dict] = []
     seen_slugs: set = set()  # lowercase-normalized to catch case variants (#9545)
-    seen_mdev_ids: set = set()  # prevent duplicate entries for aliases (e.g. kimi-coding + kimi-coding-cn)
+    # prevent duplicate entries for aliases (e.g. kimi-coding + kimi-coding-cn)
+    seen_mdev_ids: set = set()
     # Effective base URLs of every built-in row we emit (normalized lower+rstrip).
     # Section 4 uses this to hide ``custom_providers`` entries that point at the
     # same endpoint as a built-in (e.g. a user-defined "my-dashscope" on
@@ -1310,12 +1342,14 @@ def list_authenticated_providers(
     # Base URL precedence: LM_BASE_URL env var > active config's base_url
     # (when current provider is lmstudio) > 127.0.0.1 default.
     # On auth rejection or unreachable server, fall back to the caller-supplied
-    # current model so the picker still shows something when offline / mis-keyed.
+    # current model so the picker still shows something when offline /
+    # mis-keyed.
     if "lmstudio" not in curated and (
-        os.environ.get("LM_API_KEY") or os.environ.get("LM_BASE_URL") or current_provider.strip().lower() == "lmstudio"
+        os.environ.get("LM_API_KEY") or os.environ.get(
+            "LM_BASE_URL") or current_provider.strip().lower() == "lmstudio"
     ):
-        from nastech_cli.models import fetch_lmstudio_models
         from nastech_cli.auth import AuthError
+        from nastech_cli.models import fetch_lmstudio_models
         is_current_lmstudio = current_provider.strip().lower() == "lmstudio"
         lm_base = (
             os.environ.get("LM_BASE_URL")
@@ -1326,7 +1360,7 @@ def list_authenticated_providers(
             live = fetch_lmstudio_models(
                 api_key=os.environ.get("LM_API_KEY", ""),
                 base_url=lm_base,
-                timeout=1.5, # Smaller timeout for picker
+                timeout=1.5,  # Smaller timeout for picker
             )
         except AuthError:
             live = []
@@ -1420,8 +1454,8 @@ def list_authenticated_providers(
         _record_builtin_endpoint(slug)
 
     # --- 2. Check NasTech-only providers (nous, openai-codex, copilot, opencode-go) ---
-    from nastech_cli.providers import NASTECH_OVERLAYS
     from nastech_cli.auth import PROVIDER_REGISTRY as _auth_registry
+    from nastech_cli.providers import NASTECH_OVERLAYS
 
     # Build reverse mapping: models.dev ID → NasTech provider ID.
     # NASTECH_OVERLAYS keys may be models.dev IDs (e.g. "github-copilot")
@@ -1442,8 +1476,10 @@ def list_authenticated_providers(
         if overlay.auth_type == "aws_sdk":
             has_creds = _has_aws_sdk_creds_for_listing(nastech_slug)
         elif overlay.extra_env_vars:
-            has_creds = any(os.environ.get(ev) for ev in overlay.extra_env_vars)
-        # Also check api_key_env_vars from PROVIDER_REGISTRY for api_key auth_type
+            has_creds = any(os.environ.get(ev)
+                            for ev in overlay.extra_env_vars)
+        # Also check api_key_env_vars from PROVIDER_REGISTRY for api_key
+        # auth_type
         if not has_creds and overlay.auth_type == "api_key":
             for _key in (pid, nastech_slug):
                 pcfg = _auth_registry.get(_key)
@@ -1460,7 +1496,8 @@ def list_authenticated_providers(
                 from nastech_cli.auth import _load_auth_store
                 store = _load_auth_store()
                 providers_store = store.get("providers", {})
-                if store and (pid in providers_store or nastech_slug in providers_store):
+                if store and (
+                        pid in providers_store or nastech_slug in providers_store):
                     has_creds = True
             except Exception as exc:
                 logger.debug("Auth store check failed for %s: %s", pid, exc)
@@ -1475,7 +1512,10 @@ def list_authenticated_providers(
                 if pool.has_credentials():
                     has_creds = True
             except Exception as exc:
-                logger.debug("Credential pool check failed for %s: %s", nastech_slug, exc)
+                logger.debug(
+                    "Credential pool check failed for %s: %s",
+                    nastech_slug,
+                    exc)
         # Fallback: check external credential files directly.
         # The credential pool gates anthropic behind
         # is_provider_explicitly_configured() to prevent auxiliary tasks
@@ -1513,9 +1553,16 @@ def list_authenticated_providers(
         elif overlay.auth_type == "aws_sdk":
             try:
                 _ids = cached_provider_model_ids(nastech_slug)
-                model_ids = _ids if _ids else (curated.get(nastech_slug, []) or curated.get(pid, []))
+                model_ids = _ids if _ids else (
+                    curated.get(
+                        nastech_slug,
+                        []) or curated.get(
+                        pid,
+                        []))
             except Exception:
-                model_ids = curated.get(nastech_slug, []) or curated.get(pid, [])
+                model_ids = curated.get(
+                    nastech_slug, []) or curated.get(
+                    pid, [])
         elif nastech_slug == "nous":
             # Nous serves a large live /v1/models catalog (vendor-prefixed
             # models from many providers, returned alphabetically). The
@@ -1529,13 +1576,17 @@ def list_authenticated_providers(
             # recommendations (e.g. stepfun/step-3.7-flash:free).
             model_ids = curated.get("nous", [])
             try:
+                from nastech_cli.auth import get_provider_auth_state as _nastech_state
+                from nastech_cli.models import check_nastech_free_tier as _nastech_free
                 from nastech_cli.models import (
                     get_pricing_for_provider as _nastech_pricing,
-                    check_nastech_free_tier as _nastech_free,
+                )
+                from nastech_cli.models import (
                     union_with_portal_free_recommendations as _union_free,
+                )
+                from nastech_cli.models import (
                     union_with_portal_paid_recommendations as _union_paid,
                 )
-                from nastech_cli.auth import get_provider_auth_state as _nastech_state
 
                 _pricing = _nastech_pricing("nous") or {}
                 _portal = ""
@@ -1559,7 +1610,9 @@ def list_authenticated_providers(
             # when the live fetcher comes up empty.
             model_ids = cached_provider_model_ids(nastech_slug)
             if not model_ids:
-                model_ids = curated.get(nastech_slug, []) or curated.get(pid, [])
+                model_ids = curated.get(
+                    nastech_slug, []) or curated.get(
+                    pid, [])
                 if nastech_slug in _MODELS_DEV_PREFERRED:
                     model_ids = _merge_with_models_dev(nastech_slug, model_ids)
         total = len(model_ids)
@@ -1595,7 +1648,8 @@ def list_authenticated_providers(
         _cp_config = _auth_registry.get(_cp.slug)
         _cp_has_creds = False
         if _cp_config and _cp_config.api_key_env_vars:
-            _cp_has_creds = any(os.environ.get(ev) for ev in _cp_config.api_key_env_vars)
+            _cp_has_creds = any(os.environ.get(ev)
+                                for ev in _cp_config.api_key_env_vars)
         # Also check auth store and credential pool
         if not _cp_has_creds:
             try:
@@ -1618,7 +1672,8 @@ def list_authenticated_providers(
         # Special case: aws_sdk auth (bedrock) — no API key env vars,
         # credentials come from the boto3 credential chain (env vars,
         # ~/.aws/credentials, instance roles, etc.)
-        if not _cp_has_creds and _cp_config and getattr(_cp_config, "auth_type", "") == "aws_sdk":
+        if not _cp_has_creds and _cp_config and getattr(
+                _cp_config, "auth_type", "") == "aws_sdk":
             _cp_has_creds = _has_aws_sdk_creds_for_listing(_cp.slug)
 
         if not _cp_has_creds:
@@ -1680,7 +1735,9 @@ def list_authenticated_providers(
             )
             # ``default_model`` is the legacy key; ``model`` matches what
             # custom_providers entries use, so accept either.
-            default_model = ep_cfg.get("default_model", "") or ep_cfg.get("model", "")
+            default_model = ep_cfg.get(
+                "default_model", "") or ep_cfg.get(
+                "model", "")
 
             # Build models list from both default_model and full models array
             models_list = []
@@ -1716,7 +1773,8 @@ def list_authenticated_providers(
             api_key = str(ep_cfg.get("api_key", "") or "").strip()
             if not api_key:
                 key_env = str(ep_cfg.get("key_env", "") or "").strip()
-                api_key = os.environ.get(key_env, "").strip() if key_env else ""
+                api_key = os.environ.get(
+                    key_env, "").strip() if key_env else ""
             discover = ep_cfg.get("discover_models", True)
             if isinstance(discover, str):
                 discover = discover.lower() not in {"false", "no", "0"}
@@ -1852,7 +1910,8 @@ def list_authenticated_providers(
                         groups[group_key]["models"].append(m)
 
         _section4_emitted_slugs: set = set()
-        _current_base_url_norm = str(current_base_url or "").strip().rstrip("/").lower()
+        _current_base_url_norm = str(
+            current_base_url or "").strip().rstrip("/").lower()
         _current_base_url_group_count = sum(
             1
             for _grp in groups.values()
@@ -2015,7 +2074,9 @@ def list_picker_providers(
             p["total_models"] = len(live_ids)
 
         has_models = bool(p.get("models"))
-        is_custom_endpoint = bool(p.get("is_user_defined")) and bool(p.get("api_url"))
+        is_custom_endpoint = bool(
+            p.get("is_user_defined")) and bool(
+            p.get("api_url"))
         if not has_models and not is_custom_endpoint:
             continue
         filtered.append(p)

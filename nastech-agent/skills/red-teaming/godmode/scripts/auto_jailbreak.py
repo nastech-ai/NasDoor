@@ -9,17 +9,19 @@ Usage in execute_code:
     exec(open(os.path.expanduser(
         os.path.join(os.environ.get("NASTECH_HOME", os.path.expanduser("~/.nastech")), "skills/red-teaming/godmode/scripts/auto_jailbreak.py")
     )).read())
-    
+
     result = auto_jailbreak()  # Uses current model from config
     # or:
     result = auto_jailbreak(model="anthropic/claude-sonnet-4")
 """
 
-import os
+import inspect as _inspect
 import json
+import os
 import time
-import yaml
 from pathlib import Path
+
+import yaml
 
 try:
     from openai import OpenAI
@@ -35,7 +37,10 @@ try:
     _SKILL_DIR = Path(__file__).resolve().parent.parent
 except NameError:
     # __file__ not defined when loaded via exec() — search standard paths
-    _SKILL_DIR = Path(os.getenv("NASTECH_HOME", Path.home() / ".nastech")) / "skills" / "red-teaming" / "godmode"
+    _SKILL_DIR = Path(
+        os.getenv(
+            "NASTECH_HOME",
+            Path.home() / ".nastech")) / "skills" / "red-teaming" / "godmode"
 
 _SCRIPTS_DIR = _SKILL_DIR / "scripts"
 _TEMPLATES_DIR = _SKILL_DIR / "templates"
@@ -45,13 +50,23 @@ _parseltongue_path = _SCRIPTS_DIR / "parseltongue.py"
 _race_path = _SCRIPTS_DIR / "godmode_race.py"
 
 # Use the calling frame's globals so functions are accessible everywhere
-import inspect as _inspect
-_caller_globals = _inspect.stack()[0][0].f_globals if len(_inspect.stack()) > 0 else globals()
+_caller_globals = _inspect.stack()[0][0].f_globals if len(
+    _inspect.stack()) > 0 else globals()
 
 if _parseltongue_path.exists():
-    exec(compile(open(_parseltongue_path).read(), str(_parseltongue_path), 'exec'), _caller_globals)
+    exec(
+        compile(
+            open(_parseltongue_path).read(),
+            str(_parseltongue_path),
+            'exec'),
+        _caller_globals)
 if _race_path.exists():
-    exec(compile(open(_race_path).read(), str(_race_path), 'exec'), _caller_globals)
+    exec(
+        compile(
+            open(_race_path).read(),
+            str(_race_path),
+            'exec'),
+        _caller_globals)
 
 # ═══════════════════════════════════════════════════════════════════
 # NasTech config paths
@@ -420,12 +435,12 @@ def _write_prefill(prefill_messages: list):
 def auto_jailbreak(model=None, base_url=None, api_key=None,
                    canary=None, dry_run=False, verbose=True):
     """Auto-jailbreak pipeline.
-    
+
     1. Detects model family
     2. Tries strategies in order (model-specific → generic)
     3. Tests each with a canary query
     4. Locks in the winning combo (writes config.yaml + prefill.json)
-    
+
     Args:
         model: Model ID (e.g. "anthropic/claude-sonnet-4"). Auto-detected if None.
         base_url: API base URL. Auto-detected if None.
@@ -433,7 +448,7 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
         canary: Custom canary query to test with. Uses default if None.
         dry_run: If True, don't write config files — just report what would work.
         verbose: Print progress.
-    
+
     Returns:
         Dict with: success, model, family, strategy, system_prompt, prefill,
                     score, content_preview, config_path, prefill_path, attempts
@@ -447,7 +462,8 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
         if not base_url:
             base_url = base_url_detected
     if not model:
-        return {"success": False, "error": "No model specified and couldn't read config.yaml"}
+        return {"success": False,
+                "error": "No model specified and couldn't read config.yaml"}
     if not base_url:
         base_url = "https://openrouter.ai/api/v1"
     if not api_key:
@@ -469,14 +485,20 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
     client = OpenAI(api_key=api_key, base_url=base_url)
     attempts = []
 
-    # 2. First, test baseline (no jailbreak) to confirm the model actually refuses
+    # 2. First, test baseline (no jailbreak) to confirm the model actually
+    # refuses
     if verbose:
         print("[BASELINE] Testing without jailbreak...")
     baseline_msgs = _build_messages(query=canary_query)
     baseline_content, baseline_latency, baseline_error = _test_query(
         client, model, baseline_msgs
     )
-    baseline_score = score_response(baseline_content, canary_query) if baseline_content else {"score": -9999, "is_refusal": True, "hedge_count": 0}
+    baseline_score = score_response(
+        baseline_content,
+        canary_query) if baseline_content else {
+        "score": -9999,
+        "is_refusal": True,
+        "hedge_count": 0}
 
     attempts.append({
         "strategy": "baseline",
@@ -487,7 +509,8 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
     })
 
     if verbose:
-        status = "REFUSED" if baseline_score["is_refusal"] else f"COMPLIED (score={baseline_score['score']})"
+        status = "REFUSED" if baseline_score["is_refusal"] else f"COMPLIED (score={
+            baseline_score['score']})"
         print(f"[BASELINE] {status}")
         if baseline_content:
             print(f"[BASELINE] Preview: {baseline_content[:150]}...")
@@ -523,7 +546,8 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
         if verbose:
             print(f"[TRYING] Strategy: {strategy_name}")
 
-        system_prompt = strategy_config.get("system_templates", {}).get(strategy_name)
+        system_prompt = strategy_config.get(
+            "system_templates", {}).get(strategy_name)
         prefill = None
 
         if strategy_name == "prefill_only":
@@ -536,9 +560,11 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
             prefill = SUBTLE_PREFILL
             # Try encoding escalation levels
             for level in range(5):
-                encoded_query, enc_label = escalate_encoding(canary_query, level)
+                encoded_query, enc_label = escalate_encoding(
+                    canary_query, level)
                 if verbose:
-                    print(f"  [PARSELTONGUE] Level {level} ({enc_label}): {encoded_query[:80]}...")
+                    print(
+                        f"  [PARSELTONGUE] Level {level} ({enc_label}): {encoded_query[:80]}...")
 
                 msgs = _build_messages(
                     system_prompt=None,
@@ -546,7 +572,8 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
                     query=encoded_query,
                 )
                 content, latency, error = _test_query(client, model, msgs)
-                result = score_response(content, canary_query) if content else {"score": -9999, "is_refusal": True, "hedge_count": 0}
+                result = score_response(content, canary_query) if content else {
+                    "score": -9999, "is_refusal": True, "hedge_count": 0}
 
                 attempts.append({
                     "strategy": f"parseltongue_L{level}_{enc_label}",
@@ -563,13 +590,17 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
                     winning_score = result["score"]
                     winning_content = content
                     if verbose:
-                        print(f"  [PARSELTONGUE] SUCCESS! Score: {result['score']}")
+                        print(
+                            f"  [PARSELTONGUE] SUCCESS! Score: {
+                                result['score']}")
                     break
                 elif verbose:
-                    status = "REFUSED" if result["is_refusal"] else f"score={result['score']}"
+                    status = "REFUSED" if result["is_refusal"] else f"score={
+                        result['score']}"
                     print(f"  [PARSELTONGUE] {status}")
 
-            if winning_strategy and winning_strategy.startswith("parseltongue"):
+            if winning_strategy and winning_strategy.startswith(
+                    "parseltongue"):
                 break
             continue
 
@@ -577,13 +608,15 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
         if system_prompt is None and strategy_name != "prefill_only":
             # Strategy not available for this model family
             if verbose:
-                print(f"  [SKIP] No template for '{strategy_name}' in {family}")
+                print(
+                    f"  [SKIP] No template for '{strategy_name}' in {family}")
             continue
 
         # Try with system prompt alone
         msgs = _build_messages(system_prompt=system_prompt, query=canary_query)
         content, latency, error = _test_query(client, model, msgs)
-        result = score_response(content, canary_query) if content else {"score": -9999, "is_refusal": True, "hedge_count": 0}
+        result = score_response(content, canary_query) if content else {
+            "score": -9999, "is_refusal": True, "hedge_count": 0}
 
         attempts.append({
             "strategy": strategy_name,
@@ -604,7 +637,9 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
             break
 
         if verbose:
-            status = "REFUSED" if result["is_refusal"] else f"score={result['score']}, hedges={result['hedge_count']}"
+            status = "REFUSED" if result["is_refusal"] else f"score={
+                result['score']}, hedges={
+                result['hedge_count']}"
             print(f"  [{status}]")
 
         # Try with system prompt + prefill combined
@@ -616,7 +651,8 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
             query=canary_query,
         )
         content, latency, error = _test_query(client, model, msgs)
-        result = score_response(content, canary_query) if content else {"score": -9999, "is_refusal": True, "hedge_count": 0}
+        result = score_response(content, canary_query) if content else {
+            "score": -9999, "is_refusal": True, "hedge_count": 0}
 
         attempts.append({
             "strategy": f"{strategy_name}+prefill",
@@ -637,7 +673,8 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
             break
 
         if verbose:
-            status = "REFUSED" if result["is_refusal"] else f"score={result['score']}"
+            status = "REFUSED" if result["is_refusal"] else f"score={
+                result['score']}"
             print(f"  [{status}]")
 
     print()
@@ -668,7 +705,8 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
             if verbose:
                 print(f"[LOCKED] Config written to: {config_written}")
                 print()
-                print("[DONE] Jailbreak locked in. Restart NasTech for changes to take effect.")
+                print(
+                    "[DONE] Jailbreak locked in. Restart NasTech for changes to take effect.")
         else:
             if verbose:
                 print("[DRY RUN] Would write config + prefill but dry_run=True")
@@ -694,7 +732,11 @@ def auto_jailbreak(model=None, base_url=None, api_key=None,
             print()
             print("Attempt summary:")
             for a in attempts:
-                print(f"  {a['strategy']:30s} score={a['score']:>6d}  refused={a['is_refusal']}")
+                print(
+                    f"  {
+                        a['strategy']:30s} score={
+                        a['score']:>6d}  refused={
+                        a['is_refusal']}")
 
         return {
             "success": False,
@@ -725,7 +767,8 @@ def undo_jailbreak(verbose=True):
                 yaml.dump(cfg, f, default_flow_style=False, allow_unicode=True,
                           width=120, sort_keys=False)
             if verbose:
-                print(f"[UNDO] Cleared system_prompt and prefill_messages_file from {CONFIG_PATH}")
+                print(
+                    f"[UNDO] Cleared system_prompt and prefill_messages_file from {CONFIG_PATH}")
         except Exception as e:
             if verbose:
                 print(f"[UNDO] Error updating config: {e}")
@@ -749,8 +792,14 @@ if __name__ == "__main__":
     parser.add_argument("--model", help="Model ID to jailbreak")
     parser.add_argument("--base-url", help="API base URL")
     parser.add_argument("--canary", help="Custom canary query")
-    parser.add_argument("--dry-run", action="store_true", help="Don't write config files")
-    parser.add_argument("--undo", action="store_true", help="Remove jailbreak settings")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Don't write config files")
+    parser.add_argument(
+        "--undo",
+        action="store_true",
+        help="Remove jailbreak settings")
     args = parser.parse_args()
 
     if args.undo:

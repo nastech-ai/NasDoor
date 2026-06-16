@@ -52,9 +52,15 @@ def register_provider(provider: ImageGenProvider) -> None:
         existing = _providers.get(name)
         _providers[name] = provider
     if existing is not None:
-        logger.debug("Image gen provider '%s' re-registered (was %r)", name, type(existing).__name__)
+        logger.debug(
+            "Image gen provider '%s' re-registered (was %r)",
+            name,
+            type(existing).__name__)
     else:
-        logger.debug("Registered image gen provider '%s' (%s)", name, type(provider).__name__)
+        logger.debug(
+            "Registered image gen provider '%s' (%s)",
+            name,
+            type(provider).__name__)
 
 
 def list_providers() -> List[ImageGenProvider]:
@@ -110,7 +116,10 @@ def get_active_provider() -> Optional[ImageGenProvider]:
         try:
             return bool(p.is_available())
         except Exception as exc:  # noqa: BLE001
-            logger.debug("image_gen provider %s.is_available() raised %s", p.name, exc)
+            logger.debug(
+                "image_gen provider %s.is_available() raised %s",
+                p.name,
+                exc)
             return False
 
     # 1. Explicit config wins — return regardless of is_available() so the

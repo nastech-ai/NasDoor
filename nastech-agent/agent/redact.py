@@ -64,11 +64,18 @@ _SENSITIVE_BODY_KEYS = frozenset({
 # cli.py) or `NASTECH_REDACT_SECRETS=false` in ~/.nastech/.env. An opt-out
 # warning is logged at gateway and CLI startup so operators see the
 # downgrade — see `_log_redaction_status()` in gateway/run.py and cli.py.
-_REDACT_ENABLED = os.getenv("NASTECH_REDACT_SECRETS", "true").lower() in {"1", "true", "yes", "on"}
+_REDACT_ENABLED = os.getenv(
+    "NASTECH_REDACT_SECRETS",
+    "true").lower() in {
+        "1",
+        "true",
+        "yes",
+    "on"}
 
 # Known API key prefixes -- match the prefix + contiguous token chars
 _PREFIX_PATTERNS = [
-    r"sk-[A-Za-z0-9_-]{10,}",           # OpenAI / OpenRouter / Anthropic (sk-ant-*)
+    # OpenAI / OpenRouter / Anthropic (sk-ant-*)
+    r"sk-[A-Za-z0-9_-]{10,}",
     r"ghp_[A-Za-z0-9]{10,}",            # GitHub PAT (classic)
     r"github_pat_[A-Za-z0-9_]{10,}",    # GitHub PAT (fine-grained)
     r"gho_[A-Za-z0-9]{10,}",            # GitHub OAuth access token
@@ -94,7 +101,8 @@ _PREFIX_PATTERNS = [
     r"dop_v1_[A-Za-z0-9]{10,}",         # DigitalOcean PAT
     r"doo_v1_[A-Za-z0-9]{10,}",         # DigitalOcean OAuth
     r"am_[A-Za-z0-9_-]{10,}",           # AgentMail API key
-    r"sk_[A-Za-z0-9_]{10,}",            # ElevenLabs TTS key (sk_ underscore, not sk- dash)
+    # ElevenLabs TTS key (sk_ underscore, not sk- dash)
+    r"sk_[A-Za-z0-9_]{10,}",
     r"tvly-[A-Za-z0-9]{10,}",           # Tavily search API key
     r"exa_[A-Za-z0-9]{10,}",            # Exa search API key
     r"gsk_[A-Za-z0-9]{10,}",            # Groq Cloud API key
@@ -131,7 +139,7 @@ _TELEGRAM_RE = re.compile(
     r"(bot)?(\d{8,}):([-A-Za-z0-9_]{30,})",
 )
 
-# Private key blocks: -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRIVATE KEY-----
+# Private key blocks: -----BEGIN RSA PRIVATE KEY----- ... -----END RSA PRI
 _PRIVATE_KEY_RE = re.compile(
     r"-----BEGIN[A-Z ]*PRIVATE KEY-----[\s\S]*?-----END[A-Z ]*PRIVATE KEY-----"
 )
@@ -323,7 +331,8 @@ def _redact_form_body(text: str) -> str:
     return _redact_query_string(text.strip())
 
 
-def redact_sensitive_text(text: str, *, force: bool = False, code_file: bool = False) -> str:
+def redact_sensitive_text(text: str, *, force: bool = False,
+                          code_file: bool = False) -> str:
     """Apply all redaction patterns to a block of text.
 
     Safe to call on any string -- non-matching text passes through unchanged.
@@ -358,7 +367,8 @@ def redact_sensitive_text(text: str, *, force: bool = False, code_file: bool = F
     if _has_known_prefix_substring(text):
         text = _PREFIX_RE.sub(lambda m: _mask_token(m.group(1)), text)
 
-    # ENV assignments: OPENAI_API_KEY=***  (skip for code files — false positives)
+    # ENV assignments: OPENAI_API_KEY=***  (skip for code files — false
+    # positives)
     if not code_file:
         if "=" in text:
             def _redact_env(m):
@@ -396,7 +406,8 @@ def redact_sensitive_text(text: str, *, force: bool = False, code_file: bool = F
 
     # Database connection string passwords
     if "://" in text:
-        text = _DB_CONNSTR_RE.sub(lambda m: f"{m.group(1)}***{m.group(3)}", text)
+        text = _DB_CONNSTR_RE.sub(
+            lambda m: f"{m.group(1)}***{m.group(3)}", text)
 
     # JWT tokens (eyJ... — base64-encoded JSON headers)
     if "eyJ" in text:

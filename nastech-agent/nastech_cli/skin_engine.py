@@ -135,8 +135,10 @@ class SkinConfig:
     spinner: Dict[str, Any] = field(default_factory=dict)
     branding: Dict[str, str] = field(default_factory=dict)
     tool_prefix: str = "┊"
-    tool_emojis: Dict[str, str] = field(default_factory=dict)  # per-tool emoji overrides
-    banner_logo: str = ""    # Rich-markup ASCII art logo (replaces NASTECH_AGENT_LOGO)
+    tool_emojis: Dict[str, str] = field(
+        default_factory=dict)  # per-tool emoji overrides
+    # Rich-markup ASCII art logo (replaces NASTECH_AGENT_LOGO)
+    banner_logo: str = ""
     banner_hero: str = ""    # Rich-markup hero art (replaces NASTECH_CADUCEUS)
 
     def get_color(self, key: str, fallback: str = "") -> str:
@@ -671,7 +673,8 @@ def _load_skin_from_yaml(path: Path) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _mapping_or_empty(value: Any, *, section: str, skin_name: str) -> Dict[str, Any]:
+def _mapping_or_empty(value: Any, *, section: str,
+                      skin_name: str) -> Dict[str, Any]:
     """Return a mapping value or an empty dict when the section type is invalid."""
     if isinstance(value, dict):
         return value
@@ -691,10 +694,22 @@ def _build_skin_config(data: Dict[str, Any]) -> SkinConfig:
     # Start with default values as base for missing keys
     default = _BUILTIN_SKINS["default"]
     skin_name = str(data.get("name", "unknown"))
-    color_overrides = _mapping_or_empty(data.get("colors"), section="colors", skin_name=skin_name)
-    spinner_overrides = _mapping_or_empty(data.get("spinner"), section="spinner", skin_name=skin_name)
-    branding_overrides = _mapping_or_empty(data.get("branding"), section="branding", skin_name=skin_name)
-    emoji_overrides = _mapping_or_empty(data.get("tool_emojis"), section="tool_emojis", skin_name=skin_name)
+    color_overrides = _mapping_or_empty(
+        data.get("colors"),
+        section="colors",
+        skin_name=skin_name)
+    spinner_overrides = _mapping_or_empty(
+        data.get("spinner"),
+        section="spinner",
+        skin_name=skin_name)
+    branding_overrides = _mapping_or_empty(
+        data.get("branding"),
+        section="branding",
+        skin_name=skin_name)
+    emoji_overrides = _mapping_or_empty(
+        data.get("tool_emojis"),
+        section="tool_emojis",
+        skin_name=skin_name)
 
     colors = dict(default.get("colors", {}))
     colors.update(color_overrides)
@@ -824,7 +839,6 @@ def get_active_prompt_symbol(fallback: str = "❯") -> str:
     return f"{cleaned or fallback.strip()} "
 
 
-
 def get_active_help_header(fallback: str = "(^_^)? Available Commands") -> str:
     """Get the /help header from the active skin."""
     try:
@@ -833,14 +847,12 @@ def get_active_help_header(fallback: str = "(^_^)? Available Commands") -> str:
         return fallback
 
 
-
 def get_active_goodbye(fallback: str = "Goodbye! ⚕") -> str:
     """Get the goodbye line from the active skin."""
     try:
         return get_active_skin().get_branding("goodbye", fallback)
     except Exception:
         return fallback
-
 
 
 def get_prompt_toolkit_style_overrides() -> Dict[str, str]:
@@ -870,15 +882,20 @@ def get_prompt_toolkit_style_overrides() -> Dict[str, str]:
     status_text = skin.get_color("status_bar_text", text)
     status_strong = skin.get_color("status_bar_strong", title)
     status_dim = skin.get_color("status_bar_dim", dim)
-    status_good = skin.get_color("status_bar_good", skin.get_color("ui_ok", "#8FBC8F"))
+    status_good = skin.get_color(
+        "status_bar_good", skin.get_color(
+            "ui_ok", "#8FBC8F"))
     status_warn = skin.get_color("status_bar_warn", warn)
-    status_bad = skin.get_color("status_bar_bad", skin.get_color("banner_accent", warn))
+    status_bad = skin.get_color(
+        "status_bar_bad", skin.get_color(
+            "banner_accent", warn))
     status_critical = skin.get_color("status_bar_critical", error)
     voice_bg = skin.get_color("voice_status_bg", status_bg)
     menu_bg = skin.get_color("completion_menu_bg", "#1a1a2e")
     menu_current_bg = skin.get_color("completion_menu_current_bg", "#333355")
     menu_meta_bg = skin.get_color("completion_menu_meta_bg", menu_bg)
-    menu_meta_current_bg = skin.get_color("completion_menu_meta_current_bg", menu_current_bg)
+    menu_meta_current_bg = skin.get_color(
+        "completion_menu_meta_current_bg", menu_current_bg)
 
     return {
         # Typed input always uses terminal default fg/bg so it's

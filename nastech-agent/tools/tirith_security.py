@@ -48,6 +48,7 @@ _COSIGN_ISSUER = "https://token.actions.githubusercontent.com"
 # Config helpers
 # ---------------------------------------------------------------------------
 
+
 def _env_bool(key: str, default: bool) -> bool:
     val = os.getenv(key)
     if val is None:
@@ -92,10 +93,12 @@ def _load_security_config() -> dict:
 # ---------------------------------------------------------------------------
 
 # Cached path after first resolution (avoids repeated shutil.which per command).
-# _INSTALL_FAILED means "we tried and failed" — prevents retry on every command.
+# _INSTALL_FAILED means "we tried and failed" — prevents retry on every
+# command.
 _resolved_path: str | None | bool = None
 _INSTALL_FAILED = False  # sentinel: distinct from "not yet tried"
-_install_failure_reason: str = ""  # reason tag when _resolved_path is _INSTALL_FAILED
+# reason tag when _resolved_path is _INSTALL_FAILED
+_install_failure_reason: str = ""
 
 # Background install thread coordination
 _install_lock = threading.Lock()
@@ -128,6 +131,7 @@ def _reset_spawn_warning_state() -> None:
     """
     with _warned_lock:
         _warned_messages.clear()
+
 
 # Disk-persistent failure marker — avoids retry across process restarts
 _MARKER_TTL = 86400  # 24 hours
@@ -261,7 +265,8 @@ def _download_file(url: str, dest: str, timeout: int = 10):
         shutil.copyfileobj(resp, f)
 
 
-def _verify_cosign(checksums_path: str, sig_path: str, cert_path: str) -> bool | None:
+def _verify_cosign(checksums_path: str, sig_path: str,
+                   cert_path: str) -> bool | None:
     """Verify cosign provenance signature on checksums.txt.
 
     Returns:
@@ -295,14 +300,15 @@ def _verify_cosign(checksums_path: str, sig_path: str, cert_path: str) -> bool |
             return True
         else:
             logger.warning("cosign verification failed (exit %d): %s",
-                          result.returncode, result.stderr.strip())
+                           result.returncode, result.stderr.strip())
             return False
     except (OSError, subprocess.TimeoutExpired) as exc:
         logger.warning("cosign execution failed: %s", exc)
         return None
 
 
-def _verify_checksum(archive_path: str, checksums_path: str, archive_name: str) -> bool:
+def _verify_checksum(archive_path: str, checksums_path: str,
+                     archive_name: str) -> bool:
     """Verify SHA-256 of the archive against checksums.txt."""
     expected = None
     with open(checksums_path, encoding="utf-8") as f:
@@ -322,12 +328,16 @@ def _verify_checksum(archive_path: str, checksums_path: str, archive_name: str) 
             sha.update(chunk)
     actual = sha.hexdigest()
     if actual != expected:
-        logger.warning("Checksum mismatch: expected %s, got %s", expected, actual)
+        logger.warning(
+            "Checksum mismatch: expected %s, got %s",
+            expected,
+            actual)
         return False
     return True
 
 
-def _extract_tirith_binary(tar: tarfile.TarFile, dest_dir: str, log) -> tuple[str | None, str]:
+def _extract_tirith_binary(
+        tar: tarfile.TarFile, dest_dir: str, log) -> tuple[str | None, str]:
     """Extract the tirith binary from a release archive into dest_dir."""
     for member in tar.getmembers():
         if member.name == "tirith" or member.name.endswith("/tirith"):
@@ -366,7 +376,7 @@ def _install_tirith(*, log_failures: bool = True) -> tuple[str | None, str]:
     target = _detect_target()
     if not target:
         logger.info("tirith auto-install: unsupported platform %s/%s",
-                     platform.system(), platform.machine())
+                    platform.system(), platform.machine())
         return None, "unsupported_platform"
 
     archive_name = f"tirith-{target}.tar.gz"
@@ -379,7 +389,9 @@ def _install_tirith(*, log_failures: bool = True) -> tuple[str | None, str]:
         sig_path = os.path.join(tmpdir, "checksums.txt.sig")
         cert_path = os.path.join(tmpdir, "checksums.txt.pem")
 
-        logger.info("tirith not found — downloading latest release for %s...", target)
+        logger.info(
+            "tirith not found — downloading latest release for %s...",
+            target)
 
         try:
             _download_file(f"{base_url}/{archive_name}", archive_path)
@@ -399,9 +411,11 @@ def _install_tirith(*, log_failures: bool = True) -> tuple[str | None, str]:
                 _download_file(f"{base_url}/checksums.txt.sig", sig_path)
                 _download_file(f"{base_url}/checksums.txt.pem", cert_path)
             except Exception as exc:
-                logger.info("cosign artifacts unavailable (%s), proceeding with SHA-256 only", exc)
+                logger.info(
+                    "cosign artifacts unavailable (%s), proceeding with SHA-256 only", exc)
             else:
-                cosign_result = _verify_cosign(checksums_path, sig_path, cert_path)
+                cosign_result = _verify_cosign(
+                    checksums_path, sig_path, cert_path)
                 if cosign_result is True:
                     cosign_verified = True
                 elif cosign_result is False:
@@ -412,7 +426,8 @@ def _install_tirith(*, log_failures: bool = True) -> tuple[str | None, str]:
                 else:
                     # None = execution failure (timeout/OSError) — proceed
                     # with SHA-256 only since cosign itself is broken.
-                    logger.info("cosign execution failed, proceeding with SHA-256 only")
+                    logger.info(
+                        "cosign execution failed, proceeding with SHA-256 only")
         else:
             logger.info("cosign not on PATH — installing tirith with SHA-256 verification only "
                         "(install cosign for full supply chain verification)")
@@ -441,7 +456,8 @@ def _install_tirith(*, log_failures: bool = True) -> tuple[str | None, str]:
                 except OSError:
                     pass
                 return None, "cross_device_copy_failed"
-        os.chmod(dest, os.stat(dest).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        os.chmod(dest, os.stat(dest).st_mode |
+                 stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
         verification = "cosign + SHA-256" if cosign_verified else "SHA-256 only"
         logger.info("tirith installed to %s (%s)", dest, verification)
@@ -500,7 +516,9 @@ def _resolve_tirith_path(configured_path: str) -> str:
         if found:
             _resolved_path = found
             return found
-        logger.warning("Configured tirith path %r not found; scanning disabled", configured_path)
+        logger.warning(
+            "Configured tirith path %r not found; scanning disabled",
+            configured_path)
         _resolved_path = _INSTALL_FAILED
         _install_failure_reason = "explicit_path_missing"
         return expanded
@@ -526,8 +544,10 @@ def _resolve_tirith_path(configured_path: str) -> str:
     # skip the network retry — UNLESS the failure was "cosign_missing" and
     # cosign is now available (retryable cause resolved in-process).
     if install_failed:
-        if _install_failure_reason == "cosign_missing" and shutil.which("cosign"):
-            # Retryable cause resolved — clear sentinel and fall through to retry
+        if _install_failure_reason == "cosign_missing" and shutil.which(
+                "cosign"):
+            # Retryable cause resolved — clear sentinel and fall through to
+            # retry
             _resolved_path = None
             _install_failure_reason = ""
             _clear_install_failed()
@@ -658,7 +678,8 @@ def ensure_installed(*, log_failures: bool = True):
 
     # If previously failed in-memory, check if the cause is now resolved
     if _resolved_path is _INSTALL_FAILED:
-        if _install_failure_reason == "cosign_missing" and shutil.which("cosign"):
+        if _install_failure_reason == "cosign_missing" and shutil.which(
+                "cosign"):
             _resolved_path = None
             _install_failure_reason = ""
             _clear_install_failed()
@@ -725,8 +746,10 @@ def check_command_security(command: str) -> dict:
             "tirith path resolved to None; scanning disabled",
         )
         if fail_open:
-            return {"action": "allow", "findings": [], "summary": "tirith path unavailable"}
-        return {"action": "block", "findings": [], "summary": "tirith path unavailable (fail-closed)"}
+            return {"action": "allow", "findings": [],
+                    "summary": "tirith path unavailable"}
+        return {"action": "block", "findings": [],
+                "summary": "tirith path unavailable (fail-closed)"}
 
     try:
         result = subprocess.run(
@@ -744,11 +767,16 @@ def check_command_security(command: str) -> dict:
         # commonly seen on Windows when the configured path "tirith"
         # isn't on PATH yet (background install still running, or
         # install marked failed for the day).
-        spawn_key = f"tirith_spawn_failed:{type(exc).__name__}:{getattr(exc, 'errno', '')}"
+        spawn_key = f"tirith_spawn_failed:{
+            type(exc).__name__}:{
+            getattr(
+                exc, 'errno', '')}"
         _warn_once(spawn_key, "tirith spawn failed: %s", exc)
         if fail_open:
-            return {"action": "allow", "findings": [], "summary": f"tirith unavailable: {exc}"}
-        return {"action": "block", "findings": [], "summary": f"tirith spawn failed (fail-closed): {exc}"}
+            return {"action": "allow", "findings": [],
+                    "summary": f"tirith unavailable: {exc}"}
+        return {"action": "block", "findings": [],
+                "summary": f"tirith spawn failed (fail-closed): {exc}"}
     except subprocess.TimeoutExpired:
         _warn_once(
             f"tirith_timeout:{timeout}",
@@ -756,8 +784,10 @@ def check_command_security(command: str) -> dict:
             timeout,
         )
         if fail_open:
-            return {"action": "allow", "findings": [], "summary": f"tirith timed out ({timeout}s)"}
-        return {"action": "block", "findings": [], "summary": "tirith timed out (fail-closed)"}
+            return {"action": "allow", "findings": [],
+                    "summary": f"tirith timed out ({timeout}s)"}
+        return {"action": "block", "findings": [],
+                "summary": "tirith timed out (fail-closed)"}
 
     # Map exit code to action
     exit_code = result.returncode
@@ -771,8 +801,10 @@ def check_command_security(command: str) -> dict:
         # Unknown exit code — respect fail_open
         logger.warning("tirith returned unexpected exit code %d", exit_code)
         if fail_open:
-            return {"action": "allow", "findings": [], "summary": f"tirith exit code {exit_code} (fail-open)"}
-        return {"action": "block", "findings": [], "summary": f"tirith exit code {exit_code} (fail-closed)"}
+            return {"action": "allow", "findings": [],
+                    "summary": f"tirith exit code {exit_code} (fail-open)"}
+        return {"action": "block", "findings": [],
+                "summary": f"tirith exit code {exit_code} (fail-closed)"}
 
     # Parse JSON for enrichment (never overrides the exit code verdict)
     findings = []

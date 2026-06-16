@@ -69,7 +69,8 @@ def _extract_inherited_flags(argv: Sequence[str]) -> list[str]:
         for flag, takes_value in _INHERITED_FLAGS_TABLE:
             if arg == flag:
                 flags.append(arg)
-                if takes_value and i + 1 < len(argv) and not argv[i + 1].startswith("-"):
+                if takes_value and i + \
+                        1 < len(argv) and not argv[i + 1].startswith("-"):
                     flags.append(argv[i + 1])
                     i += 1
                 break
@@ -102,7 +103,8 @@ def resolve_nastech_bin() -> Optional[str]:
         return p.lower().endswith((".py", ".pyc"))
 
     # Absolute path to an executable (covers nix store, venv wrappers, etc.)
-    if os.path.isabs(argv0) and os.path.isfile(argv0) and os.access(argv0, os.X_OK):
+    if os.path.isabs(argv0) and os.path.isfile(
+            argv0) and os.access(argv0, os.X_OK):
         if not (_is_windows and _is_python_script(argv0)):
             return argv0
 
@@ -143,7 +145,8 @@ def build_relaunch_argv(
     else:
         argv = [sys.executable, "-m", "nastech_cli.main"]
 
-    src = list(original_argv) if original_argv is not None else list(sys.argv[1:])
+    src = list(original_argv) if original_argv is not None else list(
+        sys.argv[1:])
 
     if preserve_inherited:
         argv.extend(_extract_inherited_flags(src))
@@ -182,7 +185,8 @@ def relaunch(
         extra_args, preserve_inherited=preserve_inherited, original_argv=original_argv
     )
     if sys.platform == "win32":
-        # Windows: subprocess + exit, because execvp can't swap to .cmd/.exe shims.
+        # Windows: subprocess + exit, because execvp can't swap to .cmd/.exe
+        # shims.
         import subprocess
         try:
             result = subprocess.run(new_argv)

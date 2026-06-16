@@ -75,7 +75,8 @@ class HomeAssistantAdapter(BasePlatformAdapter):
         # Configuration from extra
         extra = config.extra or {}
         token = config.token or os.getenv("HASS_TOKEN", "")
-        url = extra.get("url") or os.getenv("HASS_URL", "http://homeassistant.local:8123")
+        url = extra.get("url") or os.getenv(
+            "HASS_URL", "http://homeassistant.local:8123")
         self._hass_url: str = url.rstrip("/")
         self._hass_token: str = token
 
@@ -101,7 +102,9 @@ class HomeAssistantAdapter(BasePlatformAdapter):
     async def connect(self) -> bool:
         """Connect to HA WebSocket API and subscribe to events."""
         if not AIOHTTP_AVAILABLE:
-            logger.warning("[%s] aiohttp not installed. Run: pip install aiohttp", self.name)
+            logger.warning(
+                "[%s] aiohttp not installed. Run: pip install aiohttp",
+                self.name)
             return False
 
         if not self._hass_token:
@@ -139,7 +142,8 @@ class HomeAssistantAdapter(BasePlatformAdapter):
 
     async def _ws_connect(self) -> bool:
         """Establish WebSocket connection and authenticate."""
-        ws_url = self._hass_url.replace("https://", "wss://").replace("http://", "ws://")
+        ws_url = self._hass_url.replace(
+            "https://", "wss://").replace("http://", "ws://")
         ws_url = f"{ws_url}/api/websocket"
 
         self._session = aiohttp.ClientSession(
@@ -230,7 +234,8 @@ class HomeAssistantAdapter(BasePlatformAdapter):
                 return
 
             # Reconnect with backoff
-            delay = self._BACKOFF_STEPS[min(backoff_idx, len(self._BACKOFF_STEPS) - 1)]
+            delay = self._BACKOFF_STEPS[min(
+                backoff_idx, len(self._BACKOFF_STEPS) - 1)]
             logger.info("[%s] Reconnecting in %ds...", self.name, delay)
             await asyncio.sleep(delay)
             backoff_idx += 1
@@ -255,7 +260,8 @@ class HomeAssistantAdapter(BasePlatformAdapter):
                     if data.get("type") == "event":
                         await self._handle_ha_event(data.get("event", {}))
                 except json.JSONDecodeError:
-                    logger.debug("Invalid JSON from HA WS: %s", ws_msg.data[:200])
+                    logger.debug("Invalid JSON from HA WS: %s",
+                                 ws_msg.data[:200])
             elif ws_msg.type in {aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR}:
                 break
 
@@ -334,7 +340,9 @@ class HomeAssistantAdapter(BasePlatformAdapter):
         if old_val == new_val:
             return None
 
-        friendly_name = new_state.get("attributes", {}).get("friendly_name", entity_id)
+        friendly_name = new_state.get(
+            "attributes", {}).get(
+            "friendly_name", entity_id)
         domain = entity_id.split(".")[0] if "." in entity_id else ""
 
         # Domain-specific formatting
@@ -348,7 +356,9 @@ class HomeAssistantAdapter(BasePlatformAdapter):
             )
 
         if domain == "sensor":
-            unit = new_state.get("attributes", {}).get("unit_of_measurement", "")
+            unit = new_state.get(
+                "attributes", {}).get(
+                "unit_of_measurement", "")
             return (
                 f"[Home Assistant] {friendly_name}: changed from "
                 f"{old_val}{unit} to {new_val}{unit}"
@@ -414,10 +424,12 @@ class HomeAssistantAdapter(BasePlatformAdapter):
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as resp:
                     if resp.status < 300:
-                        return SendResult(success=True, message_id=uuid.uuid4().hex[:12])
+                        return SendResult(
+                            success=True, message_id=uuid.uuid4().hex[:12])
                     else:
                         body = await resp.text()
-                        return SendResult(success=False, error=f"HTTP {resp.status}: {body}")
+                        return SendResult(
+                            success=False, error=f"HTTP {resp.status}: {body}")
             else:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(
@@ -427,13 +439,16 @@ class HomeAssistantAdapter(BasePlatformAdapter):
                         timeout=aiohttp.ClientTimeout(total=10),
                     ) as resp:
                         if resp.status < 300:
-                            return SendResult(success=True, message_id=uuid.uuid4().hex[:12])
+                            return SendResult(
+                                success=True, message_id=uuid.uuid4().hex[:12])
                         else:
                             body = await resp.text()
-                            return SendResult(success=False, error=f"HTTP {resp.status}: {body}")
+                            return SendResult(
+                                success=False, error=f"HTTP {resp.status}: {body}")
 
         except asyncio.TimeoutError:
-            return SendResult(success=False, error="Timeout sending notification to HA")
+            return SendResult(
+                success=False, error="Timeout sending notification to HA")
         except Exception as e:
             return SendResult(success=False, error=str(e))
 

@@ -44,7 +44,8 @@ TOOL_SEARCH_NAME = "tool_search"
 TOOL_DESCRIBE_NAME = "tool_describe"
 TOOL_CALL_NAME = "tool_call"
 
-BRIDGE_TOOL_NAMES = frozenset({TOOL_SEARCH_NAME, TOOL_DESCRIBE_NAME, TOOL_CALL_NAME})
+BRIDGE_TOOL_NAMES = frozenset(
+    {TOOL_SEARCH_NAME, TOOL_DESCRIBE_NAME, TOOL_CALL_NAME})
 
 # When estimating tokens from char count without a real tokenizer, this is
 # the cheap rule of thumb that's stable across providers. Roughly 4 chars
@@ -102,7 +103,10 @@ class ToolSearchConfig:
         threshold_pct = _safe_float(raw.get("threshold_pct"), 10.0)
         threshold_pct = max(0.0, min(100.0, threshold_pct))
 
-        max_search_limit = max(1, min(50, _safe_int(raw.get("max_search_limit"), 20)))
+        max_search_limit = max(
+            1, min(
+                50, _safe_int(
+                    raw.get("max_search_limit"), 20)))
         search_default_limit = max(1, min(max_search_limit,
                                           _safe_int(raw.get("search_default_limit"), 5)))
 
@@ -133,7 +137,8 @@ def load_config() -> ToolSearchConfig:
     try:
         from nastech_cli.config import load_config as _load
         cfg = _load() or {}
-        tools_cfg = cfg.get("tools") if isinstance(cfg.get("tools"), dict) else {}
+        tools_cfg = cfg.get("tools") if isinstance(
+            cfg.get("tools"), dict) else {}
         if not isinstance(tools_cfg, dict):
             tools_cfg = {}
         return ToolSearchConfig.from_raw(tools_cfg.get("tool_search"))
@@ -186,7 +191,8 @@ def is_deferrable_tool_name(name: str) -> bool:
         return False
 
 
-def classify_tools(tool_defs: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+def classify_tools(tool_defs: List[Dict[str, Any]]
+                   ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Split a tool-defs list into (visible, deferrable).
 
     ``visible`` retains every tool that must stay in the model-facing array:
@@ -225,7 +231,8 @@ def estimate_tokens_from_schemas(tool_defs: Iterable[Dict[str, Any]]) -> int:
     total_chars = 0
     for td in tool_defs:
         try:
-            total_chars += len(json.dumps(td, ensure_ascii=False, separators=(",", ":")))
+            total_chars += len(json.dumps(td,
+                               ensure_ascii=False, separators=(",", ":")))
         except (TypeError, ValueError):
             total_chars += len(str(td))
     return int(math.ceil(total_chars / CHARS_PER_TOKEN))
@@ -269,7 +276,8 @@ class CatalogEntry:
 
     name: str
     description: str
-    schema: Dict[str, Any]  # The full {"type":"function", "function": {...}} entry.
+    # The full {"type":"function", "function": {...}} entry.
+    schema: Dict[str, Any]
     source: str  # "mcp" | "plugin" | "other"
     source_name: str  # Toolset name, e.g. "mcp-github" or "kanban"
 
@@ -300,7 +308,15 @@ def _entry_search_text(td: Dict[str, Any]) -> str:
     params = ((fn.get("parameters") or {}).get("properties") or {})
     param_names = " ".join(params.keys())
     # Break snake_case and dotted names into words for BM25.
-    name_words = name.replace("_", " ").replace(".", " ").replace("-", " ").replace(":", " ")
+    name_words = name.replace(
+        "_",
+        " ").replace(
+        ".",
+        " ").replace(
+            "-",
+            " ").replace(
+                ":",
+        " ")
     return f"{name_words} {desc} {param_names}"
 
 
@@ -375,7 +391,8 @@ def _bm25_score(query_tokens: List[str], doc_tokens: List[str],
     return score
 
 
-def search_catalog(catalog: List[CatalogEntry], query: str, limit: int = 5) -> List[CatalogEntry]:
+def search_catalog(catalog: List[CatalogEntry],
+                   query: str, limit: int = 5) -> List[CatalogEntry]:
     """Return the top-``limit`` catalog entries for ``query`` by BM25.
 
     Falls back to a stable name-substring match when BM25 yields no hits
@@ -562,12 +579,14 @@ def assemble_tool_defs(
             activated=False,
             deferred_count=len(deferrable),
             deferred_tokens=deferrable_tokens,
-            threshold_tokens=int((context_length or 0) * (config.threshold_pct / 100.0)),
+            threshold_tokens=int((context_length or 0) *
+                                 (config.threshold_pct / 100.0)),
         )
 
     bridge = bridge_tool_schemas(len(deferrable))
     result = visible + bridge
-    threshold_tokens = int((context_length or 0) * (config.threshold_pct / 100.0))
+    threshold_tokens = int((context_length or 0) *
+                           (config.threshold_pct / 100.0))
 
     logger.info(
         "tool_search activated: %d core/visible tools kept, %d deferred (~%d tokens, threshold ~%d)",
@@ -617,7 +636,10 @@ def dispatch_tool_search(args: Dict[str, Any],
     if raw_limit is None:
         limit = config.search_default_limit
     else:
-        limit = max(1, min(config.max_search_limit, _safe_int(raw_limit, config.search_default_limit)))
+        limit = max(
+            1, min(
+                config.max_search_limit, _safe_int(
+                    raw_limit, config.search_default_limit)))
 
     _, deferrable = classify_tools(current_tool_defs)
     catalog = build_catalog(deferrable)
@@ -677,7 +699,8 @@ def scoped_deferrable_names(tool_defs: List[Dict[str, Any]]) -> frozenset[str]:
     return frozenset(names)
 
 
-def resolve_underlying_call(args: Dict[str, Any]) -> Tuple[Optional[str], Dict[str, Any], Optional[str]]:
+def resolve_underlying_call(
+        args: Dict[str, Any]) -> Tuple[Optional[str], Dict[str, Any], Optional[str]]:
     """Parse a ``tool_call`` invocation into (underlying_name, args, error_msg).
 
     Used by:
@@ -691,7 +714,8 @@ def resolve_underlying_call(args: Dict[str, Any]) -> Tuple[Optional[str], Dict[s
     if not name:
         return None, {}, "tool_call requires a 'name' argument"
     if name in BRIDGE_TOOL_NAMES:
-        return None, {}, f"tool_call cannot invoke '{name}' (it is itself a bridge tool)"
+        return None, {
+        }, f"tool_call cannot invoke '{name}' (it is itself a bridge tool)"
     raw_args = args.get("arguments")
     if raw_args is None:
         raw_args = {}

@@ -55,7 +55,8 @@ def stream_diag_init() -> Dict[str, Any]:
     }
 
 
-def stream_diag_capture_response(agent: Any, diag: Dict[str, Any], http_response: Any) -> None:
+def stream_diag_capture_response(
+        agent: Any, diag: Dict[str, Any], http_response: Any) -> None:
     """Snapshot interesting headers + HTTP status from the live stream.
 
     Called once at stream open (before iterating chunks) so the metadata
@@ -72,7 +73,10 @@ def stream_diag_capture_response(agent: Any, diag: Dict[str, Any], http_response
         headers = getattr(http_response, "headers", None) or {}
         captured: Dict[str, str] = {}
         # Allow per-agent override of the headers list (back-compat).
-        target_headers = getattr(agent, "_STREAM_DIAG_HEADERS", STREAM_DIAG_HEADERS)
+        target_headers = getattr(
+            agent,
+            "_STREAM_DIAG_HEADERS",
+            STREAM_DIAG_HEADERS)
         for name in target_headers:
             try:
                 val = headers.get(name)
@@ -254,7 +258,8 @@ def emit_stream_drop(
         try:
             started = diag.get("started_at")
             if started is not None:
-                _suffix = f" after {max(0.0, time.time() - float(started)):.1f}s"
+                _suffix = f" after {max(0.0,
+                                        time.time() - float(started)):.1f}s"
         except Exception:
             pass
     try:

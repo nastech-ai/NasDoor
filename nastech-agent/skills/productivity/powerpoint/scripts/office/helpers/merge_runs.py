@@ -20,7 +20,8 @@ def merge_runs(input_dir: str) -> tuple[int, str]:
         return 0, f"Error: {doc_xml} not found"
 
     try:
-        dom = defusedxml.minidom.parseString(doc_xml.read_text(encoding="utf-8"))
+        dom = defusedxml.minidom.parseString(
+            doc_xml.read_text(encoding="utf-8"))
         root = dom.documentElement
 
         _remove_elements(root, "proofErr")
@@ -37,8 +38,6 @@ def merge_runs(input_dir: str) -> tuple[int, str]:
 
     except Exception as e:
         return 0, f"Error: {e}"
-
-
 
 
 def _find_elements(root, tag: str) -> list:
@@ -88,8 +87,6 @@ def _is_adjacent(elem1, elem2) -> bool:
     return False
 
 
-
-
 def _remove_elements(root, tag: str):
     for elem in _find_elements(root, tag):
         if elem.parentNode:
@@ -101,8 +98,6 @@ def _strip_run_rsid_attrs(root):
         for attr in list(run.attributes.values()):
             if "rsid" in attr.name.lower():
                 run.removeAttribute(attr.name)
-
-
 
 
 def _merge_runs_in(container) -> int:
@@ -164,7 +159,7 @@ def _can_merge(run1, run2) -> bool:
         return False
     if rpr1 is None:
         return True
-    return rpr1.toxml() == rpr2.toxml()  
+    return rpr1.toxml() == rpr2.toxml()
 
 
 def _merge_run_content(target, source):

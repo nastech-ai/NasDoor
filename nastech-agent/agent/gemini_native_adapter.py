@@ -26,7 +26,6 @@ from types import SimpleNamespace
 from typing import Any, Dict, Iterator, List, Optional
 
 import httpx
-
 from agent.gemini_schema import sanitize_gemini_tool_parameters
 
 logger = logging.getLogger(__name__)
@@ -70,7 +69,8 @@ def probe_gemini_tier(
     if not key:
         return "unknown"
 
-    normalized_base = str(base_url or DEFAULT_GEMINI_BASE_URL).strip().rstrip("/")
+    normalized_base = str(
+        base_url or DEFAULT_GEMINI_BASE_URL).strip().rstrip("/")
     if not normalized_base:
         normalized_base = DEFAULT_GEMINI_BASE_URL
     if normalized_base.lower().endswith("/openai"):
@@ -232,11 +232,13 @@ def _tool_call_extra_signature(tool_call: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def _translate_tool_call_to_gemini(tool_call: Dict[str, Any]) -> Dict[str, Any]:
+def _translate_tool_call_to_gemini(
+        tool_call: Dict[str, Any]) -> Dict[str, Any]:
     fn = tool_call.get("function") or {}
     args_raw = fn.get("arguments", "")
     try:
-        args = json.loads(args_raw) if isinstance(args_raw, str) and args_raw else {}
+        args = json.loads(args_raw) if isinstance(
+            args_raw, str) and args_raw else {}
     except json.JSONDecodeError:
         args = {"_raw": args_raw}
     if not isinstance(args, dict):
@@ -268,7 +270,8 @@ def _translate_tool_result_to_gemini(
     )
     content = _coerce_content_to_text(message.get("content"))
     try:
-        parsed = json.loads(content) if content.strip().startswith(("{", "[")) else None
+        parsed = json.loads(content) if content.strip(
+        ).startswith(("{", "[")) else None
     except json.JSONDecodeError:
         parsed = None
     response = parsed if isinstance(parsed, dict) else {"output": content}
@@ -280,7 +283,8 @@ def _translate_tool_result_to_gemini(
     }
 
 
-def _build_gemini_contents(messages: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
+def _build_gemini_contents(
+        messages: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
     system_text_parts: List[str] = []
     contents: List[Dict[str, Any]] = []
     tool_name_by_call_id: Dict[str, str] = {}
@@ -291,7 +295,9 @@ def _build_gemini_contents(messages: List[Dict[str, Any]]) -> tuple[List[Dict[st
         role = str(msg.get("role") or "user")
 
         if role == "system":
-            system_text_parts.append(_coerce_content_to_text(msg.get("content")))
+            system_text_parts.append(
+                _coerce_content_to_text(
+                    msg.get("content")))
             continue
 
         if role in {"tool", "function"}:
@@ -318,8 +324,10 @@ def _build_gemini_contents(messages: List[Dict[str, Any]]) -> tuple[List[Dict[st
         if isinstance(tool_calls, list):
             for tool_call in tool_calls:
                 if isinstance(tool_call, dict):
-                    tool_call_id = str(tool_call.get("id") or tool_call.get("call_id") or "")
-                    tool_name = str(((tool_call.get("function") or {}).get("name") or ""))
+                    tool_call_id = str(
+                        tool_call.get("id") or tool_call.get("call_id") or "")
+                    tool_name = str(
+                        ((tool_call.get("function") or {}).get("name") or ""))
                     if tool_call_id and tool_name:
                         tool_name_by_call_id[tool_call_id] = tool_name
                     parts.append(_translate_tool_call_to_gemini(tool_call))
@@ -328,7 +336,8 @@ def _build_gemini_contents(messages: List[Dict[str, Any]]) -> tuple[List[Dict[st
             contents.append({"role": gemini_role, "parts": parts})
 
     system_instruction = None
-    joined_system = "\n".join(part for part in system_text_parts if part).strip()
+    joined_system = "\n".join(
+        part for part in system_text_parts if part).strip()
     if joined_system:
         system_instruction = {"parts": [{"text": joined_system}]}
     return contents, system_instruction
@@ -358,7 +367,8 @@ def _translate_tools_to_gemini(tools: Any) -> List[Dict[str, Any]]:
     return [{"functionDeclarations": declarations}] if declarations else []
 
 
-def _translate_tool_choice_to_gemini(tool_choice: Any) -> Optional[Dict[str, Any]]:
+def _translate_tool_choice_to_gemini(
+        tool_choice: Any) -> Optional[Dict[str, Any]]:
     if tool_choice is None:
         return None
     if isinstance(tool_choice, str):
@@ -372,7 +382,8 @@ def _translate_tool_choice_to_gemini(tool_choice: Any) -> Optional[Dict[str, Any
         fn = tool_choice.get("function") or {}
         name = fn.get("name")
         if isinstance(name, str) and name:
-            return {"functionCallingConfig": {"mode": "ANY", "allowedFunctionNames": [name]}}
+            return {"functionCallingConfig": {
+                "mode": "ANY", "allowedFunctionNames": [name]}}
     return None
 
 
@@ -436,7 +447,8 @@ def build_gemini_request(
     if top_p is not None:
         generation_config["topP"] = top_p
     if stop:
-        generation_config["stopSequences"] = stop if isinstance(stop, list) else [str(stop)]
+        generation_config["stopSequences"] = stop if isinstance(stop, list) else [
+            str(stop)]
     normalized_thinking = _normalize_thinking_config(thinking_config)
     if normalized_thinking:
         generation_config["thinkingConfig"] = normalized_thinking
@@ -457,7 +469,8 @@ def _map_gemini_finish_reason(reason: str) -> str:
     return mapping.get(str(reason or "").upper(), "stop")
 
 
-def _tool_call_extra_from_part(part: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _tool_call_extra_from_part(
+        part: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     sig = part.get("thoughtSignature")
     if isinstance(sig, str) and sig:
         return {"google": {"thought_signature": sig}}
@@ -490,7 +503,8 @@ def _empty_response(model: str) -> SimpleNamespace:
     )
 
 
-def translate_gemini_response(resp: Dict[str, Any], model: str) -> SimpleNamespace:
+def translate_gemini_response(
+        resp: Dict[str, Any], model: str) -> SimpleNamespace:
     candidates = resp.get("candidates") or []
     if not isinstance(candidates, list) or not candidates:
         return _empty_response(model)
@@ -522,14 +536,16 @@ def translate_gemini_response(resp: Dict[str, Any], model: str) -> SimpleNamespa
                 id=f"call_{uuid.uuid4().hex[:12]}",
                 type="function",
                 index=index,
-                function=SimpleNamespace(name=str(fc["name"]), arguments=args_str),
+                function=SimpleNamespace(
+                    name=str(fc["name"]), arguments=args_str),
             )
             extra_content = _tool_call_extra_from_part(part)
             if extra_content:
                 tool_call.extra_content = extra_content
             tool_calls.append(tool_call)
 
-    finish_reason = "tool_calls" if tool_calls else _map_gemini_finish_reason(str(cand.get("finishReason") or ""))
+    finish_reason = "tool_calls" if tool_calls else _map_gemini_finish_reason(
+        str(cand.get("finishReason") or ""))
     usage_meta = resp.get("usageMetadata") or {}
     usage = SimpleNamespace(
         prompt_tokens=int(usage_meta.get("promptTokenCount") or 0),
@@ -548,7 +564,10 @@ def translate_gemini_response(resp: Dict[str, Any], model: str) -> SimpleNamespa
         reasoning_content=reasoning,
         reasoning_details=None,
     )
-    choice = SimpleNamespace(index=0, message=message, finish_reason=finish_reason)
+    choice = SimpleNamespace(
+        index=0,
+        message=message,
+        finish_reason=finish_reason)
     return SimpleNamespace(
         id=f"chatcmpl-{uuid.uuid4().hex[:12]}",
         object="chat.completion",
@@ -634,30 +653,42 @@ def _iter_sse_events(response: httpx.Response) -> Iterator[Dict[str, Any]]:
                 yield payload
 
 
-def translate_stream_event(event: Dict[str, Any], model: str, tool_call_indices: Dict[str, Dict[str, Any]]) -> List[_GeminiStreamChunk]:
+def translate_stream_event(event: Dict[str, Any], model: str,
+                           tool_call_indices: Dict[str, Dict[str, Any]]) -> List[_GeminiStreamChunk]:
     candidates = event.get("candidates") or []
     if not candidates:
         return []
     cand = candidates[0] if isinstance(candidates[0], dict) else {}
-    parts = ((cand.get("content") or {}).get("parts") or []) if isinstance(cand, dict) else []
+    parts = ((cand.get("content") or {}).get("parts")
+             or []) if isinstance(cand, dict) else []
     chunks: List[_GeminiStreamChunk] = []
 
     for part_index, part in enumerate(parts):
         if not isinstance(part, dict):
             continue
         if part.get("thought") is True and isinstance(part.get("text"), str):
-            chunks.append(_make_stream_chunk(model=model, reasoning=part["text"]))
+            chunks.append(
+                _make_stream_chunk(
+                    model=model,
+                    reasoning=part["text"]))
             continue
         if isinstance(part.get("text"), str) and part["text"]:
-            chunks.append(_make_stream_chunk(model=model, content=part["text"]))
+            chunks.append(
+                _make_stream_chunk(
+                    model=model,
+                    content=part["text"]))
         fc = part.get("functionCall")
         if isinstance(fc, dict) and fc.get("name"):
             name = str(fc["name"])
             try:
-                args_str = json.dumps(fc.get("args") or {}, ensure_ascii=False, sort_keys=True)
+                args_str = json.dumps(
+                    fc.get("args") or {},
+                    ensure_ascii=False,
+                    sort_keys=True)
             except (TypeError, ValueError):
                 args_str = "{}"
-            thought_signature = part.get("thoughtSignature") if isinstance(part.get("thoughtSignature"), str) else ""
+            thought_signature = part.get("thoughtSignature") if isinstance(
+                part.get("thoughtSignature"), str) else ""
             call_key = json.dumps(
                 {
                     "part_index": part_index,
@@ -697,7 +728,8 @@ def translate_stream_event(event: Dict[str, Any], model: str, tool_call_indices:
 
     finish_reason_raw = str(cand.get("finishReason") or "")
     if finish_reason_raw:
-        mapped = "tool_calls" if tool_call_indices else _map_gemini_finish_reason(finish_reason_raw)
+        mapped = "tool_calls" if tool_call_indices else _map_gemini_finish_reason(
+            finish_reason_raw)
         finish_chunk = _make_stream_chunk(model=model, finish_reason=mapped)
         # Attach usage from this event's usageMetadata so the streaming
         # loop in run_agent.py can record token counts (mirrors the
@@ -706,10 +738,12 @@ def translate_stream_event(event: Dict[str, Any], model: str, tool_call_indices:
         if usage_meta:
             finish_chunk.usage = SimpleNamespace(
                 prompt_tokens=int(usage_meta.get("promptTokenCount") or 0),
-                completion_tokens=int(usage_meta.get("candidatesTokenCount") or 0),
+                completion_tokens=int(
+                    usage_meta.get("candidatesTokenCount") or 0),
                 total_tokens=int(usage_meta.get("totalTokenCount") or 0),
                 prompt_tokens_details=SimpleNamespace(
-                    cached_tokens=int(usage_meta.get("cachedContentTokenCount") or 0),
+                    cached_tokens=int(
+                        usage_meta.get("cachedContentTokenCount") or 0),
                 ),
             )
         chunks.append(finish_chunk)
@@ -754,7 +788,8 @@ def gemini_http_error(response: httpx.Response) -> GeminiAPIError:
             md = detail.get("metadata")
             if isinstance(md, dict):
                 metadata = md
-    header_retry = response.headers.get("Retry-After") or response.headers.get("retry-after")
+    header_retry = response.headers.get(
+        "Retry-After") or response.headers.get("retry-after")
     if header_retry:
         try:
             retry_after = float(header_retry)
@@ -770,7 +805,8 @@ def gemini_http_error(response: httpx.Response) -> GeminiAPIError:
         code = "gemini_model_not_found"
 
     if err_message:
-        message = f"Gemini HTTP {status} ({err_status or 'error'}): {err_message}"
+        message = f"Gemini HTTP {status} ({
+            err_status or 'error'}): {err_message}"
     else:
         message = f"Gemini returned HTTP {status}: {body_text[:500]}"
 
@@ -850,7 +886,8 @@ class GeminiNativeClient:
         self.chat = _GeminiChatNamespace(self)
         self.is_closed = False
         self._http = http_client or httpx.Client(
-            timeout=timeout or httpx.Timeout(connect=15.0, read=600.0, write=30.0, pool=30.0)
+            timeout=timeout or httpx.Timeout(
+                connect=15.0, read=600.0, write=30.0, pool=30.0)
         )
 
     def close(self) -> None:
@@ -877,7 +914,8 @@ class GeminiNativeClient:
         return headers
 
     @staticmethod
-    def _advance_stream_iterator(iterator: Iterator[_GeminiStreamChunk]) -> tuple[bool, Optional[_GeminiStreamChunk]]:
+    def _advance_stream_iterator(
+            iterator: Iterator[_GeminiStreamChunk]) -> tuple[bool, Optional[_GeminiStreamChunk]]:
         try:
             return False, next(iterator)
         except StopIteration:
@@ -901,7 +939,8 @@ class GeminiNativeClient:
     ) -> Any:
         thinking_config = None
         if isinstance(extra_body, dict):
-            thinking_config = extra_body.get("thinking_config") or extra_body.get("thinkingConfig")
+            thinking_config = extra_body.get(
+                "thinking_config") or extra_body.get("thinkingConfig")
 
         request = build_gemini_request(
             messages=messages or [],
@@ -915,10 +954,15 @@ class GeminiNativeClient:
         )
 
         if stream:
-            return self._stream_completion(model=model, request=request, timeout=timeout)
+            return self._stream_completion(
+                model=model, request=request, timeout=timeout)
 
         url = f"{self.base_url}/models/{model}:generateContent"
-        response = self._http.post(url, json=request, headers=self._headers(), timeout=timeout)
+        response = self._http.post(
+            url,
+            json=request,
+            headers=self._headers(),
+            timeout=timeout)
         if response.status_code != 200:
             raise gemini_http_error(response)
         try:
@@ -932,7 +976,8 @@ class GeminiNativeClient:
             ) from exc
         return translate_gemini_response(payload, model=model)
 
-    def _stream_completion(self, *, model: str, request: Dict[str, Any], timeout: Any = None) -> Iterator[_GeminiStreamChunk]:
+    def _stream_completion(
+            self, *, model: str, request: Dict[str, Any], timeout: Any = None) -> Iterator[_GeminiStreamChunk]:
         url = f"{self.base_url}/models/{model}:streamGenerateContent?alt=sse"
         stream_headers = dict(self._headers())
         stream_headers["Accept"] = "text/event-stream"
@@ -945,7 +990,8 @@ class GeminiNativeClient:
                         raise gemini_http_error(response)
                     tool_call_indices: Dict[str, Dict[str, Any]] = {}
                     for event in _iter_sse_events(response):
-                        for chunk in translate_stream_event(event, model, tool_call_indices):
+                        for chunk in translate_stream_event(
+                                event, model, tool_call_indices):
                             yield chunk
             except httpx.HTTPError as exc:
                 raise GeminiAPIError(

@@ -43,7 +43,8 @@ logger = logging.getLogger(__name__)
 # lifetime of the process — Python install state doesn't change
 # mid-session in any way that would matter for the system prompt.
 _CACHE_LOCK = threading.Lock()
-_CACHED_LINE: Optional[str] = None  # None = not probed yet; "" = probed, nothing to say.
+# None = not probed yet; "" = probed, nothing to say.
+_CACHED_LINE: Optional[str] = None
 
 # Remote backends — keep in sync with agent/prompt_builder.py:_REMOTE_TERMINAL_BACKENDS.
 # Duplicated rather than imported to avoid a circular import (prompt_builder
@@ -67,7 +68,8 @@ def _run(cmd: list[str], timeout: float = 3.0) -> tuple[int, str, str]:
             check=False,
             stdin=subprocess.DEVNULL,
         )
-        return result.returncode, (result.stdout or "").strip(), (result.stderr or "").strip()
+        return result.returncode, (result.stdout or "").strip(
+        ), (result.stderr or "").strip()
     except FileNotFoundError:
         return -1, "", "not found"
     except subprocess.TimeoutExpired:
@@ -80,7 +82,8 @@ def _python_version_of(binary: str) -> Optional[str]:
     """Return a short version string like ``3.12.4`` for ``binary``, or None."""
     if not shutil.which(binary):
         return None
-    rc, out, err = _run([binary, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"])
+    rc, out, err = _run(
+        [binary, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"])
     if rc == 0 and out:
         return out
     return None
@@ -159,7 +162,8 @@ def _build_probe_line() -> str:
     # version mismatch between `pip` and `python3` → environment is
     # clean enough to stay silent.  The model can discover details by
     # running commands if it cares.
-    mismatch = bool(pip_bound_to and py3_ver and not py3_ver.startswith(pip_bound_to))
+    mismatch = bool(
+        pip_bound_to and py3_ver and not py3_ver.startswith(pip_bound_to))
     silent_conditions = (
         py3_ver is not None
         and py3_has_pip

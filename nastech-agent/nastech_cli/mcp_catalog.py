@@ -31,16 +31,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
-
-from nastech_constants import get_nastech_home, get_optional_mcps_dir
+from nastech_cli.cli_output import prompt as _prompt_input
 from nastech_cli.colors import Colors, color
 from nastech_cli.config import (
+    get_env_value,
     load_config,
     save_config,
-    get_env_value,
     save_env_value,
 )
-from nastech_cli.cli_output import prompt as _prompt_input
+from nastech_constants import get_nastech_home, get_optional_mcps_dir
 
 _MANIFEST_VERSION = 1
 
@@ -129,12 +128,15 @@ def _catalog_root() -> Path:
     """Return the optional-mcps/ directory shipped with this NasTech install."""
     # Prefer the env-var override / packaged location; fall back to the repo's
     # optional-mcps/ next to the package (source checkout).
-    return get_optional_mcps_dir(Path(__file__).parent.parent / "optional-mcps")
+    return get_optional_mcps_dir(
+        Path(__file__).parent.parent / "optional-mcps")
 
 
 def _parse_env_spec(raw: Any) -> EnvVarSpec:
     if not isinstance(raw, dict):
-        raise CatalogError(f"env entry must be a mapping, got {type(raw).__name__}")
+        raise CatalogError(
+            f"env entry must be a mapping, got {
+                type(raw).__name__}")
     name = raw.get("name") or ""
     if not name or not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", name):
         raise CatalogError(f"invalid env var name: {name!r}")
@@ -201,7 +203,8 @@ def _parse_manifest(path: Path) -> CatalogEntry:
         raise CatalogError(f"{path}: 'auth' must be a mapping")
     a_type = auth_raw.get("type") or "none"
     if a_type not in ("api_key", "oauth", "none"):
-        raise CatalogError(f"{path}: auth.type must be 'api_key'|'oauth'|'none'")
+        raise CatalogError(
+            f"{path}: auth.type must be 'api_key'|'oauth'|'none'")
     env_list_raw = auth_raw.get("env") or []
     if not isinstance(env_list_raw, list):
         raise CatalogError(f"{path}: auth.env must be a list")
@@ -234,11 +237,13 @@ def _parse_manifest(path: Path) -> CatalogEntry:
             raise CatalogError(f"{path}: 'install' must be a mapping")
         i_type = install_raw.get("type")
         if i_type != "git":
-            raise CatalogError(f"{path}: install.type must be 'git' (got {i_type!r})")
+            raise CatalogError(
+                f"{path}: install.type must be 'git' (got {i_type!r})")
         url = install_raw.get("url") or ""
         ref = install_raw.get("ref") or ""
         if not url or not ref:
-            raise CatalogError(f"{path}: install.url and install.ref are required")
+            raise CatalogError(
+                f"{path}: install.url and install.ref are required")
         bootstrap = install_raw.get("bootstrap") or []
         if not isinstance(bootstrap, list):
             raise CatalogError(f"{path}: install.bootstrap must be a list")
@@ -286,7 +291,8 @@ def list_catalog() -> List[CatalogEntry]:
             # Recognize the future-manifest error specifically so the UI can
             # surface a more actionable nudge than "broken manifest".
             if "manifest_version" in msg and "unsupported" in msg:
-                _CATALOG_DIAGNOSTICS.append((child.name, "future_manifest", msg))
+                _CATALOG_DIAGNOSTICS.append(
+                    (child.name, "future_manifest", msg))
             else:
                 _CATALOG_DIAGNOSTICS.append((child.name, "invalid", msg))
             continue
@@ -380,7 +386,8 @@ def _do_git_install(entry: CatalogEntry) -> Path:
 
     git = shutil.which("git")
     if not git:
-        raise CatalogError("git is required to install this MCP but was not found on PATH")
+        raise CatalogError(
+            "git is required to install this MCP but was not found on PATH")
 
     if dest.exists():
         # Fresh checkout each install — manifest version is the source of truth,
@@ -388,7 +395,12 @@ def _do_git_install(entry: CatalogEntry) -> Path:
         print(color(f"  Removing existing install at {dest}", Colors.DIM))
         shutil.rmtree(dest)
 
-    print(color(f"  Cloning {install.url} ({install.ref}) → {dest}", Colors.CYAN))
+    print(
+        color(
+            f"  Cloning {
+                install.url} ({
+                install.ref}) → {dest}",
+            Colors.CYAN))
 
     # `git clone --branch` only accepts branches and tags, NOT commit SHAs.
     # Detecting SHA-shaped refs upfront avoids a guaranteed stderr leak on
@@ -398,13 +410,15 @@ def _do_git_install(entry: CatalogEntry) -> Path:
 
     if not is_sha_ref:
         proc = subprocess.run(
-            [git, "clone", "--depth", "1", "--branch", install.ref, install.url, str(dest)],
+            [git, "clone", "--depth", "1", "--branch",
+                install.ref, install.url, str(dest)],
         )
         if proc.returncode == 0:
             pass
         else:
             # Branch/tag form failed (unlikely for valid manifests; possible if
-            # the ref was deleted upstream). Fall through to the full-clone path.
+            # the ref was deleted upstream). Fall through to the full-clone
+            # path.
             if dest.exists():
                 shutil.rmtree(dest)
             is_sha_ref = True  # treat the same as a SHA ref from here
@@ -450,7 +464,8 @@ def _prompt_env_vars(specs: List[EnvVarSpec]) -> Dict[str, str]:
         )
         if not value:
             if spec.required:
-                raise CatalogError(f"{spec.name} is required but no value was provided")
+                raise CatalogError(
+                    f"{spec.name} is required but no value was provided")
             continue
         save_env_value(spec.name, value)
         collected[spec.name] = value
@@ -557,7 +572,11 @@ def _apply_tool_selection(
       - Either way, point the user at ``nastech mcp configure <name>``.
     """
     print()
-    print(color(f"  Probing '{entry.name}' for available tools...", Colors.CYAN))
+    print(
+        color(
+            f"  Probing '{
+                entry.name}' for available tools...",
+            Colors.CYAN))
     probed = _probe_tools(entry.name)
 
     # Probe failure path
@@ -609,7 +628,8 @@ def _apply_tool_selection(
             include = [n for n in prior_selection if n in tool_names]
             _write_tools_include(entry.name, include)
         elif entry.tools.default_enabled:
-            include = [n for n in entry.tools.default_enabled if n in tool_names]
+            include = [
+                n for n in entry.tools.default_enabled if n in tool_names]
             _write_tools_include(entry.name, include)
         else:
             _write_tools_include(entry.name, None)
@@ -635,7 +655,8 @@ def _apply_tool_selection(
 
     if not chosen_indices:
         # User unchecked everything; treat as "no tools" — write empty include
-        # so the server is installed but contributes nothing until reconfigured.
+        # so the server is installed but contributes nothing until
+        # reconfigured.
         _write_tools_include(entry.name, [])
         print(color(
             f"  No tools selected. Run `nastech mcp configure {entry.name}` "

@@ -157,7 +157,8 @@ class LSPService:
         idle_timeout: float = DEFAULT_IDLE_TIMEOUT,
     ) -> None:
         self._enabled = enabled
-        self._wait_mode = wait_mode if wait_mode in {"document", "full"} else "document"
+        self._wait_mode = wait_mode if wait_mode in {
+            "document", "full"} else "document"
         self._wait_timeout = wait_timeout
         self._install_strategy = install_strategy
         self._binary_overrides = binary_overrides or {}
@@ -203,7 +204,10 @@ class LSPService:
 
         enabled = bool(lsp_cfg.get("enabled", True))
         wait_mode = lsp_cfg.get("wait_mode", "document")
-        wait_timeout = float(lsp_cfg.get("wait_timeout", DIAGNOSTICS_DOCUMENT_WAIT))
+        wait_timeout = float(
+            lsp_cfg.get(
+                "wait_timeout",
+                DIAGNOSTICS_DOCUMENT_WAIT))
         install_strategy = lsp_cfg.get("install_strategy", "auto")
         servers_cfg = lsp_cfg.get("servers") or {}
         disabled = []
@@ -292,7 +296,8 @@ class LSPService:
         if not self.enabled_for(file_path):
             return
         try:
-            diags = self._loop.run(self._snapshot_async(file_path), timeout=8.0)
+            diags = self._loop.run(
+                self._snapshot_async(file_path), timeout=8.0)
             self._delta_baseline[os.path.abspath(file_path)] = diags or []
         except Exception as e:  # noqa: BLE001
             logger.debug("baseline snapshot failed for %s: %s", file_path, e)
@@ -341,7 +346,9 @@ class LSPService:
 
         try:
             t = timeout if timeout is not None else self._wait_timeout + 2.0
-            diags = self._loop.run(self._open_and_wait_async(file_path), timeout=t) or []
+            diags = self._loop.run(
+                self._open_and_wait_async(file_path),
+                timeout=t) or []
         except asyncio.TimeoutError as e:
             eventlog.log_timeout(server_id, file_path)
             logger.debug("LSP diagnostics timeout for %s: %s", file_path, e)
@@ -349,7 +356,10 @@ class LSPService:
             return []
         except Exception as e:  # noqa: BLE001
             eventlog.log_server_error(server_id, file_path, e)
-            logger.debug("LSP diagnostics fetch failed for %s: %s", file_path, e)
+            logger.debug(
+                "LSP diagnostics fetch failed for %s: %s",
+                file_path,
+                e)
             self._mark_broken_for_file(file_path, e)
             return []
 
@@ -371,7 +381,9 @@ class LSPService:
             # to the just-emitted state, mirroring claude-code's
             # diagnosticTracking.
             try:
-                fresh = self._loop.run(self._current_diags_async(file_path), timeout=2.0) or []
+                fresh = self._loop.run(
+                    self._current_diags_async(file_path),
+                    timeout=2.0) or []
             except Exception:  # noqa: BLE001
                 fresh = []
             if fresh:
@@ -383,7 +395,8 @@ class LSPService:
             eventlog.log_clean(server_id, file_path)
         return diags
 
-    def _mark_broken_for_file(self, file_path: str, exc: BaseException) -> None:
+    def _mark_broken_for_file(self, file_path: str,
+                              exc: BaseException) -> None:
         """Mark the (server_id, workspace_root) pair as broken so subsequent
         edits skip it instantly instead of re-paying timeout cost.
 
@@ -456,10 +469,12 @@ class LSPService:
         except Exception as e:  # noqa: BLE001
             logger.debug("snapshot open/wait failed: %s", e)
             return []
-        self._last_used[(client.server_id, client.workspace_root)] = time.time()
+        self._last_used[(client.server_id,
+                         client.workspace_root)] = time.time()
         return list(client.diagnostics_for(file_path))
 
-    async def _open_and_wait_async(self, file_path: str) -> List[Dict[str, Any]]:
+    async def _open_and_wait_async(
+            self, file_path: str) -> List[Dict[str, Any]]:
         client = await self._get_or_spawn(file_path)
         if client is None:
             return []
@@ -470,10 +485,12 @@ class LSPService:
         except Exception as e:  # noqa: BLE001
             logger.debug("open/wait failed for %s: %s", file_path, e)
             return []
-        self._last_used[(client.server_id, client.workspace_root)] = time.time()
+        self._last_used[(client.server_id,
+                         client.workspace_root)] = time.time()
         return list(client.diagnostics_for(file_path))
 
-    async def _current_diags_async(self, file_path: str) -> List[Dict[str, Any]]:
+    async def _current_diags_async(
+            self, file_path: str) -> List[Dict[str, Any]]:
         ws, gated = resolve_workspace_for_file(file_path)
         srv = find_server_for_file(file_path)
         if not (ws and gated and srv):
@@ -489,7 +506,8 @@ class LSPService:
         if srv is None:
             return None
         if srv.server_id in self._disabled_servers:
-            eventlog.log_disabled(srv.server_id, file_path, "disabled in config")
+            eventlog.log_disabled(
+                srv.server_id, file_path, "disabled in config")
             return None
         ws_root, gated = resolve_workspace_for_file(file_path)
         if not (ws_root and gated):
@@ -631,7 +649,11 @@ def _diag_key(d: Dict[str, Any]) -> str:
             str(code or ""),
             str(d.get("source") or ""),
             str(d.get("message") or "").strip(),
-            f"{start.get('line', 0)}:{start.get('character', 0)}-{end.get('line', 0)}:{end.get('character', 0)}",
+            f"{start.get('line',
+                         0)}:{start.get('character',
+                                        0)}-{end.get('line',
+                                                     0)}:{end.get('character',
+                                                                  0)}",
         ]
     )
 

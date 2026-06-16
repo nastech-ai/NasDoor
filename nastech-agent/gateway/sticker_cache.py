@@ -16,7 +16,6 @@ from typing import Optional
 
 from nastech_cli.config import get_nastech_home
 
-
 CACHE_PATH = get_nastech_home() / "sticker_cache.json"
 
 # Vision prompt for describing stickers -- kept concise to save tokens

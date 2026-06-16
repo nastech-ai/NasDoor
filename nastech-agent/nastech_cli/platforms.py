@@ -19,27 +19,32 @@ class PlatformInfo(NamedTuple):
 
 # Ordered so that TUI menus are deterministic.
 PLATFORMS: OrderedDict[str, PlatformInfo] = OrderedDict([
-    ("cli",            PlatformInfo(label="🖥️  CLI",            default_toolset="nastech-cli")),
-    ("telegram",       PlatformInfo(label="📱 Telegram",        default_toolset="nastech-telegram")),
-    ("discord",        PlatformInfo(label="💬 Discord",         default_toolset="nastech-discord")),
-    ("slack",          PlatformInfo(label="💼 Slack",           default_toolset="nastech-slack")),
-    ("whatsapp",       PlatformInfo(label="📱 WhatsApp",        default_toolset="nastech-whatsapp")),
-    ("signal",         PlatformInfo(label="📡 Signal",          default_toolset="nastech-signal")),
-    ("bluebubbles",    PlatformInfo(label="💙 BlueBubbles",     default_toolset="nastech-bluebubbles")),
-    ("email",          PlatformInfo(label="📧 Email",           default_toolset="nastech-email")),
-    ("homeassistant",  PlatformInfo(label="🏠 Home Assistant",  default_toolset="nastech-homeassistant")),
-    ("mattermost",     PlatformInfo(label="💬 Mattermost",      default_toolset="nastech-mattermost")),
-    ("matrix",         PlatformInfo(label="💬 Matrix",          default_toolset="nastech-matrix")),
-    ("dingtalk",       PlatformInfo(label="💬 DingTalk",        default_toolset="nastech-dingtalk")),
-    ("feishu",         PlatformInfo(label="🪽 Feishu",          default_toolset="nastech-feishu")),
-    ("wecom",          PlatformInfo(label="💬 WeCom",           default_toolset="nastech-wecom")),
-    ("wecom_callback", PlatformInfo(label="💬 WeCom Callback",  default_toolset="nastech-wecom-callback")),
-    ("weixin",         PlatformInfo(label="💬 Weixin",          default_toolset="nastech-weixin")),
-    ("qqbot",          PlatformInfo(label="💬 QQBot",           default_toolset="nastech-qqbot")),
-    ("yuanbao",        PlatformInfo(label="🤖 Yuanbao",         default_toolset="nastech-yuanbao")),
-    ("webhook",        PlatformInfo(label="🔗 Webhook",         default_toolset="nastech-webhook")),
-    ("api_server",     PlatformInfo(label="🌐 API Server",      default_toolset="nastech-api-server")),
-    ("cron",           PlatformInfo(label="⏰ Cron",            default_toolset="nastech-cron")),
+    ("cli", PlatformInfo(label="🖥️  CLI", default_toolset="nastech-cli")),
+    ("telegram", PlatformInfo(label="📱 Telegram", default_toolset="nastech-telegram")),
+    ("discord", PlatformInfo(label="💬 Discord", default_toolset="nastech-discord")),
+    ("slack", PlatformInfo(label="💼 Slack", default_toolset="nastech-slack")),
+    ("whatsapp", PlatformInfo(label="📱 WhatsApp", default_toolset="nastech-whatsapp")),
+    ("signal", PlatformInfo(label="📡 Signal", default_toolset="nastech-signal")),
+    ("bluebubbles", PlatformInfo(label="💙 BlueBubbles",
+     default_toolset="nastech-bluebubbles")),
+    ("email", PlatformInfo(label="📧 Email", default_toolset="nastech-email")),
+    ("homeassistant", PlatformInfo(label="🏠 Home Assistant",
+     default_toolset="nastech-homeassistant")),
+    ("mattermost", PlatformInfo(label="💬 Mattermost",
+     default_toolset="nastech-mattermost")),
+    ("matrix", PlatformInfo(label="💬 Matrix", default_toolset="nastech-matrix")),
+    ("dingtalk", PlatformInfo(label="💬 DingTalk", default_toolset="nastech-dingtalk")),
+    ("feishu", PlatformInfo(label="🪽 Feishu", default_toolset="nastech-feishu")),
+    ("wecom", PlatformInfo(label="💬 WeCom", default_toolset="nastech-wecom")),
+    ("wecom_callback", PlatformInfo(label="💬 WeCom Callback",
+     default_toolset="nastech-wecom-callback")),
+    ("weixin", PlatformInfo(label="💬 Weixin", default_toolset="nastech-weixin")),
+    ("qqbot", PlatformInfo(label="💬 QQBot", default_toolset="nastech-qqbot")),
+    ("yuanbao", PlatformInfo(label="🤖 Yuanbao", default_toolset="nastech-yuanbao")),
+    ("webhook", PlatformInfo(label="🔗 Webhook", default_toolset="nastech-webhook")),
+    ("api_server", PlatformInfo(label="🌐 API Server",
+     default_toolset="nastech-api-server")),
+    ("cron", PlatformInfo(label="⏰ Cron", default_toolset="nastech-cron")),
 ])
 
 
@@ -75,7 +80,9 @@ def get_all_platforms() -> "OrderedDict[str, PlatformInfo]":
         for entry in platform_registry.plugin_entries():
             if entry.name not in merged:
                 merged[entry.name] = PlatformInfo(
-                    label=f"{entry.emoji}  {entry.label}" if entry.emoji else entry.label,
+                    label=f"{
+                        entry.emoji}  {
+                        entry.label}" if entry.emoji else entry.label,
                     default_toolset=f"nastech-{entry.name}",
                 )
     except Exception:

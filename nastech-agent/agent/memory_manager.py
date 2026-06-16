@@ -25,9 +25,9 @@ Usage in run_agent.py:
 
 from __future__ import annotations
 
+import inspect
 import logging
 import re
-import inspect
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
@@ -190,7 +190,8 @@ class StreamingContextScrubber:
             idx = buf_lower.find(self._OPEN_TAG, search_start)
             if idx == -1:
                 return -1
-            if self._is_block_boundary(buf, idx) and self._has_block_opener_suffix(buf, idx):
+            if self._is_block_boundary(
+                    buf, idx) and self._has_block_opener_suffix(buf, idx):
                 return idx
             search_start = idx + 1
 
@@ -238,7 +239,8 @@ def build_memory_context_block(raw_context: str) -> str:
         return ""
     clean = sanitize_context(raw_context)
     if clean != raw_context:
-        logger.warning("memory provider returned pre-wrapped context; stripped")
+        logger.warning(
+            "memory provider returned pre-wrapped context; stripped")
     return (
         "<memory-context>\n"
         "[System note: The following is recalled memory context, "
@@ -458,7 +460,8 @@ class MemoryManager:
         def _run() -> None:
             for provider in providers:
                 try:
-                    if messages is not None and self._provider_sync_accepts_messages(provider):
+                    if messages is not None and self._provider_sync_accepts_messages(
+                            provider):
                         provider.sync_turn(
                             user_content,
                             assistant_content,
@@ -522,7 +525,8 @@ class MemoryManager:
                         thread_name_prefix="mem-sync",
                     )
                 except Exception as e:  # pragma: no cover - resource exhaustion
-                    logger.warning("Failed to create memory sync executor: %s", e)
+                    logger.warning(
+                        "Failed to create memory sync executor: %s", e)
                     return None
             return self._sync_executor
 
@@ -743,13 +747,16 @@ class MemoryManager:
             if provider.name == "builtin":
                 continue
             try:
-                metadata_mode = self._provider_memory_write_metadata_mode(provider)
+                metadata_mode = self._provider_memory_write_metadata_mode(
+                    provider)
                 if metadata_mode == "keyword":
                     provider.on_memory_write(
                         action, target, content, metadata=dict(metadata or {})
                     )
                 elif metadata_mode == "positional":
-                    provider.on_memory_write(action, target, content, dict(metadata or {}))
+                    provider.on_memory_write(
+                        action, target, content, dict(
+                            metadata or {}))
                 else:
                     provider.on_memory_write(action, target, content)
             except Exception as e:

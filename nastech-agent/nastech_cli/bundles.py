@@ -17,9 +17,6 @@ from __future__ import annotations
 import sys
 from typing import List
 
-from rich.console import Console
-from rich.table import Table
-
 from agent.skill_bundles import (
     _bundles_dir,
     delete_bundle,
@@ -29,6 +26,8 @@ from agent.skill_bundles import (
     save_bundle,
     scan_bundles,
 )
+from rich.console import Console
+from rich.table import Table
 
 
 def _console() -> Console:
@@ -187,7 +186,8 @@ def register_cli(subparser) -> None:
             "multiple) or entered interactively when omitted."
         ),
     )
-    p_create.add_argument("name", help="Bundle name (becomes the /slash command)")
+    p_create.add_argument(
+        "name", help="Bundle name (becomes the /slash command)")
     p_create.add_argument(
         "--skill", "-s", action="append", default=[],
         help="Skill name to include (repeat for multiple)",

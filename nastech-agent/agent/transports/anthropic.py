@@ -21,7 +21,8 @@ class AnthropicTransport(ProviderTransport):
     def api_mode(self) -> str:
         return "anthropic_messages"
 
-    def convert_messages(self, messages: List[Dict[str, Any]], **kwargs) -> Any:
+    def convert_messages(
+            self, messages: List[Dict[str, Any]], **kwargs) -> Any:
         """Convert OpenAI messages to Anthropic (system, messages) tuple.
 
         kwargs:
@@ -77,13 +78,15 @@ class AnthropicTransport(ProviderTransport):
             drop_context_1m_beta=params.get("drop_context_1m_beta", False),
         )
 
-    def normalize_response(self, response: Any, **kwargs) -> NormalizedResponse:
+    def normalize_response(self, response: Any, **
+                           kwargs) -> NormalizedResponse:
         """Normalize Anthropic response to NormalizedResponse.
 
         Parses content blocks (text, thinking, tool_use), maps stop_reason
         to OpenAI finish_reason, and collects reasoning_details in provider_data.
         """
         import json
+
         from agent.anthropic_adapter import _to_plain_data
         from agent.transports.types import ToolCall
 
@@ -135,7 +138,8 @@ class AnthropicTransport(ProviderTransport):
             content="\n".join(text_parts) if text_parts else None,
             tool_calls=tool_calls or None,
             finish_reason=finish_reason,
-            reasoning="\n\n".join(reasoning_parts) if reasoning_parts else None,
+            reasoning="\n\n".join(
+                reasoning_parts) if reasoning_parts else None,
             usage=None,
             provider_data=provider_data or None,
         )

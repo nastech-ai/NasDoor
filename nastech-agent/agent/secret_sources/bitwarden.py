@@ -69,7 +69,8 @@ _BWS_RUN_TIMEOUT = 30
 
 # In-process cache so repeated load_nastech_dotenv() calls (CLI startup,
 # gateway hot-reload, test suites) don't re-fetch from BSM.
-_CacheKey = Tuple[str, str, str]  # (access_token_fingerprint, project_id, server_url)
+# (access_token_fingerprint, project_id, server_url)
+_CacheKey = Tuple[str, str, str]
 _CACHE: Dict[_CacheKey, "_CachedFetch"] = {}
 
 # Disk-persisted cache so back-to-back CLI invocations (e.g. `nastech chat -q ...`
@@ -122,9 +123,11 @@ def _read_disk_cache(cache_key: _CacheKey, ttl_seconds: float,
         return None
     secrets = payload.get("secrets")
     fetched_at = payload.get("fetched_at")
-    if not isinstance(secrets, dict) or not isinstance(fetched_at, (int, float)):
+    if not isinstance(secrets, dict) or not isinstance(
+            fetched_at, (int, float)):
         return None
-    # Coerce all values to strings — JSON allows numbers but env vars need strings
+    # Coerce all values to strings — JSON allows numbers but env vars need
+    # strings
     typed_secrets: Dict[str, str] = {
         k: v for k, v in secrets.items() if isinstance(k, str) and isinstance(v, str)
     }
@@ -191,9 +194,11 @@ class FetchResult:
 
     secrets: Dict[str, str] = field(default_factory=dict)
     applied: List[str] = field(default_factory=list)   # set into os.environ
-    skipped: List[str] = field(default_factory=list)   # already set, not overridden
+    # already set, not overridden
+    skipped: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)  # non-fatal issues
-    error: Optional[str] = None                        # fatal: nothing was fetched
+    # fatal: nothing was fetched
+    error: Optional[str] = None
     binary_path: Optional[Path] = None
 
     @property
@@ -442,7 +447,10 @@ def fetch_bitwarden_secrets(
     if not project_id:
         raise RuntimeError("Bitwarden project_id is empty")
 
-    cache_key = (_token_fingerprint(access_token), project_id, server_url or "")
+    cache_key = (
+        _token_fingerprint(access_token),
+        project_id,
+        server_url or "")
     if use_cache:
         cached = _CACHE.get(cache_key)
         if cached and cached.is_fresh(cache_ttl_seconds):
@@ -464,7 +472,8 @@ def fetch_bitwarden_secrets(
             "`nastech secrets bitwarden setup`."
         )
 
-    secrets, warnings = _run_bws_list(bws, access_token, project_id, server_url)
+    secrets, warnings = _run_bws_list(
+        bws, access_token, project_id, server_url)
     entry = _CachedFetch(secrets=secrets, fetched_at=time.time())
     _CACHE[cache_key] = entry
     if use_cache:

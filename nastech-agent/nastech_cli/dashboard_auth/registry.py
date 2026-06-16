@@ -31,7 +31,8 @@ def register_provider(provider: DashboardAuthProvider) -> None:
     with _lock:
         if provider.name in _providers:
             raise ValueError(
-                f"dashboard-auth provider already registered: {provider.name!r}"
+                f"dashboard-auth provider already registered: {
+                    provider.name!r}"
             )
         _providers[provider.name] = provider
     _log.info(

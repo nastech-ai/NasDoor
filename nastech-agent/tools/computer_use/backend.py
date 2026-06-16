@@ -43,7 +43,8 @@ class CaptureResult:
     """
 
     mode: str
-    width: int                      # screenshot width (logical px, pre-Anthropic-scale)
+    # screenshot width (logical px, pre-Anthropic-scale)
+    width: int
     height: int
     png_b64: Optional[str] = None
     elements: List[UIElement] = field(default_factory=list)
@@ -86,7 +87,10 @@ class ComputerUseBackend(ABC):
 
     # ── Capture ─────────────────────────────────────────────────────
     @abstractmethod
-    def capture(self, mode: str = "som", app: Optional[str] = None) -> CaptureResult: ...
+    def capture(
+        self,
+        mode: str = "som",
+        app: Optional[str] = None) -> CaptureResult: ...
 
     # ── Pointer actions ─────────────────────────────────────────────
     @abstractmethod
@@ -144,7 +148,8 @@ class ComputerUseBackend(ABC):
 
     # ── Native-value mutation ────────────────────────────────────────
     @abstractmethod
-    def set_value(self, value: str, element: Optional[int] = None) -> ActionResult:
+    def set_value(self, value: str,
+                  element: Optional[int] = None) -> ActionResult:
         """Set a native value on an element (e.g. AXPopUpButton selection).
 
         `element` is the 1-based SOM index returned by a prior capture call.
@@ -155,4 +160,5 @@ class ComputerUseBackend(ABC):
         """Default implementation: time.sleep."""
         import time
         time.sleep(max(0.0, min(seconds, 30.0)))
-        return ActionResult(ok=True, action="wait", message=f"waited {seconds:.2f}s")
+        return ActionResult(ok=True, action="wait",
+                            message=f"waited {seconds:.2f}s")

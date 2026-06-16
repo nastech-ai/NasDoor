@@ -16,8 +16,9 @@ crashes due to a bad timezone string.
 import logging
 import os
 from datetime import datetime
-from nastech_constants import get_config_path
 from typing import Optional
+
+from nastech_constants import get_config_path
 
 logger = logging.getLogger(__name__)
 
@@ -113,5 +114,3 @@ def now() -> datetime:
         return datetime.now(tz)
     # No timezone configured — use server-local (still tz-aware)
     return datetime.now().astimezone()
-
-

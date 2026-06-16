@@ -39,7 +39,8 @@ import sys
 import time
 from pathlib import Path
 
-# Short timeouts: schtasks occasionally wedges and we don't want to hang forever.
+# Short timeouts: schtasks occasionally wedges and we don't want to hang
+# forever.
 _SCHTASKS_TIMEOUT_S = 15
 _SCHTASKS_NO_OUTPUT_TIMEOUT_S = 30
 # Patterns in schtasks stderr that mean "fall back to the Startup folder".
@@ -47,7 +48,9 @@ _FALLBACK_PATTERNS = re.compile(
     r"(access is denied|acceso denegado|přístup byl odepřen|schtasks timed out|schtasks produced no output)",
     re.IGNORECASE,
 )
-_ACCESS_DENIED_PATTERN = re.compile(r"(access is denied|acceso denegado)", re.IGNORECASE)
+_ACCESS_DENIED_PATTERN = re.compile(
+    r"(access is denied|acceso denegado)",
+    re.IGNORECASE)
 
 _TASK_NAME_DEFAULT = "NasTech_Gateway"
 _TASK_DESCRIPTION = "NasTech Agent Gateway - Messaging Platform Integration"
@@ -88,7 +91,9 @@ def _quote_cmd_script_arg(value: str) -> str:
     logical command line mid-script.
     """
     if "\r" in value or "\n" in value:
-        raise ValueError(f"refusing to quote value containing newline: {value!r}")
+        raise ValueError(
+            f"refusing to quote value containing newline: {
+                value!r}")
     if not value:
         return '""'
     if not re.search(r'[ \t"]', value):
@@ -171,7 +176,8 @@ def _current_profile_cli_args() -> list[str]:
     return shlex.split(profile_arg) if profile_arg else []
 
 
-def _launch_elevated_gateway_command(command: str, extra_args: list[str] | None = None) -> bool:
+def _launch_elevated_gateway_command(
+        command: str, extra_args: list[str] | None = None) -> bool:
     """Launch an elevated gateway subcommand via UAC and return True on handoff.
 
     Use pythonw.exe for the elevated child so approving UAC does not leave a
@@ -179,7 +185,12 @@ def _launch_elevated_gateway_command(command: str, extra_args: list[str] | None 
     decisions are already collected in the parent shell before this point.
     """
     _assert_windows()
-    args = ["-m", "nastech_cli.main", *_current_profile_cli_args(), "gateway", command]
+    args = [
+        "-m",
+        "nastech_cli.main",
+        *_current_profile_cli_args(),
+        "gateway",
+        command]
     if extra_args:
         args.extend(extra_args)
     params = subprocess.list2cmdline(args)
@@ -198,7 +209,8 @@ def _launch_elevated_gateway_command(command: str, extra_args: list[str] | None 
         print(f"⚠ Could not launch elevated gateway {command} prompt: {exc}")
         return False
     if result <= 32:
-        print(f"⚠ Elevated gateway {command} prompt was not started (ShellExecuteW={result})")
+        print(
+            f"⚠ Elevated gateway {command} prompt was not started (ShellExecuteW={result})")
         return False
     return True
 
@@ -211,7 +223,8 @@ def _launch_elevated_install(
 ) -> bool:
     """Launch an elevated gateway install via UAC and return True on handoff."""
     old_start_now = os.environ.get("NASTECH_GATEWAY_INSTALL_START_NOW")
-    old_start_on_login = os.environ.get("NASTECH_GATEWAY_INSTALL_START_ON_LOGIN")
+    old_start_on_login = os.environ.get(
+        "NASTECH_GATEWAY_INSTALL_START_ON_LOGIN")
     old_handoff = os.environ.get("NASTECH_GATEWAY_ELEVATED_HANDOFF")
     try:
         if start_now is not None:
@@ -225,7 +238,8 @@ def _launch_elevated_install(
         if start_now is not None:
             extra_args.append("--start-now" if start_now else "--no-start-now")
         if start_on_login is not None:
-            extra_args.append("--start-on-login" if start_on_login else "--no-start-on-login")
+            extra_args.append(
+                "--start-on-login" if start_on_login else "--no-start-on-login")
         return _launch_elevated_gateway_command("install", extra_args)
     finally:
         for key, old in (
@@ -255,7 +269,8 @@ def get_task_name() -> str:
     Named profile X: ``NasTech_Gateway_<X>``
     """
     _assert_windows()
-    # Local import to avoid circular module initialization during nastech_cli boot.
+    # Local import to avoid circular module initialization during nastech_cli
+    # boot.
     from nastech_cli.gateway import _profile_suffix
 
     suffix = _profile_suffix()
@@ -287,10 +302,16 @@ def get_task_script_path() -> Path:
 def _startup_dir() -> Path:
     appdata = os.environ.get("APPDATA", "").strip()
     if appdata:
-        return Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
-    userprofile = os.environ.get("USERPROFILE", "").strip() or os.environ.get("HOME", "").strip()
+        return Path(appdata) / "Microsoft" / "Windows" / \
+            "Start Menu" / "Programs" / "Startup"
+    userprofile = os.environ.get(
+        "USERPROFILE",
+        "").strip() or os.environ.get(
+        "HOME",
+        "").strip()
     if not userprofile:
-        raise RuntimeError("neither APPDATA nor USERPROFILE is set — cannot resolve Startup folder")
+        raise RuntimeError(
+            "neither APPDATA nor USERPROFILE is set — cannot resolve Startup folder")
     return (
         Path(userprofile)
         / "AppData"
@@ -420,7 +441,8 @@ def _write_task_script() -> Path:
     nastech_home = str(Path(get_nastech_home()).resolve())
     profile_arg = _profile_arg(nastech_home)
 
-    content = _build_gateway_cmd_script(python_path, working_dir, nastech_home, profile_arg)
+    content = _build_gateway_cmd_script(
+        python_path, working_dir, nastech_home, profile_arg)
     script_path = get_task_script_path()
     tmp = script_path.with_suffix(".tmp")
     tmp.write_text(content, encoding="utf-8", newline="")
@@ -434,7 +456,8 @@ def _write_task_script() -> Path:
 
 def _resolve_task_user() -> str | None:
     """Return ``DOMAIN\\USER`` if available, else bare USERNAME, else None."""
-    username = os.environ.get("USERNAME") or os.environ.get("USER") or os.environ.get("LOGNAME")
+    username = os.environ.get("USERNAME") or os.environ.get(
+        "USER") or os.environ.get("LOGNAME")
     if not username:
         return None
     if "\\" in username:
@@ -443,7 +466,8 @@ def _resolve_task_user() -> str | None:
     return f"{domain}\\{username}" if domain else username
 
 
-def _install_scheduled_task(task_name: str, script_path: Path) -> tuple[bool, str]:
+def _install_scheduled_task(
+        task_name: str, script_path: Path) -> tuple[bool, str]:
     """Create or replace the Scheduled Task. Returns (success, detail).
 
     Always recreate instead of ``/Change``. Older NasTech builds and failed
@@ -453,11 +477,13 @@ def _install_scheduled_task(task_name: str, script_path: Path) -> tuple[bool, st
     """
     quoted_script = _quote_schtasks_arg(str(script_path))
 
-    delete_code, delete_out, delete_err = _exec_schtasks(["/Delete", "/F", "/TN", task_name])
+    delete_code, delete_out, delete_err = _exec_schtasks(
+        ["/Delete", "/F", "/TN", task_name])
     delete_detail = (delete_err or delete_out or "").strip()
     if delete_code != 0 and delete_detail and "cannot find" not in delete_detail.lower():
         if _is_access_denied(delete_detail):
-            return (False, f"schtasks /Delete failed (code {delete_code}): {delete_detail}")
+            return (
+                False, f"schtasks /Delete failed (code {delete_code}): {delete_detail}")
         # Non-fatal: /Create /F below may still replace it. Keep the detail in
         # the final error if creation also fails.
     # password" variant; if that fails, retry without /RU /NP /IT.
@@ -488,9 +514,8 @@ def _install_scheduled_task(task_name: str, script_path: Path) -> tuple[bool, st
         last_code, last_err = code, (err or out or "")
     if delete_detail and "cannot find" not in delete_detail.lower():
         last_err = f"{last_err.strip()} (delete detail: {delete_detail})"
-    return (False, f"schtasks /Create failed (code {last_code}): {last_err.strip()}")
-
-
+    return (
+        False, f"schtasks /Create failed (code {last_code}): {last_err.strip()}")
 
 
 def _install_startup_entry(script_path: Path) -> Path:
@@ -498,7 +523,10 @@ def _install_startup_entry(script_path: Path) -> Path:
     entry = get_startup_entry_path()
     entry.parent.mkdir(parents=True, exist_ok=True)
     tmp = entry.with_suffix(".tmp")
-    tmp.write_text(_build_startup_launcher(script_path), encoding="utf-8", newline="")
+    tmp.write_text(
+        _build_startup_launcher(script_path),
+        encoding="utf-8",
+        newline="")
     tmp.replace(entry)
     return entry
 
@@ -559,7 +587,8 @@ def _resolve_detached_python(python_exe: str) -> tuple[str, Path, list[str]]:
     return (windowed, venv_dir, [])
 
 
-def _prepend_pythonpath(env_overlay: dict[str, str], entries: list[str]) -> None:
+def _prepend_pythonpath(
+        env_overlay: dict[str, str], entries: list[str]) -> None:
     clean_entries = [entry for entry in entries if entry]
     if not clean_entries:
         return
@@ -584,7 +613,8 @@ def _build_gateway_argv() -> tuple[list[str], str, dict[str, str]]:
         get_python_path,
     )
 
-    python_exe, venv_dir, extra_pythonpath = _resolve_detached_python(get_python_path())
+    python_exe, venv_dir, extra_pythonpath = _resolve_detached_python(
+        get_python_path())
     project_root = str(PROJECT_ROOT)
     working_dir = _stable_gateway_working_dir(PROJECT_ROOT)
     nastech_home = str(Path(get_nastech_home()).resolve())
@@ -601,7 +631,9 @@ def _build_gateway_argv() -> tuple[list[str], str, dict[str, str]]:
         "NASTECH_GATEWAY_DETACHED": "1",
         "VIRTUAL_ENV": str(venv_dir),
     }
-    _prepend_pythonpath(env_overlay, [project_root, *extra_pythonpath] if extra_pythonpath else [project_root])
+    _prepend_pythonpath(
+        env_overlay, [
+            project_root, *extra_pythonpath] if extra_pythonpath else [project_root])
     return argv, working_dir, env_overlay
 
 
@@ -698,8 +730,10 @@ def _prompt_install_choices(
     start_on_login: bool | None = None,
 ) -> tuple[bool, bool]:
     """Return (start_now, start_on_login), asking before any UAC escalation."""
-    env_start_now = _install_choice_from_env("NASTECH_GATEWAY_INSTALL_START_NOW")
-    env_start_on_login = _install_choice_from_env("NASTECH_GATEWAY_INSTALL_START_ON_LOGIN")
+    env_start_now = _install_choice_from_env(
+        "NASTECH_GATEWAY_INSTALL_START_NOW")
+    env_start_on_login = _install_choice_from_env(
+        "NASTECH_GATEWAY_INSTALL_START_ON_LOGIN")
     if start_now is None:
         start_now = env_start_now
     if start_on_login is None:
@@ -719,9 +753,12 @@ def _prompt_install_choices(
     return start_now, start_on_login
 
 
-def _install_startup_fallback(script_path: Path, start_now: bool, detail: str) -> None:
+def _install_startup_fallback(
+        script_path: Path, start_now: bool, detail: str) -> None:
     """Install the Startup-folder fallback and optionally start once."""
-    print(f"↻ Scheduled Task install blocked ({detail.splitlines()[0]}) — using Startup folder fallback")
+    print(
+        f"↻ Scheduled Task install blocked ({
+            detail.splitlines()[0]}) — using Startup folder fallback")
     entry = _install_startup_entry(script_path)
     print(f"✓ Installed Windows login item: {entry}")
     print(f"  Task script: {script_path}")
@@ -730,11 +767,12 @@ def _install_startup_fallback(script_path: Path, start_now: bool, detail: str) -
     # Startup-folder fallback only installs login persistence. Starting is
     # controlled by the pre-UAC start_now answer so all user decisions happen
     # before any elevation prompt.
-    from nastech_cli.gateway import find_gateway_pids, _profile_arg
+    from nastech_cli.gateway import _profile_arg, find_gateway_pids
 
     running_pids = list(find_gateway_pids())
     if running_pids:
-        print(f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
+        print(
+            f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
     elif start_now:
         pid = _spawn_detached()
         _report_gateway_start(f"direct spawn (PID {pid})")
@@ -760,14 +798,16 @@ def install(
     / ``systemd_install`` but isn't needed — we always reconcile.
     """
     _assert_windows()
-    start_now, start_on_login = _prompt_install_choices(start_now, start_on_login)
+    start_now, start_on_login = _prompt_install_choices(
+        start_now, start_on_login)
 
     if not start_on_login:
         print("ℹ Skipped Windows login auto-start install.")
         if start_now:
             running_pids = _gateway_pids()
             if running_pids:
-                print(f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
+                print(
+                    f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
             else:
                 pid = _spawn_detached()
                 _report_gateway_start(f"direct spawn (PID {pid})")
@@ -789,17 +829,24 @@ def install(
         print("↻ Scheduled Task install may need administrator approval on this Windows account.")
         print("  UAC is Windows' admin approval prompt; it is needed to create/update the Scheduled Task.")
         if prompt_yes_no("  Open the UAC prompt now?", False):
-            if _launch_elevated_install(force=force, start_now=start_now, start_on_login=start_on_login):
+            if _launch_elevated_install(
+                    force=force, start_now=start_now, start_on_login=start_on_login):
                 print("✓ Launched elevated NasTech gateway install prompt.")
                 if start_now:
-                    print("  Approve the Windows UAC prompt; the elevated install will start the gateway afterwards.")
+                    print(
+                        "  Approve the Windows UAC prompt; the elevated install will start the gateway afterwards.")
                 else:
-                    print("  Approve the Windows UAC prompt, then run: nastech gateway status")
+                    print(
+                        "  Approve the Windows UAC prompt, then run: nastech gateway status")
                 return
-            print("⚠ Falling back to Startup folder because elevation was unavailable or cancelled.")
+            print(
+                "⚠ Falling back to Startup folder because elevation was unavailable or cancelled.")
         else:
             print("  Skipped elevation. Falling back to Startup folder.")
-        _install_startup_fallback(script_path, start_now, "administrator approval was not used")
+        _install_startup_fallback(
+            script_path,
+            start_now,
+            "administrator approval was not used")
         return
 
     ok, detail = _install_scheduled_task(task_name, script_path)
@@ -810,7 +857,8 @@ def install(
         if start_now:
             running_pids = _gateway_pids()
             if running_pids:
-                print(f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
+                print(
+                    f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
             else:
                 pid = _spawn_detached()
                 _report_gateway_start(f"direct spawn (PID {pid})")
@@ -827,23 +875,31 @@ def install(
     if _is_access_denied(detail) and not _is_running_as_admin():
         from nastech_cli.setup import prompt_yes_no
 
-        print(f"↻ Scheduled Task install needs administrator approval ({detail.splitlines()[0]})")
+        print(
+            f"↻ Scheduled Task install needs administrator approval ({
+                detail.splitlines()[0]})")
         print("  UAC is Windows' admin approval prompt; it is needed to create/update the Scheduled Task.")
         if prompt_yes_no("  Open the UAC prompt now?", False):
-            if _launch_elevated_install(force=force, start_now=start_now, start_on_login=start_on_login):
+            if _launch_elevated_install(
+                    force=force, start_now=start_now, start_on_login=start_on_login):
                 print("✓ Launched elevated NasTech gateway install prompt.")
                 if start_now:
-                    print("  Approve the Windows UAC prompt; the elevated install will start the gateway afterwards.")
+                    print(
+                        "  Approve the Windows UAC prompt; the elevated install will start the gateway afterwards.")
                 else:
-                    print("  Approve the Windows UAC prompt, then run: nastech gateway status")
+                    print(
+                        "  Approve the Windows UAC prompt, then run: nastech gateway status")
                 return
-            print("⚠ Falling back to Startup folder because elevation was unavailable or cancelled.")
+            print(
+                "⚠ Falling back to Startup folder because elevation was unavailable or cancelled.")
         else:
             print("  Skipped elevation. Falling back to Startup folder.")
 
     # schtasks create didn't work. See if it's a "fall back to startup" case.
     if _should_fall_back(1, detail):
-        print(f"↻ Scheduled Task install blocked ({detail.splitlines()[0]}) — using Startup folder fallback")
+        print(
+            f"↻ Scheduled Task install blocked ({
+                detail.splitlines()[0]}) — using Startup folder fallback")
         entry = _install_startup_entry(script_path)
         print(f"✓ Installed Windows login item: {entry}")
         print(f"  Task script: {script_path}")
@@ -852,11 +908,12 @@ def install(
         # Startup-folder fallback only installs login persistence. Starting is
         # controlled by the pre-UAC start_now answer so all user decisions happen
         # before any elevation prompt.
-        from nastech_cli.gateway import find_gateway_pids, _profile_arg
+        from nastech_cli.gateway import _profile_arg, find_gateway_pids
 
         running_pids = list(find_gateway_pids())
         if running_pids:
-            print(f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
+            print(
+                f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
         elif start_now:
             pid = _spawn_detached()
             _report_gateway_start(f"direct spawn (PID {pid})")
@@ -872,7 +929,8 @@ def install(
     raise RuntimeError(f"Windows gateway install failed: {detail}")
 
 
-def _wait_for_gateway_ready(timeout_s: float = 6.0, interval_s: float = 0.4) -> list[int]:
+def _wait_for_gateway_ready(timeout_s: float = 6.0,
+                            interval_s: float = 0.4) -> list[int]:
     """Poll for a live gateway process for up to ``timeout_s`` seconds.
 
     Returns the list of PIDs found. Empty list means nothing came up in
@@ -892,13 +950,21 @@ def _wait_for_gateway_ready(timeout_s: float = 6.0, interval_s: float = 0.4) -> 
 def _report_gateway_start(via: str) -> None:
     pids = _wait_for_gateway_ready()
     if pids:
-        print(f"✓ Gateway started via {via} (PID: {', '.join(map(str, pids))})")
+        print(
+            f"✓ Gateway started via {via} (PID: {', '.join(map(str, pids))})")
     else:
-        print(f"⚠ Launched gateway via {via}, but no process detected after 6s.")
+        print(
+            f"⚠ Launched gateway via {via}, but no process detected after 6s.")
         print("  Check the log for startup errors:")
         from nastech_cli.config import get_nastech_home
-        print(f"    type {Path(get_nastech_home()).resolve()}\\logs\\gateway.log")
-        print(f"    type {Path(get_nastech_home()).resolve()}\\logs\\gateway-stdio.log")
+        print(
+            f"    type {
+                Path(
+                    get_nastech_home()).resolve()}\\logs\\gateway.log")
+        print(
+            f"    type {
+                Path(
+                    get_nastech_home()).resolve()}\\logs\\gateway-stdio.log")
 
 
 def _print_next_steps() -> None:
@@ -928,12 +994,16 @@ def uninstall() -> None:
         elif _is_access_denied(detail) and not _is_running_as_admin():
             from nastech_cli.setup import prompt_yes_no
 
-            print(f"↻ Scheduled Task uninstall needs administrator approval ({detail or 'access denied'})")
-            print("  UAC is Windows' admin approval prompt; it is needed to remove the Scheduled Task.")
+            print(
+                f"↻ Scheduled Task uninstall needs administrator approval ({
+                    detail or 'access denied'})")
+            print(
+                "  UAC is Windows' admin approval prompt; it is needed to remove the Scheduled Task.")
             if prompt_yes_no("  Open the UAC prompt now?", False):
                 if _launch_elevated_uninstall():
                     print("✓ Launched elevated NasTech gateway uninstall prompt.")
-                    print("  Approve the Windows UAC prompt, then run: nastech gateway status")
+                    print(
+                        "  Approve the Windows UAC prompt, then run: nastech gateway status")
                     return
                 print("⚠ Elevated uninstall prompt was unavailable or cancelled.")
             else:
@@ -975,7 +1045,8 @@ def is_installed() -> bool:
 
 def query_task_status() -> dict[str, str]:
     """Parse ``schtasks /Query /V /FO LIST`` and pull the interesting keys."""
-    code, out, err = _exec_schtasks(["/Query", "/TN", get_task_name(), "/V", "/FO", "LIST"])
+    code, out, err = _exec_schtasks(
+        ["/Query", "/TN", get_task_name(), "/V", "/FO", "LIST"])
     if code != 0:
         return {}
     info: dict[str, str] = {}
@@ -987,7 +1058,8 @@ def query_task_status() -> dict[str, str]:
         key = key.strip().lower()
         value = value.strip()
         # Some Windows locales emit "Last Result" instead of "Last Run Result".
-        if key in {"status", "last run time", "last run result", "last result"}:
+        if key in {"status", "last run time",
+                   "last run result", "last result"}:
             if key == "last result":
                 info.setdefault("last run result", value)
             else:
@@ -1041,10 +1113,15 @@ def _print_deep_probes() -> None:
     if pid_exists:
         try:
             data = json.loads(pid_path.read_text(encoding="utf-8"))
-            pid_value = int(data.get("pid")) if data.get("pid") is not None else None
-            print(f"  [1] {_mark(True):4s}  PID file present: {pid_path} (pid={pid_value})")
+            pid_value = int(data.get("pid")) if data.get(
+                "pid") is not None else None
+            print(
+                f"  [1] {
+                    _mark(True):4s}  PID file present: {pid_path} (pid={pid_value})")
         except Exception as exc:
-            print(f"  [1] {_mark(False):4s}  PID file present but unreadable: {exc}")
+            print(
+                f"  [1] {
+                    _mark(False):4s}  PID file present but unreadable: {exc}")
     else:
         print(f"  [1] {_mark(False):4s}  PID file missing: {pid_path}")
 
@@ -1056,7 +1133,9 @@ def _print_deep_probes() -> None:
             from gateway.status import is_gateway_runtime_lock_active
 
             lock_held = is_gateway_runtime_lock_active(lock_path)
-            print(f"  [2] {_mark(lock_held):4s}  Lock file held by a live process: {lock_path}")
+            print(
+                f"  [2] {
+                    _mark(lock_held):4s}  Lock file held by a live process: {lock_path}")
         except Exception as exc:
             print(f"  [2] {_mark(False):4s}  Could not probe lock: {exc}")
     else:
@@ -1068,7 +1147,10 @@ def _print_deep_probes() -> None:
         from gateway.status import get_running_pid
 
         running_pid = get_running_pid(cleanup_stale=False)
-        print(f"  [3] {_mark(running_pid is not None):4s}  get_running_pid() => {running_pid}")
+        print(
+            f"  [3] {
+                _mark(
+                    running_pid is not None):4s}  get_running_pid() => {running_pid}")
     except Exception as exc:
         print(f"  [3] {_mark(False):4s}  get_running_pid() raised: {exc!r}")
 
@@ -1079,7 +1161,9 @@ def _print_deep_probes() -> None:
             from gateway.status import _pid_exists
 
             alive = bool(_pid_exists(candidate_pid))
-            print(f"  [4] {_mark(alive):4s}  _pid_exists({candidate_pid}) => {alive}")
+            print(
+                f"  [4] {
+                    _mark(alive):4s}  _pid_exists({candidate_pid}) => {alive}")
         except Exception as exc:
             print(f"  [4] {_mark(False):4s}  _pid_exists raised: {exc!r}")
     else:
@@ -1094,18 +1178,26 @@ def _print_deep_probes() -> None:
             age_str = ""
             if updated_at:
                 try:
-                    updated_dt = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+                    updated_dt = datetime.fromisoformat(
+                        updated_at.replace("Z", "+00:00"))
                     now = datetime.now(timezone.utc)
                     age_seconds = int((now - updated_dt).total_seconds())
                     age_str = f" (updated {age_seconds}s ago)"
                 except Exception:
                     pass
             ok = gateway_state == "running"
-            print(f"  [5] {_mark(ok):4s}  gateway_state.json state={gateway_state!r}{age_str}")
+            print(
+                f"  [5] {
+                    _mark(ok):4s}  gateway_state.json state={
+                    gateway_state!r}{age_str}")
         except Exception as exc:
-            print(f"  [5] {_mark(False):4s}  gateway_state.json present but unreadable: {exc}")
+            print(
+                f"  [5] {
+                    _mark(False):4s}  gateway_state.json present but unreadable: {exc}")
     else:
-        print(f"  [5] {_mark(False):4s}  gateway_state.json missing: {state_path}")
+        print(
+            f"  [5] {
+                _mark(False):4s}  gateway_state.json missing: {state_path}")
 
     # [6] Last lifecycle event from the exit-diag log
     if diag_path.exists():
@@ -1124,11 +1216,16 @@ def _print_deep_probes() -> None:
                     pid = event.get("pid", "?")
                     ts = event.get("ts", "?")
                     healthy = tag in ("gateway.start",)
-                    print(f"  [6] {_mark(healthy):4s}  Last lifecycle event: tag={tag} pid={pid} ts={ts}")
+                    print(
+                        f"  [6] {
+                            _mark(healthy):4s}  Last lifecycle event: tag={tag} pid={pid} ts={ts}")
                 except Exception:
-                    print(f"  [6] {_mark(False):4s}  Last lifecycle line not JSON: {last_event[:120]}")
+                    print(
+                        f"  [6] {_mark(False):4s}  Last lifecycle line not JSON: {last_event[:120]}")
             else:
-                print(f"  [6] {_mark(False):4s}  exit-diag log empty: {diag_path}")
+                print(
+                    f"  [6] {
+                        _mark(False):4s}  exit-diag log empty: {diag_path}")
         except Exception as exc:
             print(f"  [6] {_mark(False):4s}  exit-diag log unreadable: {exc}")
     else:
@@ -1180,7 +1277,8 @@ def start() -> None:
     _assert_windows()
     running_pids = _gateway_pids()
     if running_pids:
-        print(f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
+        print(
+            f"✓ Gateway already running (PID: {', '.join(map(str, running_pids))})")
         return
 
     task_installed = is_task_registered()
@@ -1190,7 +1288,8 @@ def start() -> None:
         from nastech_cli.setup import prompt_yes_no
 
         print("✗ Gateway service is not installed")
-        if not prompt_yes_no("  Install it now so the gateway starts on login?", True):
+        if not prompt_yes_no(
+                "  Install it now so the gateway starts on login?", True):
             print("  Run: nastech gateway install")
             return
         install(force=False)
@@ -1206,9 +1305,11 @@ def start() -> None:
         if code == 0:
             _report_gateway_start(f"Scheduled Task {get_task_name()!r}")
             return
-        print(f"⚠ schtasks /Run failed (code {code}): {err.strip()} — falling back to direct spawn")
+        print(
+            f"⚠ schtasks /Run failed (code {code}): {err.strip()} — falling back to direct spawn")
 
-    # Startup fallback or failed /Run: direct spawn one foreground-detached gateway.
+    # Startup fallback or failed /Run: direct spawn one foreground-detached
+    # gateway.
     pid = _spawn_detached()
     _report_gateway_start(f"direct spawn (PID {pid})")
 
@@ -1230,7 +1331,7 @@ def _drain_gateway_pid(pid: int, drain_timeout: float) -> bool:
     if pid <= 0:
         return False
     try:
-        from gateway.status import write_planned_stop_marker, _pid_exists
+        from gateway.status import _pid_exists, write_planned_stop_marker
     except ImportError:
         return False
 
@@ -1260,8 +1361,8 @@ def stop() -> None:
     + ``kill_gateway_processes(force=True)`` for any strays.
     """
     _assert_windows()
-    from nastech_cli.gateway import kill_gateway_processes, _get_restart_drain_timeout
     from gateway.status import get_running_pid
+    from nastech_cli.gateway import _get_restart_drain_timeout, kill_gateway_processes
 
     # Phase 1: ask the running gateway (if any) to drain itself by writing
     # the planned-stop marker, then wait briefly for it to exit cleanly.
@@ -1279,7 +1380,8 @@ def stop() -> None:
     stopped_any = drained
     if is_task_registered():
         code, _out, err = _exec_schtasks(["/End", "/TN", get_task_name()])
-        # schtasks returns nonzero when the task isn't currently running — don't treat that as an error.
+        # schtasks returns nonzero when the task isn't currently running —
+        # don't treat that as an error.
         if code == 0:
             stopped_any = True
         elif "not running" not in (err or "").lower():

@@ -18,6 +18,7 @@ import os
 import tempfile
 import time
 from typing import Any, Mapping, Optional
+
 from utils import atomic_replace
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,8 @@ def _state_path() -> str:
     return os.path.join(base, _STATE_SUBDIR, _STATE_FILENAME)
 
 
-def _parse_reset_seconds(headers: Optional[Mapping[str, str]]) -> Optional[float]:
+def _parse_reset_seconds(
+        headers: Optional[Mapping[str, str]]) -> Optional[float]:
     """Extract the best available reset-time estimate from response headers.
 
     Priority:
@@ -238,7 +240,8 @@ def is_genuine_nous_rate_limit(
     # Signal 2: last-known-good state from a recent successful response.
     # Accepts either a RateLimitState (dataclass from rate_limit_tracker)
     # or a dict of bucket snapshots.
-    if last_known_state is not None and _has_exhausted_bucket_in_object(last_known_state):
+    if last_known_state is not None and _has_exhausted_bucket_in_object(
+            last_known_state):
         return True
 
     return False

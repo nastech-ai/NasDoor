@@ -129,7 +129,9 @@ def _cmd_status(args) -> int:
     if active_all:
         most_active = sorted(
             active_all,
-            key=lambda r: (r.get("activity_count") or 0, r.get("last_activity_at") or ""),
+            key=lambda r: (
+                r.get("activity_count") or 0,
+                r.get("last_activity_at") or ""),
             reverse=True,
         )[:5]
         if most_active and (most_active[0].get("activity_count") or 0) > 0:
@@ -147,7 +149,9 @@ def _cmd_status(args) -> int:
 
         least_active = sorted(
             active_all,
-            key=lambda r: (r.get("activity_count") or 0, r.get("last_activity_at") or ""),
+            key=lambda r: (
+                r.get("activity_count") or 0,
+                r.get("last_activity_at") or ""),
         )[:5]
         if least_active:
             print("\nleast active (top 5):")
@@ -235,7 +239,8 @@ def _cmd_pin(args) -> int:
     from tools import skill_usage
     if not skill_usage.is_agent_created(args.skill):
         print(
-            f"curator: '{args.skill}' is bundled or hub-installed — cannot pin "
+            f"curator: '{
+                args.skill}' is bundled or hub-installed — cannot pin "
             "(only agent-created skills participate in curation)"
         )
         return 1
@@ -329,7 +334,8 @@ def _cmd_prune(args) -> int:
         candidates.append((r["name"], idle))
 
     if not candidates:
-        print(f"curator: nothing to prune (no unpinned skills idle >= {days}d)")
+        print(
+            f"curator: nothing to prune (no unpinned skills idle >= {days}d)")
         return 0
 
     candidates.sort(key=lambda c: -c[1])
@@ -343,7 +349,9 @@ def _cmd_prune(args) -> int:
 
     if not skip_confirm:
         try:
-            reply = input(f"\nArchive {len(candidates)} skill(s)? [y/N] ").strip().lower()
+            reply = input(
+                f"\nArchive {
+                    len(candidates)} skill(s)? [y/N] ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             print("\ncurator: aborted")
             return 1
@@ -384,7 +392,8 @@ def _cmd_backup(args) -> int:
     if snap is None:
         print("curator: snapshot failed — check logs (backup disabled or IO error)")
         return 1
-    print(f"curator: snapshot created at ~/.nastech/skills/.curator_backups/{snap.name}")
+    print(
+        f"curator: snapshot created at ~/.nastech/skills/.curator_backups/{snap.name}")
     return 0
 
 
@@ -486,7 +495,8 @@ def register_cli(parent: argparse.ArgumentParser) -> None:
     parent.set_defaults(func=lambda a: (parent.print_help(), 0)[1])
     subs = parent.add_subparsers(dest="curator_command")
 
-    p_status = subs.add_parser("status", help="Show curator status and skill stats")
+    p_status = subs.add_parser(
+        "status", help="Show curator status and skill stats")
     p_status.set_defaults(func=_cmd_status)
 
     p_run = subs.add_parser("run", help="Trigger a curator review now")
@@ -511,7 +521,8 @@ def register_cli(parent: argparse.ArgumentParser) -> None:
     p_resume = subs.add_parser("resume", help="Resume a paused curator")
     p_resume.set_defaults(func=_cmd_resume)
 
-    p_pin = subs.add_parser("pin", help="Pin a skill so the curator never auto-transitions it")
+    p_pin = subs.add_parser(
+        "pin", help="Pin a skill so the curator never auto-transitions it")
     p_pin.add_argument("skill", help="Skill name")
     p_pin.set_defaults(func=_cmd_pin)
 

@@ -43,13 +43,15 @@ from utils import is_truthy_value
 
 logger = logging.getLogger(__name__)
 
-# Warn-once latch: emit the version-unsupported warning at most once per process.
+# Warn-once latch: emit the version-unsupported warning at most once per
+# process.
 _version_warning_emitted: bool = False
 
 # Valid denominator kinds (exhaustive set from the API contract).
 _VALID_DENOMINATOR_KINDS = frozenset({"subscription_cap", "none"})
 
-# USD format: optional leading minus, one-or-more digits, dot, exactly 2 digits.
+# USD format: optional leading minus, one-or-more digits, dot, exactly 2
+# digits.
 _USD_RE = re.compile(r"^-?\d+\.\d{2}$")
 
 
@@ -79,7 +81,6 @@ def _safe_int(value: Any) -> Any:
         return _SENTINEL
 
 
-
 def _validate_usd(value: Optional[str]) -> bool:
     """Return True iff value is a non-None string matching ^-?\\d+\\.\\d{2}$."""
     if value is None:
@@ -97,9 +98,11 @@ class CreditsState:
     version: int = 0
     remaining_micros: int = 0
     remaining_usd: str = ""
-    subscription_micros: int = 0  # SIGNED — may be negative (debt). ONLY field allowed negative.
+    # SIGNED — may be negative (debt). ONLY field allowed negative.
+    subscription_micros: int = 0
     subscription_usd: str = ""
-    subscription_limit_micros: Optional[int] = None  # PAIRED + OPTIONAL (only when subscription_cap)
+    # PAIRED + OPTIONAL (only when subscription_cap)
+    subscription_limit_micros: Optional[int] = None
     subscription_limit_usd: Optional[str] = None
     rollover_micros: int = 0
     purchased_micros: int = 0
@@ -156,7 +159,8 @@ class CreditsState:
 # but is not yet plumbed through the policy loop.
 
 CREDITS_NOTICE_KIND = "sticky"      # v1: credits notices are sticky
-CREDITS_RESTORED_TTL_MS = 8000     # the only TTL notice in v1 (depletion-recovery confirmation)
+# the only TTL notice in v1 (depletion-recovery confirmation)
+CREDITS_RESTORED_TTL_MS = 8000
 
 # Usage-gauge bands (ascending). Each is (threshold_fraction, level, label_pct).
 # The notice shows the HIGHEST band the current used_fraction has reached — a single
@@ -221,12 +225,14 @@ def evaluate_credits_notices(
     # seed primes this explicitly when it WANTS an open-high warning).
     _lowest_band = CREDITS_USAGE_BANDS[0][0]
     if uf is not None and uf < _lowest_band:
-        latch["seen_below_90"] = True  # gate opened: usage-band notices may now fire
+        # gate opened: usage-band notices may now fire
+        latch["seen_below_90"] = True
 
     active = latch["active"]
 
     # ── Conditions ───────────────────────────────────────────────────────────
-    # Highest band whose threshold the current usage has reached (None below all).
+    # Highest band whose threshold the current usage has reached (None below
+    # all).
     current_band: Optional[tuple[float, str, int]] = None
     if uf is not None:
         for band in CREDITS_USAGE_BANDS:  # ascending → last match wins = highest
@@ -240,24 +246,29 @@ def evaluate_credits_notices(
     )
     depleted_cond = not state.paid_access
 
-    # ── usage gauge (escalating single notice: 50 → 75 → 90) ──────────────────
+    # ── usage gauge (escalating single notice: 50 → 75 → 90) ────────────────
     # Show only the highest crossed band; replace the line when the band changes
     # (climb or step-down on recovery); clear entirely when usage drops below the
     # lowest band or the denominator disappears (uf is None).
-    shown_band = latch.get("usage_band")  # the pct label currently displayed, or None
-    target_band = current_band[2] if (current_band and latch["seen_below_90"]) else None
+    # the pct label currently displayed, or None
+    shown_band = latch.get("usage_band")
+    target_band = current_band[2] if (
+        current_band and latch["seen_below_90"]) else None
     if target_band != shown_band:
         if CREDITS_USAGE_KEY in active:
             to_clear.append(CREDITS_USAGE_KEY)
             active.discard(CREDITS_USAGE_KEY)
         if target_band is not None:
             # Belt-and-suspenders: a producer could set subscription_limit_micros
-            # without subscription_limit_usd. Render "$? cap" rather than "$None cap".
+            # without subscription_limit_usd. Render "$? cap" rather than
+            # "$None cap".
             _cap_usd = state.subscription_limit_usd or "?"
-            _level = current_band[1]  # type: ignore[index]  (current_band set when target_band set)
+            # type: ignore[index]  (current_band set when target_band set)
+            _level = current_band[1]
             to_show.append(
                 AgentNotice(
-                    text=f"{'⚠' if _level == 'warn' else '•'} Credits {target_band}% used · ${_cap_usd} cap",
+                    text=f"{
+                        '⚠' if _level == 'warn' else '•'} Credits {target_band}% used · ${_cap_usd} cap",
                     level=_level,
                     kind=CREDITS_NOTICE_KIND,
                     key=CREDITS_USAGE_KEY,
@@ -343,11 +354,13 @@ def parse_credits_headers(
         # sentinel header is absent (the common case for non-Nous providers, on
         # every API call) — skips allocating a dict over the whole response's
         # headers on the hot path, while preserving case-insensitivity. Behaviour
-        # is identical: a missing version header was already a None return below.
+        # is identical: a missing version header was already a None return
+        # below.
         if not any(k.lower() == "x-nastech-credits-version" for k in headers):
             return None
         # Normalize to lowercase so lookups work regardless of how the server
-        # capitalises headers (HTTP header names are case-insensitive per RFC 7230).
+        # capitalises headers (HTTP header names are case-insensitive per RFC
+        # 7230).
         lowered = {k.lower(): v for k, v in headers.items()}
 
         # ── Version check ────────────────────────────────────────────────────
@@ -402,7 +415,8 @@ def parse_credits_headers(
         if purchased_micros is _SENTINEL:
             return None
 
-        # tool_pool_micros is OPTIONAL: absent → 0 (default); present-but-invalid → None (miss).
+        # tool_pool_micros is OPTIONAL: absent → 0 (default);
+        # present-but-invalid → None (miss).
         _tp_raw = lowered.get("x-nastech-tool-pool-micros")
         if _tp_raw is None:
             tool_pool_micros = 0
@@ -421,7 +435,8 @@ def parse_credits_headers(
         if not _validate_usd(remaining_usd):
             return None
 
-        subscription_usd = lowered.get("x-nastech-credits-subscription-usd", "")
+        subscription_usd = lowered.get(
+            "x-nastech-credits-subscription-usd", "")
         if not _validate_usd(subscription_usd):
             return None
 
@@ -432,14 +447,17 @@ def parse_credits_headers(
         # ── subscription_limit_* PAIRED + OPTIONAL ───────────────────────────
         # Both present → validate both; half-pair → treat BOTH as absent (parse
         # still succeeds, just with no limit pair).
-        sub_limit_micros_raw = lowered.get("x-nastech-credits-subscription-limit-micros")
-        sub_limit_usd_raw = lowered.get("x-nastech-credits-subscription-limit-usd")
+        sub_limit_micros_raw = lowered.get(
+            "x-nastech-credits-subscription-limit-micros")
+        sub_limit_usd_raw = lowered.get(
+            "x-nastech-credits-subscription-limit-usd")
 
         subscription_limit_micros: Optional[int] = None
         subscription_limit_usd: Optional[str] = None
 
         if sub_limit_micros_raw is not None and sub_limit_usd_raw is not None:
-            # Both present — validate both; any invalid → return None (bad data)
+            # Both present — validate both; any invalid → return None (bad
+            # data)
             lm = _safe_int(sub_limit_micros_raw)
             if lm is _SENTINEL:
                 return None
@@ -452,7 +470,8 @@ def parse_credits_headers(
         # else: half-pair or both absent → leave both None, parse continues
 
         # ── denominator_kind ─────────────────────────────────────────────────
-        denominator_kind = lowered.get("x-nastech-credits-denominator-kind", "none")
+        denominator_kind = lowered.get(
+            "x-nastech-credits-denominator-kind", "none")
         if denominator_kind not in _VALID_DENOMINATOR_KINDS:
             return None
 
@@ -477,7 +496,8 @@ def parse_credits_headers(
             tool_pool_gated_off = False
 
         # ── disabled_reason: header omitted when null ────────────────────────
-        disabled_reason = lowered.get("x-nastech-credits-disabled-reason")  # None if absent
+        disabled_reason = lowered.get(
+            "x-nastech-credits-disabled-reason")  # None if absent
 
         return CreditsState(
             version=version_val,
@@ -504,11 +524,13 @@ def parse_credits_headers(
         # Fail-open → miss, but leave a breadcrumb so a parser/import regression
         # (feature silently dead) is distinguishable from a legitimate no-headers
         # response in agent.log, without needing a dev flag.
-        logger.debug("credits ▸ parse_credits_headers raised (fail-open miss)", exc_info=True)
+        logger.debug(
+            "credits ▸ parse_credits_headers raised (fail-open miss)",
+            exc_info=True)
         return None
 
 
-# ── Dev test fixtures (NASTECH_DEV_CREDITS_FIXTURE) ───────────────────────────
+# ── Dev test fixtures (NASTECH_DEV_CREDITS_FIXTURE) ─────────────────────
 # Throwaway dev scaffolding: trigger any notice state on demand for testing,
 # without real spend or Redis seeding. Set NASTECH_DEV_CREDITS_FIXTURE to either a
 # state NAME (fixed for the session) or a FILE PATH whose contents are a state
@@ -618,33 +640,53 @@ def _credits_state_from_account(info) -> Optional[CreditsState]:
         _sub = getattr(info, "subscription", None)
 
         def _to_micros(dollars):
-            return int(round(dollars * 1_000_000)) if isinstance(dollars, (int, float)) else 0
+            return int(round(dollars * 1_000_000)
+                       ) if isinstance(dollars, (int, float)) else 0
 
         def _to_usd(dollars):
             # DISPLAY formatting of an account float (not a server *_usd string);
             # "" when absent so render/notice copy falls back gracefully.
-            return f"{dollars:.2f}" if isinstance(dollars, (int, float)) else ""
+            return f"{dollars:.2f}" if isinstance(
+                dollars, (int, float)) else ""
 
         _monthly = getattr(_sub, "monthly_credits", None)
         _has_cap = isinstance(_monthly, (int, float)) and _monthly > 0
         _paid = getattr(info, "paid_service_access", None)
         return CreditsState(
-            remaining_micros=_to_micros(getattr(_acc, "total_usable_credits", None)),
+            remaining_micros=_to_micros(
+                getattr(_acc, "total_usable_credits", None)),
             remaining_usd=_to_usd(getattr(_acc, "total_usable_credits", None)),
-            subscription_micros=_to_micros(getattr(_acc, "subscription_credits_remaining", None)),
-            subscription_usd=_to_usd(getattr(_acc, "subscription_credits_remaining", None)),
-            subscription_limit_micros=_to_micros(_monthly) if _has_cap else None,
+            subscription_micros=_to_micros(
+                getattr(_acc, "subscription_credits_remaining", None)),
+            subscription_usd=_to_usd(
+                getattr(
+                    _acc,
+                    "subscription_credits_remaining",
+                    None)),
+            subscription_limit_micros=_to_micros(
+                _monthly) if _has_cap else None,
             subscription_limit_usd=_to_usd(_monthly) if _has_cap else None,
-            purchased_micros=_to_micros(getattr(_acc, "purchased_credits_remaining", None)),
-            purchased_usd=_to_usd(getattr(_acc, "purchased_credits_remaining", None)),
-            rollover_micros=_to_micros(getattr(_sub, "rollover_credits", None)),
+            purchased_micros=_to_micros(
+                getattr(
+                    _acc,
+                    "purchased_credits_remaining",
+                    None)),
+            purchased_usd=_to_usd(
+                getattr(
+                    _acc,
+                    "purchased_credits_remaining",
+                    None)),
+            rollover_micros=_to_micros(
+                getattr(_sub, "rollover_credits", None)),
             denominator_kind="subscription_cap" if _has_cap else "none",
             paid_access=_paid if isinstance(_paid, bool) else True,
             from_header=False,
             captured_at=time.time(),
         )
     except Exception:
-        logger.debug("credits ▸ seed account→state mapping failed", exc_info=True)
+        logger.debug(
+            "credits ▸ seed account→state mapping failed",
+            exc_info=True)
         return None
 
 
@@ -682,7 +724,8 @@ def seed_credits_at_session_start(agent) -> bool:
     try:
         if getattr(agent, "provider", "") != "nous":
             return False
-        # Idempotent: don't re-seed if state already exists (seed or live header).
+        # Idempotent: don't re-seed if state already exists (seed or live
+        # header).
         if getattr(agent, "_credits_state", None) is not None:
             return False
         fixture = None
@@ -698,7 +741,8 @@ def seed_credits_at_session_start(agent) -> bool:
 
         # Real portal fetch is FIRE-AND-FORGET: a slow/unreachable portal must never
         # delay session "ready". A daemon thread hydrates + emits when it resolves,
-        # re-checking idempotency first (a live inference header may land before it).
+        # re-checking idempotency first (a live inference header may land
+        # before it).
         import threading
 
         def _bg_seed() -> None:
@@ -711,13 +755,21 @@ def seed_credits_at_session_start(agent) -> bool:
                 if state is not None:
                     _hydrate_seed_state(agent, state)
             except Exception:
-                logger.debug("credits ▸ session-start seed (background) failed", exc_info=True)
+                logger.debug(
+                    "credits ▸ session-start seed (background) failed",
+                    exc_info=True)
 
-        threading.Thread(target=_bg_seed, name="credits-seed", daemon=True).start()
+        threading.Thread(
+            target=_bg_seed,
+            name="credits-seed",
+            daemon=True).start()
         return True
     except Exception:
         # Fail-open: any auth/portal hiccup leaves _credits_state as-is, never blocks.
         # Innermost log across all four call sites (TUI build / CLI build / first
-        # turn / desktop), so a dead session-open seed is diagnosable in agent.log.
-        logger.debug("credits ▸ session-start seed failed (fail-open)", exc_info=True)
+        # turn / desktop), so a dead session-open seed is diagnosable in
+        # agent.log.
+        logger.debug(
+            "credits ▸ session-start seed failed (fail-open)",
+            exc_info=True)
         return False

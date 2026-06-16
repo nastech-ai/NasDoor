@@ -188,7 +188,8 @@ def profile_build_directive() -> str:
 # -------------------------------------------------------------------------
 
 def _get_seen_dict(config: Mapping[str, Any]) -> Mapping[str, Any]:
-    onboarding = config.get("onboarding") if isinstance(config, Mapping) else None
+    onboarding = config.get("onboarding") if isinstance(
+        config, Mapping) else None
     if not isinstance(onboarding, Mapping):
         return {}
     seen = onboarding.get("seen")

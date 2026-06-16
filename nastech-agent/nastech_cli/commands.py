@@ -50,11 +50,13 @@ class CommandDef:
     description: str                   # human-readable description
     category: str                      # "Session", "Configuration", etc.
     aliases: tuple[str, ...] = ()      # alternative names: ("bg",)
-    args_hint: str = ""                # argument placeholder: "<prompt>", "[name]"
+    # argument placeholder: "<prompt>", "[name]"
+    args_hint: str = ""
     subcommands: tuple[str, ...] = ()  # tab-completable subcommands
     cli_only: bool = False             # only available in CLI
     gateway_only: bool = False         # only available in gateway/messaging
-    gateway_config_gate: str | None = None  # config dotpath; when truthy, overrides cli_only for gateway
+    # config dotpath; when truthy, overrides cli_only for gateway
+    gateway_config_gate: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -110,8 +112,14 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("subgoal", "Add or manage extra criteria on the active goal", "Session",
                args_hint="[text | remove N | clear]"),
     CommandDef("status", "Show session info", "Session"),
-    CommandDef("whoami", "Show your slash command access (admin / user)", "Info"),
-    CommandDef("profile", "Show active profile name and home directory", "Info"),
+    CommandDef(
+        "whoami",
+        "Show your slash command access (admin / user)",
+        "Info"),
+    CommandDef(
+        "profile",
+        "Show active profile name and home directory",
+        "Info"),
     CommandDef("sethome", "Set this chat as the home channel", "Session",
                gateway_only=True, aliases=("set-home",)),
     CommandDef("resume", "Resume a previously-named session", "Session",
@@ -202,7 +210,10 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("help", "Show available commands", "Info"),
     CommandDef("restart", "Gracefully restart the gateway after draining active runs", "Session",
                gateway_only=True),
-    CommandDef("usage", "Show token usage and rate limits for the current session", "Info"),
+    CommandDef(
+        "usage",
+        "Show token usage and rate limits for the current session",
+        "Info"),
     CommandDef("insights", "Show usage insights and analytics", "Info",
                args_hint="[days]"),
     CommandDef("platforms", "Show gateway/messaging platform status", "Info",
@@ -216,8 +227,17 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("image", "Attach a local image file for your next prompt", "Info",
                cli_only=True, args_hint="<path>"),
     CommandDef("update", "Update NasTech Agent to the latest version", "Info"),
-    CommandDef("version", "Show NasTech Agent version", "Info", aliases=("v",)),
-    CommandDef("debug", "Upload debug report (system info + logs) and get shareable links", "Info"),
+    CommandDef(
+        "version",
+        "Show NasTech Agent version",
+        "Info",
+        aliases=(
+            "v",
+        )),
+    CommandDef(
+        "debug",
+        "Upload debug report (system info + logs) and get shareable links",
+        "Info"),
 
     # Exit
     CommandDef("quit", "Exit the CLI (use --delete to also remove session history)", "Exit",
@@ -284,7 +304,8 @@ for _cmd in COMMAND_REGISTRY:
 # Also extract subcommands hinted in args_hint via pipe-separated patterns
 # e.g. args_hint="[on|off|tts|status]" for commands that don't have explicit subcommands.
 # NOTE: If a command already has explicit subcommands, this fallback is skipped.
-# Use the `subcommands` field on CommandDef for intentional tab-completable args.
+# Use the `subcommands` field on CommandDef for intentional
+# tab-completable args.
 _PIPE_SUBS_RE = re.compile(r"[a-z]+(?:\|[a-z]+)+")
 for _cmd in COMMAND_REGISTRY:
     key = f"/{_cmd.name}"
@@ -407,7 +428,8 @@ def _resolve_config_gates() -> set[str]:
     return result
 
 
-def _is_gateway_available(cmd: CommandDef, config_overrides: set[str] | None = None) -> bool:
+def _is_gateway_available(cmd: CommandDef,
+                          config_overrides: set[str] | None = None) -> bool:
     """Check if *cmd* should appear in gateway surfaces (help, menus, mappings).
 
     Unconditionally available when ``cli_only`` is False.  When ``cli_only``
@@ -439,10 +461,12 @@ def gateway_help_lines() -> list[str]:
         alias_parts: list[str] = []
         for a in cmd.aliases:
             # Skip internal aliases like reload_mcp (underscore variant)
-            if a.replace("-", "_") == cmd.name.replace("-", "_") and a != cmd.name:
+            if a.replace("-", "_") == cmd.name.replace("-",
+                                                       "_") and a != cmd.name:
                 continue
             alias_parts.append(f"`/{a}`")
-        alias_note = f" (alias: {', '.join(alias_parts)})" if alias_parts else ""
+        alias_note = f" (alias: {
+            ', '.join(alias_parts)})" if alias_parts else ""
         lines.append(f"`/{cmd.name}{args}` -- {cmd.description}{alias_note}")
     return lines
 
@@ -718,8 +742,8 @@ def _collect_gateway_skill_entries(
     skill_triples: list[tuple[str, str, str]] = []
     try:
         from agent.skill_commands import get_skill_commands
-        from tools.skills_tool import SKILLS_DIR
         from agent.skill_utils import get_external_skills_dirs
+        from tools.skills_tool import SKILLS_DIR
         _skills_dir = str(SKILLS_DIR.resolve())
         _hub_dir = str((SKILLS_DIR / ".hub").resolve()).rstrip("/") + "/"
         # Build set of allowed directory prefixes: local skills dir + any
@@ -738,7 +762,8 @@ def _collect_gateway_skill_entries(
             skill_path = info.get("skill_md_path", "")
             if not skill_path:
                 continue
-            if not any(skill_path.startswith(prefix) for prefix in _allowed_prefixes):
+            if not any(skill_path.startswith(prefix)
+                       for prefix in _allowed_prefixes):
                 continue
             if skill_path.startswith(_hub_dir):
                 continue
@@ -773,7 +798,8 @@ def _collect_gateway_skill_entries(
 # Platform-specific wrappers
 # ---------------------------------------------------------------------------
 
-def telegram_menu_commands(max_commands: int = 100) -> tuple[list[tuple[str, str]], int]:
+def telegram_menu_commands(
+        max_commands: int = 100) -> tuple[list[tuple[str, str]], int]:
     """Return Telegram menu commands capped to the Bot API limit.
 
     Priority order (higher priority = never bumped by overflow):
@@ -790,7 +816,8 @@ def telegram_menu_commands(max_commands: int = 100) -> tuple[list[tuple[str, str
         (menu_commands, hidden_count) where hidden_count is the number of
         commands omitted due to the cap.
     """
-    core_commands = _prioritize_telegram_menu_commands(list(telegram_bot_commands()))
+    core_commands = _prioritize_telegram_menu_commands(
+        list(telegram_bot_commands()))
     reserved_names = {n for n, _ in core_commands}
     all_commands = list(core_commands)
     hidden_core_count = max(0, len(all_commands) - max_commands)
@@ -992,7 +1019,9 @@ def discord_skill_commands_by_category(
             parts = rel.parts
             if len(parts) >= 2:
                 cat = parts[0]
-                categories.setdefault(cat, []).append((discord_name, desc, cmd_key))
+                categories.setdefault(
+                    cat, []).append(
+                    (discord_name, desc, cmd_key))
             else:
                 uncategorized.append((discord_name, desc, cmd_key))
     except Exception:
@@ -1058,7 +1087,10 @@ def slack_native_slashes() -> list[tuple[str, str, str]]:
     seen: set[str] = set()
 
     # Reserve /nastech as the catch-all top-level command.
-    entries.append(("nastech", "Talk to NasTech or run a subcommand", "[subcommand] [args]"))
+    entries.append(
+        ("nastech",
+         "Talk to NasTech or run a subcommand",
+         "[subcommand] [args]"))
     seen.add("nastech")
 
     def _add(name: str, desc: str, hint: str) -> None:
@@ -1086,7 +1118,9 @@ def slack_native_slashes() -> list[tuple[str, str, str]]:
         for alias in cmd.aliases:
             # Skip aliases that only differ from canonical by case/punctuation
             # normalization (already covered by _add dedup).
-            _add(alias, f"Alias for /{cmd.name} — {cmd.description}", cmd.args_hint or "")
+            _add(alias,
+                 f"Alias for /{cmd.name} — {cmd.description}",
+                 cmd.args_hint or "")
 
     # Third pass: plugin commands.
     for name, description, args_hint in _iter_plugin_command_entries():
@@ -1095,7 +1129,8 @@ def slack_native_slashes() -> list[tuple[str, str, str]]:
     return entries
 
 
-def slack_app_manifest(request_url: str = "https://nastech-agent.local/slack/commands") -> dict[str, Any]:
+def slack_app_manifest(
+        request_url: str = "https://nastech-agent.local/slack/commands") -> dict[str, Any]:
     """Generate a Slack app manifest with all gateway commands as slashes.
 
     ``request_url`` is required by Slack's manifest schema for every slash
@@ -1155,9 +1190,11 @@ class SlashCommandCompleter(Completer):
 
     def __init__(
         self,
-        skill_commands_provider: Callable[[], Mapping[str, dict[str, Any]]] | None = None,
+        skill_commands_provider: Callable[[
+        ], Mapping[str, dict[str, Any]]] | None = None,
         command_filter: Callable[[str], bool] | None = None,
-        skill_bundles_provider: Callable[[], Mapping[str, dict[str, Any]]] | None = None,
+        skill_bundles_provider: Callable[[],
+                                         Mapping[str, dict[str, Any]]] | None = None,
     ) -> None:
         self._skill_commands_provider = skill_commands_provider
         self._command_filter = command_filter
@@ -1271,7 +1308,8 @@ class SlashCommandCompleter(Completer):
 
             # Build the completion text (what replaces the typed word)
             if word.startswith("~"):
-                display_path = "~/" + os.path.relpath(full_path, os.path.expanduser("~"))
+                display_path = "~/" + \
+                    os.path.relpath(full_path, os.path.expanduser("~"))
             elif os.path.isabs(word):
                 display_path = full_path
             else:
@@ -1422,7 +1460,8 @@ class SlashCommandCompleter(Completer):
                     raw = proc.stdout.strip().split("\n")
                     # Store relative paths
                     for p in raw[:5000]:
-                        rel = os.path.relpath(p, cwd) if os.path.isabs(p) else p
+                        rel = os.path.relpath(
+                            p, cwd) if os.path.isabs(p) else p
                         files.append(rel)
                     break
             except (subprocess.TimeoutExpired, OSError):
@@ -1533,7 +1572,9 @@ class SlashCommandCompleter(Completer):
                         name,
                         start_position=-len(sub_text),
                         display=name,
-                        display_meta=s.get("description", "") or s.get("source", ""),
+                        display_meta=s.get(
+                            "description", "") or s.get(
+                            "source", ""),
                     )
         except Exception:
             pass
@@ -1554,7 +1595,8 @@ class SlashCommandCompleter(Completer):
             for name, prompt in personalities.items():
                 if name.startswith(sub_lower) and name != sub_lower:
                     if isinstance(prompt, dict):
-                        meta = prompt.get("description") or prompt.get("system_prompt", "")[:50]
+                        meta = prompt.get("description") or prompt.get(
+                            "system_prompt", "")[:50]
                     else:
                         meta = str(prompt)[:50]
                     yield Completion(
@@ -1597,7 +1639,8 @@ class SlashCommandCompleter(Completer):
                     return
 
             # Static subcommand completions
-            if " " not in sub_text and base_cmd in SUBCOMMANDS and self._command_allowed(base_cmd):
+            if " " not in sub_text and base_cmd in SUBCOMMANDS and self._command_allowed(
+                    base_cmd):
                 for sub in SUBCOMMANDS[base_cmd]:
                     if sub.startswith(sub_lower) and sub != sub_lower:
                         yield Completion(
@@ -1625,7 +1668,8 @@ class SlashCommandCompleter(Completer):
             cmd_name = cmd[1:]
             if cmd_name.startswith(word):
                 description = str(info.get("description", "Skill bundle"))
-                short_desc = description[:50] + ("..." if len(description) > 50 else "")
+                short_desc = description[:50] + \
+                    ("..." if len(description) > 50 else "")
                 skill_count = len(info.get("skills", []))
                 yield Completion(
                     self._completion_text(cmd_name, word),
@@ -1638,7 +1682,8 @@ class SlashCommandCompleter(Completer):
             cmd_name = cmd[1:]
             if cmd_name.startswith(word):
                 description = str(info.get("description", "Skill command"))
-                short_desc = description[:50] + ("..." if len(description) > 50 else "")
+                short_desc = description[:50] + \
+                    ("..." if len(description) > 50 else "")
                 yield Completion(
                     self._completion_text(cmd_name, word),
                     start_position=-len(word),
@@ -1699,7 +1744,8 @@ class SlashCommandAutoSuggest(AutoSuggest):
             # Still typing the command name: /upd → suggest "ate"
             word = text[1:].lower()
             for cmd in COMMANDS:
-                if self._completer is not None and not self._completer._command_allowed(cmd):
+                if self._completer is not None and not self._completer._command_allowed(
+                        cmd):
                     continue
                 cmd_name = cmd[1:]  # strip leading /
                 if cmd_name.startswith(word) and cmd_name != word:
@@ -1711,7 +1757,8 @@ class SlashCommandAutoSuggest(AutoSuggest):
         sub_lower = sub_text.lower()
 
         # Static subcommands
-        if self._completer is not None and not self._completer._command_allowed(base_cmd):
+        if self._completer is not None and not self._completer._command_allowed(
+                base_cmd):
             return None
         if base_cmd in SUBCOMMANDS and SUBCOMMANDS[base_cmd]:
             if " " not in sub_text:

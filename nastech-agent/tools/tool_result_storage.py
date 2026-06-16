@@ -28,9 +28,9 @@ import shlex
 import uuid
 
 from tools.budget_config import (
+    DEFAULT_BUDGET,
     DEFAULT_PREVIEW_SIZE_CHARS,
     BudgetConfig,
-    DEFAULT_BUDGET,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,8 @@ def _resolve_storage_dir(env) -> str:
     return STORAGE_DIR
 
 
-def generate_preview(content: str, max_chars: int = DEFAULT_PREVIEW_SIZE_CHARS) -> tuple[str, bool]:
+def generate_preview(
+        content: str, max_chars: int = DEFAULT_PREVIEW_SIZE_CHARS) -> tuple[str, bool]:
     """Truncate at last newline within max_chars. Returns (preview, has_more)."""
     if len(content) <= max_chars:
         return content, False
@@ -89,7 +90,9 @@ def _write_to_sandbox(content: str, remote_path: str, env) -> bool:
     the exec-arg ceiling.
     """
     storage_dir = os.path.dirname(remote_path)
-    cmd = f"mkdir -p {shlex.quote(storage_dir)} && cat > {shlex.quote(remote_path)}"
+    cmd = f"mkdir -p {
+        shlex.quote(storage_dir)} && cat > {
+        shlex.quote(remote_path)}"
     result = env.execute(cmd, timeout=30, stdin_data=content)
     return result.get("returncode", 1) == 0
 
@@ -108,7 +111,8 @@ def _build_persisted_message(
         size_str = f"{size_kb:.1f} KB"
 
     msg = f"{PERSISTED_OUTPUT_TAG}\n"
-    msg += f"This tool result was too large ({original_size:,} characters, {size_str}).\n"
+    msg += f"This tool result was too large ({
+        original_size:,} characters, {size_str}).\n"
     msg += f"Full output saved to: {file_path}\n"
     msg += "Use the read_file tool with offset and limit to access specific sections of this output.\n\n"
     msg += f"Preview (first {len(preview)} chars):\n"
@@ -144,7 +148,8 @@ def maybe_persist_tool_result(
     Returns:
         Original content if small, or <persisted-output> replacement.
     """
-    effective_threshold = threshold if threshold is not None else config.resolve_threshold(tool_name)
+    effective_threshold = threshold if threshold is not None else config.resolve_threshold(
+        tool_name)
 
     if effective_threshold == float("inf"):
         return content
@@ -154,7 +159,8 @@ def maybe_persist_tool_result(
 
     storage_dir = _resolve_storage_dir(env)
     remote_path = f"{storage_dir}/{tool_use_id}.txt"
-    preview, has_more = generate_preview(content, max_chars=config.preview_size)
+    preview, has_more = generate_preview(
+        content, max_chars=config.preview_size)
 
     if env is not None:
         try:
@@ -163,7 +169,8 @@ def maybe_persist_tool_result(
                     "Persisted large tool result: %s (%s, %d chars -> %s)",
                     tool_name, tool_use_id, len(content), remote_path,
                 )
-                return _build_persisted_message(preview, has_more, len(content), remote_path)
+                return _build_persisted_message(
+                    preview, has_more, len(content), remote_path)
         except Exception as exc:
             logger.warning("Sandbox write failed for %s: %s", tool_use_id, exc)
 

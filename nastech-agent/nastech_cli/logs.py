@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Sequence
 
-from nastech_constants import get_nastech_home, display_nastech_home
+from nastech_constants import display_nastech_home, get_nastech_home
 
 # Known log files (name → filename)
 LOG_FILES = {
@@ -41,7 +41,8 @@ LOG_FILES = {
 # "2026-04-05 22:35:00" at the start of a line.
 _TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})")
 
-# Level extraction — matches " INFO ", " WARNING ", " ERROR ", " DEBUG ", " CRITICAL "
+# Level extraction — matches " INFO ", " WARNING ", " ERROR ", " DEBUG ",
+# " CRITICAL "
 _LEVEL_RE = re.compile(r"\s(DEBUG|INFO|WARNING|ERROR|CRITICAL)\s")
 
 # Logger name extraction — after level and optional session tag, the next
@@ -170,7 +171,11 @@ def tail_log(
     """
     filename = LOG_FILES.get(log_name)
     if filename is None:
-        print(f"Unknown log: {log_name!r}. Available: {', '.join(sorted(LOG_FILES))}")
+        print(
+            f"Unknown log: {
+                log_name!r}. Available: {
+                ', '.join(
+                    sorted(LOG_FILES))}")
         sys.exit(1)
 
     log_path = get_nastech_home() / "logs" / filename
@@ -184,12 +189,14 @@ def tail_log(
     if since:
         since_dt = _parse_since(since)
         if since_dt is None:
-            print(f"Invalid --since value: {since!r}. Use format like '1h', '30m', '2d'.")
+            print(
+                f"Invalid --since value: {since!r}. Use format like '1h', '30m', '2d'.")
             sys.exit(1)
 
     min_level = level.upper() if level else None
     if min_level and min_level not in _LEVEL_ORDER:
-        print(f"Invalid --level: {level!r}. Use DEBUG, INFO, WARNING, ERROR, or CRITICAL.")
+        print(
+            f"Invalid --level: {level!r}. Use DEBUG, INFO, WARNING, ERROR, or CRITICAL.")
         sys.exit(1)
 
     # Resolve component to logger name prefixes
@@ -232,9 +239,11 @@ def tail_log(
     filter_desc = f" [{', '.join(filter_parts)}]" if filter_parts else ""
 
     if follow:
-        print(f"--- {display_nastech_home()}/logs/{filename}{filter_desc} (Ctrl+C to stop) ---")
+        print(
+            f"--- {display_nastech_home()}/logs/{filename}{filter_desc} (Ctrl+C to stop) ---")
     else:
-        print(f"--- {display_nastech_home()}/logs/{filename}{filter_desc} (last {num_lines}) ---")
+        print(
+            f"--- {display_nastech_home()}/logs/{filename}{filter_desc} (last {num_lines}) ---")
 
     for line in lines:
         print(line, end="")
@@ -245,7 +254,7 @@ def tail_log(
     # Follow mode — poll for new content
     try:
         _follow_log(log_path, min_level=min_level, session_filter=session,
-                     since=since_dt, component_prefixes=component_prefixes)
+                    since=since_dt, component_prefixes=component_prefixes)
     except KeyboardInterrupt:
         print("\n--- stopped ---")
 
@@ -323,7 +332,11 @@ def _read_last_n_lines(path: Path, n: int) -> list:
                 if not raw.strip():
                     continue
                 try:
-                    decoded.append(raw.decode("utf-8", errors="replace") + "\n")
+                    decoded.append(
+                        raw.decode(
+                            "utf-8",
+                            errors="replace") +
+                        "\n")
                 except Exception:
                     decoded.append(raw.decode("latin-1") + "\n")
             return decoded[-n:]

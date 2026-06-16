@@ -46,10 +46,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Union
 
-from nastech_constants import get_nastech_home
-from utils import env_var_enabled
 from nastech_cli.config import cfg_get
 from nastech_cli.middleware import OBSERVER_SCHEMA_VERSION, VALID_MIDDLEWARE
+from nastech_constants import get_nastech_home
+from utils import env_var_enabled
 
 
 def get_bundled_plugins_dir() -> Path:
@@ -63,6 +63,7 @@ def get_bundled_plugins_dir() -> Path:
     if env_override:
         return Path(env_override)
     return Path(__file__).resolve().parent.parent / "plugins"
+
 
 try:
     import yaml
@@ -107,7 +108,8 @@ def _install_plugin_debug_handler(force: bool = False) -> None:
         return
     handler = logging.StreamHandler(sys.stderr)
     handler.setLevel(logging.DEBUG)
-    handler.setFormatter(logging.Formatter("[plugins] %(levelname)s %(message)s"))
+    handler.setFormatter(logging.Formatter(
+        "[plugins] %(levelname)s %(message)s"))
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
     # Don't double-emit through the root logger when the central logging
@@ -132,7 +134,8 @@ VALID_HOOKS: Set[str] = {
     "transform_tool_result",
     # Transform LLM output before it's returned to the user.
     # Plugins return a string to replace the response text, or None/empty to leave unchanged.
-    # First non-None string wins. Useful for vocabulary/personality transformation.
+    # First non-None string wins. Useful for vocabulary/personality
+    # transformation.
     "transform_llm_output",
     "pre_llm_call",
     "post_llm_call",
@@ -229,7 +232,12 @@ def _get_enabled_plugins() -> Optional[set]:
 # Data classes
 # ---------------------------------------------------------------------------
 
-_VALID_PLUGIN_KINDS: Set[str] = {"standalone", "backend", "exclusive", "platform", "model-provider"}
+_VALID_PLUGIN_KINDS: Set[str] = {
+    "standalone",
+    "backend",
+    "exclusive",
+    "platform",
+    "model-provider"}
 
 
 @dataclass
@@ -240,7 +248,8 @@ class PluginManifest:
     version: str = ""
     description: str = ""
     author: str = ""
-    requires_env: List[Union[str, Dict[str, Any]]] = field(default_factory=list)
+    requires_env: List[Union[str, Dict[str, Any]]
+                       ] = field(default_factory=list)
     provides_tools: List[str] = field(default_factory=list)
     provides_hooks: List[str] = field(default_factory=list)
     source: str = ""        # "user", "project", or "entrypoint"
@@ -372,7 +381,8 @@ class PluginContext:
         """
         cli = self._manager._cli_ref
         if cli is None:
-            logger.warning("inject_message: no CLI reference (not available in gateway mode)")
+            logger.warning(
+                "inject_message: no CLI reference (not available in gateway mode)")
             return False
 
         msg = content if role == "user" else f"[{role}] {content}"
@@ -408,7 +418,10 @@ class PluginContext:
             "handler_fn": handler_fn,
             "plugin": self.manifest.name,
         }
-        logger.debug("Plugin %s registered CLI command: %s", self.manifest.name, name)
+        logger.debug(
+            "Plugin %s registered CLI command: %s",
+            self.manifest.name,
+            name)
 
     # -- slash command registration -------------------------------------------
 
@@ -464,7 +477,10 @@ class PluginContext:
             "plugin": self.manifest.name,
             "args_hint": (args_hint or "").strip(),
         }
-        logger.debug("Plugin %s registered command: /%s", self.manifest.name, clean)
+        logger.debug(
+            "Plugin %s registered command: /%s",
+            self.manifest.name,
+            clean)
 
     # -- tool dispatch -------------------------------------------------------
 
@@ -572,7 +588,8 @@ class PluginContext:
         ``register_image_gen_provider``.
         """
         from nastech_cli.dashboard_auth import (
-            DashboardAuthProvider, register_provider,
+            DashboardAuthProvider,
+            register_provider,
         )
 
         if not isinstance(provider, DashboardAuthProvider):
@@ -608,7 +625,9 @@ class PluginContext:
         tool calls.
         """
         from agent.video_gen_provider import VideoGenProvider
-        from agent.video_gen_registry import register_provider as _register_video_provider
+        from agent.video_gen_registry import (
+            register_provider as _register_video_provider,
+        )
 
         if not isinstance(provider, VideoGenProvider):
             logger.warning(
@@ -636,7 +655,9 @@ class PluginContext:
         tool calls.
         """
         from agent.web_search_provider import WebSearchProvider
-        from agent.web_search_registry import register_provider as _register_web_provider
+        from agent.web_search_registry import (
+            register_provider as _register_web_provider,
+        )
 
         if not isinstance(provider, WebSearchProvider):
             logger.warning(
@@ -668,7 +689,9 @@ class PluginContext:
         consults the registry built up by these calls.
         """
         from agent.browser_provider import BrowserProvider
-        from agent.browser_registry import register_provider as _register_browser_provider
+        from agent.browser_registry import (
+            register_provider as _register_browser_provider,
+        )
 
         if not isinstance(provider, BrowserProvider):
             logger.warning(
@@ -750,7 +773,9 @@ class PluginContext:
         backends).
         """
         from agent.transcription_provider import TranscriptionProvider
-        from agent.transcription_registry import register_provider as _register_stt_provider
+        from agent.transcription_registry import (
+            register_provider as _register_stt_provider,
+        )
 
         if not isinstance(provider, TranscriptionProvider):
             logger.warning(
@@ -799,7 +824,7 @@ class PluginContext:
                 setup_fn=irc_interactive_setup,
             )
         """
-        from gateway.platform_registry import platform_registry, PlatformEntry
+        from gateway.platform_registry import PlatformEntry, platform_registry
 
         entry_kwargs.setdefault("plugin_name", self.manifest.name)
         entry = PlatformEntry(
@@ -879,7 +904,8 @@ class PluginContext:
         # Validate key shape
         if not key or not isinstance(key, str):
             raise ValueError(
-                f"Plugin '{self.manifest.name}' tried to register auxiliary task "
+                f"Plugin '{
+                    self.manifest.name}' tried to register auxiliary task "
                 f"with invalid key {key!r}"
             )
         if not all(c.isalnum() or c == "_" for c in key):
@@ -888,22 +914,27 @@ class PluginContext:
                 f"must contain only alphanumeric characters and underscores"
             )
 
-        # Lazy import to avoid circular: nastech_cli.main imports plugins indirectly
+        # Lazy import to avoid circular: nastech_cli.main imports plugins
+        # indirectly
         from nastech_cli.main import _AUX_TASKS as _BUILTIN_AUX_TASKS
 
         builtin_keys = {k for k, _name, _desc in _BUILTIN_AUX_TASKS}
         if key in builtin_keys:
             raise ValueError(
-                f"Plugin '{self.manifest.name}' cannot register auxiliary task "
+                f"Plugin '{
+                    self.manifest.name}' cannot register auxiliary task "
                 f"{key!r} — that key is reserved for a built-in task. "
-                f"Pick a plugin-namespaced key (e.g. '{self.manifest.name}_{key}')."
+                f"Pick a plugin-namespaced key (e.g. '{
+                    self.manifest.name}_{key}')."
             )
 
         # Reject duplicate registrations across plugins
         existing = self._manager._aux_tasks.get(key)
-        if existing is not None and existing.get("plugin") != self.manifest.name:
+        if existing is not None and existing.get(
+                "plugin") != self.manifest.name:
             raise ValueError(
-                f"Plugin '{self.manifest.name}' cannot register auxiliary task "
+                f"Plugin '{
+                    self.manifest.name}' cannot register auxiliary task "
                 f"{key!r} — already registered by plugin "
                 f"'{existing.get('plugin')}'"
             )
@@ -951,7 +982,10 @@ class PluginContext:
                 ", ".join(sorted(VALID_HOOKS)),
             )
         self._manager._hooks.setdefault(hook_name, []).append(callback)
-        logger.debug("Plugin %s registered hook: %s", self.manifest.name, hook_name)
+        logger.debug(
+            "Plugin %s registered hook: %s",
+            self.manifest.name,
+            hook_name)
 
     # -- middleware registration -------------------------------------------
 
@@ -972,7 +1006,10 @@ class PluginContext:
                 ", ".join(sorted(VALID_MIDDLEWARE)),
             )
         self._manager._middleware.setdefault(kind, []).append(callback)
-        logger.debug("Plugin %s registered middleware: %s", self.manifest.name, kind)
+        logger.debug(
+            "Plugin %s registered middleware: %s",
+            self.manifest.name,
+            kind)
 
     # -- skill registration -------------------------------------------------
 
@@ -1037,13 +1074,15 @@ class PluginManager:
         self._plugin_platform_names: Set[str] = set()
         self._cli_commands: Dict[str, dict] = {}
         self._context_engine = None  # Set by a plugin via register_context_engine()
-        self._plugin_commands: Dict[str, dict] = {}  # Slash commands registered by plugins
+        # Slash commands registered by plugins
+        self._plugin_commands: Dict[str, dict] = {}
         self._discovered: bool = False
         self._cli_ref = None  # Set by CLI after plugin discovery
         # Plugin skill registry: qualified name → metadata dict.
         self._plugin_skills: Dict[str, Dict[str, Any]] = {}
         # Plugin-registered auxiliary tasks: key → {key, display_name,
-        # description, defaults, plugin}. See PluginContext.register_auxiliary_task.
+        # description, defaults, plugin}. See
+        # PluginContext.register_auxiliary_task.
         self._aux_tasks: Dict[str, Dict[str, Any]] = {}
 
     # -----------------------------------------------------------------------
@@ -1091,14 +1130,20 @@ class PluginManager:
         bundled = self._scan_directory(
             repo_plugins,
             source="bundled",
-            skip_names={"memory", "context_engine", "platforms", "model-providers"},
+            skip_names={
+                "memory",
+                "context_engine",
+                "platforms",
+                "model-providers"},
         )
         logger.debug("  bundled (top-level): %d manifest(s)", len(bundled))
         manifests.extend(bundled)
         bundled_platforms = self._scan_directory(
             repo_plugins / "platforms", source="bundled"
         )
-        logger.debug("  bundled/platforms: %d manifest(s)", len(bundled_platforms))
+        logger.debug(
+            "  bundled/platforms: %d manifest(s)",
+            len(bundled_platforms))
         manifests.extend(bundled_platforms)
 
         # 2. User plugins (~/.nastech/plugins/)
@@ -1112,7 +1157,8 @@ class PluginManager:
         if _env_enabled("NASTECH_ENABLE_PROJECT_PLUGINS"):
             project_dir = Path.cwd() / ".nastech" / "plugins"
             logger.debug("Scanning project plugins: %s", project_dir)
-            project_manifests = self._scan_directory(project_dir, source="project")
+            project_manifests = self._scan_directory(
+                project_dir, source="project")
             logger.debug("  project: %d manifest(s)", len(project_manifests))
             manifests.extend(project_manifests)
         else:
@@ -1187,7 +1233,8 @@ class PluginManager:
             # Bundled platform plugins (gateway adapters like IRC) auto-load
             # for the same reason: every platform NasTech ships must be
             # available out of the box without the user having to opt in.
-            if manifest.source == "bundled" and manifest.kind in {"backend", "platform"}:
+            if manifest.source == "bundled" and manifest.kind in {
+                    "backend", "platform"}:
                 self._load_plugin(manifest)
                 continue
 
@@ -1288,7 +1335,8 @@ class PluginManager:
             # cap, treat this directory as a category namespace and recurse
             # one level in looking for children with manifests.
             if depth >= 1:
-                logger.debug("Skipping %s (no plugin.yaml, depth cap reached)", child)
+                logger.debug(
+                    "Skipping %s (no plugin.yaml, depth cap reached)", child)
                 continue
 
             sub_prefix = f"{prefix}/{child.name}" if prefix else child.name
@@ -1317,9 +1365,13 @@ class PluginManager:
         """
         try:
             if yaml is None:
-                logger.warning("PyYAML not installed – cannot load %s", manifest_file)
+                logger.warning(
+                    "PyYAML not installed – cannot load %s",
+                    manifest_file)
                 return None
-            data = yaml.safe_load(manifest_file.read_text(encoding="utf-8")) or {}
+            data = yaml.safe_load(
+                manifest_file.read_text(
+                    encoding="utf-8")) or {}
 
             name = data.get("name", plugin_dir.name)
             key = f"{prefix}/{plugin_dir.name}" if prefix else name
@@ -1345,7 +1397,8 @@ class PluginManager:
                 init_file = plugin_dir / "__init__.py"
                 if init_file.exists():
                     try:
-                        source_text = init_file.read_text(errors="replace")[:8192]
+                        source_text = init_file.read_text(
+                            errors="replace")[:8192]
                         if (
                             "register_memory_provider" in source_text
                             or "MemoryProvider" in source_text
@@ -1410,7 +1463,8 @@ class PluginManager:
             elif isinstance(eps, dict):
                 group_eps = eps.get(ENTRY_POINTS_GROUP, [])
             else:
-                group_eps = [ep for ep in eps if ep.group == ENTRY_POINTS_GROUP]
+                group_eps = [
+                    ep for ep in eps if ep.group == ENTRY_POINTS_GROUP]
 
             for ep in group_eps:
                 manifest = PluginManifest(
@@ -1449,7 +1503,9 @@ class PluginManager:
             register_fn = getattr(module, "register", None)
             if register_fn is None:
                 loaded.error = "no register() function"
-                logger.warning("Plugin '%s' has no register() function", manifest.name)
+                logger.warning(
+                    "Plugin '%s' has no register() function",
+                    manifest.name)
             else:
                 ctx = PluginContext(manifest, self)
                 register_fn(ctx)
@@ -1511,7 +1567,8 @@ class PluginManager:
 
         self._plugins[manifest.key or manifest.name] = loaded
 
-    def _load_directory_module(self, manifest: PluginManifest) -> types.ModuleType:
+    def _load_directory_module(
+            self, manifest: PluginManifest) -> types.ModuleType:
         """Import a directory-based plugin as ``nastech_plugins.<slug>``.
 
         The module slug is derived from ``manifest.key`` so category-namespaced
@@ -1549,7 +1606,8 @@ class PluginManager:
         spec.loader.exec_module(module)
         return module
 
-    def _load_entrypoint_module(self, manifest: PluginManifest) -> types.ModuleType:
+    def _load_entrypoint_module(
+            self, manifest: PluginManifest) -> types.ModuleType:
         """Load a pip-installed plugin via its entry-point reference."""
         eps = importlib.metadata.entry_points()
         if hasattr(eps, "select"):
@@ -1564,7 +1622,8 @@ class PluginManager:
                 return ep.load()
 
         raise ImportError(
-            f"Entry point '{manifest.name}' not found in group '{ENTRY_POINTS_GROUP}'"
+            f"Entry point '{
+                manifest.name}' not found in group '{ENTRY_POINTS_GROUP}'"
         )
 
     # -----------------------------------------------------------------------
@@ -1780,7 +1839,10 @@ def get_pre_tool_call_block_message(
     """
     allowed = getattr(_thread_tool_whitelist, "allowed", None)
     if allowed is not None and tool_name not in allowed:
-        fmt = getattr(_thread_tool_whitelist, "fmt", "Tool '{tool_name}' denied")
+        fmt = getattr(
+            _thread_tool_whitelist,
+            "fmt",
+            "Tool '{tool_name}' denied")
         return fmt.format(tool_name=tool_name)
 
     hook_results = invoke_hook(

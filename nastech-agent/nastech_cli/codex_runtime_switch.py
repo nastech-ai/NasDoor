@@ -133,7 +133,9 @@ def apply(
         ok, ver = _check_binary_cached()
         msg = (
             f"openai_runtime: {current}\n"
-            f"codex CLI: {'OK ' + ver if ok else 'not available — ' + (ver or 'install with `npm i -g @openai/codex`')}"
+            f"codex CLI: {'OK ' +
+                          ver if ok else 'not available — ' +
+                          (ver or 'install with `npm i -g @openai/codex`')}"
         )
         return CodexRuntimeStatus(
             success=True,
@@ -214,7 +216,9 @@ def apply(
             if mig_report.migrated_plugins:
                 msg_lines.append(
                     f"Migrated {len(mig_report.migrated_plugins)} native "
-                    f"Codex plugin(s): {', '.join(mig_report.migrated_plugins)}"
+                    f"Codex plugin(s): {
+                        ', '.join(
+                            mig_report.migrated_plugins)}"
                 )
             elif mig_report.plugin_query_error:
                 msg_lines.append(
@@ -255,7 +259,8 @@ def apply(
             "the prior runtime to preserve prompt cache."
         )
     else:
-        msg_lines.append("OpenAI/Codex turns will use the default NasTech runtime.")
+        msg_lines.append(
+            "OpenAI/Codex turns will use the default NasTech runtime.")
         msg_lines.append("Effective on next session.")
     return CodexRuntimeStatus(
         success=True,

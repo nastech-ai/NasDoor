@@ -29,7 +29,8 @@ _DEFAULT_WEBSITE_BLOCKLIST = {
 }
 
 # Cache: parsed policy + timestamp.  Avoids re-reading config.yaml on every
-# URL check (a multi-URL extract with 50 pages would otherwise mean 51 YAML parses).
+# URL check (a multi-URL extract with 50 pages would otherwise mean 51
+# YAML parses).
 _CACHE_TTL_SECONDS = 30.0
 _cache_lock = threading.Lock()
 _cached_policy: Optional[Dict[str, Any]] = None
@@ -76,7 +77,10 @@ def _iter_blocklist_file_rules(path: Path) -> List[str]:
         logger.warning("Shared blocklist file not found (skipping): %s", path)
         return []
     except (OSError, UnicodeDecodeError) as exc:
-        logger.warning("Failed to read shared blocklist file %s (skipping): %s", path, exc)
+        logger.warning(
+            "Failed to read shared blocklist file %s (skipping): %s",
+            path,
+            exc)
         return []
 
     rules: List[str] = []
@@ -105,9 +109,11 @@ def _load_policy_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
         with open(config_path, encoding="utf-8") as f:
             config = yaml.safe_load(f) or {}
     except yaml.YAMLError as exc:
-        raise WebsitePolicyError(f"Invalid config YAML at {config_path}: {exc}") from exc
+        raise WebsitePolicyError(
+            f"Invalid config YAML at {config_path}: {exc}") from exc
     except OSError as exc:
-        raise WebsitePolicyError(f"Failed to read config file {config_path}: {exc}") from exc
+        raise WebsitePolicyError(
+            f"Failed to read config file {config_path}: {exc}") from exc
     if not isinstance(config, dict):
         raise WebsitePolicyError("config root must be a mapping")
 
@@ -121,14 +127,16 @@ def _load_policy_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
     if website_blocklist is None:
         website_blocklist = {}
     if not isinstance(website_blocklist, dict):
-        raise WebsitePolicyError("security.website_blocklist must be a mapping")
+        raise WebsitePolicyError(
+            "security.website_blocklist must be a mapping")
 
     policy = dict(_DEFAULT_WEBSITE_BLOCKLIST)
     policy.update(website_blocklist)
     return policy
 
 
-def load_website_blocklist(config_path: Optional[Path] = None) -> Dict[str, Any]:
+def load_website_blocklist(
+        config_path: Optional[Path] = None) -> Dict[str, Any]:
     """Load and return the parsed website blocklist policy.
 
     Results are cached for ``_CACHE_TTL_SECONDS`` to avoid re-reading
@@ -155,15 +163,18 @@ def load_website_blocklist(config_path: Optional[Path] = None) -> Dict[str, Any]
 
     raw_domains = policy.get("domains", []) or []
     if not isinstance(raw_domains, list):
-        raise WebsitePolicyError("security.website_blocklist.domains must be a list")
+        raise WebsitePolicyError(
+            "security.website_blocklist.domains must be a list")
 
     raw_shared_files = policy.get("shared_files", []) or []
     if not isinstance(raw_shared_files, list):
-        raise WebsitePolicyError("security.website_blocklist.shared_files must be a list")
+        raise WebsitePolicyError(
+            "security.website_blocklist.shared_files must be a list")
 
     enabled = policy.get("enabled", True)
     if not isinstance(enabled, bool):
-        raise WebsitePolicyError("security.website_blocklist.enabled must be a boolean")
+        raise WebsitePolicyError(
+            "security.website_blocklist.enabled must be a boolean")
 
     rules: List[Dict[str, str]] = []
     seen: set[Tuple[str, str]] = set()
@@ -229,7 +240,8 @@ def _extract_host_from_urlish(url: str) -> str:
     return ""
 
 
-def check_website_access(url: str, config_path: Optional[Path] = None) -> Optional[Dict[str, str]]:
+def check_website_access(
+        url: str, config_path: Optional[Path] = None) -> Optional[Dict[str, str]]:
     """Check whether a URL is allowed by the website blocklist policy.
 
     Returns ``None`` if access is allowed, or a dict with block metadata
@@ -243,7 +255,8 @@ def check_website_access(url: str, config_path: Optional[Path] = None) -> Option
     # or empty, skip all work (no YAML read, no host extraction).
     if config_path is None:
         with _cache_lock:
-            if _cached_policy is not None and not _cached_policy.get("enabled"):
+            if _cached_policy is not None and not _cached_policy.get(
+                    "enabled"):
                 return None
 
     host = _extract_host_from_urlish(url)
@@ -258,7 +271,8 @@ def check_website_access(url: str, config_path: Optional[Path] = None) -> Option
         logger.warning("Website policy config error (failing open): %s", exc)
         return None
     except Exception as exc:
-        logger.warning("Unexpected error loading website policy (failing open): %s", exc)
+        logger.warning(
+            "Unexpected error loading website policy (failing open): %s", exc)
         return None
 
     if not policy.get("enabled"):

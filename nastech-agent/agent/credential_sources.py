@@ -213,7 +213,8 @@ def _remove_nastech_pkce(provider: str, removed) -> RemovalResult:
     if oauth_file.exists():
         try:
             oauth_file.unlink()
-            result.cleaned.append("Cleared NasTech Anthropic OAuth credentials")
+            result.cleaned.append(
+                "Cleared NasTech Anthropic OAuth credentials")
         except OSError as exc:
             result.hints.append(f"Could not delete {oauth_file}: {exc}")
     return result
@@ -248,7 +249,8 @@ def _remove_nastech_device_code(provider: str, removed) -> RemovalResult:
     """
     result = RemovalResult()
     if _clear_auth_store_provider(provider):
-        result.cleaned.append(f"Cleared {provider} OAuth tokens from auth store")
+        result.cleaned.append(
+            f"Cleared {provider} OAuth tokens from auth store")
     return result
 
 
@@ -261,7 +263,8 @@ def _remove_minimax_oauth(provider: str, removed) -> RemovalResult:
     """
     result = RemovalResult()
     if _clear_auth_store_provider(provider):
-        result.cleaned.append(f"Cleared {provider} OAuth tokens from auth store")
+        result.cleaned.append(
+            f"Cleared {provider} OAuth tokens from auth store")
     return result
 
 
@@ -283,7 +286,8 @@ def _remove_xai_oauth_loopback_pkce(provider: str, removed) -> RemovalResult:
     """
     result = RemovalResult()
     if _clear_auth_store_provider(provider):
-        result.cleaned.append(f"Cleared {provider} OAuth tokens from auth store")
+        result.cleaned.append(
+            f"Cleared {provider} OAuth tokens from auth store")
     result.hints.append(
         "Run `nastech model` → xAI Grok OAuth (SuperGrok / Premium+) to re-authenticate if needed."
     )
@@ -311,7 +315,8 @@ def _remove_codex_device_code(provider: str, removed) -> RemovalResult:
 
     result = RemovalResult()
     if _clear_auth_store_provider(provider):
-        result.cleaned.append(f"Cleared {provider} OAuth tokens from auth store")
+        result.cleaned.append(
+            f"Cleared {provider} OAuth tokens from auth store")
     # Suppress the canonical re-seed source, not just whatever source the
     # removed entry had.  Otherwise `manual:device_code` removals wouldn't
     # block the `device_code` re-seed path.
@@ -418,7 +423,8 @@ def _register_all_sources() -> None:
     ))
     register(RemovalStep(
         provider="openai-codex", source_id="device_code",
-        match_fn=lambda src: src == "device_code" or src.endswith(":device_code"),
+        match_fn=lambda src: src == "device_code" or src.endswith(
+            ":device_code"),
         remove_fn=_remove_codex_device_code,
         description="auth.json providers.openai-codex + ~/.codex/auth.json",
     ))
@@ -439,7 +445,8 @@ def _register_all_sources() -> None:
     ))
     register(RemovalStep(
         provider="*", source_id="config:",
-        match_fn=lambda src: src.startswith("config:") or src == "model_config",
+        match_fn=lambda src: src.startswith(
+            "config:") or src == "model_config",
         remove_fn=_remove_custom_config,
         description="Custom provider config.yaml api_key field",
     ))

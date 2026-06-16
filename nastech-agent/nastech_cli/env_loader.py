@@ -9,7 +9,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from utils import atomic_replace
 
-
 # Env var name suffixes that indicate credential values.  These are the
 # only env vars whose values we sanitize on load — we must not silently
 # alter arbitrary user env vars, but credentials are known to require
@@ -224,7 +223,11 @@ def load_nastech_dotenv(
     """
     loaded: list[Path] = []
 
-    home_path = Path(nastech_home or os.getenv("NASTECH_HOME", Path.home() / ".nastech"))
+    home_path = Path(
+        nastech_home or os.getenv(
+            "NASTECH_HOME",
+            Path.home() /
+            ".nastech"))
     user_env = home_path / ".env"
     project_env_path = Path(project_env) if project_env else None
 

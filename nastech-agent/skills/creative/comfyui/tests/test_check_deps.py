@@ -25,7 +25,9 @@ class TestNormalizeForMatch:
 
 class TestModelPresent:
     def test_exact_match(self):
-        assert model_present("a.safetensors", {"a.safetensors", "b.safetensors"}) is True
+        assert model_present(
+            "a.safetensors", {
+                "a.safetensors", "b.safetensors"}) is True
 
     def test_extension_difference(self):
         # User said "model" but installed is "model.safetensors"
@@ -34,11 +36,16 @@ class TestModelPresent:
         assert model_present("model.safetensors", {"model"}) is True
 
     def test_subfolder_match(self):
-        # Installed list has "subdir/model.safetensors", workflow asks "model.safetensors"
-        assert model_present("model.safetensors", {"subdir/model.safetensors"}) is True
+        # Installed list has "subdir/model.safetensors", workflow asks
+        # "model.safetensors"
+        assert model_present(
+            "model.safetensors",
+            {"subdir/model.safetensors"}) is True
 
     def test_missing(self):
-        assert model_present("missing.safetensors", {"a.safetensors", "b.safetensors"}) is False
+        assert model_present(
+            "missing.safetensors", {
+                "a.safetensors", "b.safetensors"}) is False
 
     def test_empty_installed(self):
         assert model_present("anything.safetensors", set()) is False

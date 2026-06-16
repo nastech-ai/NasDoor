@@ -12,13 +12,6 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from nastech_constants import display_nastech_home
-
-logger = logging.getLogger(__name__)
-
-# Import from cron module (will be available when properly installed)
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from cron.jobs import (
     AmbiguousJobReference,
     create_job,
@@ -31,6 +24,13 @@ from cron.jobs import (
     trigger_job,
     update_job,
 )
+from nastech_constants import display_nastech_home
+from tools.registry import registry, tool_error
+
+logger = logging.getLogger(__name__)
+
+# Import from cron module (will be available when properly installed)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +65,8 @@ from cron.jobs import (
 
 # Strict patterns — applied to the user prompt only.
 _CRON_THREAT_PATTERNS = [
-    (r'ignore\s+(?:\w+\s+)*(?:previous|all|above|prior)\s+(?:\w+\s+)*instructions', "prompt_injection"),
+    (r'ignore\s+(?:\w+\s+)*(?:previous|all|above|prior)\s+(?:\w+\s+)*instructions',
+     "prompt_injection"),
     (r'do\s+not\s+tell\s+the\s+user', "deception_hide"),
     (r'system\s+prompt\s+override', "sys_prompt_override"),
     (r'disregard\s+(your|all|any)\s+(instructions|rules|guidelines)', "disregard_rules"),
@@ -83,7 +84,8 @@ _CRON_THREAT_PATTERNS = [
 # obvious injection directives surviving a malicious skill that slipped
 # through install.
 _CRON_SKILL_ASSEMBLED_PATTERNS = [
-    (r'ignore\s+(?:\w+\s+)*(?:previous|all|above|prior)\s+(?:\w+\s+)*instructions', "prompt_injection"),
+    (r'ignore\s+(?:\w+\s+)*(?:previous|all|above|prior)\s+(?:\w+\s+)*instructions',
+     "prompt_injection"),
     (r'do\s+not\s+tell\s+the\s+user', "deception_hide"),
     (r'system\s+prompt\s+override', "sys_prompt_override"),
     (r'disregard\s+(your|all|any)\s+(instructions|rules|guidelines)', "disregard_rules"),
@@ -96,11 +98,19 @@ _CRON_EXFIL_COMMAND_PATTERNS = [
     # or shipping it via Authorization headers to arbitrary hosts. The
     # only intended allowlist exception today is the bundled GitHub skill
     # pattern that talks to api.github.com.
-    (rf'curl\s+[^\n]*https?://[^\s"\'`]*{_CRON_SECRET_VAR_RE}', "exfil_curl_url"),
-    (rf'wget\s+[^\n]*https?://[^\s"\'`]*{_CRON_SECRET_VAR_RE}', "exfil_wget_url"),
-    (rf'curl\s+[^\n]*(?:--data(?:-raw|-binary|-urlencode)?|-d|--form|-F)\s+[^\n]*{_CRON_SECRET_VAR_RE}', "exfil_curl_data"),
-    (rf'wget\s+[^\n]*--post-(?:data|file)=[^\n]*{_CRON_SECRET_VAR_RE}', "exfil_wget_post"),
-    (rf'curl\s+[^\n]*(?:-H|--header)\s+["\']Authorization:\s*(?:Bearer|token)\s+{_CRON_SECRET_VAR_RE}["\']', "exfil_curl_auth_header"),
+    (rf'curl\s+[^\n]*https?://[^\s"\'`]*{_CRON_SECRET_VAR_RE}',
+     "exfil_curl_url"),
+    (rf'wget\s+[^\n]*https?://[^\s"\'`]*{_CRON_SECRET_VAR_RE}',
+     "exfil_wget_url"),
+    (
+        rf'curl\s+[^\n]*(?:--data(?:-raw|-binary|-urlencode)?|-d|--form|-F)\s+[^\n]*{_CRON_SECRET_VAR_RE}',
+        "exfil_curl_data"),
+    (
+        rf'wget\s+[^\n]*--post-(?:data|file)=[^\n]*{_CRON_SECRET_VAR_RE}',
+        "exfil_wget_post"),
+    (
+        rf'curl\s+[^\n]*(?:-H|--header)\s+["\']Authorization:\s*(?:Bearer|token)\s+{_CRON_SECRET_VAR_RE}["\']',
+        "exfil_curl_auth_header"),
 ]
 
 _CRON_INVISIBLE_CHARS = {
@@ -166,7 +176,8 @@ def _strip_cron_safe_constructs(prompt: str) -> str:
         re.IGNORECASE,
     )
     if github_auth_header:
-        return prompt.replace(github_auth_header.group(0), "curl https://api.github.com/user")
+        return prompt.replace(github_auth_header.group(
+            0), "curl https://api.github.com/user")
     return prompt
 
 
@@ -196,7 +207,8 @@ def _strip_invisible_unicode(prompt: str) -> tuple[str, list[str]]:
         return prompt, []
     # Keep emoji-ZWJ: temporarily remove the legitimate joiners, scan/strip the
     # rest, then the legitimate joiners survive because we operate on the
-    # original string and only drop chars that are NOT part of an emoji cluster.
+    # original string and only drop chars that are NOT part of an emoji
+    # cluster.
     removed: set[str] = set()
     cleaned: list[str] = []
     for idx, ch in enumerate(prompt):
@@ -296,7 +308,8 @@ def _repeat_display(job: Dict[str, Any]) -> str:
     return f"{completed}/{times}" if completed else f"{times} times"
 
 
-def _canonical_skills(skill: Optional[str] = None, skills: Optional[Any] = None) -> List[str]:
+def _canonical_skills(
+        skill: Optional[str] = None, skills: Optional[Any] = None) -> List[str]:
     if skills is None:
         raw_items = [skill] if skill else []
     elif isinstance(skills, str):
@@ -310,8 +323,6 @@ def _canonical_skills(skill: Optional[str] = None, skills: Optional[Any] = None)
         if text and text not in normalized:
             normalized.append(text)
     return normalized
-
-
 
 
 def _resolve_model_override(model_obj: Optional[Dict[str, Any]]) -> tuple:
@@ -348,7 +359,8 @@ def _resolve_model_override(model_obj: Optional[Dict[str, Any]]) -> tuple:
     return (provider_name, model_name)
 
 
-def _normalize_optional_job_value(value: Optional[Any], *, strip_trailing_slash: bool = False) -> Optional[str]:
+def _normalize_optional_job_value(
+        value: Optional[Any], *, strip_trailing_slash: bool = False) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip()
@@ -421,7 +433,8 @@ def _format_job(job: Dict[str, Any]) -> Dict[str, Any]:
     prompt = str(job.get("prompt") or "")
     skills = _canonical_skills(job.get("skill"), job.get("skills"))
     job_id = str(job.get("id") or "unknown")
-    name = str(job.get("name") or prompt[:50] or (skills[0] if skills else "") or job_id or "cron job")
+    name = str(job.get("name") or prompt[:50] or (
+        skills[0] if skills else "") or job_id or "cron job")
     result = {
         "job_id": job_id,
         "name": name,
@@ -487,7 +500,8 @@ def cronjob(
 
         if normalized == "create":
             if not schedule:
-                return tool_error("schedule is required for create", success=False)
+                return tool_error(
+                    "schedule is required for create", success=False)
             canonical_skills = _canonical_skills(skill, skills)
             _no_agent = bool(no_agent)
             # Job-shape validation differs by mode:
@@ -503,7 +517,8 @@ def cronjob(
                         success=False,
                     )
             elif not prompt and not canonical_skills:
-                return tool_error("create requires either prompt or at least one skill", success=False)
+                return tool_error(
+                    "create requires either prompt or at least one skill", success=False)
             if prompt:
                 scan_error = _scan_cron_prompt(prompt)
                 if scan_error:
@@ -518,7 +533,8 @@ def cronjob(
             # Validate context_from references existing jobs
             if context_from:
                 from cron.jobs import get_job as _get_job
-                refs = [context_from] if isinstance(context_from, str) else context_from
+                refs = [context_from] if isinstance(
+                    context_from, str) else context_from
                 for ref_id in refs:
                     if not _get_job(ref_id):
                         return tool_error(
@@ -537,7 +553,8 @@ def cronjob(
                 skills=canonical_skills,
                 model=_normalize_optional_job_value(model),
                 provider=_normalize_optional_job_value(provider),
-                base_url=_normalize_optional_job_value(base_url, strip_trailing_slash=True),
+                base_url=_normalize_optional_job_value(
+                    base_url, strip_trailing_slash=True),
                 script=_normalize_optional_job_value(script),
                 context_from=context_from,
                 enabled_toolsets=enabled_toolsets or None,
@@ -563,11 +580,15 @@ def cronjob(
             )
 
         if normalized == "list":
-            jobs = [_format_job(job) for job in list_jobs(include_disabled=include_disabled)]
-            return json.dumps({"success": True, "count": len(jobs), "jobs": jobs}, indent=2)
+            jobs = [
+                _format_job(job) for job in list_jobs(
+                    include_disabled=include_disabled)]
+            return json.dumps(
+                {"success": True, "count": len(jobs), "jobs": jobs}, indent=2)
 
         if not job_id:
-            return tool_error(f"job_id is required for action '{normalized}'", success=False)
+            return tool_error(
+                f"job_id is required for action '{normalized}'", success=False)
 
         try:
             job = resolve_job_ref(job_id)
@@ -590,7 +611,8 @@ def cronjob(
             )
         if not job:
             return json.dumps(
-                {"success": False, "error": f"Job with ID or name '{job_id}' not found. Use cronjob(action='list') to inspect jobs."},
+                {"success": False,
+                 "error": f"Job with ID or name '{job_id}' not found. Use cronjob(action='list') to inspect jobs."},
                 indent=2,
             )
         # Resolve to canonical ID (supports name-based lookup)
@@ -599,7 +621,8 @@ def cronjob(
         if normalized == "remove":
             removed = remove_job(job_id)
             if not removed:
-                return tool_error(f"Failed to remove job '{job_id}'", success=False)
+                return tool_error(
+                    f"Failed to remove job '{job_id}'", success=False)
             return json.dumps(
                 {
                     "success": True,
@@ -615,15 +638,18 @@ def cronjob(
 
         if normalized == "pause":
             updated = pause_job(job_id, reason=reason)
-            return json.dumps({"success": True, "job": _format_job(updated)}, indent=2)
+            return json.dumps(
+                {"success": True, "job": _format_job(updated)}, indent=2)
 
         if normalized == "resume":
             updated = resume_job(job_id)
-            return json.dumps({"success": True, "job": _format_job(updated)}, indent=2)
+            return json.dumps(
+                {"success": True, "job": _format_job(updated)}, indent=2)
 
         if normalized in {"run", "run_now", "trigger"}:
             updated = trigger_job(job_id)
-            return json.dumps({"success": True, "job": _format_job(updated)}, indent=2)
+            return json.dumps(
+                {"success": True, "job": _format_job(updated)}, indent=2)
 
         if normalized == "update":
             updates: Dict[str, Any] = {}
@@ -645,22 +671,26 @@ def cronjob(
             if provider is not None:
                 updates["provider"] = _normalize_optional_job_value(provider)
             if base_url is not None:
-                updates["base_url"] = _normalize_optional_job_value(base_url, strip_trailing_slash=True)
+                updates["base_url"] = _normalize_optional_job_value(
+                    base_url, strip_trailing_slash=True)
             if script is not None:
                 # Pass empty string to clear an existing script
                 if script:
                     script_error = _validate_cron_script_path(script)
                     if script_error:
                         return tool_error(script_error, success=False)
-                updates["script"] = _normalize_optional_job_value(script) if script else None
+                updates["script"] = _normalize_optional_job_value(
+                    script) if script else None
             if context_from is not None:
                 # Empty string / empty list clears the field; otherwise validate
                 # each referenced job exists before storing. Normalized to a list
                 # (or None) to match the shape stored by create_job().
                 if isinstance(context_from, str):
-                    refs = [context_from.strip()] if context_from.strip() else []
+                    refs = [
+                        context_from.strip()] if context_from.strip() else []
                 else:
-                    refs = [str(j).strip() for j in context_from if str(j).strip()]
+                    refs = [str(j).strip()
+                            for j in context_from if str(j).strip()]
                 if refs:
                     from cron.jobs import get_job as _get_job
                     for ref_id in refs:
@@ -676,18 +706,21 @@ def cronjob(
             if workdir is not None:
                 # Empty string clears the field (restores old behaviour);
                 # otherwise pass raw — update_job() validates / normalizes.
-                updates["workdir"] = _normalize_optional_job_value(workdir) or None
+                updates["workdir"] = _normalize_optional_job_value(
+                    workdir) or None
             if profile is not None:
                 # Empty string clears the field (restores old behaviour);
                 # otherwise pass raw — update_job() validates / normalizes.
-                updates["profile"] = _normalize_optional_job_value(profile) or None
+                updates["profile"] = _normalize_optional_job_value(
+                    profile) or None
             if no_agent is not None:
                 # Toggling no_agent on/off at update time. If flipping to True,
                 # we need a script to already exist on the job (or be part of
                 # the same update) — otherwise the next tick would error out.
                 target_no_agent = bool(no_agent)
                 if target_no_agent:
-                    effective_script = updates.get("script") if "script" in updates else job.get("script")
+                    effective_script = updates.get(
+                        "script") if "script" in updates else job.get("script")
                     if not effective_script:
                         return tool_error(
                             "Cannot set no_agent=True on a job without a script. "
@@ -704,20 +737,21 @@ def cronjob(
             if schedule is not None:
                 parsed_schedule = parse_schedule(schedule)
                 updates["schedule"] = parsed_schedule
-                updates["schedule_display"] = parsed_schedule.get("display", schedule)
+                updates["schedule_display"] = parsed_schedule.get(
+                    "display", schedule)
                 if job.get("state") != "paused":
                     updates["state"] = "scheduled"
                     updates["enabled"] = True
             if not updates:
                 return tool_error("No updates provided.", success=False)
             updated = update_job(job_id, updates)
-            return json.dumps({"success": True, "job": _format_job(updated)}, indent=2)
+            return json.dumps(
+                {"success": True, "job": _format_job(updated)}, indent=2)
 
         return tool_error(f"Unknown cron action '{action}'", success=False)
 
     except Exception as e:
         return tool_error(str(e), success=False)
-
 
 
 CRONJOB_SCHEMA = {
@@ -867,7 +901,6 @@ def check_cronjob_requirements() -> bool:
 
 
 # --- Registry ---
-from tools.registry import registry, tool_error
 
 registry.register(
     name="cronjob",

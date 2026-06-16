@@ -95,7 +95,9 @@ class _MtimeCache:
             if not isinstance(data, dict):
                 data = {}
         except (json.JSONDecodeError, OSError):
-            logger.warning("[Feishu-Rules] Failed to read %s, using empty config", self._path)
+            logger.warning(
+                "[Feishu-Rules] Failed to read %s, using empty config",
+                self._path)
             data = {}
 
         self._mtime = mtime
@@ -130,7 +132,8 @@ def _parse_document_rule(raw: dict) -> CommentDocumentRule:
         if policy not in _VALID_POLICIES:
             policy = None
     allow_from = _parse_frozenset(raw.get("allow_from"))
-    return CommentDocumentRule(enabled=enabled, policy=policy, allow_from=allow_from)
+    return CommentDocumentRule(
+        enabled=enabled, policy=policy, allow_from=allow_from)
 
 
 def load_config() -> CommentsConfig:
@@ -305,7 +308,10 @@ def _print_status() -> None:
     print(f"Top-level:")
     print(f"  enabled:    {cfg.enabled}")
     print(f"  policy:     {cfg.policy}")
-    print(f"  allow_from: {sorted(cfg.allow_from) if cfg.allow_from else '[]'}")
+    print(
+        f"  allow_from: {
+            sorted(
+                cfg.allow_from) if cfg.allow_from else '[]'}")
     print()
     if cfg.documents:
         print(f"Document rules ({len(cfg.documents)}):")
@@ -317,7 +323,9 @@ def _print_status() -> None:
                 parts.append(f"policy={rule.policy}")
             if rule.allow_from is not None:
                 parts.append(f"allow_from={sorted(rule.allow_from)}")
-            print(f"  [{key}] {', '.join(parts) if parts else '(empty — inherits all)'}")
+            print(
+                f"  [{key}] {
+                    ', '.join(parts) if parts else '(empty — inherits all)'}")
     else:
         print("Document rules: (none)")
     print()
@@ -342,7 +350,10 @@ def _do_check(doc_key: str, user_open_id: str) -> None:
     print(f"Resolved rule:")
     print(f"  enabled:      {rule.enabled}")
     print(f"  policy:       {rule.policy}")
-    print(f"  allow_from:   {sorted(rule.allow_from) if rule.allow_from else '[]'}")
+    print(
+        f"  allow_from:   {
+            sorted(
+                rule.allow_from) if rule.allow_from else '[]'}")
     print(f"  match_source: {rule.match_source}")
     print(f"Result:       {'ALLOWED' if allowed else 'DENIED'}")
 

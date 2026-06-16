@@ -60,9 +60,11 @@ _IMAGE_EXT_PATTERN = "|".join(e.lstrip(".") for e in _IMAGE_EXTS)
 
 # Absolute / home-relative local image path. Matches the same shape gateway's
 # extract_local_files() uses: anchors to ``~/`` or ``/``, ignores matches inside
-# URLs (the ``(?<![/:\w.])`` lookbehind), and case-insensitive on the extension.
+# URLs (the ``(?<![/:\w.])`` lookbehind), and case-insensitive on the
+# extension.
 _LOCAL_IMAGE_PATH_RE = re.compile(
-    r"(?<![/:\w.])(?:~/|/)(?:[\w.\-]+/)*[\w.\-]+\.(?:" + _IMAGE_EXT_PATTERN + r")\b",
+    r"(?<![/:\w.])(?:~/|/)(?:[\w.\-]+/)*[\w.\-]+\.(?:" +
+    _IMAGE_EXT_PATTERN + r")\b",
     re.IGNORECASE,
 )
 
@@ -70,7 +72,8 @@ _LOCAL_IMAGE_PATH_RE = re.compile(
 # query string). Case-insensitive on the extension. Strict ``http(s)://``
 # scheme so we don't accidentally grab ``file://`` URLs or other shapes.
 _IMAGE_URL_RE = re.compile(
-    r"https?://[^\s<>\"']+?\.(?:" + _IMAGE_EXT_PATTERN + r")(?:\?[^\s<>\"']*)?",
+    r"https?://[^\s<>\"']+?\.(?:" + _IMAGE_EXT_PATTERN +
+    r")(?:\?[^\s<>\"']*)?",
     re.IGNORECASE,
 )
 
@@ -120,7 +123,8 @@ def extract_image_refs(text: str) -> Tuple[List[str], List[str]]:
             if not os.path.isfile(expanded):
                 continue
         except OSError:
-            # ENAMETOOLONG / EINVAL on pathological inputs — skip rather than crash.
+            # ENAMETOOLONG / EINVAL on pathological inputs — skip rather than
+            # crash.
             continue
         if expanded in seen_paths:
             continue
@@ -196,7 +200,8 @@ def _supports_vision_override(
 
     # 1. Top-level shortcut
     model_cfg_raw = cfg.get("model")
-    model_cfg: Dict[str, Any] = model_cfg_raw if isinstance(model_cfg_raw, dict) else {}
+    model_cfg: Dict[str, Any] = model_cfg_raw if isinstance(
+        model_cfg_raw, dict) else {}
     top = _coerce_capability_bool(model_cfg.get("supports_vision"))
     if top is not None:
         return top
@@ -208,14 +213,18 @@ def _supports_vision_override(
     # both as candidate provider keys.
     config_provider = str(model_cfg.get("provider") or "").strip()
     providers_raw = cfg.get("providers")
-    providers_cfg: Dict[str, Any] = providers_raw if isinstance(providers_raw, dict) else {}
+    providers_cfg: Dict[str, Any] = providers_raw if isinstance(
+        providers_raw, dict) else {}
     for p in dict.fromkeys(filter(None, (provider, config_provider))):
         entry_raw = providers_cfg.get(p)
-        entry: Dict[str, Any] = entry_raw if isinstance(entry_raw, dict) else {}
+        entry: Dict[str, Any] = entry_raw if isinstance(
+            entry_raw, dict) else {}
         models_raw = entry.get("models")
-        models_cfg: Dict[str, Any] = models_raw if isinstance(models_raw, dict) else {}
+        models_cfg: Dict[str, Any] = models_raw if isinstance(
+            models_raw, dict) else {}
         per_model_raw = models_cfg.get(model)
-        per_model: Dict[str, Any] = per_model_raw if isinstance(per_model_raw, dict) else {}
+        per_model: Dict[str, Any] = per_model_raw if isinstance(
+            per_model_raw, dict) else {}
         coerced = _coerce_capability_bool(per_model.get("supports_vision"))
         if coerced is not None:
             return coerced
@@ -243,7 +252,8 @@ def _supports_vision_override(
             models_raw = entry_raw.get("models")
             models_cfg = models_raw if isinstance(models_raw, dict) else {}
             per_model_raw = models_cfg.get(model)
-            per_model = per_model_raw if isinstance(per_model_raw, dict) else {}
+            per_model = per_model_raw if isinstance(
+                per_model_raw, dict) else {}
             coerced = _coerce_capability_bool(per_model.get("supports_vision"))
             if coerced is not None:
                 return coerced
@@ -306,7 +316,11 @@ def _lookup_supports_vision(
         from agent.models_dev import get_model_capabilities
         caps = get_model_capabilities(provider, model)
     except Exception as exc:  # pragma: no cover - defensive
-        logger.debug("image_routing: caps lookup failed for %s:%s — %s", provider, model, exc)
+        logger.debug(
+            "image_routing: caps lookup failed for %s:%s — %s",
+            provider,
+            model,
+            exc)
         return None
     if caps is None:
         return None

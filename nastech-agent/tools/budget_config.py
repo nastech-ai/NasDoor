@@ -13,7 +13,8 @@ PINNED_THRESHOLDS: Dict[str, float] = {
 }
 
 # Defaults matching the current hardcoded values in tool_result_storage.py.
-# Kept here as the single source of truth; tool_result_storage.py imports these.
+# Kept here as the single source of truth; tool_result_storage.py imports
+# these.
 DEFAULT_RESULT_SIZE_CHARS: int = 100_000
 DEFAULT_TURN_BUDGET_CHARS: int = 200_000
 DEFAULT_PREVIEW_SIZE_CHARS: int = 1_500
@@ -44,7 +45,8 @@ class BudgetConfig:
         if tool_name in self.tool_overrides:
             return self.tool_overrides[tool_name]
         from tools.registry import registry
-        return registry.get_max_result_size(tool_name, default=self.default_result_size)
+        return registry.get_max_result_size(
+            tool_name, default=self.default_result_size)
 
 
 # Default config -- matches current hardcoded behavior exactly.

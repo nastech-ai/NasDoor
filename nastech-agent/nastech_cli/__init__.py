@@ -34,7 +34,8 @@ def _ensure_utf8():
         if stream is None:
             continue
         try:
-            if getattr(stream, "encoding", "").lower().replace("-", "") != "utf8":
+            if getattr(stream, "encoding", "").lower().replace(
+                    "-", "") != "utf8":
                 new_stream = open(
                     stream.fileno(), "w", encoding="utf-8",
                     buffering=1, closefd=False,

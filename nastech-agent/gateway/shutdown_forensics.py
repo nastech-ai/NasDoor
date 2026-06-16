@@ -26,7 +26,6 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
 _SIGNAL_NAME_BY_NUM: Dict[int, str] = {}
 for _name in ("SIGTERM", "SIGINT", "SIGHUP", "SIGQUIT", "SIGUSR1", "SIGUSR2"):
     _val = getattr(signal, _name, None)
@@ -67,7 +66,8 @@ def _read_proc_cmdline(pid: int) -> Optional[str]:
     if not data:
         return None
     # cmdline uses NUL separators
-    return data.replace(b"\x00", b" ").decode("utf-8", errors="replace").strip()
+    return data.replace(b"\x00", b" ").decode(
+        "utf-8", errors="replace").strip()
 
 
 def _proc_summary(pid: int) -> Dict[str, Any]:
@@ -156,7 +156,8 @@ def snapshot_shutdown_context(received_signal: Any = None) -> Dict[str, Any]:
         tracer = _read_proc_field(pid, "TracerPid")
         if tracer is not None and tracer != "0":
             ctx["tracer_pid"] = int(tracer) if tracer.isdigit() else tracer
-            ctx["tracer"] = _proc_summary(int(tracer)) if tracer.isdigit() else None
+            ctx["tracer"] = _proc_summary(
+                int(tracer)) if tracer.isdigit() else None
     except (TypeError, ValueError):
         pass
 
@@ -181,7 +182,8 @@ def snapshot_shutdown_context(received_signal: Any = None) -> Dict[str, Any]:
                     )
                 except OSError:
                     pass
-            planned_stop_path = Path(nastech_home_str) / ".gateway-planned-stop.json"
+            planned_stop_path = Path(nastech_home_str) / \
+                ".gateway-planned-stop.json"
             if planned_stop_path.exists():
                 try:
                     raw = planned_stop_path.read_text(encoding="utf-8")
@@ -244,7 +246,8 @@ def spawn_async_diagnostic(
         # Open the log file in append mode and let the subprocess inherit.
         # We use os.O_APPEND so concurrent diagnostics from rapid signals
         # don't trample each other.
-        fd = os.open(str(log_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+        fd = os.open(str(log_path), os.O_WRONLY |
+                     os.O_CREAT | os.O_APPEND, 0o644)
     except OSError:
         return None
 
@@ -319,7 +322,8 @@ def context_as_json(ctx: Dict[str, Any]) -> str:
         return "{}"
 
 
-def check_systemd_timing_alignment(drain_timeout: float) -> Optional[Dict[str, Any]]:
+def check_systemd_timing_alignment(
+        drain_timeout: float) -> Optional[Dict[str, Any]]:
     """At startup, sanity-check that systemd's TimeoutStopSec >= drain_timeout.
 
     When the gateway is run under a stale systemd unit file (e.g. the user
@@ -367,7 +371,8 @@ def check_systemd_timing_alignment(drain_timeout: float) -> Optional[Dict[str, A
     for flag in (["--user"], []):
         try:
             result = subprocess.run(
-                ["systemctl", *flag, "show", unit_name, "--property=TimeoutStopUSec"],
+                ["systemctl", *flag, "show", unit_name,
+                    "--property=TimeoutStopUSec"],
                 capture_output=True, text=True, timeout=2.0,
             )
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):

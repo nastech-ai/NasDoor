@@ -115,11 +115,13 @@ def _sanitize_messages_surrogates(messages: list) -> bool:
                 fn = tc.get("function")
                 if isinstance(fn, dict):
                     fn_name = fn.get("name")
-                    if isinstance(fn_name, str) and _SURROGATE_RE.search(fn_name):
+                    if isinstance(fn_name, str) and _SURROGATE_RE.search(
+                            fn_name):
                         fn["name"] = _SURROGATE_RE.sub('\ufffd', fn_name)
                         found = True
                     fn_args = fn.get("arguments")
-                    if isinstance(fn_args, str) and _SURROGATE_RE.search(fn_args):
+                    if isinstance(fn_args, str) and _SURROGATE_RE.search(
+                            fn_args):
                         fn["arguments"] = _SURROGATE_RE.sub('\ufffd', fn_args)
                         found = True
         # Walk any additional string / nested fields (reasoning,
@@ -200,7 +202,9 @@ def _repair_tool_call_arguments(raw_args: str, tool_name: str = "?") -> str:
 
     # Python-literal None -> normalise to {}
     if raw_stripped == "None":
-        logger.warning("Sanitized Python-None tool_call arguments for %s", tool_name)
+        logger.warning(
+            "Sanitized Python-None tool_call arguments for %s",
+            tool_name)
         return "{}"
 
     # Repair pass 0: llama.cpp backends sometimes emit literal control
@@ -335,7 +339,8 @@ def _sanitize_messages_non_ascii(messages: list) -> bool:
                             if sanitized != fn_args:
                                 fn["arguments"] = sanitized
                                 found = True
-        # Sanitize any additional top-level string fields (e.g. reasoning_content)
+        # Sanitize any additional top-level string fields (e.g.
+        # reasoning_content)
         for key, value in msg.items():
             if key in {"content", "name", "tool_calls", "role"}:
                 continue
@@ -380,7 +385,8 @@ def _strip_images_from_messages(messages: list) -> bool:
             continue
         new_parts = []
         for part in content:
-            if isinstance(part, dict) and part.get("type") in {"image_url", "image", "input_image"}:
+            if isinstance(part, dict) and part.get("type") in {
+                    "image_url", "image", "input_image"}:
                 found = True
             else:
                 new_parts.append(part)

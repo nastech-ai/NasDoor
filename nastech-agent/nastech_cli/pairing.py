@@ -8,6 +8,7 @@ Usage:
     nastech pairing clear-pending     # Clear all expired/pending codes
 """
 
+
 def pairing_command(args):
     """Handle nastech pairing subcommands."""
     from gateway.pairing import PairingStore
@@ -39,8 +40,14 @@ def _cmd_list(store):
 
     if pending:
         print(f"\n  Pending Pairing Requests ({len(pending)}):")
-        print(f"  {'Platform':<12} {'Code':<10} {'User ID':<20} {'Name':<20} {'Age'}")
-        print(f"  {'--------':<12} {'----':<10} {'-------':<20} {'----':<20} {'---'}")
+        print(
+            f"  {
+                'Platform':<12} {
+                'Code':<10} {
+                'User ID':<20} {
+                    'Name':<20} {'Age'}")
+        print(
+            f"  {'--------':<12} {'----':<10} {'-------':<20} {'----':<20} {'---'}")
         for p in pending:
             print(
                 f"  {p['platform']:<12} {p['code']:<10} {p['user_id']:<20} "
@@ -54,7 +61,8 @@ def _cmd_list(store):
         print(f"  {'Platform':<12} {'User ID':<20} {'Name':<20}")
         print(f"  {'--------':<12} {'-------':<20} {'----':<20}")
         for a in approved:
-            print(f"  {a['platform']:<12} {a['user_id']:<20} {(a.get('user_name') or ''):<20}")
+            print(
+                f"  {a['platform']:<12} {a['user_id']:<20} {(a.get('user_name') or ''):<20}")
     else:
         print("\n  No approved users.")
 
@@ -71,7 +79,8 @@ def _cmd_approve(store, platform: str, code: str):
         uid = result["user_id"]
         name = result.get("user_name") or ""
         display = f"{name} ({uid})" if name else uid
-        print(f"\n  Approved! User {display} on {platform} can now use the bot~")
+        print(
+            f"\n  Approved! User {display} on {platform} can now use the bot~")
         print("  They'll be recognized automatically on their next message.\n")
     elif store._is_locked_out(platform):
         # Disambiguate: approve_code returns None for both invalid codes
@@ -92,7 +101,8 @@ def _cmd_approve(store, platform: str, code: str):
             "~/.nastech/platforms/pairing/_rate_limits.json\n".format(platform)
         )
     else:
-        print(f"\n  Code '{code}' not found or expired for platform '{platform}'.")
+        print(
+            f"\n  Code '{code}' not found or expired for platform '{platform}'.")
         print("  Run 'nastech pairing list' to see pending codes.\n")
 
 
@@ -103,7 +113,8 @@ def _cmd_revoke(store, platform: str, user_id: str):
     if store.revoke(platform, user_id):
         print(f"\n  Revoked access for user {user_id} on {platform}.\n")
     else:
-        print(f"\n  User {user_id} not found in approved list for {platform}.\n")
+        print(
+            f"\n  User {user_id} not found in approved list for {platform}.\n")
 
 
 def _cmd_clear_pending(store):

@@ -29,9 +29,9 @@ from typing import Any, Dict, List, Optional
 from agent.prompt_builder import (
     DEFAULT_AGENT_IDENTITY,
     GOOGLE_MODEL_OPERATIONAL_GUIDANCE,
-    NASTECH_AGENT_HELP_GUIDANCE,
     KANBAN_GUIDANCE,
     MEMORY_GUIDANCE,
+    NASTECH_AGENT_HELP_GUIDANCE,
     OPENAI_MODEL_EXECUTION_GUIDANCE,
     PLATFORM_HINTS,
     SESSION_SEARCH_GUIDANCE,
@@ -59,7 +59,8 @@ def _ra():
     return run_agent
 
 
-def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) -> Dict[str, str]:
+def build_system_prompt_parts(
+        agent: Any, system_message: Optional[str] = None) -> Dict[str, str]:
     """Assemble the system prompt as three ordered parts.
 
     Returns a dict with three keys:
@@ -99,7 +100,8 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         # Fallback to hardcoded identity
         stable_parts.append(DEFAULT_AGENT_IDENTITY)
 
-    # Pointer to the nastech-agent skill + docs for user questions about NasTech itself.
+    # Pointer to the nastech-agent skill + docs for user questions about
+    # NasTech itself.
     stable_parts.append(NASTECH_AGENT_HELP_GUIDANCE)
 
     # Universal task-completion / no-fabrication guidance.  Applied to ALL
@@ -108,7 +110,8 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     # path is blocked) are not model-family specific.  Gated only by
     # config.yaml ``agent.task_completion_guidance`` (default True) so
     # users who want a leaner prompt can turn it off.
-    if getattr(agent, "_task_completion_guidance", True) and agent.valid_tool_names:
+    if getattr(agent, "_task_completion_guidance",
+               True) and agent.valid_tool_names:
         stable_parts.append(TASK_COMPLETION_GUIDANCE)
 
     # Tool-aware behavioral guidance: only inject when the tools are loaded
@@ -143,7 +146,8 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         from agent.prompt_builder import COMPUTER_USE_GUIDANCE
         stable_parts.append(COMPUTER_USE_GUIDANCE)
 
-    nastech_subscription_prompt = _r.build_nastech_subscription_prompt(agent.valid_tool_names)
+    nastech_subscription_prompt = _r.build_nastech_subscription_prompt(
+        agent.valid_tool_names)
     if nastech_subscription_prompt:
         stable_parts.append(nastech_subscription_prompt)
     # Tool-use enforcement: tells the model to actually call tools instead
@@ -156,17 +160,21 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     if agent.valid_tool_names:
         _enforce = agent._tool_use_enforcement
         _inject = False
-        if _enforce is True or (isinstance(_enforce, str) and _enforce.lower() in {"true", "always", "yes", "on"}):
+        if _enforce is True or (isinstance(_enforce, str) and _enforce.lower() in {
+                                "true", "always", "yes", "on"}):
             _inject = True
         elif _enforce is False or (isinstance(_enforce, str) and _enforce.lower() in {"false", "never", "no", "off"}):
             _inject = False
         elif isinstance(_enforce, list):
             model_lower = (agent.model or "").lower()
-            _inject = any(p.lower() in model_lower for p in _enforce if isinstance(p, str))
+            _inject = any(
+                p.lower() in model_lower for p in _enforce if isinstance(
+                    p, str))
         else:
             # "auto" or any unrecognised value — use hardcoded defaults
             model_lower = (agent.model or "").lower()
-            _inject = any(p in model_lower for p in TOOL_USE_ENFORCEMENT_MODELS)
+            _inject = any(
+                p in model_lower for p in TOOL_USE_ENFORCEMENT_MODELS)
         if _inject:
             stable_parts.append(TOOL_USE_ENFORCEMENT_GUIDANCE)
             _model_lower = (agent.model or "").lower()
@@ -182,7 +190,8 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
             if "gpt" in _model_lower or "codex" in _model_lower or "grok" in _model_lower:
                 stable_parts.append(OPENAI_MODEL_EXECUTION_GUIDANCE)
 
-    has_skills_tools = any(name in agent.valid_tool_names for name in ['skills_list', 'skill_view', 'skill_manage'])
+    has_skills_tools = any(name in agent.valid_tool_names for name in [
+                           'skills_list', 'skill_view', 'skill_manage'])
     if has_skills_tools:
         avail_toolsets = {
             toolset
@@ -206,7 +215,8 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     # Stable for the lifetime of an agent instance — model and provider are fixed
     # at construction time.
     if agent.provider == "alibaba":
-        _model_short = agent.model.split("/")[-1] if "/" in agent.model else agent.model
+        _model_short = agent.model.split(
+            "/")[-1] if "/" in agent.model else agent.model
         stable_parts.append(
             f"You are powered by the model named {_model_short}. "
             f"The exact model ID is {agent.model}. "
@@ -344,13 +354,14 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
     volatile_parts.append(timestamp_line)
 
     return {
-        "stable":   "\n\n".join(p.strip() for p in stable_parts   if p and p.strip()),
-        "context":  "\n\n".join(p.strip() for p in context_parts  if p and p.strip()),
+        "stable": "\n\n".join(p.strip() for p in stable_parts if p and p.strip()),
+        "context": "\n\n".join(p.strip() for p in context_parts if p and p.strip()),
         "volatile": "\n\n".join(p.strip() for p in volatile_parts if p and p.strip()),
     }
 
 
-def build_system_prompt(agent: Any, system_message: Optional[str] = None) -> str:
+def build_system_prompt(
+        agent: Any, system_message: Optional[str] = None) -> str:
     """Assemble the full system prompt from all layers.
 
     Called once per session (cached on ``agent._cached_system_prompt``) and
@@ -366,7 +377,8 @@ def build_system_prompt(agent: Any, system_message: Optional[str] = None) -> str
     warm across turns.
     """
     parts = build_system_prompt_parts(agent, system_message=system_message)
-    return "\n\n".join(p for p in (parts["stable"], parts["context"], parts["volatile"]) if p)
+    return "\n\n".join(p for p in (
+        parts["stable"], parts["context"], parts["volatile"]) if p)
 
 
 def invalidate_system_prompt(agent: Any) -> None:

@@ -17,6 +17,7 @@ import logging
 import socket as _socket
 import time
 from typing import Any, Dict, List, Optional
+
 # Security: parse untrusted, pre-auth request bodies (WeCom callbacks) with
 # defusedxml to block billion-laughs / entity-expansion (and XXE) DoS. The
 # parsing API (fromstring) is a drop-in for the stdlib calls used below;
@@ -46,8 +47,13 @@ except ImportError:
     HTTPX_AVAILABLE = False
 
 from gateway.config import Platform, PlatformConfig
-from gateway.platforms.base import BasePlatformAdapter, MessageEvent, MessageType, SendResult
-from gateway.platforms.wecom_crypto import WXBizMsgCrypt, WeComCryptoError
+from gateway.platforms.base import (
+    BasePlatformAdapter,
+    MessageEvent,
+    MessageType,
+    SendResult,
+)
+from gateway.platforms.wecom_crypto import WeComCryptoError, WXBizMsgCrypt
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +137,8 @@ class WecomCallbackAdapter(BasePlatformAdapter):
         try:
             # Tighter keepalive so idle CLOSE_WAIT drains promptly (#18451).
             from gateway.platforms._http_client_limits import platform_httpx_limits
-            self._http_client = httpx.AsyncClient(timeout=20.0, limits=platform_httpx_limits())
+            self._http_client = httpx.AsyncClient(
+                timeout=20.0, limits=platform_httpx_limits())
             self._app = web.Application()
             self._app.router.add_get("/health", self._handle_health)
             self._app.router.add_get(self._path, self._handle_verify)
@@ -228,7 +235,8 @@ class WecomCallbackAdapter(BasePlatformAdapter):
                     message_id=str(data.get("msgid", "")),
                     raw_response=data,
                 )
-            return SendResult(success=False, error="send failed after token refresh")
+            return SendResult(
+                success=False, error="send failed after token refresh")
         except Exception as exc:
             return SendResult(success=False, error=str(exc))
 
@@ -237,7 +245,9 @@ class WecomCallbackAdapter(BasePlatformAdapter):
         app_name = self._user_app_map.get(chat_id)
         if not app_name and ":" not in chat_id:
             # Legacy bare user_id — try to find a unique match.
-            matching = [k for k in self._user_app_map if k.endswith(f":{chat_id}")]
+            matching = [
+                k for k in self._user_app_map if k.endswith(
+                    f":{chat_id}")]
             if len(matching) == 1:
                 app_name = self._user_app_map.get(matching[0])
         app = self._get_app_by_name(app_name) if app_name else None
@@ -251,7 +261,8 @@ class WecomCallbackAdapter(BasePlatformAdapter):
     # ------------------------------------------------------------------
 
     async def _handle_health(self, request: web.Request) -> web.Response:
-        return web.json_response({"status": "ok", "platform": "wecom_callback"})
+        return web.json_response(
+            {"status": "ok", "platform": "wecom_callback"})
 
     async def _handle_verify(self, request: web.Request) -> web.Response:
         """GET endpoint — WeCom URL verification handshake."""
@@ -262,7 +273,8 @@ class WecomCallbackAdapter(BasePlatformAdapter):
         for app in self._apps:
             try:
                 crypt = self._crypt_for_app(app)
-                plain = crypt.verify_url(msg_signature, timestamp, nonce, echostr)
+                plain = crypt.verify_url(
+                    msg_signature, timestamp, nonce, echostr)
                 return web.Response(text=plain, content_type="text/plain")
             except Exception:
                 continue
@@ -287,15 +299,19 @@ class WecomCallbackAdapter(BasePlatformAdapter):
                     if event.message_id:
                         now = time.time()
                         if event.message_id in self._seen_messages:
-                            if now - self._seen_messages[event.message_id] < MESSAGE_DEDUP_TTL_SECONDS:
-                                logger.debug("[WecomCallback] Duplicate MsgId %s, skipping", event.message_id)
-                                return web.Response(text="success", content_type="text/plain")
+                            if now - \
+                                    self._seen_messages[event.message_id] < MESSAGE_DEDUP_TTL_SECONDS:
+                                logger.debug(
+                                    "[WecomCallback] Duplicate MsgId %s, skipping", event.message_id)
+                                return web.Response(
+                                    text="success", content_type="text/plain")
                             del self._seen_messages[event.message_id]
                         self._seen_messages[event.message_id] = now
                         # Prune expired entries when cache grows large
                         if len(self._seen_messages) > 2000:
                             cutoff = now - MESSAGE_DEDUP_TTL_SECONDS
-                            self._seen_messages = {k: v for k, v in self._seen_messages.items() if v > cutoff}
+                            self._seen_messages = {
+                                k: v for k, v in self._seen_messages.items() if v > cutoff}
                     # Record which app this user belongs to.
                     if event.source and event.source.user_id:
                         map_key = self._user_app_key(
@@ -335,9 +351,11 @@ class WecomCallbackAdapter(BasePlatformAdapter):
         root = ET.fromstring(body)
         encrypt = root.findtext("Encrypt", default="")
         crypt = self._crypt_for_app(app)
-        return crypt.decrypt(msg_signature, timestamp, nonce, encrypt).decode("utf-8")
+        return crypt.decrypt(msg_signature, timestamp,
+                             nonce, encrypt).decode("utf-8")
 
-    def _build_event(self, app: Dict[str, Any], xml_text: str) -> Optional[MessageEvent]:
+    def _build_event(self, app: Dict[str, Any],
+                     xml_text: str) -> Optional[MessageEvent]:
         root = ET.fromstring(xml_text)
         msg_type = (root.findtext("MsgType") or "").lower()
         # Silently acknowledge lifecycle events.
@@ -380,7 +398,8 @@ class WecomCallbackAdapter(BasePlatformAdapter):
             receive_id=str(app.get("corp_id") or ""),
         )
 
-    def _get_app_by_name(self, name: Optional[str]) -> Optional[Dict[str, Any]]:
+    def _get_app_by_name(
+            self, name: Optional[str]) -> Optional[Dict[str, Any]]:
         if not name:
             return None
         for app in self._apps:

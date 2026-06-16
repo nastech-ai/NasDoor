@@ -108,7 +108,8 @@ def _save_pending(entries: list[dict]) -> None:
         pass
 
 
-def _record_pending(urls: list[str], delay_seconds: int = _AUTO_DELETE_SECONDS) -> None:
+def _record_pending(
+        urls: list[str], delay_seconds: int = _AUTO_DELETE_SECONDS) -> None:
     """Record *urls* for deletion at ``now + delay_seconds``.
 
     Only paste.rs URLs are recorded (dpaste.com auto-expires).  Entries
@@ -120,7 +121,8 @@ def _record_pending(urls: list[str], delay_seconds: int = _AUTO_DELETE_SECONDS) 
 
     entries = _load_pending()
     # Dedupe by URL: keep the later expire_at if same URL appears twice
-    by_url: dict[str, float] = {e["url"]: float(e["expire_at"]) for e in entries}
+    by_url: dict[str, float] = {
+        e["url"]: float(e["expire_at"]) for e in entries}
     expire_at = time.time() + delay_seconds
     for u in paste_rs_urls:
         by_url[u] = max(expire_at, by_url.get(u, 0.0))
@@ -241,7 +243,8 @@ def delete_paste(url: str) -> bool:
         return 200 <= resp.status < 300
 
 
-def _schedule_auto_delete(urls: list[str], delay_seconds: int = _AUTO_DELETE_SECONDS):
+def _schedule_auto_delete(
+        urls: list[str], delay_seconds: int = _AUTO_DELETE_SECONDS):
     """Record *urls* for deletion ``delay_seconds`` from now.
 
     Previously this spawned a detached Python subprocess per call that slept
@@ -420,14 +423,16 @@ def _capture_log_snapshot(
     log_path = _resolve_log_path(log_name)
     if log_path is None:
         primary = _primary_log_path(log_name)
-        tail = "(file empty)" if primary and primary.exists() else "(file not found)"
+        tail = "(file empty)" if primary and primary.exists(
+        ) else "(file not found)"
         return LogSnapshot(path=None, tail_text=tail, full_text=None)
 
     try:
         size = log_path.stat().st_size
         if size == 0:
             # race: file was truncated between _resolve_log_path and stat
-            return LogSnapshot(path=log_path, tail_text="(file empty)", full_text=None)
+            return LogSnapshot(
+                path=log_path, tail_text="(file empty)", full_text=None)
 
         with open(log_path, "rb") as f:
             if size <= max_bytes:
@@ -443,7 +448,8 @@ def _capture_log_snapshot(
                 total = 0
                 newline_count = 0
 
-                while pos > 0 and (total < max_bytes or newline_count <= tail_lines + 1) and total < max_bytes * 2:
+                while pos > 0 and (
+                        total < max_bytes or newline_count <= tail_lines + 1) and total < max_bytes * 2:
                     read_size = min(chunk_size, pos)
                     pos -= read_size
                     f.seek(pos)
@@ -463,25 +469,29 @@ def _capture_log_snapshot(
             # byte just before the cut position is a newline the first retained
             # byte starts a complete line and we should keep it.  Only drop a
             # partial first line when we're genuinely mid-line.
-            on_boundary = cut > 0 and full_raw[cut - 1 : cut] == b"\n"
+            on_boundary = cut > 0 and full_raw[cut - 1: cut] == b"\n"
             full_raw = full_raw[cut:]
             if not on_boundary and b"\n" in full_raw:
                 full_raw = full_raw.split(b"\n", 1)[1]
 
         all_text = raw.decode("utf-8", errors="replace")
-        tail_text = "".join(all_text.splitlines(keepends=True)[-tail_lines:]).rstrip("\n")
+        tail_text = "".join(all_text.splitlines(
+            keepends=True)[-tail_lines:]).rstrip("\n")
 
         full_text = full_raw.decode("utf-8", errors="replace")
         if truncated:
-            full_text = f"[... truncated — showing last ~{max_bytes // 1024}KB ...]\n{full_text}"
+            full_text = f"[... truncated — showing last ~{
+                max_bytes // 1024}KB ...]\n{full_text}"
 
         if redact:
             tail_text = _redact_log_text(tail_text)
             full_text = _redact_log_text(full_text)
 
-        return LogSnapshot(path=log_path, tail_text=tail_text, full_text=full_text)
+        return LogSnapshot(
+            path=log_path, tail_text=tail_text, full_text=full_text)
     except Exception as exc:
-        return LogSnapshot(path=log_path, tail_text=f"(error reading: {exc})", full_text=None)
+        return LogSnapshot(
+            path=log_path, tail_text=f"(error reading: {exc})", full_text=None)
 
 
 def _capture_default_log_snapshots(
@@ -594,7 +604,8 @@ class DebugShareResult:
     instead of scraping printed text.
     """
 
-    urls: dict  # label -> paste URL (e.g. {"Report": "...", "agent.log": "..."})
+    # label -> paste URL (e.g. {"Report": "...", "agent.log": "..."})
+    urls: dict
     failures: list  # human-readable "label: error" strings for optional uploads
     redacted: bool  # whether force-mode redaction was applied before upload
     auto_delete_seconds: int  # how long until the pastes auto-delete
@@ -704,7 +715,8 @@ def run_debug_share(args):
         _best_effort_sweep_expired_pastes()
         print("Collecting debug report...")
         dump_text = _capture_dump()
-        log_snapshots = _capture_default_log_snapshots(log_lines, redact=redact)
+        log_snapshots = _capture_default_log_snapshots(
+            log_lines, redact=redact)
         report = collect_debug_report(
             log_lines=log_lines,
             dump_text=dump_text,

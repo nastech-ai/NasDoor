@@ -34,10 +34,11 @@ import os
 import re
 import time
 from dataclasses import dataclass
-
 from html import escape as _html_escape
 from pathlib import Path
 from typing import Any, Dict, Optional, Set
+
+from nastech_constants import get_nastech_dir as _get_nastech_dir
 
 try:
     from mautrix.types import (
@@ -57,7 +58,8 @@ except ImportError:
     # check_matrix_requirements() will return False and the adapter
     # won't be instantiated in production, but tests may exercise
     # adapter methods so stubs must have the right attributes.
-    ContentURI = EventID = RoomID = SyncToken = UserID = str  # type: ignore[misc,assignment]
+    # type: ignore[misc,assignment]
+    ContentURI = EventID = RoomID = SyncToken = UserID = str
 
     class _EventTypeStub:  # type: ignore[no-redef]
         ROOM_MESSAGE = "m.room.message"
@@ -71,7 +73,8 @@ except ImportError:
         BACKWARD = "b"
         FORWARD = "f"
 
-    PaginationDirection = _PaginationDirectionStub  # type: ignore[misc,assignment]
+    # type: ignore[misc,assignment]
+    PaginationDirection = _PaginationDirectionStub
 
     class _PresenceStateStub:  # type: ignore[no-redef]
         ONLINE = "online"
@@ -100,8 +103,8 @@ from gateway.platforms.base import (
     MessageType,
     ProcessingOutcome,
     SendResult,
-    resolve_proxy_url,
     proxy_kwargs_for_aiohttp,
+    resolve_proxy_url,
 )
 from gateway.platforms.helpers import ThreadParticipationTracker
 
@@ -112,12 +115,14 @@ logger = logging.getLogger(__name__)
 class _MatrixApprovalPrompt:
     """Tracks a pending Matrix reaction-based exec approval prompt."""
 
-    def __init__(self, session_key: str, chat_id: str, message_id: str, resolved: bool = False):
+    def __init__(self, session_key: str, chat_id: str,
+                 message_id: str, resolved: bool = False):
         self.session_key = session_key
         self.chat_id = chat_id
         self.message_id = message_id
         self.resolved = resolved
         self.bot_reaction_events: dict[str, str] = {}  # emoji -> event_id
+
 
 # Matrix message size limit (4000 chars practical, spec has no hard limit
 # but clients render poorly above this).
@@ -125,7 +130,6 @@ MAX_MESSAGE_LENGTH = 4000
 
 # Store directory for E2EE keys and sync state.
 # Uses get_nastech_home() so each profile gets its own Matrix store.
-from nastech_constants import get_nastech_dir as _get_nastech_dir
 
 _STORE_DIR = _get_nastech_dir("platforms/matrix/store", "matrix/store")
 _CRYPTO_DB_PATH = _STORE_DIR / "crypto.db"
@@ -227,10 +231,10 @@ def _check_e2ee_deps() -> bool:
     ``No module named 'asyncpg'`` (#31116).
     """
     try:
+        import aiosqlite  # noqa: F401
+        import asyncpg  # noqa: F401
         from mautrix.crypto import OlmMachine  # noqa: F401
         from mautrix.crypto.store.asyncpg import PgCryptoStore  # noqa: F401
-        import asyncpg  # noqa: F401
-        import aiosqlite  # noqa: F401
 
         return True
     except (ImportError, AttributeError):
@@ -253,7 +257,8 @@ def check_matrix_requirements() -> bool:
     homeserver = os.getenv("MATRIX_HOMESERVER", "")
 
     if not token and not password:
-        logger.debug("Matrix: neither MATRIX_ACCESS_TOKEN nor MATRIX_PASSWORD set")
+        logger.debug(
+            "Matrix: neither MATRIX_ACCESS_TOKEN nor MATRIX_PASSWORD set")
         return False
     if not homeserver:
         logger.warning("Matrix: MATRIX_HOMESERVER not set")
@@ -264,7 +269,7 @@ def check_matrix_requirements() -> bool:
     # lookups) and correctly handles ``mautrix[encryption]`` by stripping
     # the extras marker before checking the bare package.
     try:
-        from tools.lazy_deps import feature_missing, ensure_and_bind
+        from tools.lazy_deps import ensure_and_bind, feature_missing
         missing = feature_missing("platform.matrix")
     except Exception as exc:  # pragma: no cover — defensive
         logger.debug("Matrix: lazy_deps lookup failed: %s", exc)
@@ -274,9 +279,16 @@ def check_matrix_requirements() -> bool:
     if missing or ensure_and_bind is None:
         def _import():
             from mautrix.types import (
-                ContentURI, EventID, EventType, PaginationDirection,
-                PresenceState, RoomCreatePreset, RoomID, SyncToken,
-                TrustState, UserID,
+                ContentURI,
+                EventID,
+                EventType,
+                PaginationDirection,
+                PresenceState,
+                RoomCreatePreset,
+                RoomID,
+                SyncToken,
+                TrustState,
+                UserID,
             )
             return {
                 "ContentURI": ContentURI,
@@ -293,7 +305,8 @@ def check_matrix_requirements() -> bool:
 
         if ensure_and_bind is None:
             return False
-        if not ensure_and_bind("platform.matrix", _import, globals(), prompt=False):
+        if not ensure_and_bind("platform.matrix", _import,
+                               globals(), prompt=False):
             logger.warning(
                 "Matrix: required packages not installed (%s). "
                 "Run: pip install 'mautrix[encryption]' asyncpg aiosqlite "
@@ -360,9 +373,14 @@ class MatrixAdapter(BasePlatformAdapter):
         super().__init__(config, Platform.MATRIX)
 
         self._homeserver: str = (
-            config.extra.get("homeserver", "") or os.getenv("MATRIX_HOMESERVER", "")
+            config.extra.get(
+                "homeserver",
+                "") or os.getenv(
+                "MATRIX_HOMESERVER",
+                "")
         ).rstrip("/")
-        self._access_token: str = config.token or os.getenv("MATRIX_ACCESS_TOKEN", "")
+        self._access_token: str = config.token or os.getenv(
+            "MATRIX_ACCESS_TOKEN", "")
         self._user_id: str = config.extra.get("user_id", "") or os.getenv(
             "MATRIX_USER_ID", ""
         )
@@ -414,7 +432,8 @@ class MatrixAdapter(BasePlatformAdapter):
         self._require_mention: bool = os.getenv(
             "MATRIX_REQUIRE_MENTION", "true"
         ).lower() not in {"false", "0", "no"}
-        self._thread_require_mention: bool = self._parse_thread_require_mention(config)
+        self._thread_require_mention: bool = self._parse_thread_require_mention(
+            config)
         free_rooms_raw = config.extra.get("free_response_rooms")
         if free_rooms_raw is None:
             free_rooms_raw = os.getenv("MATRIX_FREE_RESPONSE_ROOMS", "")
@@ -426,7 +445,8 @@ class MatrixAdapter(BasePlatformAdapter):
             self._free_rooms: Set[str] = {
                 r.strip() for r in str(free_rooms_raw).split(",") if r.strip()
             }
-        # If non-empty, bot ONLY responds in these rooms (whitelist); DMs exempt.
+        # If non-empty, bot ONLY responds in these rooms (whitelist); DMs
+        # exempt.
         allowed_rooms_raw = config.extra.get("allowed_rooms")
         if allowed_rooms_raw is None:
             allowed_rooms_raw = os.getenv("MATRIX_ALLOWED_ROOMS", "")
@@ -463,7 +483,8 @@ class MatrixAdapter(BasePlatformAdapter):
         self._reaction_redaction_tasks: Set[asyncio.Task] = set()
 
         # Proxy support — resolve once at init, reuse for all HTTP traffic.
-        self._proxy_url: str | None = resolve_proxy_url(platform_env_var="MATRIX_PROXY")
+        self._proxy_url: str | None = resolve_proxy_url(
+            platform_env_var="MATRIX_PROXY")
         if self._proxy_url:
             logger.info("Matrix: proxy configured — %s", self._proxy_url)
 
@@ -556,11 +577,15 @@ class MatrixAdapter(BasePlatformAdapter):
                     )
                     return False
         except Exception as exc:
-            logger.error("Matrix: post-upload key verification failed: %s", exc, exc_info=True)
+            logger.error(
+                "Matrix: post-upload key verification failed: %s",
+                exc,
+                exc_info=True)
             return False
         return True
 
-    async def _verify_device_keys_on_server(self, client: Any, olm: Any) -> bool:
+    async def _verify_device_keys_on_server(
+            self, client: Any, olm: Any) -> bool:
         """Verify our device keys are on the homeserver after loading crypto state.
 
         Returns True if keys are valid or were successfully re-uploaded.
@@ -582,12 +607,16 @@ class MatrixAdapter(BasePlatformAdapter):
         local_ed25519 = olm.account.identity_keys.get("ed25519")
 
         if not our_keys:
-            logger.warning("Matrix: device keys missing from server — re-uploading")
+            logger.warning(
+                "Matrix: device keys missing from server — re-uploading")
             olm.account.shared = False
             try:
                 await olm.share_keys()
             except Exception as exc:
-                logger.error("Matrix: failed to re-upload device keys: %s", exc, exc_info=True)
+                logger.error(
+                    "Matrix: failed to re-upload device keys: %s",
+                    exc,
+                    exc_info=True)
                 return False
             return await self._reverify_keys_after_upload(client, local_ed25519)
 
@@ -679,7 +708,8 @@ class MatrixAdapter(BasePlatformAdapter):
             # Validate the token and learn user_id / device_id.
             try:
                 resp = await client.whoami()
-                resolved_user_id = getattr(resp, "user_id", "") or self._user_id
+                resolved_user_id = getattr(
+                    resp, "user_id", "") or self._user_id
                 resolved_device_id = getattr(resp, "device_id", "")
                 if resolved_user_id:
                     self._user_id = str(resolved_user_id)
@@ -781,7 +811,8 @@ class MatrixAdapter(BasePlatformAdapter):
                 if client.device_id:
                     await crypto_store.put_device_id(client.device_id)
 
-                crypto_state = _CryptoStateStore(state_store, self._joined_rooms)
+                crypto_state = _CryptoStateStore(
+                    state_store, self._joined_rooms)
                 olm = OlmMachine(client, crypto_store, crypto_state)
 
                 # Accept unverified devices so senders share Megolm
@@ -837,7 +868,8 @@ class MatrixAdapter(BasePlatformAdapter):
                 if recovery_key:
                     try:
                         await olm.verify_with_recovery_key(recovery_key)
-                        logger.info("Matrix: cross-signing verified via recovery key")
+                        logger.info(
+                            "Matrix: cross-signing verified via recovery key")
                     except Exception as exc:
                         logger.warning(
                             "Matrix: recovery key verification failed: %s", exc
@@ -885,7 +917,8 @@ class MatrixAdapter(BasePlatformAdapter):
                 logger.info(
                     "Matrix: E2EE enabled (store: %s%s)",
                     str(_CRYPTO_DB_PATH),
-                    f", device_id={client.device_id}" if client.device_id else "",
+                    f", device_id={
+                        client.device_id}" if client.device_id else "",
                 )
             except Exception as exc:
                 logger.error(
@@ -941,7 +974,8 @@ class MatrixAdapter(BasePlatformAdapter):
                     if tasks:
                         await asyncio.gather(*tasks)
                 except Exception as exc:
-                    logger.warning("Matrix: initial sync event dispatch error: %s", exc)
+                    logger.warning(
+                        "Matrix: initial sync event dispatch error: %s", exc)
                 await self._join_pending_invites(sync_data)
             else:
                 logger.warning(
@@ -987,7 +1021,8 @@ class MatrixAdapter(BasePlatformAdapter):
             try:
                 await self._crypto_db.stop()
             except Exception as exc:
-                logger.debug("Matrix: could not close crypto DB on disconnect: %s", exc)
+                logger.debug(
+                    "Matrix: could not close crypto DB on disconnect: %s", exc)
 
         if self._client:
             try:
@@ -1019,9 +1054,11 @@ class MatrixAdapter(BasePlatformAdapter):
 
             # Reply-to support.
             if reply_to:
-                msg_content["m.relates_to"] = {"m.in_reply_to": {"event_id": reply_to}}
+                msg_content["m.relates_to"] = {
+                    "m.in_reply_to": {"event_id": reply_to}}
 
-            # Thread support: if metadata has thread_id, send as threaded reply.
+            # Thread support: if metadata has thread_id, send as threaded
+            # reply.
             thread_id = (metadata or {}).get("thread_id")
             if thread_id:
                 relates_to = msg_content.get("m.relates_to", {})
@@ -1042,7 +1079,10 @@ class MatrixAdapter(BasePlatformAdapter):
                     timeout=45,
                 )
                 last_event_id = str(event_id)
-                logger.info("Matrix: sent event %s to %s", last_event_id, chat_id)
+                logger.info(
+                    "Matrix: sent event %s to %s",
+                    last_event_id,
+                    chat_id)
             except Exception as exc:
                 # On E2EE errors, retry after sharing keys.
                 if self._encryption and getattr(self._client, "crypto", None):
@@ -1115,7 +1155,6 @@ class MatrixAdapter(BasePlatformAdapter):
             except Exception:
                 pass
 
-
     async def edit_message(
         self, chat_id: str, message_id: str, content: str, *, finalize: bool = False
     ) -> SendResult:
@@ -1132,7 +1171,8 @@ class MatrixAdapter(BasePlatformAdapter):
             msg_content["m.mentions"] = new_content["m.mentions"]
         if "formatted_body" in new_content:
             msg_content["format"] = "org.matrix.custom.html"
-            msg_content["formatted_body"] = f'* {new_content["formatted_body"]}'
+            msg_content["formatted_body"] = f'* {
+                new_content["formatted_body"]}'
         msg_content["m.relates_to"] = {
             "rel_type": "m.replace",
             "event_id": message_id,
@@ -1160,7 +1200,8 @@ class MatrixAdapter(BasePlatformAdapter):
         from tools.url_safety import is_safe_url
 
         if not is_safe_url(image_url):
-            logger.warning("Matrix: blocked unsafe image URL (SSRF protection)")
+            logger.warning(
+                "Matrix: blocked unsafe image URL (SSRF protection)")
             return await super().send_image(
                 chat_id, image_url, caption, reply_to, metadata=metadata
             )
@@ -1180,7 +1221,8 @@ class MatrixAdapter(BasePlatformAdapter):
                         data = await resp.read()
                         ct = resp.content_type or "image/png"
                         fname = (
-                            image_url.rsplit("/", 1)[-1].split("?")[0] or "image.png"
+                            image_url.rsplit(
+                                "/", 1)[-1].split("?")[0] or "image.png"
                         )
             except ImportError:
                 import httpx
@@ -1192,9 +1234,13 @@ class MatrixAdapter(BasePlatformAdapter):
                     resp.raise_for_status()
                     data = resp.content
                     ct = resp.headers.get("content-type", "image/png")
-                    fname = image_url.rsplit("/", 1)[-1].split("?")[0] or "image.png"
+                    fname = image_url.rsplit(
+                        "/", 1)[-1].split("?")[0] or "image.png"
         except Exception as exc:
-            logger.warning("Matrix: failed to download image %s: %s", image_url, exc)
+            logger.warning(
+                "Matrix: failed to download image %s: %s",
+                image_url,
+                exc)
             return await self.send(
                 chat_id, f"{caption or ''}\n{image_url}".strip(), reply_to
             )
@@ -1274,7 +1320,8 @@ class MatrixAdapter(BasePlatformAdapter):
         if not self._client:
             return SendResult(success=False, error="Not connected")
 
-        cmd_preview = command[:2000] + "..." if len(command) > 2000 else command
+        cmd_preview = command[:2000] + \
+            "..." if len(command) > 2000 else command
         text = (
             "⚠️ **Dangerous command requires approval**\n"
             f"```\n{cmd_preview}\n```\n"
@@ -1308,7 +1355,8 @@ class MatrixAdapter(BasePlatformAdapter):
                 if reaction_result:
                     prompt.bot_reaction_events[emoji] = str(reaction_result)
             except Exception as exc:
-                logger.debug("Matrix: failed to add approval reaction %s: %s", emoji, exc)
+                logger.debug(
+                    "Matrix: failed to add approval reaction %s: %s", emoji, exc)
 
         return result
 
@@ -1350,7 +1398,8 @@ class MatrixAdapter(BasePlatformAdapter):
                         from mautrix.crypto.attachments import encrypt_attachment
                         upload_data, encrypted_file = encrypt_attachment(data)
                     except Exception as exc:
-                        logger.error("Matrix: attachment encryption failed: %s", exc)
+                        logger.error(
+                            "Matrix: attachment encryption failed: %s", exc)
                         return SendResult(success=False, error=str(exc))
 
         # Upload to homeserver.
@@ -1386,7 +1435,8 @@ class MatrixAdapter(BasePlatformAdapter):
             msg_content["org.matrix.msc3245.voice"] = {}
 
         if reply_to:
-            msg_content["m.relates_to"] = {"m.in_reply_to": {"event_id": reply_to}}
+            msg_content["m.relates_to"] = {
+                "m.in_reply_to": {"event_id": reply_to}}
 
         thread_id = (metadata or {}).get("thread_id")
         if thread_id:
@@ -1421,7 +1471,8 @@ class MatrixAdapter(BasePlatformAdapter):
         p = Path(file_path).expanduser()
         if not p.exists():
             return await self.send(
-                room_id, f"{caption or ''}\n(file not found: {file_path})", reply_to
+                room_id, f"{
+                    caption or ''}\n(file not found: {file_path})", reply_to
             )
 
         fname = file_name or p.name
@@ -1486,7 +1537,8 @@ class MatrixAdapter(BasePlatformAdapter):
                         if tasks:
                             await asyncio.gather(*tasks)
                     except Exception as exc:
-                        logger.warning("Matrix: sync event dispatch error: %s", exc)
+                        logger.warning(
+                            "Matrix: sync event dispatch error: %s", exc)
                     await self._join_pending_invites(sync_data)
 
             except asyncio.CancelledError:
@@ -1575,7 +1627,8 @@ class MatrixAdapter(BasePlatformAdapter):
         sender = str(getattr(event, "sender", ""))
 
         # Diagnostic: confirm the callback is firing at all when DEBUG is on.
-        # Helps users troubleshoot silent inbound issues like #5819, #7914, #12614.
+        # Helps users troubleshoot silent inbound issues like #5819, #7914,
+        # #12614.
         logger.debug(
             "Matrix: callback fired — event %s from %s in %s",
             getattr(event, "event_id", "?"),
@@ -1724,12 +1777,15 @@ class MatrixAdapter(BasePlatformAdapter):
             thread_id = relates_to.get("event_id")
 
         formatted_body = source_content.get("formatted_body")
-        # m.mentions.user_ids (MSC3952 / Matrix v1.7) — authoritative mention signal.
+        # m.mentions.user_ids (MSC3952 / Matrix v1.7) — authoritative mention
+        # signal.
         mentions_block = source_content.get("m.mentions") or {}
         mention_user_ids = (
-            mentions_block.get("user_ids") if isinstance(mentions_block, dict) else None
+            mentions_block.get("user_ids") if isinstance(
+                mentions_block, dict) else None
         )
-        is_mentioned = self._is_bot_mentioned(body, formatted_body, mention_user_ids)
+        is_mentioned = self._is_bot_mentioned(
+            body, formatted_body, mention_user_ids)
 
         # Require-mention gating.
         if not is_dm:
@@ -1782,7 +1838,8 @@ class MatrixAdapter(BasePlatformAdapter):
             body = self._strip_mention(body)
 
         # Auto-thread.
-        if not thread_id and ((not is_dm and self._auto_thread) or (is_dm and self._dm_auto_thread)):
+        if not thread_id and ((not is_dm and self._auto_thread) or (
+                is_dm and self._dm_auto_thread)):
             thread_id = event_id
             self._threads.mark(thread_id)
 
@@ -1901,7 +1958,8 @@ class MatrixAdapter(BasePlatformAdapter):
                 http_url = self._mxc_to_http(url)
 
         is_encrypted_media = bool(
-            file_content and isinstance(file_content, dict) and file_content.get("url")
+            file_content and isinstance(
+                file_content, dict) and file_content.get("url")
         )
 
         media_type = "application/octet-stream"
@@ -1987,8 +2045,10 @@ class MatrixAdapter(BasePlatformAdapter):
                                 "image/webp": ".webp",
                             }
                             ext = ext_map.get(media_type, ".jpg")
-                            cached_path = cache_image_from_bytes(file_bytes, ext=ext)
-                            logger.info("[Matrix] Cached user image at %s", cached_path)
+                            cached_path = cache_image_from_bytes(
+                                file_bytes, ext=ext)
+                            logger.info(
+                                "[Matrix] Cached user image at %s", cached_path)
                         elif msg_type in {MessageType.AUDIO, MessageType.VOICE}:
                             ext = (
                                 Path(
@@ -1999,7 +2059,8 @@ class MatrixAdapter(BasePlatformAdapter):
                                 ).suffix
                                 or ".ogg"
                             )
-                            cached_path = cache_audio_from_bytes(file_bytes, ext=ext)
+                            cached_path = cache_audio_from_bytes(
+                                file_bytes, ext=ext)
                         else:
                             filename = body or (
                                 "video.mp4"
@@ -2076,7 +2137,11 @@ class MatrixAdapter(BasePlatformAdapter):
 
     async def _join_pending_invites(self, sync_data: Dict[str, Any]) -> None:
         """Join rooms still present in rooms.invite after sync processing."""
-        rooms = sync_data.get("rooms", {}) if isinstance(sync_data, dict) else {}
+        rooms = sync_data.get(
+            "rooms",
+            {}) if isinstance(
+            sync_data,
+            dict) else {}
         invites = rooms.get("invite", {})
         if not isinstance(invites, dict):
             return
@@ -2236,8 +2301,11 @@ class MatrixAdapter(BasePlatformAdapter):
             if prompt and not prompt.resolved:
                 if room_id != prompt.chat_id:
                     return
-                _allow_all = os.getenv("GATEWAY_ALLOW_ALL_USERS", "").lower() in {"true", "1", "yes"}
-                if not _allow_all and not (self._allowed_user_ids and sender in self._allowed_user_ids):
+                _allow_all = os.getenv(
+                    "GATEWAY_ALLOW_ALL_USERS", "").lower() in {
+                    "true", "1", "yes"}
+                if not _allow_all and not (
+                        self._allowed_user_ids and sender in self._allowed_user_ids):
                     logger.info(
                         "Matrix: ignoring approval reaction from unauthorized user %s on %s",
                         sender, reacts_to,
@@ -2249,11 +2317,13 @@ class MatrixAdapter(BasePlatformAdapter):
                 try:
                     from tools.approval import resolve_gateway_approval
 
-                    count = resolve_gateway_approval(prompt.session_key, choice)
+                    count = resolve_gateway_approval(
+                        prompt.session_key, choice)
                     if count:
                         prompt.resolved = True
                         self._approval_prompts_by_event.pop(reacts_to, None)
-                        self._approval_prompt_by_session.pop(prompt.session_key, None)
+                        self._approval_prompt_by_session.pop(
+                            prompt.session_key, None)
                         logger.info(
                             "Matrix reaction resolved %d approval(s) for session %s "
                             "(choice=%s, user=%s)",
@@ -2262,7 +2332,8 @@ class MatrixAdapter(BasePlatformAdapter):
                         # Redact bot's seed reactions, leaving only the user's
                         await self._redact_bot_approval_reactions(room_id, prompt)
                 except Exception as exc:
-                    logger.error("Failed to resolve gateway approval from Matrix reaction: %s", exc)
+                    logger.error(
+                        "Failed to resolve gateway approval from Matrix reaction: %s", exc)
 
     async def _redact_bot_approval_reactions(
         self,
@@ -2271,8 +2342,12 @@ class MatrixAdapter(BasePlatformAdapter):
     ) -> None:
         """Redact the bot's seed ✅/❎ reactions, leaving only the user's reaction."""
         for emoji, evt_id in prompt.bot_reaction_events.items():
-            self._schedule_reaction_redaction(room_id, evt_id, "approval resolved")
-            logger.debug("Matrix: scheduled bot reaction redaction %s (%s)", emoji, evt_id)
+            self._schedule_reaction_redaction(
+                room_id, evt_id, "approval resolved")
+            logger.debug(
+                "Matrix: scheduled bot reaction redaction %s (%s)",
+                emoji,
+                evt_id)
 
     # ------------------------------------------------------------------
     # Text message aggregation (handles Matrix client-side splits)
@@ -2376,7 +2451,10 @@ class MatrixAdapter(BasePlatformAdapter):
             else:
                 logger.debug("Matrix: client has no read receipt method")
                 return False
-            logger.debug("Matrix: sent read receipt for %s in %s", event_id, room_id)
+            logger.debug(
+                "Matrix: sent read receipt for %s in %s",
+                event_id,
+                room_id)
             return True
         except Exception as exc:
             logger.debug("Matrix: read receipt failed: %s", exc)
@@ -2438,7 +2516,10 @@ class MatrixAdapter(BasePlatformAdapter):
             )
             room_id_str = str(room_id)
             self._joined_rooms.add(room_id_str)
-            logger.info("Matrix: created room %s (%s)", room_id_str, name or "unnamed")
+            logger.info(
+                "Matrix: created room %s (%s)",
+                room_id_str,
+                name or "unnamed")
             return room_id_str
         except Exception as exc:
             logger.warning("Matrix: create_room error: %s", exc)
@@ -2462,7 +2543,8 @@ class MatrixAdapter(BasePlatformAdapter):
 
     _VALID_PRESENCE_STATES = frozenset(("online", "offline", "unavailable"))
 
-    async def set_presence(self, state: str = "online", status_msg: str = "") -> bool:
+    async def set_presence(self, state: str = "online",
+                           status_msg: str = "") -> bool:
         """Set the bot's presence status."""
         if not self._client:
             return False
@@ -2521,7 +2603,10 @@ class MatrixAdapter(BasePlatformAdapter):
             return True
         # Fallback: check member count via state store.
         state_store = (
-            getattr(self._client, "state_store", None) if self._client else None
+            getattr(
+                self._client,
+                "state_store",
+                None) if self._client else None
         )
         if state_store:
             try:
@@ -2546,7 +2631,8 @@ class MatrixAdapter(BasePlatformAdapter):
             elif isinstance(resp, dict):
                 dm_data = resp
         except Exception as exc:
-            logger.debug("Matrix: get_account_data('m.direct') failed: %s", exc)
+            logger.debug(
+                "Matrix: get_account_data('m.direct') failed: %s", exc)
 
         if dm_data is None:
             return
@@ -2556,13 +2642,15 @@ class MatrixAdapter(BasePlatformAdapter):
             if isinstance(rooms, list):
                 dm_room_ids.update(str(r) for r in rooms)
 
-        self._dm_rooms = {rid: (rid in dm_room_ids) for rid in self._joined_rooms}
+        self._dm_rooms = {rid: (rid in dm_room_ids)
+                          for rid in self._joined_rooms}
 
     # ------------------------------------------------------------------
     # Mention detection helpers
     # ------------------------------------------------------------------
 
-    def _build_text_message_content(self, text: str, msgtype: str = "m.text") -> Dict[str, Any]:
+    def _build_text_message_content(
+            self, text: str, msgtype: str = "m.text") -> Dict[str, Any]:
         """Build Matrix text content with HTML and outbound mention metadata."""
         msg_content: Dict[str, Any] = {"msgtype": msgtype, "body": text}
         mention_user_ids = self._extract_outbound_mentions(text)
@@ -2602,11 +2690,13 @@ class MatrixAdapter(BasePlatformAdapter):
         )
 
         for idx, original in enumerate(placeholders):
-            linked = linked.replace(f"\x00MENTION_PROTECTED{idx}\x00", original)
+            linked = linked.replace(
+                f"\x00MENTION_PROTECTED{idx}\x00", original)
 
         return linked
 
-    def _protect_outbound_mention_regions(self, text: str) -> tuple[str, list[str]]:
+    def _protect_outbound_mention_regions(
+            self, text: str) -> tuple[str, list[str]]:
         """Protect markdown regions where outbound mentions should stay literal."""
         placeholders: list[str] = []
 
@@ -2699,7 +2789,10 @@ class MatrixAdapter(BasePlatformAdapter):
     async def _get_display_name(self, room_id: str, user_id: str) -> str:
         """Get a user's display name in a room, falling back to user_id."""
         state_store = (
-            getattr(self._client, "state_store", None) if self._client else None
+            getattr(
+                self._client,
+                "state_store",
+                None) if self._client else None
         )
         if state_store:
             try:
@@ -2757,7 +2850,8 @@ class MatrixAdapter(BasePlatformAdapter):
     def _sanitize_link_url(url: str) -> str:
         """Sanitize a URL for use in an href attribute."""
         stripped = url.strip()
-        scheme = stripped.split(":", 1)[0].lower().strip() if ":" in stripped else ""
+        scheme = stripped.split(
+            ":", 1)[0].lower().strip() if ":" in stripped else ""
         if scheme in {"javascript", "data", "vbscript"}:
             return ""
         return stripped.replace('"', "&quot;")
@@ -2788,7 +2882,10 @@ class MatrixAdapter(BasePlatformAdapter):
         # Inline code: `code`
         result = re.sub(
             r"`([^`\n]+)`",
-            lambda m: _protect_html(f"<code>{_html_escape(m.group(1))}</code>"),
+            lambda m: _protect_html(
+                f"<code>{
+                    _html_escape(
+                        m.group(1))}</code>"),
             result,
         )
 
@@ -2828,7 +2925,9 @@ class MatrixAdapter(BasePlatformAdapter):
             hdr = re.match(r"^(#{1,6})\s+(.+)$", line)
             if hdr:
                 level = len(hdr.group(1))
-                out_lines.append(f"<h{level}>{hdr.group(2).strip()}</h{level}>")
+                out_lines.append(
+                    f"<h{level}>{
+                        hdr.group(2).strip()}</h{level}>")
                 i += 1
                 continue
 
@@ -2854,15 +2953,21 @@ class MatrixAdapter(BasePlatformAdapter):
                     else:
                         bq_lines.append("")
                     i += 1
-                out_lines.append(f"<blockquote>{'<br>'.join(bq_lines)}</blockquote>")
+                out_lines.append(
+                    f"<blockquote>{
+                        '<br>'.join(bq_lines)}</blockquote>")
                 continue
 
             # Unordered list
             ul_match = re.match(r"^[\s]*[-*+]\s+(.+)$", line)
             if ul_match:
                 items = []
-                while i < len(lines) and re.match(r"^[\s]*[-*+]\s+(.+)$", lines[i]):
-                    items.append(re.match(r"^[\s]*[-*+]\s+(.+)$", lines[i]).group(1))
+                while i < len(lines) and re.match(
+                        r"^[\s]*[-*+]\s+(.+)$", lines[i]):
+                    items.append(
+                        re.match(
+                            r"^[\s]*[-*+]\s+(.+)$",
+                            lines[i]).group(1))
                     i += 1
                 li = "".join(f"<li>{item}</li>" for item in items)
                 out_lines.append(f"<ul>{li}</ul>")
@@ -2872,8 +2977,12 @@ class MatrixAdapter(BasePlatformAdapter):
             ol_match = re.match(r"^[\s]*\d+[.)]\s+(.+)$", line)
             if ol_match:
                 items = []
-                while i < len(lines) and re.match(r"^[\s]*\d+[.)]\s+(.+)$", lines[i]):
-                    items.append(re.match(r"^[\s]*\d+[.)]\s+(.+)$", lines[i]).group(1))
+                while i < len(lines) and re.match(
+                        r"^[\s]*\d+[.)]\s+(.+)$", lines[i]):
+                    items.append(
+                        re.match(
+                            r"^[\s]*\d+[.)]\s+(.+)$",
+                            lines[i]).group(1))
                     i += 1
                 li = "".join(f"<li>{item}</li>" for item in items)
                 out_lines.append(f"<ol>{li}</ol>")
@@ -2888,17 +2997,28 @@ class MatrixAdapter(BasePlatformAdapter):
         result = re.sub(
             r"\*\*(.+?)\*\*", r"<strong>\1</strong>", result, flags=re.DOTALL
         )
-        result = re.sub(r"__(.+?)__", r"<strong>\1</strong>", result, flags=re.DOTALL)
+        result = re.sub(
+            r"__(.+?)__",
+            r"<strong>\1</strong>",
+            result,
+            flags=re.DOTALL)
         result = re.sub(r"\*(.+?)\*", r"<em>\1</em>", result, flags=re.DOTALL)
         result = re.sub(
             r"(?<!\w)_(.+?)_(?!\w)", r"<em>\1</em>", result, flags=re.DOTALL
         )
-        result = re.sub(r"~~(.+?)~~", r"<del>\1</del>", result, flags=re.DOTALL)
+        result = re.sub(
+            r"~~(.+?)~~",
+            r"<del>\1</del>",
+            result,
+            flags=re.DOTALL)
         result = re.sub(r"\n", "<br>\n", result)
         result = re.sub(
             r"<br>\n(</?(?:pre|blockquote|h[1-6]|ul|ol|li|hr))", r"\n\1", result
         )
-        result = re.sub(r"(</(?:pre|blockquote|h[1-6]|ul|ol|li)>)<br>", r"\1", result)
+        result = re.sub(
+            r"(</(?:pre|blockquote|h[1-6]|ul|ol|li)>)<br>",
+            r"\1",
+            result)
 
         # Restore protected regions.
         for idx, original in enumerate(placeholders):

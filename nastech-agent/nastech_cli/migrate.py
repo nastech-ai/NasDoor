@@ -19,7 +19,9 @@ def cmd_migrate(args: Any) -> int:
     if sub == "xai":
         return cmd_migrate_xai(args)
 
-    print("usage: nastech migrate xai [--apply] [--no-backup]", file=sys.stderr)
+    print(
+        "usage: nastech migrate xai [--apply] [--no-backup]",
+        file=sys.stderr)
     return 2
 
 
@@ -47,7 +49,11 @@ def cmd_migrate_xai(args: Any) -> int:
     print()
 
     if not issues:
-        print(f"  {color('✓', Colors.GREEN)} No retired xAI models in config — nothing to migrate.")
+        print(
+            f"  {
+                color(
+                    '✓',
+                    Colors.GREEN)} No retired xAI models in config — nothing to migrate.")
         return 0
 
     print(f"  Found {len(issues)} retired xAI model reference(s):")
@@ -55,7 +61,11 @@ def cmd_migrate_xai(args: Any) -> int:
     for issue in issues:
         print(f"    {color('⚠', Colors.YELLOW)} {format_issue(issue)}")
     print()
-    print(f"    {color('→', Colors.CYAN)} Migration guide: {MIGRATION_GUIDE_URL}")
+    print(
+        f"    {
+            color(
+                '→',
+                Colors.CYAN)} Migration guide: {MIGRATION_GUIDE_URL}")
     print()
 
     config_path = _resolve_config_path()

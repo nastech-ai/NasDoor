@@ -50,7 +50,8 @@ def check_sms_requirements() -> bool:
         import aiohttp  # noqa: F401
     except ImportError:
         return False
-    return bool(os.getenv("TWILIO_ACCOUNT_SID") and os.getenv("TWILIO_AUTH_TOKEN"))
+    return bool(os.getenv("TWILIO_ACCOUNT_SID")
+                and os.getenv("TWILIO_AUTH_TOKEN"))
 
 
 class SmsAdapter(BasePlatformAdapter):
@@ -71,7 +72,8 @@ class SmsAdapter(BasePlatformAdapter):
         self._webhook_port: int = int(
             os.getenv("SMS_WEBHOOK_PORT", str(DEFAULT_WEBHOOK_PORT))
         )
-        self._webhook_host: str = os.getenv("SMS_WEBHOOK_HOST", DEFAULT_WEBHOOK_HOST)
+        self._webhook_host: str = os.getenv(
+            "SMS_WEBHOOK_HOST", DEFAULT_WEBHOOK_HOST)
         self._webhook_url: str = os.getenv("SMS_WEBHOOK_URL", "").strip()
         self._runner = None
         self._http_session: Optional["aiohttp.ClientSession"] = None
@@ -93,10 +95,13 @@ class SmsAdapter(BasePlatformAdapter):
         if not self._from_number:
             msg = "[sms] TWILIO_PHONE_NUMBER not set — cannot send replies"
             logger.error(msg)
-            self._set_fatal_error("sms_missing_phone_number", msg, retryable=False)
+            self._set_fatal_error(
+                "sms_missing_phone_number", msg, retryable=False)
             return False
 
-        insecure_no_sig = os.getenv("SMS_INSECURE_NO_SIGNATURE", "").lower() == "true"
+        insecure_no_sig = os.getenv(
+            "SMS_INSECURE_NO_SIGNATURE",
+            "").lower() == "true"
 
         if not self._webhook_url and not insecure_no_sig:
             msg = (
@@ -107,7 +112,8 @@ class SmsAdapter(BasePlatformAdapter):
                 "SMS_INSECURE_NO_SIGNATURE=true (NOT recommended for production)."
             )
             logger.error(msg)
-            self._set_fatal_error("sms_missing_webhook_url", msg, retryable=False)
+            self._set_fatal_error(
+                "sms_missing_webhook_url", msg, retryable=False)
             return False
 
         if insecure_no_sig and not self._webhook_url:
@@ -124,7 +130,10 @@ class SmsAdapter(BasePlatformAdapter):
 
         self._runner = web.AppRunner(app)
         await self._runner.setup()
-        site = web.TCPSite(self._runner, self._webhook_host, self._webhook_port)
+        site = web.TCPSite(
+            self._runner,
+            self._webhook_host,
+            self._webhook_port)
         await site.start()
         self._http_session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=30),
@@ -195,12 +204,17 @@ class SmsAdapter(BasePlatformAdapter):
                                 error=f"Twilio {resp.status}: {error_msg}",
                             )
                         msg_sid = body.get("sid", "")
-                        last_result = SendResult(success=True, message_id=msg_sid)
+                        last_result = SendResult(
+                            success=True, message_id=msg_sid)
                 except Exception as e:
-                    logger.error("[sms] send error to %s: %s", redact_phone(chat_id), e)
+                    logger.error(
+                        "[sms] send error to %s: %s",
+                        redact_phone(chat_id),
+                        e)
                     return SendResult(success=False, error=str(e))
         finally:
-            # Close session only if we created a fallback (no persistent session)
+            # Close session only if we created a fallback (no persistent
+            # session)
             if not self._http_session and session:
                 await session.close()
 
@@ -295,7 +309,8 @@ class SmsAdapter(BasePlatformAdapter):
         try:
             raw = await request.read()
             # Twilio sends form-encoded data, not JSON
-            form = urllib.parse.parse_qs(raw.decode("utf-8"), keep_blank_values=True)
+            form = urllib.parse.parse_qs(
+                raw.decode("utf-8"), keep_blank_values=True)
         except Exception as e:
             logger.error("[sms] webhook parse error: %s", e)
             return web.Response(
@@ -308,7 +323,8 @@ class SmsAdapter(BasePlatformAdapter):
         if self._webhook_url:
             twilio_sig = request.headers.get("X-Twilio-Signature", "")
             if not twilio_sig:
-                logger.warning("[sms] Rejected: missing X-Twilio-Signature header")
+                logger.warning(
+                    "[sms] Rejected: missing X-Twilio-Signature header")
                 return web.Response(
                     text='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
                     content_type="application/xml",
@@ -339,7 +355,9 @@ class SmsAdapter(BasePlatformAdapter):
 
         # Ignore messages from our own number (echo prevention)
         if from_number == self._from_number:
-            logger.debug("[sms] ignoring echo from own number %s", redact_phone(from_number))
+            logger.debug(
+                "[sms] ignoring echo from own number %s",
+                redact_phone(from_number))
             return web.Response(
                 text='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
                 content_type="application/xml",
@@ -372,7 +390,8 @@ class SmsAdapter(BasePlatformAdapter):
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
 
-        # Return empty TwiML — we send replies via the REST API, not inline TwiML
+        # Return empty TwiML — we send replies via the REST API, not inline
+        # TwiML
         return web.Response(
             text='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
             content_type="application/xml",

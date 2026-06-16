@@ -32,7 +32,6 @@ import subprocess
 import sys
 from typing import Any
 
-
 # Thresholds (GiB).
 MIN_VRAM_GB_USABLE = 6
 OK_VRAM_GB = 8
@@ -128,7 +127,8 @@ def detect_rocm() -> dict | None:
     if not shutil.which("rocm-smi"):
         return None
     # Prefer JSON output (new ROCm 6.x)
-    out = _run(["rocm-smi", "--showproductname", "--showmeminfo", "vram", "--json"])
+    out = _run(["rocm-smi", "--showproductname",
+               "--showmeminfo", "vram", "--json"])
     if out.strip().startswith("{"):
         try:
             data = json.loads(out)
@@ -138,7 +138,8 @@ def detect_rocm() -> dict | None:
                     continue
                 name = (info.get("Card series") or info.get("Card model")
                         or info.get("Marketing Name") or "AMD GPU")
-                vram_b = info.get("VRAM Total Memory (B)") or info.get("vram_total_memory_b") or 0
+                vram_b = info.get("VRAM Total Memory (B)") or info.get(
+                    "vram_total_memory_b") or 0
                 try:
                     vram_b = int(vram_b)
                 except (ValueError, TypeError):
@@ -186,7 +187,8 @@ def detect_apple_silicon() -> dict | None:
         pass
     ram_gb = round(mem_bytes / (1024**3), 1) if mem_bytes else 0.0
 
-    # Detect chip variant ("Pro", "Max", "Ultra") — affects performance even at same gen
+    # Detect chip variant ("Pro", "Max", "Ultra") — affects performance even
+    # at same gen
     variant = None
     for v in ("Ultra", "Max", "Pro"):
         if v in chip:
@@ -214,7 +216,8 @@ def detect_intel_arc() -> dict | None:
         out = _run(["powershell", "-NoProfile",
                     "Get-CimInstance Win32_VideoController | Select-Object Name | Format-List"])
         if "Intel" in out and ("Arc" in out or "Iris Xe" in out):
-            return {"vendor": "intel", "name": "Intel Arc/Iris Xe", "vram_gb": 0.0}
+            return {"vendor": "intel",
+                    "name": "Intel Arc/Iris Xe", "vram_gb": 0.0}
     return None
 
 
@@ -222,7 +225,8 @@ def total_system_ram_gb() -> float:
     sysname = platform.system()
     if sysname == "Darwin":
         try:
-            return round(int(_run(["sysctl", "-n", "hw.memsize"]).strip() or 0) / (1024**3), 1)
+            return round(
+                int(_run(["sysctl", "-n", "hw.memsize"]).strip() or 0) / (1024**3), 1)
         except ValueError:
             return 0.0
     if sysname == "Linux":
@@ -283,7 +287,8 @@ def check_pytorch_cuda() -> dict | None:
     return info
 
 
-def classify(gpu: dict | None, ram_gb: float, free_disk_gb: float, *, wsl: bool, rosetta: bool) -> tuple[str, str, list[str]]:
+def classify(gpu: dict | None, ram_gb: float, free_disk_gb: float,
+             *, wsl: bool, rosetta: bool) -> tuple[str, str, list[str]]:
     notes: list[str] = []
 
     if rosetta:
@@ -295,7 +300,8 @@ def classify(gpu: dict | None, ram_gb: float, free_disk_gb: float, *, wsl: bool,
         return "cloud", "comfy-cloud", notes
 
     if wsl and gpu and gpu["vendor"] == "nvidia":
-        notes.append("Detected WSL2 + NVIDIA — confirm `nvidia-smi` works in your WSL distro before installing.")
+        notes.append(
+            "Detected WSL2 + NVIDIA — confirm `nvidia-smi` works in your WSL distro before installing.")
 
     if free_disk_gb and free_disk_gb < MIN_FREE_DISK_GB:
         notes.append(
@@ -332,18 +338,21 @@ def classify(gpu: dict | None, ram_gb: float, free_disk_gb: float, *, wsl: bool,
             notes.append(
                 f"{gen_str} with {mem} GB unified memory — below the {MIN_MAC_RAM_GB} GB practical minimum."
             )
-            notes.append("SD1.5 may work; SDXL/Flux will swap or OOM. Recommend Comfy Cloud.")
+            notes.append(
+                "SD1.5 may work; SDXL/Flux will swap or OOM. Recommend Comfy Cloud.")
             return "cloud", "comfy-cloud", notes
         if mem < OK_MAC_RAM_GB:
             notes.append(
                 f"{gen_str} with {mem} GB — SDXL works but slow. Flux/video likely too tight."
             )
             return "marginal", "apple-silicon", notes
-        notes.append(f"{gen_str} with {mem} GB unified memory — good for SDXL/Flux.")
+        notes.append(
+            f"{gen_str} with {mem} GB unified memory — good for SDXL/Flux.")
         return "ok", "apple-silicon", notes
 
     if gpu["vendor"] == "intel":
-        notes.append("Intel Arc detected — ComfyUI IPEX support is experimental; Comfy Cloud is more reliable.")
+        notes.append(
+            "Intel Arc detected — ComfyUI IPEX support is experimental; Comfy Cloud is more reliable.")
         return "marginal", "intel", notes
 
     # Discrete NVIDIA / AMD
@@ -361,9 +370,11 @@ def classify(gpu: dict | None, ram_gb: float, free_disk_gb: float, *, wsl: bool,
         )
         return "marginal", gpu["vendor"], notes
     if vram < GREAT_VRAM_GB:
-        notes.append(f"{name} ({vram} GB VRAM) — SDXL comfortable, Flux possible with optimizations.")
+        notes.append(
+            f"{name} ({vram} GB VRAM) — SDXL comfortable, Flux possible with optimizations.")
         return "ok", gpu["vendor"], notes
-    notes.append(f"{name} ({vram} GB VRAM) — can run everything including Flux/video.")
+    notes.append(
+        f"{name} ({vram} GB VRAM) — can run everything including Flux/video.")
     return "ok", gpu["vendor"], notes
 
 
@@ -441,8 +452,12 @@ def _install_urls() -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     import argparse
-    p = argparse.ArgumentParser(description="Check whether this machine can run ComfyUI locally.")
-    p.add_argument("--json", action="store_true", help="Emit machine-readable JSON only")
+    p = argparse.ArgumentParser(
+        description="Check whether this machine can run ComfyUI locally.")
+    p.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON only")
     p.add_argument("--check-pytorch", action="store_true",
                    help="Also probe `torch` for CUDA/MPS availability (slower)")
     args = p.parse_args(argv)
@@ -462,16 +477,31 @@ def main(argv: list[str] | None = None) -> int:
         if report["gpu"]:
             g = report["gpu"]
             if g["vendor"] == "apple":
-                print(f"GPU:       {g['name']} — {g.get('unified_memory_gb', 0)} GB unified memory")
+                print(
+                    f"GPU:       {
+                        g['name']} — {
+                        g.get(
+                            'unified_memory_gb',
+                            0)} GB unified memory")
             else:
-                print(f"GPU:       {g['name']} — {g.get('vram_gb', 0)} GB VRAM")
+                print(
+                    f"GPU:       {
+                        g['name']} — {
+                        g.get(
+                            'vram_gb',
+                            0)} GB VRAM")
                 if g.get("all_gpus") and len(g["all_gpus"]) > 1:
-                    print(f"           ({len(g['all_gpus'])} GPUs total; using best by VRAM)")
+                    print(
+                        f"           ({len(g['all_gpus'])} GPUs total; using best by VRAM)")
         else:
             print("GPU:       (none detected)")
-        print(f"Verdict:   {report['verdict']}  → {report['recommended_install_path']}")
+        print(
+            f"Verdict:   {
+                report['verdict']}  → {
+                report['recommended_install_path']}")
         if report["comfy_cli_flag"]:
-            print(f"           run: comfy --skip-prompt install {report['comfy_cli_flag']}")
+            print(
+                f"           run: comfy --skip-prompt install {report['comfy_cli_flag']}")
         if report.get("pytorch"):
             pt = report["pytorch"]
             if pt.get("available"):

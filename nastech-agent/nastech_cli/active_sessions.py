@@ -21,7 +21,8 @@ from nastech_constants import get_nastech_home
 logger = logging.getLogger(__name__)
 
 
-def coerce_max_concurrent_sessions(value: Any, key: str = "max_concurrent_sessions") -> Optional[int]:
+def coerce_max_concurrent_sessions(
+        value: Any, key: str = "max_concurrent_sessions") -> Optional[int]:
     """Return a positive integer cap, or None when disabled/invalid."""
     if value is None:
         return None
@@ -106,7 +107,8 @@ class _FileLock:
             except Exception as exc:
                 self._fh.close()
                 self._fh = None
-                raise RuntimeError("active session file lock unavailable") from exc
+                raise RuntimeError(
+                    "active session file lock unavailable") from exc
         else:
             try:
                 import fcntl
@@ -115,7 +117,8 @@ class _FileLock:
             except Exception as exc:
                 self._fh.close()
                 self._fh = None
-                raise RuntimeError("active session file lock unavailable") from exc
+                raise RuntimeError(
+                    "active session file lock unavailable") from exc
         return self
 
     def __exit__(self, exc_type, exc, tb):
@@ -284,7 +287,8 @@ def try_acquire_active_session(
                 max_sessions,
                 surface,
             )
-            return None, active_session_limit_message(active_count, max_sessions)
+            return None, active_session_limit_message(
+                active_count, max_sessions)
         entries.append(entry)
         _write_entries(state_path, entries)
 

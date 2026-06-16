@@ -14,5 +14,6 @@ def build_version_parser(subparsers, *, cmd_version: Callable) -> None:
     # =========================================================================
     # version command
     # =========================================================================
-    version_parser = subparsers.add_parser("version", help="Show version information")
+    version_parser = subparsers.add_parser(
+        "version", help="Show version information")
     version_parser.set_defaults(func=cmd_version)

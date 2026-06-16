@@ -22,24 +22,23 @@ import sys
 from dataclasses import dataclass
 from typing import List, Optional
 
-from nastech_cli.colors import Colors, color
 from nastech_cli.cli_output import prompt_yes_no
+from nastech_cli.colors import Colors, color
+from nastech_cli.config import load_config, save_config
 from nastech_cli.curses_ui import curses_single_select
 from nastech_cli.mcp_catalog import (
     CatalogEntry,
     CatalogError,
     catalog_diagnostics,
     install_entry,
+    installed_servers,
     is_enabled,
     is_installed,
     list_catalog,
-    installed_servers,
     uninstall_entry,
 )
-from nastech_cli.config import load_config, save_config
 
-
-# ─── Status badges ────────────────────────────────────────────────────────────
+# ─── Status badges ──────────────────────────────────────────────────────
 
 _STATUS_NOT_INSTALLED = "available"
 _STATUS_DISABLED = "installed (disabled)"
@@ -107,7 +106,7 @@ def _format_row(row: _Row) -> str:
     return f"{row.name:<18} {row.status:<24} {row.description}"
 
 
-# ─── Actions ──────────────────────────────────────────────────────────────────
+# ─── Actions ────────────────────────────────────────────────────────────
 
 
 def _enable_disable(name: str, *, enable: bool) -> None:
@@ -134,6 +133,7 @@ def _configure_tools(name: str) -> None:
     server, displays a checklist, and writes ``tools.include``.
     """
     import argparse
+
     from nastech_cli.mcp_config import cmd_mcp_configure
 
     cmd_mcp_configure(argparse.Namespace(name=name))
@@ -180,7 +180,10 @@ def _handle_row(row: _Row) -> None:
             "Enable" if not is_enabled(row.name) else "Disable",
             "Remove from config",
         ]
-        choice = curses_single_select(f"Action for '{row.name}' (custom)", actions)
+        choice = curses_single_select(
+            f"Action for '{
+                row.name}' (custom)",
+            actions)
         if choice is None:
             return
         if choice == 0:
@@ -225,7 +228,7 @@ def _handle_row(row: _Row) -> None:
             print(color(f"  ✗ reinstall failed: {exc}", Colors.RED))
 
 
-# ─── Output / entry points ────────────────────────────────────────────────────
+# ─── Output / entry points ──────────────────────────────────────────────
 
 
 def _print_rows_text(rows: List[_Row]) -> None:
@@ -238,7 +241,11 @@ def _print_rows_text(rows: List[_Row]) -> None:
         return
 
     print()
-    print(color("  MCP Catalog + configured servers:", Colors.CYAN + Colors.BOLD))
+    print(
+        color(
+            "  MCP Catalog + configured servers:",
+            Colors.CYAN +
+            Colors.BOLD))
     print()
     print(f"  {'Name':<18} {'Status':<24} Description")
     print(f"  {'-' * 18} {'-' * 24} {'-' * 11}")

@@ -33,7 +33,8 @@ def build_memory_parser(subparsers, *, cmd_memory: Callable) -> None:
         help="Provider to configure directly (e.g. honcho), skipping the picker",
     )
     memory_sub.add_parser("status", help="Show current memory provider config")
-    memory_sub.add_parser("off", help="Disable external provider (built-in only)")
+    memory_sub.add_parser(
+        "off", help="Disable external provider (built-in only)")
     _reset_parser = memory_sub.add_parser(
         "reset",
         help="Erase all built-in memory (MEMORY.md and USER.md)",

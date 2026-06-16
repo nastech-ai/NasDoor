@@ -133,7 +133,8 @@ class PlatformEntry:
     # are caught and logged at debug level.
     # See website/docs/developer-guide/adding-platform-adapters.md for the
     # full contract and a worked example.
-    apply_yaml_config_fn: Optional[Callable[[dict, dict], Optional[dict]]] = None
+    apply_yaml_config_fn: Optional[Callable[[
+        dict, dict], Optional[dict]]] = None
 
     # Optional: home-channel env var name for cron/notification delivery
     # (e.g. ``"IRC_HOME_CHANNEL"``).  When set, ``cron.scheduler`` treats this
@@ -184,7 +185,10 @@ class PlatformRegistry:
                 entry.source,
             )
         self._entries[entry.name] = entry
-        logger.debug("Registered platform adapter: %s (%s)", entry.name, entry.source)
+        logger.debug(
+            "Registered platform adapter: %s (%s)",
+            entry.name,
+            entry.source)
 
     def unregister(self, name: str) -> bool:
         """Remove a platform entry.  Returns True if it existed."""

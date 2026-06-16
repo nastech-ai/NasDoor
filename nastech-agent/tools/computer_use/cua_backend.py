@@ -42,7 +42,8 @@ logger = logging.getLogger(__name__)
 # Version pinning
 # ---------------------------------------------------------------------------
 
-PINNED_CUA_DRIVER_VERSION = os.environ.get("NASTECH_CUA_DRIVER_VERSION", "0.5.0")
+PINNED_CUA_DRIVER_VERSION = os.environ.get(
+    "NASTECH_CUA_DRIVER_VERSION", "0.5.0")
 
 _CUA_DRIVER_CMD = os.environ.get("NASTECH_CUA_DRIVER_CMD", "cua-driver")
 _CUA_DRIVER_ARGS = ["mcp"]  # stdio MCP transport
@@ -65,7 +66,7 @@ _WINDOW_LINE_RE = re.compile(
 # Group 3: quoted label (classic format)
 # Group 4: id= label (new format)
 _ELEMENT_LINE_RE = re.compile(
-    r'^\s*(?:-\s+)?\[(\d+)\]\s+(\w+)(?:\s+"([^"]*)"|(?:\s+\(\d+\))?\s+id=([^\s\[\]]*))?' ,
+    r'^\s*(?:-\s+)?\[(\d+)\]\s+(\w+)(?:\s+"([^"]*)"|(?:\s+\(\d+\))?\s+id=([^\s\[\]]*))?',
     re.MULTILINE,
 )
 
@@ -140,7 +141,15 @@ def _parse_key_combo(keys: str) -> Tuple[Optional[str], List[str]]:
     Returns (key, modifiers) where key is the non-modifier key and modifiers
     is a list of modifier names (cmd, shift, option, ctrl).
     """
-    MODIFIER_NAMES = {"cmd", "command", "shift", "option", "alt", "ctrl", "control", "fn"}
+    MODIFIER_NAMES = {
+        "cmd",
+        "command",
+        "shift",
+        "option",
+        "alt",
+        "ctrl",
+        "control",
+        "fn"}
     KEY_ALIASES = {"command": "cmd", "alt": "option", "control": "ctrl"}
 
     parts = [p.strip().lower() for p in re.split(r'[+\-]', keys) if p.strip()]
@@ -184,7 +193,8 @@ class _AsyncBridge:
                 except Exception:
                     pass
 
-        self._thread = threading.Thread(target=_run, daemon=True, name="cua-driver-loop")
+        self._thread = threading.Thread(
+            target=_run, daemon=True, name="cua-driver-loop")
         self._thread.start()
         if not self._ready.wait(timeout=5.0):
             raise RuntimeError("cua-driver asyncio bridge failed to start")
@@ -229,6 +239,7 @@ class _CuaDriverSession:
 
     async def _aenter(self) -> None:
         from contextlib import AsyncExitStack
+
         from mcp import ClientSession, StdioServerParameters
         from mcp.client.stdio import stdio_client
 
@@ -273,13 +284,16 @@ class _CuaDriverSession:
             finally:
                 self._started = False
 
-    async def _call_tool_async(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def _call_tool_async(
+            self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         result = await self._session.call_tool(name, args)
         return _extract_tool_result(result)
 
-    def call_tool(self, name: str, args: Dict[str, Any], timeout: float = 30.0) -> Dict[str, Any]:
+    def call_tool(
+            self, name: str, args: Dict[str, Any], timeout: float = 30.0) -> Dict[str, Any]:
         self._require_started()
-        return self._bridge.run(self._call_tool_async(name, args), timeout=timeout)
+        return self._bridge.run(
+            self._call_tool_async(name, args), timeout=timeout)
 
 
 def _extract_tool_result(mcp_result: Any) -> Dict[str, Any]:
@@ -300,7 +314,8 @@ def _extract_tool_result(mcp_result: Any) -> Dict[str, Any]:
     data: Any = None
     images: List[str] = []
     is_error = bool(getattr(mcp_result, "isError", False))
-    structured: Optional[Dict] = getattr(mcp_result, "structuredContent", None) or None
+    structured: Optional[Dict] = getattr(
+        mcp_result, "structuredContent", None) or None
     text_chunks: List[str] = []
     for part in getattr(mcp_result, "content", []) or []:
         ptype = getattr(part, "type", None)
@@ -313,10 +328,12 @@ def _extract_tool_result(mcp_result: Any) -> Dict[str, Any]:
     if text_chunks:
         joined = "\n".join(t for t in text_chunks if t)
         try:
-            data = json.loads(joined) if joined.strip().startswith(("{", "[")) else joined
+            data = json.loads(joined) if joined.strip(
+            ).startswith(("{", "[")) else joined
         except json.JSONDecodeError:
             data = joined
-    return {"data": data, "images": images, "structuredContent": structured, "isError": is_error}
+    return {"data": data, "images": images,
+            "structuredContent": structured, "isError": is_error}
 
 
 # ---------------------------------------------------------------------------
@@ -332,7 +349,8 @@ class CuaDriverBackend(ComputerUseBackend):
         # Sticky context — updated by capture(), used by action tools.
         self._active_pid: Optional[int] = None
         self._active_window_id: Optional[int] = None
-        self._last_app: Optional[str] = None  # last app name targeted via capture/focus_app
+        # last app name targeted via capture/focus_app
+        self._last_app: Optional[str] = None
 
     # ── Lifecycle ──────────────────────────────────────────────────
     def start(self) -> None:
@@ -350,14 +368,16 @@ class CuaDriverBackend(ComputerUseBackend):
         return cua_driver_binary_available()
 
     # ── Capture ────────────────────────────────────────────────────
-    def capture(self, mode: str = "som", app: Optional[str] = None) -> CaptureResult:
+    def capture(self, mode: str = "som",
+                app: Optional[str] = None) -> CaptureResult:
         """Capture the frontmost on-screen window (optionally filtered by app name).
 
         Maps nastech `capture(mode, app)` → cua-driver `list_windows` +
         `get_window_state` (ax/som) or `screenshot` (vision).
         """
         # Step 1: enumerate on-screen windows to find target pid/window_id.
-        lw_out = self._session.call_tool("list_windows", {"on_screen_only": True})
+        lw_out = self._session.call_tool(
+            "list_windows", {"on_screen_only": True})
 
         # Prefer structuredContent.windows (MCP 2024-11-05+); fall back to
         # text-line parsing for older cua-driver builds.
@@ -378,7 +398,8 @@ class CuaDriverBackend(ComputerUseBackend):
             # Sort by z_index descending (lowest z_index = frontmost on macOS).
             windows.sort(key=lambda w: w["z_index"])
         else:
-            raw_text = lw_out["data"] if isinstance(lw_out["data"], str) else ""
+            raw_text = lw_out["data"] if isinstance(
+                lw_out["data"], str) else ""
             windows = _parse_windows_from_text(raw_text)
 
         if not windows:
@@ -393,7 +414,8 @@ class CuaDriverBackend(ComputerUseBackend):
         # system and the caller needs to retry with the localized name.
         if app:
             app_lower = app.lower()
-            filtered = [w for w in windows if app_lower in w["app_name"].lower()]
+            filtered = [
+                w for w in windows if app_lower in w["app_name"].lower()]
             if not filtered:
                 return CaptureResult(
                     mode=mode, width=0, height=0, png_b64=None,
@@ -428,7 +450,8 @@ class CuaDriverBackend(ComputerUseBackend):
             # screenshot tool: just the PNG, no AX walk.
             sc_out = self._session.call_tool(
                 "screenshot",
-                {"window_id": self._active_window_id, "format": "jpeg", "quality": 85},
+                {"window_id": self._active_window_id,
+                    "format": "jpeg", "quality": 85},
             )
             if sc_out["images"]:
                 png_b64 = sc_out["images"][0]
@@ -441,7 +464,8 @@ class CuaDriverBackend(ComputerUseBackend):
             text = gws_out["data"] if isinstance(gws_out["data"], str) else ""
             summary, tree = _split_tree_text(text)
 
-            # Parse element count from summary e.g. "✅ AppName — 42 elements, turn 3..."
+            # Parse element count from summary e.g. "✅ AppName — 42 elements,
+            # turn 3..."
             m = re.search(r'(\d+)\s+elements?', summary)
             if tree and not gws_out["images"]:
                 # ax mode — no screenshot
@@ -593,12 +617,14 @@ class CuaDriverBackend(ComputerUseBackend):
 
         if modifiers:
             # hotkey requires at least one modifier + one key.
-            return self._action("hotkey", {"pid": pid, "keys": modifiers + [key_name]})
+            return self._action(
+                "hotkey", {"pid": pid, "keys": modifiers + [key_name]})
         else:
             return self._action("press_key", {"pid": pid, "key": key_name})
 
     # ── Value setter ────────────────────────────────────────────────
-    def set_value(self, value: str, element: Optional[int] = None) -> ActionResult:
+    def set_value(self, value: str,
+                  element: Optional[int] = None) -> ActionResult:
         """Set a value on an element. Handles AXPopUpButton selects natively."""
         pid = self._active_pid
         window_id = self._active_window_id
@@ -630,7 +656,8 @@ class CuaDriverBackend(ComputerUseBackend):
             for line in data.splitlines():
                 m = re.search(r'(.+?)\s+\(pid\s+(\d+)\)', line)
                 if m:
-                    apps.append({"name": m.group(1).strip(), "pid": int(m.group(2))})
+                    apps.append({"name": m.group(1).strip(),
+                                "pid": int(m.group(2))})
             return apps
         return []
 
@@ -647,7 +674,8 @@ class CuaDriverBackend(ComputerUseBackend):
         raise_window=True is intentionally ignored: stealing the user's focus
         is exactly what this backend is designed to avoid.
         """
-        lw_out = self._session.call_tool("list_windows", {"on_screen_only": True})
+        lw_out = self._session.call_tool(
+            "list_windows", {"on_screen_only": True})
         sc = lw_out.get("structuredContent") or {}
         raw_windows = sc.get("windows") if sc else None
         if raw_windows:
@@ -662,7 +690,8 @@ class CuaDriverBackend(ComputerUseBackend):
             ]
             windows.sort(key=lambda w: w["z_index"])
         else:
-            raw_text = lw_out["data"] if isinstance(lw_out["data"], str) else ""
+            raw_text = lw_out["data"] if isinstance(
+                lw_out["data"], str) else ""
             windows = _parse_windows_from_text(raw_text)
 
         app_lower = app.lower()
@@ -675,11 +704,14 @@ class CuaDriverBackend(ComputerUseBackend):
         if target:
             self._active_pid = target["pid"]
             self._active_window_id = target["window_id"]
-            self._last_app = target["app_name"]  # preserve for capture_after= follow-ups
+            # preserve for capture_after= follow-ups
+            self._last_app = target["app_name"]
             return ActionResult(
                 ok=True, action="focus_app",
-                message=f"Targeted {target['app_name']} (pid {self._active_pid}, "
-                        f"window {self._active_window_id}) without raising window.",
+                message=f"Targeted {
+                    target['app_name']} (pid {
+                    self._active_pid}, "
+                f"window {self._active_window_id}) without raising window.",
             )
         return ActionResult(ok=False, action="focus_app",
                             message=f"No on-screen window found for app '{app}'.")
@@ -690,7 +722,8 @@ class CuaDriverBackend(ComputerUseBackend):
             out = self._session.call_tool(name, args)
         except Exception as e:
             logger.exception("cua-driver %s call failed", name)
-            return ActionResult(ok=False, action=name, message=f"cua-driver error: {e}")
+            return ActionResult(ok=False, action=name,
+                                message=f"cua-driver error: {e}")
         ok = not out["isError"]
         message = ""
         data = out["data"]

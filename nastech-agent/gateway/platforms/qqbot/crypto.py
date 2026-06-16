@@ -38,7 +38,8 @@ def decrypt_secret(encrypted_base64: str, key_base64: str) -> str:
     raw = base64.b64decode(encrypted_base64)
 
     iv = raw[:12]
-    ciphertext_with_tag = raw[12:]  # AESGCM expects ciphertext + tag concatenated
+    # AESGCM expects ciphertext + tag concatenated
+    ciphertext_with_tag = raw[12:]
 
     aesgcm = AESGCM(key)
     plaintext = aesgcm.decrypt(iv, ciphertext_with_tag, None)

@@ -68,7 +68,9 @@ def _safe_copy(payload: Any) -> Any:
     try:
         return deepcopy(payload)
     except Exception as exc:  # pragma: no cover - exercised via fallback test
-        logger.debug("deepcopy failed for request payload (%s); using shallow copy", exc)
+        logger.debug(
+            "deepcopy failed for request payload (%s); using shallow copy",
+            exc)
         if isinstance(payload, dict):
             return dict(payload)
         return payload
@@ -273,7 +275,8 @@ def _run_execution_chain(
                 )
             next_called = True
             try:
-                next_result = call_at(index + 1, payload if next_payload is None else next_payload)
+                next_result = call_at(
+                    index + 1, payload if next_payload is None else next_payload)
                 next_succeeded = True
                 return next_result
             except Exception as exc:

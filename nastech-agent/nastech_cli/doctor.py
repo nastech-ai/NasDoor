@@ -5,27 +5,29 @@ Diagnoses issues with NasTech Agent setup.
 """
 
 import os
-import sys
-import subprocess
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
-from nastech_cli.config import get_project_root, get_nastech_home, get_env_path
+from nastech_cli.colors import Colors, color
+from nastech_cli.config import get_env_path, get_nastech_home, get_project_root
 from nastech_cli.env_loader import load_nastech_dotenv
-from nastech_constants import display_nastech_home
+from nastech_cli.models import _NASTECH_USER_AGENT
+from nastech_constants import OPENROUTER_MODELS_URL, display_nastech_home
+from nastech_constants import is_termux as _is_termux
+from utils import base_url_host_matches
 
 PROJECT_ROOT = get_project_root()
 NASTECH_HOME = get_nastech_home()
-_DHH = display_nastech_home()  # user-facing display path (e.g. ~/.nastech or ~/.nastech/profiles/coder)
+# user-facing display path (e.g. ~/.nastech or ~/.nastech/profiles/coder)
+_DHH = display_nastech_home()
 
 # Load environment variables from ~/.nastech/.env so API key checks work
 _env_path = get_env_path()
-load_nastech_dotenv(nastech_home=_env_path.parent, project_env=PROJECT_ROOT / ".env")
-
-from nastech_cli.colors import Colors, color
-from nastech_cli.models import _NASTECH_USER_AGENT
-from nastech_constants import OPENROUTER_MODELS_URL
-from utils import base_url_host_matches
+load_nastech_dotenv(
+    nastech_home=_env_path.parent,
+    project_env=PROJECT_ROOT / ".env")
 
 
 _PROVIDER_ENV_HINTS = (
@@ -52,9 +54,6 @@ _PROVIDER_ENV_HINTS = (
     "XIAOMI_API_KEY",
     "TOKENHUB_API_KEY",
 )
-
-
-from nastech_constants import is_termux as _is_termux
 
 
 def _python_install_cmd() -> str:
@@ -121,7 +120,8 @@ def _is_kanban_worker_env_gate(item: dict) -> bool:
         return False
 
     tools = item.get("tools") or []
-    return bool(tools) and all(str(tool).startswith("kanban_") for tool in tools)
+    return bool(tools) and all(str(tool).startswith("kanban_")
+                               for tool in tools)
 
 
 def _doctor_tool_availability_detail(toolset: str) -> str:
@@ -131,7 +131,8 @@ def _doctor_tool_availability_detail(toolset: str) -> str:
     return ""
 
 
-def _apply_doctor_tool_availability_overrides(available: list[str], unavailable: list[dict]) -> tuple[list[str], list[dict]]:
+def _apply_doctor_tool_availability_overrides(
+        available: list[str], unavailable: list[dict]) -> tuple[list[str], list[dict]]:
     """Adjust runtime-gated tool availability for doctor diagnostics."""
     updated_available = list(available)
     updated_unavailable = []
@@ -149,7 +150,8 @@ def _apply_doctor_tool_availability_overrides(available: list[str], unavailable:
     return updated_available, updated_unavailable
 
 
-def _has_healthy_oauth_fallback_for_apikey_provider(provider_label: str) -> bool:
+def _has_healthy_oauth_fallback_for_apikey_provider(
+        provider_label: str) -> bool:
     """Return True when a direct API-key probe failure is non-blocking.
 
     Some provider families support both a direct API-key path and a separate
@@ -161,13 +163,15 @@ def _has_healthy_oauth_fallback_for_apikey_provider(provider_label: str) -> bool
     if normalized in {"google / gemini", "gemini"}:
         try:
             from nastech_cli.auth import get_gemini_oauth_auth_status
-            return bool((get_gemini_oauth_auth_status() or {}).get("logged_in"))
+            return bool((get_gemini_oauth_auth_status()
+                        or {}).get("logged_in"))
         except Exception:
             return False
     if normalized == "minimax":
         try:
             from nastech_cli.auth import get_minimax_oauth_auth_status
-            return bool((get_minimax_oauth_auth_status() or {}).get("logged_in"))
+            return bool((get_minimax_oauth_auth_status()
+                        or {}).get("logged_in"))
         except Exception:
             return False
     if normalized == "xai":
@@ -180,13 +184,19 @@ def _has_healthy_oauth_fallback_for_apikey_provider(provider_label: str) -> bool
 
 
 def check_ok(text: str, detail: str = ""):
-    print(f"  {color('✓', Colors.GREEN)} {text}" + (f" {color(detail, Colors.DIM)}" if detail else ""))
+    print(f"  {color('✓', Colors.GREEN)} {text}" +
+          (f" {color(detail, Colors.DIM)}" if detail else ""))
+
 
 def check_warn(text: str, detail: str = ""):
-    print(f"  {color('⚠', Colors.YELLOW)} {text}" + (f" {color(detail, Colors.DIM)}" if detail else ""))
+    print(f"  {color('⚠', Colors.YELLOW)} {text}" +
+          (f" {color(detail, Colors.DIM)}" if detail else ""))
+
 
 def check_fail(text: str, detail: str = ""):
-    print(f"  {color('✗', Colors.RED)} {text}" + (f" {color(detail, Colors.DIM)}" if detail else ""))
+    print(f"  {color('✗', Colors.RED)} {text}" +
+          (f" {color(detail, Colors.DIM)}" if detail else ""))
+
 
 def check_info(text: str):
     print(f"    {color('→', Colors.CYAN)} {text}")
@@ -198,7 +208,8 @@ def _section(title: str) -> None:
     print(color(f"◆ {title}", Colors.CYAN, Colors.BOLD))
 
 
-def _fail_and_issue(text: str, detail: str, fix: str, issues: list[str]) -> None:
+def _fail_and_issue(text: str, detail: str, fix: str,
+                    issues: list[str]) -> None:
     """Emit a check_fail and append the corresponding fix instruction."""
     check_fail(text, detail)
     issues.append(fix)
@@ -296,7 +307,8 @@ def _check_s6_supervision(issues: list[str]) -> None:
 
     profiles = mgr.list_profile_gateways()
     if not profiles:
-        check_info("No per-profile gateways registered yet — create one with `nastech profile create <name>`")
+        check_info(
+            "No per-profile gateways registered yet — create one with `nastech profile create <name>`")
         return
 
     up_count = sum(1 for p in profiles if mgr.is_running(f"gateway-{p}"))
@@ -322,7 +334,8 @@ def _check_gateway_service_linger(issues: list[str]) -> None:
         )
         from nastech_cli.service_manager import detect_service_manager
     except Exception as e:
-        check_warn("Gateway service linger", f"(could not import gateway helpers: {e})")
+        check_warn("Gateway service linger",
+                   f"(could not import gateway helpers: {e})")
         return
 
     if not is_linux():
@@ -343,9 +356,12 @@ def _check_gateway_service_linger(issues: list[str]) -> None:
     if linger_enabled is True:
         check_ok("Systemd linger enabled", "(gateway service survives logout)")
     elif linger_enabled is False:
-        check_warn("Systemd linger disabled", "(gateway may stop after logout)")
+        check_warn(
+            "Systemd linger disabled",
+            "(gateway may stop after logout)")
         check_info("Run: sudo loginctl enable-linger $USER")
-        issues.append("Enable linger for the gateway user service: sudo loginctl enable-linger $USER")
+        issues.append(
+            "Enable linger for the gateway user service: sudo loginctl enable-linger $USER")
     else:
         check_warn("Could not verify systemd linger", f"({linger_detail})")
 
@@ -361,24 +377,43 @@ def _build_apikey_providers_list() -> list:
     already present — adding plugins/model-providers/<name>/ is sufficient to get into doctor.
     """
     _static = [
-        ("Z.AI / GLM",      ("GLM_API_KEY", "ZAI_API_KEY", "Z_AI_API_KEY"), "https://api.z.ai/api/paas/v4/models", "GLM_BASE_URL", True),
-        ("Kimi / Moonshot",  ("KIMI_API_KEY",),                              "https://api.moonshot.ai/v1/models",   "KIMI_BASE_URL", True),
-        ("StepFun Step Plan", ("STEPFUN_API_KEY",),                          "https://api.stepfun.ai/step_plan/v1/models", "STEPFUN_BASE_URL", True),
-        ("Kimi / Moonshot (China)", ("KIMI_CN_API_KEY",),                    "https://api.moonshot.cn/v1/models",   None, True),
-        ("Arcee AI",         ("ARCEEAI_API_KEY",),                           "https://api.arcee.ai/api/v1/models",  "ARCEE_BASE_URL", True),
-        ("GMI Cloud",        ("GMI_API_KEY",),                               "https://api.gmi-serving.com/v1/models", "GMI_BASE_URL", True),
-        ("DeepSeek",         ("DEEPSEEK_API_KEY",),                          "https://api.deepseek.com/v1/models",  "DEEPSEEK_BASE_URL", True),
-        ("Hugging Face",     ("HF_TOKEN",),                                  "https://router.huggingface.co/v1/models", "HF_BASE_URL", True),
-        ("NVIDIA NIM",       ("NVIDIA_API_KEY",),                            "https://integrate.api.nvidia.com/v1/models", "NVIDIA_BASE_URL", True),
-        ("Alibaba/DashScope", ("DASHSCOPE_API_KEY",),                        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models", "DASHSCOPE_BASE_URL", True),
+        ("Z.AI / GLM", ("GLM_API_KEY", "ZAI_API_KEY", "Z_AI_API_KEY"),
+         "https://api.z.ai/api/paas/v4/models", "GLM_BASE_URL", True),
+        ("Kimi / Moonshot", ("KIMI_API_KEY",),
+         "https://api.moonshot.ai/v1/models", "KIMI_BASE_URL", True),
+        ("StepFun Step Plan", ("STEPFUN_API_KEY",),
+         "https://api.stepfun.ai/step_plan/v1/models", "STEPFUN_BASE_URL", True),
+        ("Kimi / Moonshot (China)", ("KIMI_CN_API_KEY",),
+         "https://api.moonshot.cn/v1/models", None, True),
+        ("Arcee AI", ("ARCEEAI_API_KEY",),
+         "https://api.arcee.ai/api/v1/models", "ARCEE_BASE_URL", True),
+        ("GMI Cloud", ("GMI_API_KEY",),
+         "https://api.gmi-serving.com/v1/models", "GMI_BASE_URL", True),
+        ("DeepSeek", ("DEEPSEEK_API_KEY",),
+         "https://api.deepseek.com/v1/models", "DEEPSEEK_BASE_URL", True),
+        ("Hugging Face", ("HF_TOKEN",),
+         "https://router.huggingface.co/v1/models", "HF_BASE_URL", True),
+        ("NVIDIA NIM", ("NVIDIA_API_KEY",),
+         "https://integrate.api.nvidia.com/v1/models", "NVIDIA_BASE_URL", True),
+        ("Alibaba/DashScope",
+         ("DASHSCOPE_API_KEY",
+          ),
+            "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/models",
+            "DASHSCOPE_BASE_URL",
+            True),
         # MiniMax global: /v1 endpoint supports /models.
-        ("MiniMax",          ("MINIMAX_API_KEY",),                           "https://api.minimax.io/v1/models",    "MINIMAX_BASE_URL", True),
+        ("MiniMax", ("MINIMAX_API_KEY",),
+         "https://api.minimax.io/v1/models", "MINIMAX_BASE_URL", True),
         # MiniMax CN: /v1 endpoint does NOT support /models (returns 404).
-        ("MiniMax (China)",  ("MINIMAX_CN_API_KEY",),                        "https://api.minimaxi.com/v1/models",  "MINIMAX_CN_BASE_URL", False),
-        ("Kilo Code",        ("KILOCODE_API_KEY",),                          "https://api.kilo.ai/api/gateway/models", "KILOCODE_BASE_URL", True),
-        ("OpenCode Zen",     ("OPENCODE_ZEN_API_KEY",),                      "https://opencode.ai/zen/v1/models",  "OPENCODE_ZEN_BASE_URL", True),
+        ("MiniMax (China)", ("MINIMAX_CN_API_KEY",),
+         "https://api.minimaxi.com/v1/models", "MINIMAX_CN_BASE_URL", False),
+        ("Kilo Code", ("KILOCODE_API_KEY",),
+         "https://api.kilo.ai/api/gateway/models", "KILOCODE_BASE_URL", True),
+        ("OpenCode Zen", ("OPENCODE_ZEN_API_KEY",),
+         "https://opencode.ai/zen/v1/models", "OPENCODE_ZEN_BASE_URL", True),
         # OpenCode Go has no shared /models endpoint; skip the health check.
-        ("OpenCode Go",      ("OPENCODE_GO_API_KEY",),                       None,                                  "OPENCODE_GO_BASE_URL", False),
+        ("OpenCode Go", ("OPENCODE_GO_API_KEY",),
+         None, "OPENCODE_GO_BASE_URL", False),
     ]
     _known_names = {t[0] for t in _static}
     # Also index by profile canonical name so profiles without display_name
@@ -411,7 +446,8 @@ def _build_apikey_providers_list() -> list:
             def _normalize_provider(_name: str) -> str:
                 return (_name or "").strip().lower()
         for _pp in list_providers():
-            if not isinstance(_pp, _PP) or _pp.auth_type != "api_key" or not _pp.env_vars:
+            if not isinstance(
+                    _pp, _PP) or _pp.auth_type != "api_key" or not _pp.env_vars:
                 continue
             _label = _pp.display_name or _pp.name
             if _label in _known_names or _pp.name in _known_canonical:
@@ -429,7 +465,8 @@ def _build_apikey_providers_list() -> list:
                 if not v.endswith("_BASE_URL") and not v.endswith("_URL")
             )
             _base_var = next(
-                (v for v in _pp.env_vars if v.endswith("_BASE_URL") or v.endswith("_URL")),
+                (v for v in _pp.env_vars if v.endswith(
+                    "_BASE_URL") or v.endswith("_URL")),
                 None,
             )
             if not _key_vars:
@@ -451,7 +488,8 @@ def run_doctor(args):
     ack_target = getattr(args, 'ack', None)
 
     # Doctor runs from the interactive CLI, so CLI-gated tool availability
-    # checks (like cronjob management) should see the same context as `nastech`.
+    # checks (like cronjob management) should see the same context as
+    # `nastech`.
     os.environ.setdefault("NASTECH_INTERACTIVE", "1")
 
     # Handle `nastech doctor --ack <id>` as a fast path. Persist the ack and
@@ -490,9 +528,18 @@ def run_doctor(args):
     fixed_count = 0
 
     print()
-    print(color("┌─────────────────────────────────────────────────────────┐", Colors.CYAN))
-    print(color("│                 🩺 NasTech Doctor                        │", Colors.CYAN))
-    print(color("└─────────────────────────────────────────────────────────┘", Colors.CYAN))
+    print(
+        color(
+            "┌─────────────────────────────────────────────────────────┐",
+            Colors.CYAN))
+    print(
+        color(
+            "│                 🩺 NasTech Doctor                        │",
+            Colors.CYAN))
+    print(
+        color(
+            "└─────────────────────────────────────────────────────────┘",
+            Colors.CYAN))
 
     _section("Security Advisories")
     try:
@@ -539,16 +586,30 @@ def run_doctor(args):
     except Exception as e:
         # Never let a bug in the advisory check block the rest of doctor.
         check_warn(f"Security advisory check failed: {e}")
-    
+
     _section("Python Environment")
     py_version = sys.version_info
     if py_version >= (3, 11):
-        check_ok(f"Python {py_version.major}.{py_version.minor}.{py_version.micro}")
+        check_ok(
+            f"Python {
+                py_version.major}.{
+                py_version.minor}.{
+                py_version.micro}")
     elif py_version >= (3, 10):
-        check_ok(f"Python {py_version.major}.{py_version.minor}.{py_version.micro}")
-        check_warn("Python 3.11+ recommended for RL Training tools (tinker requires >= 3.11)")
+        check_ok(
+            f"Python {
+                py_version.major}.{
+                py_version.minor}.{
+                py_version.micro}")
+        check_warn(
+            "Python 3.11+ recommended for RL Training tools (tinker requires >= 3.11)")
     elif py_version >= (3, 8):
-        check_warn(f"Python {py_version.major}.{py_version.minor}.{py_version.micro}", "(3.10+ recommended)")
+        check_warn(
+            f"Python {
+                py_version.major}.{
+                py_version.minor}.{
+                py_version.micro}",
+            "(3.10+ recommended)")
     else:
         _fail_and_issue(
             f"Python {py_version.major}.{py_version.minor}.{py_version.micro}",
@@ -556,7 +617,7 @@ def run_doctor(args):
             "Upgrade Python to 3.10+",
             issues,
         )
-    
+
     # Check if in virtual environment
     in_venv = sys.prefix != sys.base_prefix
     if in_venv:
@@ -567,7 +628,7 @@ def run_doctor(args):
     # Detect drift between pyproject.toml and nastech_cli/__init__.py versions
     # (a git conflict resolution can silently revert one but not the other).
     _check_version_consistency(issues)
-    
+
     _section("Required Packages")
     required_packages = [
         ("openai", "OpenAI SDK"),
@@ -576,33 +637,35 @@ def run_doctor(args):
         ("yaml", "PyYAML"),
         ("httpx", "HTTPX"),
     ]
-    
+
     optional_packages = [
         ("croniter", "Croniter (cron expressions)"),
         ("telegram", "python-telegram-bot"),
         ("discord", "discord.py"),
     ]
-    
+
     for module, name in required_packages:
         try:
             __import__(module)
             check_ok(name)
         except ImportError:
-            _fail_and_issue(name, "(missing)", f"Install {name}: {_python_install_cmd()} {module}", issues)
-    
+            _fail_and_issue(
+                name, "(missing)", f"Install {name}: {
+                    _python_install_cmd()} {module}", issues)
+
     for module, name in optional_packages:
         try:
             __import__(module)
             check_ok(name, "(optional)")
         except ImportError:
             check_warn(name, "(optional, not installed)")
-    
+
     _section("Configuration Files")
     # Check ~/.nastech/.env (primary location for user config)
     env_path = NASTECH_HOME / '.env'
     if env_path.exists():
         check_ok(f"{_DHH}/.env file exists")
-        
+
         # Check for common issues. Pin encoding to UTF-8 because .env files are
         # written as UTF-8 everywhere in the codebase, while Path.read_text()
         # defaults to the system locale — which crashes on non-UTF-8 Windows
@@ -636,8 +699,9 @@ def run_doctor(args):
             else:
                 check_info("Run 'nastech setup' to create one")
                 issues.append("Run 'nastech setup' to create .env")
-    
-    # Check ~/.nastech/config.yaml (primary) or project cli-config.yaml (fallback)
+
+    # Check ~/.nastech/config.yaml (primary) or project cli-config.yaml
+    # (fallback)
     config_path = NASTECH_HOME / 'config.yaml'
     if config_path.exists():
         check_ok(f"{_DHH}/config.yaml exists")
@@ -645,26 +709,34 @@ def run_doctor(args):
         # Validate model.provider and model.default values
         try:
             import yaml as _yaml
-            cfg = _yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+            cfg = _yaml.safe_load(
+                config_path.read_text(
+                    encoding="utf-8")) or {}
             model_section = cfg.get("model") or {}
             provider_raw = (model_section.get("provider") or "").strip()
             provider = provider_raw.lower()
-            default_model = (model_section.get("default") or model_section.get("model") or "").strip()
+            default_model = (model_section.get("default")
+                             or model_section.get("model") or "").strip()
 
             known_providers: set = set()
             try:
                 from nastech_cli.auth import (
                     PROVIDER_REGISTRY,
-                    resolve_provider as _resolve_auth_provider,
                 )
-                known_providers = set(PROVIDER_REGISTRY.keys()) | {"openrouter", "custom", "auto"}
+                from nastech_cli.auth import resolve_provider as _resolve_auth_provider
+                known_providers = set(PROVIDER_REGISTRY.keys()) | {
+                    "openrouter", "custom", "auto"}
             except Exception:
                 _resolve_auth_provider = None
                 pass
             try:
-                from nastech_cli.config import get_compatible_custom_providers as _compatible_custom_providers
+                from nastech_cli.config import (
+                    get_compatible_custom_providers as _compatible_custom_providers,
+                )
                 from nastech_cli.providers import (
                     normalize_provider as _normalize_catalog_provider,
+                )
+                from nastech_cli.providers import (
                     resolve_provider_full as _resolve_provider_full,
                 )
             except Exception:
@@ -681,20 +753,26 @@ def run_doctor(args):
 
             user_providers = cfg.get("providers")
             if isinstance(user_providers, dict):
-                known_providers.update(str(name).strip().lower() for name in user_providers if str(name).strip())
+                known_providers.update(str(name).strip().lower()
+                                       for name in user_providers if str(name).strip())
             for entry in custom_providers:
                 if not isinstance(entry, dict):
                     continue
                 name = str(entry.get("name") or "").strip()
                 if name:
-                    known_providers.add("custom:" + name.lower().replace(" ", "-"))
+                    known_providers.add(
+                        "custom:" +
+                        name.lower().replace(
+                            " ",
+                            "-"))
 
             valid_provider_ids = set(known_providers)
             provider_ids_to_accept = {provider} if provider else set()
             if _normalize_catalog_provider is not None:
                 for known_provider in known_providers:
                     try:
-                        valid_provider_ids.add(_normalize_catalog_provider(known_provider))
+                        valid_provider_ids.add(
+                            _normalize_catalog_provider(known_provider))
                     except Exception:
                         continue
 
@@ -716,7 +794,8 @@ def run_doctor(args):
                 and _resolve_provider_full is not None
                 and provider not in {"auto", "custom"}
             ):
-                provider_def = _resolve_provider_full(provider, user_providers, custom_providers)
+                provider_def = _resolve_provider_full(
+                    provider, user_providers, custom_providers)
                 catalog_provider = provider_def.id if provider_def is not None else None
                 if catalog_provider is not None:
                     provider_ids_to_accept.add(catalog_provider)
@@ -726,7 +805,8 @@ def run_doctor(args):
                     known_providers
                     and not (provider_ids_to_accept & valid_provider_ids)
                 ):
-                    known_list = ", ".join(sorted(known_providers)) if known_providers else "(unavailable)"
+                    known_list = ", ".join(
+                        sorted(known_providers)) if known_providers else "(unavailable)"
                     _fail_and_issue(
                         f"model.provider '{provider_raw}' is not a recognised provider",
                         f"(known: {known_list})",
@@ -741,7 +821,8 @@ def run_doctor(args):
             # Warn if model is set to a provider-prefixed name on a provider that doesn't use them.
             # Vendor/model slugs are valid on aggregator-style providers and on any custom
             # provider — bare "custom" or a named "custom:<name>" that fronts an OpenAI-compatible
-            # aggregator (e.g. custom:hpc-ai serving deepseek/deepseek-v4-flash) requires the prefix.
+            # aggregator (e.g. custom:hpc-ai serving
+            # deepseek/deepseek-v4-flash) requires the prefix.
             provider_for_policy = runtime_provider or catalog_provider
             provider_policy_id = str(provider_for_policy or "").strip().lower()
             providers_accepting_vendor_slugs = {
@@ -793,7 +874,8 @@ def run_doctor(args):
 
                         pconfig = PROVIDER_REGISTRY.get(runtime_provider)
                         configured = True
-                        if pconfig and getattr(pconfig, "auth_type", "") == "api_key":
+                        if pconfig and getattr(
+                                pconfig, "auth_type", "") == "api_key":
                             status = get_auth_status(runtime_provider) or {}
                             configured = bool(
                                 status.get("configured")
@@ -826,7 +908,8 @@ def run_doctor(args):
                 example_config = PROJECT_ROOT / 'cli-config.yaml.example'
                 if example_config.exists():
                     shutil.copy2(str(example_config), str(config_path))
-                    check_ok(f"Created {_DHH}/config.yaml from cli-config.yaml.example")
+                    check_ok(
+                        f"Created {_DHH}/config.yaml from cli-config.yaml.example")
                 else:
                     from nastech_cli.config import DEFAULT_CONFIG, save_config
                     save_config(DEFAULT_CONFIG)
@@ -855,7 +938,8 @@ def run_doctor(args):
                         check_warn(f"Auto-migration failed: {mig_err}")
                         issues.append("Run 'nastech setup' to migrate config")
                 else:
-                    issues.append("Run 'nastech doctor --fix' or 'nastech setup' to migrate config")
+                    issues.append(
+                        "Run 'nastech doctor --fix' or 'nastech setup' to migrate config")
             else:
                 check_ok(f"Config version up to date (v{current_ver})")
         except Exception:
@@ -866,16 +950,23 @@ def run_doctor(args):
             import yaml
             with open(config_path, encoding="utf-8") as f:
                 raw_config = yaml.safe_load(f) or {}
-            stale_root_keys = [k for k in ("provider", "base_url") if k in raw_config and isinstance(raw_config[k], str)]
+            stale_root_keys = [
+                k for k in (
+                    "provider",
+                    "base_url") if k in raw_config and isinstance(
+                    raw_config[k],
+                    str)]
             if stale_root_keys:
                 check_warn(
-                    f"Stale root-level config keys: {', '.join(stale_root_keys)}",
+                    f"Stale root-level config keys: {
+                        ', '.join(stale_root_keys)}",
                     "(should be under 'model:' section)"
                 )
                 if should_fix:
                     # Coerce scalar/None ``model:`` into a dict before mutation —
                     # ``setdefault("model", {})`` would return an existing scalar
-                    # and then ``model_section[k] = ...`` would raise TypeError.
+                    # and then ``model_section[k] = ...`` would raise
+                    # TypeError.
                     raw_model = raw_config.get("model")
                     if isinstance(raw_model, dict):
                         model_section = raw_model
@@ -895,7 +986,8 @@ def run_doctor(args):
                     check_ok("Migrated stale root-level keys into model section")
                     fixed_count += 1
                 else:
-                    issues.append("Stale root-level provider/base_url in config.yaml — run 'nastech doctor --fix'")
+                    issues.append(
+                        "Stale root-level provider/base_url in config.yaml — run 'nastech doctor --fix'")
         except Exception:
             pass
 
@@ -943,7 +1035,8 @@ def run_doctor(args):
                         )
                         fixed_count += 1
                     else:
-                        check_warn("Could not remove NASTECH_MAX_ITERATIONS from .env")
+                        check_warn(
+                            "Could not remove NASTECH_MAX_ITERATIONS from .env")
                         manual_issues.append(
                             "Manually delete the NASTECH_MAX_ITERATIONS line from "
                             f"{_DHH}/.env — config.yaml agent.max_turns is authoritative."
@@ -1003,10 +1096,10 @@ def run_doctor(args):
 
     try:
         from nastech_cli.auth import (
-            get_nastech_auth_status,
             get_codex_auth_status,
             get_gemini_oauth_auth_status,
             get_minimax_oauth_auth_status,
+            get_nastech_auth_status,
         )
 
         nastech_status = get_nastech_auth_status()
@@ -1025,7 +1118,8 @@ def run_doctor(args):
             # Native OAuth uses NasTech' own device-code flow — the Codex CLI is
             # only needed to import existing tokens from ~/.codex/auth.json.
             # Attach the hint to the Codex auth row so it doesn't read as
-            # remediation for whichever provider happens to print next (#27975).
+            # remediation for whichever provider happens to print next
+            # (#27975).
             if not _safe_which("codex"):
                 check_info(
                     "codex CLI not installed "
@@ -1080,7 +1174,7 @@ def run_doctor(args):
         fixed_count += 1
     else:
         check_warn(f"{_DHH} not found", "(will be created on first use)")
-    
+
     # Check expected subdirectories
     expected_subdirs = ["cron", "sessions", "logs", "skills", "memories"]
     for subdir_name in expected_subdirs:
@@ -1092,20 +1186,25 @@ def run_doctor(args):
             check_ok(f"Created {_DHH}/{subdir_name}/")
             fixed_count += 1
         else:
-            check_warn(f"{_DHH}/{subdir_name}/ not found", "(will be created on first use)")
-    
+            check_warn(
+                f"{_DHH}/{subdir_name}/ not found",
+                "(will be created on first use)")
+
     # Check for SOUL.md persona file
     soul_path = nastech_home / "SOUL.md"
     if soul_path.exists():
         content = soul_path.read_text(encoding="utf-8").strip()
         # Check if it's just the template comments (no real content)
-        lines = [l for l in content.splitlines() if l.strip() and not l.strip().startswith(("<!--", "-->", "#"))]
+        lines = [l for l in content.splitlines() if l.strip(
+        ) and not l.strip().startswith(("<!--", "-->", "#"))]
         if lines:
             check_ok(f"{_DHH}/SOUL.md exists (persona configured)")
         else:
-            check_info(f"{_DHH}/SOUL.md exists but is empty — edit it to customize personality")
+            check_info(
+                f"{_DHH}/SOUL.md exists but is empty — edit it to customize personality")
     else:
-        check_warn(f"{_DHH}/SOUL.md not found", "(create it to give NasTech a custom personality)")
+        check_warn(f"{_DHH}/SOUL.md not found",
+                   "(create it to give NasTech a custom personality)")
         if should_fix:
             soul_path.parent.mkdir(parents=True, exist_ok=True)
             soul_path.write_text(
@@ -1116,7 +1215,7 @@ def run_doctor(args):
             )
             check_ok(f"Created {_DHH}/SOUL.md with basic template")
             fixed_count += 1
-    
+
     # Check memory directory
     memories_dir = nastech_home / "memories"
     if memories_dir.exists():
@@ -1127,19 +1226,23 @@ def run_doctor(args):
             size = len(memory_file.read_text(encoding="utf-8").strip())
             check_ok(f"MEMORY.md exists ({size} chars)")
         else:
-            check_info("MEMORY.md not created yet (will be created when the agent first writes a memory)")
+            check_info(
+                "MEMORY.md not created yet (will be created when the agent first writes a memory)")
         if user_file.exists():
             size = len(user_file.read_text(encoding="utf-8").strip())
             check_ok(f"USER.md exists ({size} chars)")
         else:
-            check_info("USER.md not created yet (will be created when the agent first writes a memory)")
+            check_info(
+                "USER.md not created yet (will be created when the agent first writes a memory)")
     else:
-        check_warn(f"{_DHH}/memories/ not found", "(will be created on first use)")
+        check_warn(
+            f"{_DHH}/memories/ not found",
+            "(will be created on first use)")
         if should_fix:
             memories_dir.mkdir(parents=True, exist_ok=True)
             check_ok(f"Created {_DHH}/memories/")
             fixed_count += 1
-    
+
     # Check SQLite session store
     state_db_path = nastech_home / "state.db"
     if state_db_path.exists():
@@ -1153,7 +1256,8 @@ def run_doctor(args):
         except Exception as e:
             check_warn(f"{_DHH}/state.db exists but has issues: {e}")
     else:
-        check_info(f"{_DHH}/state.db not created yet (will be created on first session)")
+        check_info(
+            f"{_DHH}/state.db not created yet (will be created on first session)")
 
     # Check WAL file size (unbounded growth indicates missed checkpoints)
     wal_path = nastech_home / "state.db-wal"
@@ -1162,7 +1266,7 @@ def run_doctor(args):
             wal_size = wal_path.stat().st_size
             if wal_size > 50 * 1024 * 1024:  # 50 MB
                 check_warn(
-                    f"WAL file is large ({wal_size // (1024*1024)} MB)",
+                    f"WAL file is large ({wal_size // (1024 * 1024)} MB)",
                     "(may indicate missed checkpoints)"
                 )
                 if should_fix:
@@ -1171,12 +1275,19 @@ def run_doctor(args):
                     conn.execute("PRAGMA wal_checkpoint(PASSIVE)")
                     conn.close()
                     new_size = wal_path.stat().st_size if wal_path.exists() else 0
-                    check_ok(f"WAL checkpoint performed ({wal_size // 1024}K → {new_size // 1024}K)")
+                    check_ok(
+                        f"WAL checkpoint performed ({
+                            wal_size //
+                            1024}K → {
+                            new_size //
+                            1024}K)")
                     fixed_count += 1
                 else:
-                    issues.append("Large WAL file — run 'nastech doctor --fix' to checkpoint")
+                    issues.append(
+                        "Large WAL file — run 'nastech doctor --fix' to checkpoint")
             elif wal_size > 10 * 1024 * 1024:  # 10 MB
-                check_info(f"WAL file is {wal_size // (1024*1024)} MB (normal for active sessions)")
+                check_info(
+                    f"WAL file is {wal_size // (1024 * 1024)} MB (normal for active sessions)")
         except Exception:
             pass
 
@@ -1193,9 +1304,11 @@ def run_doctor(args):
                 _venv_bin = _candidate
                 break
 
-        # Determine the expected command link directory (mirrors install.sh logic)
+        # Determine the expected command link directory (mirrors install.sh
+        # logic)
         _prefix = os.environ.get("PREFIX", "")
-        _is_termux_env = bool(os.environ.get("TERMUX_VERSION")) or "com.termux/files/usr" in _prefix
+        _is_termux_env = bool(os.environ.get(
+            "TERMUX_VERSION")) or "com.termux/files/usr" in _prefix
         if _is_termux_env and _prefix:
             _cmd_link_dir = Path(_prefix) / "bin"
             _cmd_link_display = "$PREFIX/bin"
@@ -1213,7 +1326,9 @@ def run_doctor(args):
                 f"Reinstall entry point: cd {PROJECT_ROOT} && source venv/bin/activate && pip install -e '.[all]'"
             )
         else:
-            check_ok(f"Venv entry point exists ({_venv_bin.relative_to(PROJECT_ROOT)})")
+            check_ok(
+                f"Venv entry point exists ({
+                    _venv_bin.relative_to(PROJECT_ROOT)})")
 
             # Check the symlink at the command link location
             if _cmd_link.is_symlink():
@@ -1229,12 +1344,15 @@ def run_doctor(args):
                     if should_fix:
                         _cmd_link.unlink()
                         _cmd_link.symlink_to(_venv_bin)
-                        check_ok(f"Fixed symlink: {_cmd_link_display}/nastech → {_venv_bin}")
+                        check_ok(
+                            f"Fixed symlink: {_cmd_link_display}/nastech → {_venv_bin}")
                         fixed_count += 1
                     else:
-                        issues.append(f"Broken symlink at {_cmd_link_display}/nastech — run 'nastech doctor --fix'")
+                        issues.append(
+                            f"Broken symlink at {_cmd_link_display}/nastech — run 'nastech doctor --fix'")
             elif _cmd_link.exists():
-                # It's a regular file, not a symlink — possibly a wrapper script
+                # It's a regular file, not a symlink — possibly a wrapper
+                # script
                 check_ok(f"{_cmd_link_display}/nastech exists (non-symlink)")
             else:
                 check_fail(
@@ -1244,7 +1362,8 @@ def run_doctor(args):
                 if should_fix:
                     _cmd_link_dir.mkdir(parents=True, exist_ok=True)
                     _cmd_link.symlink_to(_venv_bin)
-                    check_ok(f"Created symlink: {_cmd_link_display}/nastech → {_venv_bin}")
+                    check_ok(
+                        f"Created symlink: {_cmd_link_display}/nastech → {_venv_bin}")
                     fixed_count += 1
 
                     # Check if the link dir is on PATH
@@ -1254,9 +1373,11 @@ def run_doctor(args):
                             f"{_cmd_link_display} is not on your PATH",
                             "(add it to your shell config: export PATH=\"$HOME/.local/bin:$PATH\")"
                         )
-                        manual_issues.append(f"Add {_cmd_link_display} to your PATH")
+                        manual_issues.append(
+                            f"Add {_cmd_link_display} to your PATH")
                 else:
-                    issues.append(f"Missing {_cmd_link_display}/nastech symlink — run 'nastech doctor --fix'")
+                    issues.append(
+                        f"Missing {_cmd_link_display}/nastech symlink — run 'nastech doctor --fix'")
 
     _section("External Tools")
     # Git
@@ -1264,14 +1385,18 @@ def run_doctor(args):
         check_ok("git")
     else:
         check_warn("git not found", "(optional)")
-    
+
     # ripgrep (optional, for faster file search)
     if _safe_which("rg"):
         check_ok("ripgrep (rg)", "(faster file search)")
     else:
-        check_warn("ripgrep (rg) not found", "(file search uses grep fallback)")
-        check_info(f"Install for faster search: {_system_package_install_cmd('ripgrep')}")
-    
+        check_warn(
+            "ripgrep (rg) not found",
+            "(file search uses grep fallback)")
+        check_info(
+            f"Install for faster search: {
+                _system_package_install_cmd('ripgrep')}")
+
     # Docker (optional)
     terminal_env = os.getenv("TERMINAL_ENV", "local")
     try:
@@ -1298,13 +1423,18 @@ def run_doctor(args):
         if _safe_which("docker"):
             # Check if docker daemon is running
             try:
-                result = subprocess.run(["docker", "info"], capture_output=True, timeout=10)
+                result = subprocess.run(
+                    ["docker", "info"], capture_output=True, timeout=10)
             except subprocess.TimeoutExpired:
                 result = None
             if result is not None and result.returncode == 0:
                 check_ok("docker", "(daemon running)")
             else:
-                _fail_and_issue("docker daemon not running", "", "Start Docker daemon", issues)
+                _fail_and_issue(
+                    "docker daemon not running",
+                    "",
+                    "Start Docker daemon",
+                    issues)
         else:
             _fail_and_issue(
                 "docker not found",
@@ -1315,12 +1445,13 @@ def run_doctor(args):
     elif _safe_which("docker"):
         check_ok("docker", "(optional)")
     elif _is_termux():
-        check_info("Docker backend is not available inside Termux (expected on Android)")
+        check_info(
+            "Docker backend is not available inside Termux (expected on Android)")
     elif running_in_container:
         pass  # already explained above
     else:
         check_warn("docker not found", "(optional)")
-    
+
     # SSH (if using ssh backend)
     if terminal_env == "ssh":
         ssh_host = os.getenv("TERMINAL_SSH_HOST")
@@ -1348,7 +1479,11 @@ def run_doctor(args):
             if result is not None and result.returncode == 0:
                 check_ok(f"SSH connection to {ssh_host}")
             else:
-                _fail_and_issue(f"SSH connection to {ssh_host}", "", f"Check SSH configuration for {ssh_host}", issues)
+                _fail_and_issue(
+                    f"SSH connection to {ssh_host}",
+                    "",
+                    f"Check SSH configuration for {ssh_host}",
+                    issues)
         else:
             _fail_and_issue(
                 "TERMINAL_SSH_HOST not set",
@@ -1356,7 +1491,7 @@ def run_doctor(args):
                 "Set TERMINAL_SSH_HOST in .env",
                 issues,
             )
-    
+
     # Daytona (if using daytona backend)
     if terminal_env == "daytona":
         daytona_key = os.getenv("DAYTONA_API_KEY")
@@ -1393,8 +1528,10 @@ def run_doctor(args):
             check_ok("agent-browser", "(browser automation)")
             agent_browser_ok = True
         elif _is_termux():
-            check_info("agent-browser is not installed (expected in the tested Termux path)")
-            check_info("Install it manually later with: npm install -g agent-browser && agent-browser install")
+            check_info(
+                "agent-browser is not installed (expected in the tested Termux path)")
+            check_info(
+                "Install it manually later with: npm install -g agent-browser && agent-browser install")
             check_info("Termux browser setup:")
             for step in _termux_browser_setup_steps(node_installed=True):
                 check_info(step)
@@ -1413,9 +1550,9 @@ def run_doctor(args):
                 # to eagerly load in every `nastech doctor` invocation.
                 from tools.browser_tool import (
                     _chromium_installed,
-                    _is_camofox_mode,
-                    _get_cloud_provider,
                     _get_cdp_override,
+                    _get_cloud_provider,
+                    _is_camofox_mode,
                     _using_lightpanda_engine,
                 )
             except Exception:
@@ -1451,14 +1588,15 @@ def run_doctor(args):
                                 "npx playwright install --with-deps chromium"
                             )
     elif _is_termux():
-        check_info("Node.js not found (browser tools are optional in the tested Termux path)")
+        check_info(
+            "Node.js not found (browser tools are optional in the tested Termux path)")
         check_info("Install Node.js on Termux with: pkg install nodejs")
         check_info("Termux browser setup:")
         for step in _termux_browser_setup_steps(node_installed=False):
             check_info(step)
     else:
         check_warn("Node.js not found", "(optional, needed for browser tools)")
-    
+
     # npm audit for all Node.js packages
     _npm_bin = _safe_which("npm")
     if _npm_bin:
@@ -1468,7 +1606,9 @@ def run_doctor(args):
         # for a routine security check. The web and ui-tui workspaces are
         # audited separately via --workspace flags. See #38772.
         npm_audit_targets = [
-            (PROJECT_ROOT, "Browser tools (agent-browser)", ["--workspaces=false"]),
+            (PROJECT_ROOT,
+             "Browser tools (agent-browser)",
+             ["--workspaces=false"]),
             (PROJECT_ROOT, "web workspace", ["--workspace", "web"]),
             (PROJECT_ROOT, "ui-tui workspace", ["--workspace", "ui-tui"]),
             (PROJECT_ROOT / "scripts" / "whatsapp-bridge", "WhatsApp bridge", []),
@@ -1489,8 +1629,11 @@ def run_doctor(args):
                     capture_output=True, text=True, timeout=30,
                 )
                 import json as _json
-                audit_data = _json.loads(audit_result.stdout) if audit_result.stdout.strip() else {}
-                vuln_count = audit_data.get("metadata", {}).get("vulnerabilities", {})
+                audit_data = _json.loads(
+                    audit_result.stdout) if audit_result.stdout.strip() else {}
+                vuln_count = audit_data.get(
+                    "metadata", {}).get(
+                    "vulnerabilities", {})
                 critical = vuln_count.get("critical", 0)
                 high = vuln_count.get("high", 0)
                 moderate = vuln_count.get("moderate", 0)
@@ -1617,16 +1760,17 @@ def run_doctor(args):
         try:
             import httpx
             from agent.anthropic_adapter import (
-                _is_oauth_token,
                 _COMMON_BETAS,
-                _OAUTH_ONLY_BETAS,
                 _CONTEXT_1M_BETA,
+                _OAUTH_ONLY_BETAS,
+                _is_oauth_token,
             )
             headers = {"anthropic-version": "2023-06-01"}
             is_oauth = _is_oauth_token(key)
             if is_oauth:
                 headers["Authorization"] = f"Bearer {key}"
-                headers["anthropic-beta"] = ",".join(_COMMON_BETAS + _OAUTH_ONLY_BETAS)
+                headers["anthropic-beta"] = ",".join(
+                    _COMMON_BETAS + _OAUTH_ONLY_BETAS)
             else:
                 headers["x-api-key"] = key
             r = httpx.get(
@@ -1708,7 +1852,8 @@ def run_doctor(args):
             if base and base.rstrip("/").endswith("/anthropic"):
                 from agent.auxiliary_client import _to_openai_base_url
                 base = _to_openai_base_url(base)
-            if base_url_host_matches(base, "api.kimi.com") and base.rstrip("/").endswith("/coding"):
+            if base_url_host_matches(base, "api.kimi.com") and base.rstrip(
+                    "/").endswith("/coding"):
                 base = base.rstrip("/") + "/v1"
             url = (base.rstrip("/") + "/models") if base else default_url
             headers = {
@@ -1722,8 +1867,10 @@ def run_doctor(args):
             # ``ACCESS_TOKEN_TYPE_UNSUPPORTED`` — that header is reserved for
             # OAuth 2 access tokens, not plain API keys. Plain keys use
             # ``x-goog-api-key`` (or ``?key=``). Without this, a perfectly valid
-            # GOOGLE_API_KEY/GEMINI_API_KEY always shows red in ``nastech doctor``.
-            if url and base_url_host_matches(url, "generativelanguage.googleapis.com"):
+            # GOOGLE_API_KEY/GEMINI_API_KEY always shows red in ``nastech
+            # doctor``.
+            if url and base_url_host_matches(
+                    url, "generativelanguage.googleapis.com"):
                 headers.pop("Authorization", None)
                 headers["x-goog-api-key"] = key
             r = httpx.get(url, headers=headers, timeout=10)
@@ -1780,6 +1927,7 @@ def run_doctor(args):
         try:
             import boto3
             from botocore.config import Config as _BotoConfig
+
             # Trim retries on the actual Bedrock API call so a transient
             # failure doesn't pad the doctor run by 30+ seconds.
             cfg = _BotoConfig(
@@ -1802,7 +1950,9 @@ def run_doctor(args):
                 [(color("⚠", Colors.YELLOW), label,
                   color(f"(boto3 not installed — {sys.executable} -m pip install boto3)",
                         Colors.DIM))],
-                [f"Install boto3 for Bedrock: {sys.executable} -m pip install boto3"],
+                [
+                    f"Install boto3 for Bedrock: {
+                        sys.executable} -m pip install boto3"],
             )
         except Exception as e:
             err_name = type(e).__name__
@@ -1841,8 +1991,8 @@ def run_doctor(args):
 
         try:
             from agent.azure_identity_adapter import (
-                EntraIdentityConfig,
                 SCOPE_AI_AZURE_DEFAULT,
+                EntraIdentityConfig,
                 describe_active_credential,
                 has_azure_identity_installed,
             )
@@ -1876,7 +2026,8 @@ def run_doctor(args):
         info = describe_active_credential(config=config, timeout_seconds=10.0)
         if info.get("ok"):
             env_sources = info.get("env_sources") or []
-            tag = ", ".join(env_sources) if env_sources else "default credential chain"
+            tag = ", ".join(
+                env_sources) if env_sources else "default credential chain"
             return _ConnectivityResult(
                 "Azure Foundry (Entra ID)",
                 [(color("✓", Colors.GREEN), label,
@@ -1908,8 +2059,8 @@ def run_doctor(args):
         # would share the final iteration's values and every probe would hit
         # the last provider's URL.
         _probes.append((_pname, lambda p=_pname, e=_env_vars, u=_default_url,
-                                       b=_base_env, s=_supports:
-                                _probe_apikey_provider(p, e, u, b, s)))
+                        b=_base_env, s=_supports:
+                        _probe_apikey_provider(p, e, u, b, s)))
 
     _probes.append(("AWS Bedrock", _probe_bedrock))
     _probes.append(("Azure Foundry (Entra ID)", _probe_azure_entra))
@@ -1953,7 +2104,8 @@ def run_doctor(args):
             else:
                 print(f"  {_glyph} {_label}")
         _issues_to_add = list(_r.issues)
-        if _issues_to_add and _has_healthy_oauth_fallback_for_apikey_provider(_r.label):
+        if _issues_to_add and _has_healthy_oauth_fallback_for_apikey_provider(
+                _r.label):
             _issues_to_add = []
         for _issue in _issues_to_add:
             issues.append(_issue)
@@ -1962,15 +2114,20 @@ def run_doctor(args):
     try:
         # Add project root to path for imports
         sys.path.insert(0, str(PROJECT_ROOT))
-        from model_tools import check_tool_availability, TOOLSET_REQUIREMENTS
-        
+        from model_tools import TOOLSET_REQUIREMENTS, check_tool_availability
+
         available, unavailable = check_tool_availability()
-        available, unavailable = _apply_doctor_tool_availability_overrides(available, unavailable)
-        
+        available, unavailable = _apply_doctor_tool_availability_overrides(
+            available, unavailable)
+
         for tid in available:
             info = TOOLSET_REQUIREMENTS.get(tid, {})
-            check_ok(info.get("name", tid), _doctor_tool_availability_detail(tid))
-        
+            check_ok(
+                info.get(
+                    "name",
+                    tid),
+                _doctor_tool_availability_detail(tid))
+
         for item in unavailable:
             env_vars = item.get("missing_vars") or item.get("env_vars") or []
             if env_vars:
@@ -1980,12 +2137,15 @@ def run_doctor(args):
                 check_warn(item["name"], "(system dependency not met)")
 
         # Count disabled tools with API key requirements
-        api_disabled = [u for u in unavailable if (u.get("missing_vars") or u.get("env_vars"))]
+        api_disabled = [
+            u for u in unavailable if (
+                u.get("missing_vars") or u.get("env_vars"))]
         if api_disabled:
-            issues.append("Run 'nastech setup' to configure missing API keys for full tool access")
+            issues.append(
+                "Run 'nastech setup' to configure missing API keys for full tool access")
     except Exception as e:
         check_warn("Could not check tool availability", f"({e})")
-    
+
     _section("Skills Hub")
     hub_dir = NASTECH_HOME / "skills" / ".hub"
     if hub_dir.exists():
@@ -2000,11 +2160,14 @@ def run_doctor(args):
             except Exception:
                 check_warn("Lock file", "(corrupted or unreadable)")
         quarantine = hub_dir / "quarantine"
-        q_count = sum(1 for d in quarantine.iterdir() if d.is_dir()) if quarantine.exists() else 0
+        q_count = sum(1 for d in quarantine.iterdir()
+                      if d.is_dir()) if quarantine.exists() else 0
         if q_count > 0:
             check_warn(f"{q_count} skill(s) in quarantine", "(pending review)")
     else:
-        check_warn("Skills Hub directory not initialized", "(run: nastech skills list)")
+        check_warn(
+            "Skills Hub directory not initialized",
+            "(run: nastech skills list)")
 
     from nastech_cli.config import get_env_value
 
@@ -2023,9 +2186,12 @@ def run_doctor(args):
     if github_token:
         check_ok("GitHub token configured (authenticated API access)")
     elif _gh_authenticated():
-        check_ok("GitHub authenticated via gh CLI", "(full API access — no GITHUB_TOKEN needed)")
+        check_ok("GitHub authenticated via gh CLI",
+                 "(full API access — no GITHUB_TOKEN needed)")
     else:
-        check_warn("No GITHUB_TOKEN", f"(60 req/hr rate limit — set in {_DHH}/.env for better rates)")
+        check_warn(
+            "No GITHUB_TOKEN",
+            f"(60 req/hr rate limit — set in {_DHH}/.env for better rates)")
 
     _section("Memory Provider")
     _active_memory_provider = ""
@@ -2035,30 +2201,41 @@ def run_doctor(args):
         if _mem_cfg_path.exists():
             with open(_mem_cfg_path, encoding="utf-8") as _f:
                 _raw_cfg = _yaml.safe_load(_f) or {}
-            _active_memory_provider = (_raw_cfg.get("memory") or {}).get("provider", "")
+            _active_memory_provider = (
+                _raw_cfg.get("memory") or {}).get(
+                "provider", "")
     except Exception:
         pass
 
     if not _active_memory_provider:
-        check_ok("Built-in memory active", "(no external provider configured — this is fine)")
+        check_ok(
+            "Built-in memory active",
+            "(no external provider configured — this is fine)")
     elif _active_memory_provider == "honcho":
         try:
-            from plugins.memory.honcho.client import HonchoClientConfig, resolve_config_path
+            from plugins.memory.honcho.client import (
+                HonchoClientConfig,
+                resolve_config_path,
+            )
             hcfg = HonchoClientConfig.from_global_config()
             _honcho_cfg_path = resolve_config_path()
 
             if not _honcho_cfg_path.exists():
                 # Config file missing — but env var fallback may have resolved it.
-                # Only warn if the config didn't actually resolve from env vars.
+                # Only warn if the config didn't actually resolve from env
+                # vars.
                 if hcfg.api_key or hcfg.base_url:
                     check_ok(
                         "Honcho configured via environment variables",
                         f"config file {_honcho_cfg_path} not found, using HONCHO_API_KEY env var",
                     )
                 else:
-                    check_warn("Honcho config not found", "run: nastech memory setup")
+                    check_warn(
+                        "Honcho config not found",
+                        "run: nastech memory setup")
             elif not hcfg.enabled:
-                check_info(f"Honcho disabled (set enabled: true in {_honcho_cfg_path} to activate)")
+                check_info(
+                    f"Honcho disabled (set enabled: true in {_honcho_cfg_path} to activate)")
             elif not (hcfg.api_key or hcfg.base_url):
                 _fail_and_issue(
                     "Honcho API key or base URL not set",
@@ -2067,16 +2244,23 @@ def run_doctor(args):
                     issues,
                 )
             else:
-                from plugins.memory.honcho.client import get_honcho_client, reset_honcho_client
+                from plugins.memory.honcho.client import (
+                    get_honcho_client,
+                    reset_honcho_client,
+                )
                 reset_honcho_client()
                 try:
                     get_honcho_client(hcfg)
                     check_ok(
                         "Honcho connected",
-                        f"workspace={hcfg.workspace_id} mode={hcfg.recall_mode} freq={hcfg.write_frequency}",
+                        f"workspace={
+                            hcfg.workspace_id} mode={
+                            hcfg.recall_mode} freq={
+                            hcfg.write_frequency}",
                     )
                 except Exception as _e:
-                    _fail_and_issue("Honcho connection failed", str(_e), f"Honcho unreachable: {_e}", issues)
+                    _fail_and_issue("Honcho connection failed", str(
+                        _e), f"Honcho unreachable: {_e}", issues)
         except ImportError:
             _fail_and_issue(
                 "honcho-ai not installed",
@@ -2093,7 +2277,14 @@ def run_doctor(args):
             mem0_key = mem0_cfg.get("api_key", "")
             if mem0_key:
                 check_ok("Mem0 API key configured")
-                check_info(f"user_id={mem0_cfg.get('user_id', '?')}  agent_id={mem0_cfg.get('agent_id', '?')}")
+                check_info(
+                    f"user_id={
+                        mem0_cfg.get(
+                            'user_id',
+                            '?')}  agent_id={
+                        mem0_cfg.get(
+                            'agent_id',
+                            '?')}")
             else:
                 _fail_and_issue(
                     "Mem0 API key not set",
@@ -2111,22 +2302,28 @@ def run_doctor(args):
         except Exception as _e:
             check_warn("Mem0 check failed", str(_e))
     else:
-        # Generic check for other memory providers (openviking, hindsight, etc.)
+        # Generic check for other memory providers (openviking, hindsight,
+        # etc.)
         try:
             from plugins.memory import load_memory_provider
             _provider = load_memory_provider(_active_memory_provider)
             if _provider and _provider.is_available():
                 check_ok(f"{_active_memory_provider} provider active")
             elif _provider:
-                check_warn(f"{_active_memory_provider} configured but not available", "run: nastech memory status")
+                check_warn(
+                    f"{_active_memory_provider} configured but not available",
+                    "run: nastech memory status")
             else:
-                check_warn(f"{_active_memory_provider} plugin not found", "run: nastech memory setup")
+                check_warn(
+                    f"{_active_memory_provider} plugin not found",
+                    "run: nastech memory setup")
         except Exception as _e:
             check_warn(f"{_active_memory_provider} check failed", str(_e))
 
     try:
-        from nastech_cli.profiles import list_profiles, _get_wrapper_dir, profile_exists
         import re as _re
+
+        from nastech_cli.profiles import _get_wrapper_dir, list_profiles, profile_exists
 
         named_profiles = [p for p in list_profiles() if not p.is_default]
         if named_profiles:
@@ -2159,7 +2356,10 @@ def run_doctor(args):
                         if "nastech -p" in content:
                             _m = _re.search(r"nastech -p (\S+)", content)
                             if _m and not profile_exists(_m.group(1)):
-                                check_warn(f"Orphan alias: {wrapper.name} → profile '{_m.group(1)}' no longer exists")
+                                check_warn(
+                                    f"Orphan alias: {
+                                        wrapper.name} → profile '{
+                                        _m.group(1)}' no longer exists")
                     except Exception:
                         pass
     except ImportError:
@@ -2171,9 +2371,19 @@ def run_doctor(args):
     remaining_issues = issues + manual_issues
     if should_fix and fixed_count > 0:
         print(color("─" * 60, Colors.GREEN))
-        print(color(f"  Fixed {fixed_count} issue(s).", Colors.GREEN, Colors.BOLD), end="")
+        print(
+            color(
+                f"  Fixed {fixed_count} issue(s).",
+                Colors.GREEN,
+                Colors.BOLD),
+            end="")
         if remaining_issues:
-            print(color(f" {len(remaining_issues)} issue(s) require manual intervention.", Colors.YELLOW, Colors.BOLD))
+            print(
+                color(
+                    f" {
+                        len(remaining_issues)} issue(s) require manual intervention.",
+                    Colors.YELLOW,
+                    Colors.BOLD))
         else:
             print()
         print()
@@ -2183,15 +2393,23 @@ def run_doctor(args):
             print()
     elif remaining_issues:
         print(color("─" * 60, Colors.YELLOW))
-        print(color(f"  Found {len(remaining_issues)} issue(s) to address:", Colors.YELLOW, Colors.BOLD))
+        print(
+            color(
+                f"  Found {
+                    len(remaining_issues)} issue(s) to address:",
+                Colors.YELLOW,
+                Colors.BOLD))
         print()
         for i, issue in enumerate(remaining_issues, 1):
             print(f"  {i}. {issue}")
         print()
         if not should_fix:
-            print(color("  Tip: run 'nastech doctor --fix' to auto-fix what's possible.", Colors.DIM))
+            print(
+                color(
+                    "  Tip: run 'nastech doctor --fix' to auto-fix what's possible.",
+                    Colors.DIM))
     else:
         print(color("─" * 60, Colors.GREEN))
         print(color("  All checks passed! 🎉", Colors.GREEN, Colors.BOLD))
-    
+
     print()

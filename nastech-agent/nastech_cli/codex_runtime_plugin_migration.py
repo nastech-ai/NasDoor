@@ -92,7 +92,9 @@ class MigrationReport:
             for name in self.migrated_plugins:
                 lines.append(f"  - {name}")
         elif self.plugin_query_error:
-            lines.append(f"Codex plugin discovery skipped: {self.plugin_query_error}")
+            lines.append(
+                f"Codex plugin discovery skipped: {
+                    self.plugin_query_error}")
         if self.wrote_permissions_default:
             lines.append(
                 f"Wrote default_permissions = "
@@ -182,7 +184,8 @@ def _translate_one_server(
         except (TypeError, ValueError):
             skipped.append("connect_timeout (not numeric)")
 
-    # Enabled flag (codex defaults to true so we only emit when explicitly false)
+    # Enabled flag (codex defaults to true so we only emit when explicitly
+    # false)
     if nastech_cfg.get("enabled") is False:
         out["enabled"] = False
 
@@ -243,6 +246,7 @@ def _quote_key(key: str) -> str:
     escaped = key.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
 
+
 def render_codex_toml_section(
     servers: dict[str, dict],
     plugins: Optional[list[dict]] = None,
@@ -263,7 +267,8 @@ def render_codex_toml_section(
     """
     out = [MIGRATION_MARKER]
     if not servers and not plugins and not default_permission_profile:
-        out.append("# (no MCP servers, plugins, or permissions configured by NasTech)")
+        out.append(
+            "# (no MCP servers, plugins, or permissions configured by NasTech)")
         out.append(MIGRATION_END_MARKER)
         return "\n".join(out) + "\n"
 
@@ -290,7 +295,8 @@ def render_codex_toml_section(
                 out.append(f"{_quote_key(k)} = {_format_toml_value(v)}")
 
     if plugins:
-        for plugin in sorted(plugins, key=lambda p: f"{p.get('name','')}@{p.get('marketplace','')}"):
+        for plugin in sorted(
+                plugins, key=lambda p: f"{p.get('name', '')}@{p.get('marketplace', '')}"):
             name = plugin.get("name") or ""
             marketplace = plugin.get("marketplace") or "openai-curated"
             enabled = bool(plugin.get("enabled", True))
@@ -304,7 +310,8 @@ def render_codex_toml_section(
     return "\n".join(out) + "\n"
 
 
-def _insert_managed_block_at_top_level(user_text: str, managed_block: str) -> str:
+def _insert_managed_block_at_top_level(
+        user_text: str, managed_block: str) -> str:
     """Insert NasTech' managed Codex TOML block while keeping root keys root-scoped.
 
     TOML has no syntax to return to the document root after a table header.
@@ -658,7 +665,9 @@ def migrate(
         out, skipped = _translate_one_server(str(name), cfg or {})
         if out is None:
             report.errors.append(
-                f"server {name!r} skipped: {', '.join(skipped) or 'no transport configured'}"
+                f"server {
+                    name!r} skipped: {
+                    ', '.join(skipped) or 'no transport configured'}"
             )
             continue
         translated[str(name)] = out
@@ -721,7 +730,8 @@ def migrate(
         # those pre-existing tables since plugin/list is the source of truth.
         if plugin_query_succeeded:
             without_managed = _strip_unmanaged_plugin_tables(without_managed)
-        new_text = _insert_managed_block_at_top_level(without_managed, managed_block)
+        new_text = _insert_managed_block_at_top_level(
+            without_managed, managed_block)
     else:
         new_text = managed_block
 

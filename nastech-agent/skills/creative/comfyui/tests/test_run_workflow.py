@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-
-
 from extract_schema import extract_schema
 from run_workflow import (
     ComfyRunner,
@@ -62,7 +60,8 @@ class TestInjectParams:
     def test_randomize_seed_when_unset(self, sd15_workflow):
         schema = extract_schema(sd15_workflow)
         original = sd15_workflow["3"]["inputs"]["seed"]
-        wf, warnings = inject_params(sd15_workflow, schema, {}, randomize_seed_if_unset=True)
+        wf, warnings = inject_params(
+            sd15_workflow, schema, {}, randomize_seed_if_unset=True)
         assert wf["3"]["inputs"]["seed"] != original
         assert isinstance(wf["3"]["inputs"]["seed"], int)
 
@@ -78,7 +77,8 @@ class TestInjectParams:
             "5": {"class_type": "EmptyLatentImage",
                   "inputs": {"width": 512, "height": 512, "batch_size": 1}},
             "6": {"class_type": "CLIPTextEncode",
-                  "inputs": {"text": ["3", 0], "clip": ["1", 1]}},  # text is a link!
+                  # text is a link!
+                  "inputs": {"text": ["3", 0], "clip": ["1", 1]}},
             "3": {"class_type": "KSampler",
                   "inputs": {"seed": 1, "steps": 20, "cfg": 7.5,
                              "sampler_name": "euler", "scheduler": "normal", "denoise": 1.0,
@@ -110,7 +110,8 @@ class TestDownloadOutputsWalk:
         downloads = []
 
         class FakeRunner:
-            def download_output(self, *, filename, subfolder, file_type, output_dir, preserve_subfolder, overwrite):
+            def download_output(self, *, filename, subfolder,
+                                file_type, output_dir, preserve_subfolder, overwrite):
                 downloads.append((filename, subfolder, file_type))
                 p = output_dir / filename
                 p.parent.mkdir(parents=True, exist_ok=True)
@@ -130,7 +131,8 @@ class TestDownloadOutputsWalk:
     def test_handles_video_singular_cloud(self, tmp_path):
         """Cloud uses 'video' (singular)."""
         class FakeRunner:
-            def download_output(self, *, filename, subfolder, file_type, output_dir, preserve_subfolder, overwrite):
+            def download_output(self, *, filename, subfolder,
+                                file_type, output_dir, preserve_subfolder, overwrite):
                 p = output_dir / filename
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_bytes(b"x")
@@ -146,7 +148,8 @@ class TestDownloadOutputsWalk:
     def test_preserves_subfolder(self, tmp_path):
         """When preserve_subfolder=True, server subfolder becomes local subdir."""
         class FakeRunner:
-            def download_output(self, *, filename, subfolder, file_type, output_dir, preserve_subfolder, overwrite):
+            def download_output(self, *, filename, subfolder,
+                                file_type, output_dir, preserve_subfolder, overwrite):
                 if preserve_subfolder and subfolder:
                     p = output_dir / subfolder / filename
                 else:
@@ -161,7 +164,11 @@ class TestDownloadOutputsWalk:
                 {"filename": "img.png", "subfolder": "otherrun", "type": "output"},
             ]},
         }
-        result = download_outputs(FakeRunner(), outputs, tmp_path, preserve_subfolder=True)
+        result = download_outputs(
+            FakeRunner(),
+            outputs,
+            tmp_path,
+            preserve_subfolder=True)
         files = [d["file"] for d in result]
         assert any("myrun" in f for f in files)
         assert any("otherrun" in f for f in files)

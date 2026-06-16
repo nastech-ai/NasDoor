@@ -8,9 +8,11 @@ and reusable from both `nastech doctor` and a future `nastech migrate xai`.
 """
 from __future__ import annotations
 
+import datetime as _dt
+import shutil
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional
-
 
 MIGRATION_GUIDE_URL = "https://docs.x.ai/developers/migration/may-15-retirement"
 RETIREMENT_DATE = "May 15, 2026"
@@ -21,14 +23,14 @@ RETIREMENT_DATE = "May 15, 2026"
 # have a one-to-one replacement: ``grok-4.3`` reasons by default, so emulating
 # ``*-non-reasoning`` behavior on it requires ``reasoning_effort="none"``.
 _RETIRED_MODELS: Dict[str, Dict[str, Optional[str]]] = {
-    "grok-4-0709":                  {"replacement": "grok-4.3", "reasoning_effort": None,  "note": None},
-    "grok-4-fast-reasoning":        {"replacement": "grok-4.3", "reasoning_effort": None,  "note": None},
-    "grok-4-fast-non-reasoning":    {"replacement": "grok-4.3", "reasoning_effort": "none", "note": None},
-    "grok-4-1-fast-reasoning":      {"replacement": "grok-4.3", "reasoning_effort": None,  "note": None},
-    "grok-4-1-fast-non-reasoning":  {"replacement": "grok-4.3", "reasoning_effort": "none", "note": None},
-    "grok-code-fast-1":             {"replacement": "grok-4.3", "reasoning_effort": None,  "note": None},
-    "grok-3":                       {"replacement": "grok-4.3", "reasoning_effort": None,  "note": None},
-    "grok-imagine-image-pro":       {"replacement": "grok-imagine-image-quality", "reasoning_effort": None, "note": None},
+    "grok-4-0709": {"replacement": "grok-4.3", "reasoning_effort": None, "note": None},
+    "grok-4-fast-reasoning": {"replacement": "grok-4.3", "reasoning_effort": None, "note": None},
+    "grok-4-fast-non-reasoning": {"replacement": "grok-4.3", "reasoning_effort": "none", "note": None},
+    "grok-4-1-fast-reasoning": {"replacement": "grok-4.3", "reasoning_effort": None, "note": None},
+    "grok-4-1-fast-non-reasoning": {"replacement": "grok-4.3", "reasoning_effort": "none", "note": None},
+    "grok-code-fast-1": {"replacement": "grok-4.3", "reasoning_effort": None, "note": None},
+    "grok-3": {"replacement": "grok-4.3", "reasoning_effort": None, "note": None},
+    "grok-imagine-image-pro": {"replacement": "grok-imagine-image-quality", "reasoning_effort": None, "note": None},
 }
 
 
@@ -37,9 +39,11 @@ class RetirementIssue:
     """A reference to a retired xAI model found in a NasTech config."""
 
     config_path: str            # e.g. "principal.model" or "auxiliary.vision.model"
-    current_model: str          # exact value found in config (preserves casing/prefix)
+    # exact value found in config (preserves casing/prefix)
+    current_model: str
     replacement: str            # recommended xAI replacement
-    reasoning_effort: Optional[str] = None  # set if non-reasoning variant migration
+    # set if non-reasoning variant migration
+    reasoning_effort: Optional[str] = None
     note: Optional[str] = None  # disambiguation note when applicable
 
 
@@ -136,10 +140,6 @@ def format_issue(issue: RetirementIssue) -> str:
 # Apply migration to config.yaml (round-trip preserves comments/order/types)
 # ---------------------------------------------------------------------------
 
-import datetime as _dt
-from pathlib import Path
-import shutil
-
 
 @dataclass(frozen=True)
 class ApplyResult:
@@ -159,11 +159,16 @@ def _walk_to_parent(yaml_doc: Any, dotted_path: str) -> "tuple[Any, str]":
     """
     parts = dotted_path.split(".")
     if len(parts) < 2:
-        raise ValueError(f"Path must have at least one parent: {dotted_path!r}")
+        raise ValueError(
+            f"Path must have at least one parent: {
+                dotted_path!r}")
     node = yaml_doc
     for segment in parts[:-1]:
         if not isinstance(node, dict) or segment not in node:
-            raise KeyError(f"Path segment {segment!r} missing in {dotted_path!r}")
+            raise KeyError(
+                f"Path segment {
+                    segment!r} missing in {
+                    dotted_path!r}")
         node = node[segment]
     return node, parts[-1]
 

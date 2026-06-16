@@ -115,7 +115,8 @@ def parse_blueprint(skill_md_text: str) -> Optional[BlueprintSpec]:
 
     schedule = str(blueprint.get("schedule", "")).strip()
     if not schedule:
-        raise BlueprintError("blueprint.schedule is required and must be non-empty")
+        raise BlueprintError(
+            "blueprint.schedule is required and must be non-empty")
 
     deliver = str(blueprint.get("deliver", "origin")).strip() or "origin"
     prompt = blueprint.get("prompt")
@@ -126,7 +127,8 @@ def parse_blueprint(skill_md_text: str) -> Optional[BlueprintSpec]:
     provider = blueprint.get("provider")
     toolsets = blueprint.get("enabled_toolsets")
     if toolsets is not None and not isinstance(toolsets, list):
-        raise BlueprintError("blueprint.enabled_toolsets must be a list when present")
+        raise BlueprintError(
+            "blueprint.enabled_toolsets must be a list when present")
 
     return BlueprintSpec(
         skill_name=name,
@@ -153,7 +155,8 @@ def blueprint_spec_for_installed(skill_name: str) -> Optional[BlueprintSpec]:
         return None
 
     base = Path(SKILLS_DIR)
-    # Skills live at skills/<category>/<name>/SKILL.md or skills/<name>/SKILL.md.
+    # Skills live at skills/<category>/<name>/SKILL.md or
+    # skills/<name>/SKILL.md.
     candidates = list(base.glob(f"**/{skill_name}/SKILL.md"))
     for path in candidates:
         try:
@@ -214,7 +217,8 @@ def create_blueprint_job(
     return create_job(**job_spec)
 
 
-def register_blueprint_suggestion(spec: BlueprintSpec) -> Optional[Dict[str, Any]]:
+def register_blueprint_suggestion(
+        spec: BlueprintSpec) -> Optional[Dict[str, Any]]:
     """Turn an installed blueprint into a pending Suggested Cron Job.
 
     Blueprints are source ``blueprint`` of the unified suggestion surface: installing
@@ -233,7 +237,9 @@ def register_blueprint_suggestion(spec: BlueprintSpec) -> Optional[Dict[str, Any
     return add_suggestion(
         title=f"Schedule '{spec.skill_name}'",
         description=(
-            f"The '{spec.skill_name}' blueprint runs on schedule {spec.schedule}"
+            f"The '{
+                spec.skill_name}' blueprint runs on schedule {
+                spec.schedule}"
             + (f", delivering to {spec.deliver}" if spec.deliver and spec.deliver != "origin" else "")
             + "."
         ),
@@ -243,7 +249,8 @@ def register_blueprint_suggestion(spec: BlueprintSpec) -> Optional[Dict[str, Any
     )
 
 
-def export_blueprint(job: Dict[str, Any], body: str, *, blueprint_name: Optional[str] = None) -> str:
+def export_blueprint(job: Dict[str, Any], body: str, *,
+                     blueprint_name: Optional[str] = None) -> str:
     """Render a shareable blueprint SKILL.md from an existing cron job dict.
 
     The inverse of ``create_blueprint_job``: take a cron job a user already built
@@ -255,10 +262,12 @@ def export_blueprint(job: Dict[str, Any], body: str, *, blueprint_name: Optional
 
     name = blueprint_name or job.get("name") or "shared-blueprint"
     # Sanitize to a valid skill identifier.
-    name = "".join(c if (c.isalnum() or c in "-_") else "-" for c in str(name).lower())
+    name = "".join(c if (c.isalnum() or c in "-_")
+                   else "-" for c in str(name).lower())
     name = name.strip("-_") or "shared-blueprint"
 
-    schedule = job.get("schedule_display") or _schedule_to_string(job.get("schedule"))
+    schedule = job.get("schedule_display") or _schedule_to_string(
+        job.get("schedule"))
     skills = job.get("skills") or ([job["skill"]] if job.get("skill") else [])
 
     blueprint_block: Dict[str, Any] = {"schedule": schedule}
@@ -277,7 +286,8 @@ def export_blueprint(job: Dict[str, Any], body: str, *, blueprint_name: Optional
         blueprint_block["enabled_toolsets"] = job["enabled_toolsets"]
 
     description = (
-        (body.strip().splitlines() or ["Shared automation blueprint."])[0][:200]
+        (body.strip().splitlines() or [
+         "Shared automation blueprint."])[0][:200]
         if body.strip()
         else "Shared automation blueprint."
     )
@@ -294,7 +304,10 @@ def export_blueprint(job: Dict[str, Any], body: str, *, blueprint_name: Optional
             }
         },
     }
-    fm_yaml = yaml.safe_dump(frontmatter, sort_keys=False, allow_unicode=True).strip()
+    fm_yaml = yaml.safe_dump(
+        frontmatter,
+        sort_keys=False,
+        allow_unicode=True).strip()
     body_text = body.strip() or f"# {name}\n\nShared automation blueprint."
     return f"---\n{fm_yaml}\n---\n\n{body_text}\n"
 

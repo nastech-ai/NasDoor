@@ -72,7 +72,8 @@ def register_provider(provider: TranscriptionProvider) -> None:
         )
     name = provider.name
     if not isinstance(name, str) or not name.strip():
-        raise ValueError("Transcription provider .name must be a non-empty string")
+        raise ValueError(
+            "Transcription provider .name must be a non-empty string")
     key = name.strip().lower()
     if key in _BUILTIN_NAMES:
         logger.warning(

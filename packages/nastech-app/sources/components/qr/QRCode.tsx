@@ -67,7 +67,7 @@ export const QRCode = React.memo((props: QRCodeProps) => {
   }, [data, errorCorrectionLevel]);
 
   // Calculate module size
-  const moduleSize = size / (qrMatrix.size + 4) /* space around */;
+  const moduleSize = size / (qrMatrix.size + 4); /* space around */
 
   // Generate modules with rounded corners
   const modules = React.useMemo(() => {

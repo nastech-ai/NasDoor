@@ -97,7 +97,8 @@ class PtyBridge:
     ``os.write`` on the master fd, which is safe.
     """
 
-    def __init__(self, proc: "ptyprocess.PtyProcess"):  # type: ignore[name-defined]
+    # type: ignore[name-defined]
+    def __init__(self, proc: "ptyprocess.PtyProcess"):
         self._proc = proc
         self._fd: int = proc.fd
         self._closed = False
@@ -251,7 +252,9 @@ class PtyBridge:
         self._closed = True
 
         try:
-            pgid = os.getpgid(self._proc.pid)  # windows-footgun: ok — POSIX-only module (imports fcntl/termios/ptyprocess at top)
+            # windows-footgun: ok — POSIX-only module (imports
+            # fcntl/termios/ptyprocess at top)
+            pgid = os.getpgid(self._proc.pid)
         except Exception:
             pgid = None
 
@@ -259,12 +262,16 @@ class PtyBridge:
         # Send it to the whole foreground process group, not just the PTY
         # leader: the dashboard TUI starts helper children such as the Python
         # slash worker, and killing only the leader can strand those helpers.
-        for sig in (signal.SIGHUP, signal.SIGTERM, signal.SIGKILL):  # windows-footgun: ok — POSIX-only module (imports fcntl/termios/ptyprocess at top)
+        # windows-footgun: ok — POSIX-only module (imports
+        # fcntl/termios/ptyprocess at top)
+        for sig in (signal.SIGHUP, signal.SIGTERM, signal.SIGKILL):
             if not self._proc.isalive():
                 break
             try:
                 if pgid is not None:
-                    os.killpg(pgid, sig)  # windows-footgun: ok — POSIX-only module (imports fcntl/termios/ptyprocess at top)
+                    # windows-footgun: ok — POSIX-only module (imports
+                    # fcntl/termios/ptyprocess at top)
+                    os.killpg(pgid, sig)
                 else:
                     self._proc.kill(sig)
             except Exception:

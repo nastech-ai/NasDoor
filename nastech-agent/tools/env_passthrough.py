@@ -22,12 +22,14 @@ from __future__ import annotations
 import logging
 from contextvars import ContextVar
 from typing import Iterable
+
 from nastech_cli.config import cfg_get
 
 logger = logging.getLogger(__name__)
 
 # Session-scoped set of env var names that should pass through to sandboxes.
-# Backed by ContextVar to prevent cross-session data bleed in the gateway pipeline.
+# Backed by ContextVar to prevent cross-session data bleed in the gateway
+# pipeline.
 _allowed_env_vars_var: ContextVar[set[str]] = ContextVar("_allowed_env_vars")
 
 
@@ -159,5 +161,3 @@ def get_all_passthrough() -> frozenset[str]:
 def clear_env_passthrough() -> None:
     """Reset the skill-scoped allowlist (e.g. on session reset)."""
     _get_allowed().clear()
-
-

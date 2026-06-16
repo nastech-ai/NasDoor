@@ -5,9 +5,10 @@ from __future__ import annotations
 import math
 import sys
 import time
-from types import SimpleNamespace
 import uuid
+from types import SimpleNamespace
 
+import nastech_cli.auth as auth_mod
 from agent.credential_pool import (
     AUTH_TYPE_API_KEY,
     AUTH_TYPE_OAUTH,
@@ -16,9 +17,9 @@ from agent.credential_pool import (
     SOURCE_MANUAL_DEVICE_CODE,
     STATUS_EXHAUSTED,
     STRATEGY_FILL_FIRST,
-    STRATEGY_ROUND_ROBIN,
-    STRATEGY_RANDOM,
     STRATEGY_LEAST_USED,
+    STRATEGY_RANDOM,
+    STRATEGY_ROUND_ROBIN,
     PooledCredential,
     _exhausted_until,
     _normalize_custom_pool_name,
@@ -27,14 +28,19 @@ from agent.credential_pool import (
     list_custom_pool_providers,
     load_pool,
 )
-import nastech_cli.auth as auth_mod
 from nastech_cli.auth import PROVIDER_REGISTRY
-from nastech_constants import OPENROUTER_BASE_URL
 from nastech_cli.secret_prompt import masked_secret_prompt
-
+from nastech_constants import OPENROUTER_BASE_URL
 
 # Providers that support OAuth login in addition to API keys.
-_OAUTH_CAPABLE_PROVIDERS = {"anthropic", "nous", "openai-codex", "xai-oauth", "qwen-oauth", "google-gemini-cli", "minimax-oauth"}
+_OAUTH_CAPABLE_PROVIDERS = {
+    "anthropic",
+    "nous",
+    "openai-codex",
+    "xai-oauth",
+    "qwen-oauth",
+    "google-gemini-cli",
+    "minimax-oauth"}
 
 
 def _get_custom_provider_names() -> list:
@@ -78,7 +84,8 @@ def _normalize_provider(provider: str) -> str:
     normalized = (provider or "").strip().lower()
     if normalized in {"or", "open-router"}:
         return "openrouter"
-    if normalized in {"grok-oauth", "xai-oauth", "x-ai-oauth", "xai-grok-oauth"}:
+    if normalized in {"grok-oauth", "xai-oauth",
+                      "x-ai-oauth", "xai-grok-oauth"}:
         return "xai-oauth"
     # "nastech" is a rebrand alias for the "nous" provider
     if normalized == "nastech":
@@ -119,7 +126,11 @@ def _display_source(source: str) -> str:
 def _classify_exhausted_status(entry) -> tuple[str, bool]:
     code = getattr(entry, "last_error_code", None)
     reason = str(getattr(entry, "last_error_reason", "") or "").strip().lower()
-    message = str(getattr(entry, "last_error_message", "") or "").strip().lower()
+    message = str(
+        getattr(
+            entry,
+            "last_error_message",
+            "") or "").strip().lower()
 
     if code == 429 or any(token in reason for token in ("rate_limit", "usage_limit", "quota", "exhausted")) or any(
         token in message for token in ("rate limit", "usage limit", "quota", "too many requests")
@@ -134,13 +145,13 @@ def _classify_exhausted_status(entry) -> tuple[str, bool]:
     return "exhausted", True
 
 
-
 def _format_exhausted_status(entry) -> str:
     if entry.last_status != STATUS_EXHAUSTED:
         return ""
     label, show_retry_window = _classify_exhausted_status(entry)
     reason = getattr(entry, "last_error_reason", None)
-    reason_text = f" {reason}" if isinstance(reason, str) and reason.strip() else ""
+    reason_text = f" {reason}" if isinstance(
+        reason, str) and reason.strip() else ""
     code = f" ({entry.last_error_code})" if entry.last_error_code else ""
     if not show_retry_window:
         return f" {label}{reason_text}{code} (re-auth may be required)"
@@ -166,7 +177,8 @@ def _format_exhausted_status(entry) -> str:
 
 def auth_add_command(args) -> None:
     provider = _normalize_provider(getattr(args, "provider", ""))
-    if provider not in PROVIDER_REGISTRY and provider != "openrouter" and not provider.startswith(CUSTOM_POOL_PREFIX):
+    if provider not in PROVIDER_REGISTRY and provider != "openrouter" and not provider.startswith(
+            CUSTOM_POOL_PREFIX):
         raise SystemExit(f"Unknown provider: {provider}")
 
     requested_type = str(getattr(args, "auth_type", "") or "").strip().lower()
@@ -207,7 +219,8 @@ def auth_add_command(args) -> None:
         label = (getattr(args, "label", None) or "").strip()
         if not label:
             if sys.stdin.isatty():
-                label = input(f"Label (optional, default: {default_label}): ").strip() or default_label
+                label = input(
+                    f"Label (optional, default: {default_label}): ").strip() or default_label
             else:
                 label = default_label
         entry = PooledCredential(
@@ -229,7 +242,8 @@ def auth_add_command(args) -> None:
 
         creds = anthropic_mod.run_nastech_oauth_login_pure()
         if not creds:
-            raise SystemExit("Anthropic OAuth login did not return credentials.")
+            raise SystemExit(
+                "Anthropic OAuth login did not return credentials.")
         label = (getattr(args, "label", None) or "").strip() or label_from_token(
             creds["access_token"],
             _oauth_default_label(provider, len(pool.entries()) + 1),
@@ -247,7 +261,8 @@ def auth_add_command(args) -> None:
             base_url=_provider_base_url(provider),
         )
         pool.add_entry(entry)
-        print(f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
+        print(
+            f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
         return
 
     if provider == "nous":
@@ -269,7 +284,8 @@ def auth_add_command(args) -> None:
             else:
                 print("Found existing shared Nous OAuth credentials")
             try:
-                do_import = input("Import these credentials? [Y/n]: ").strip().lower()
+                do_import = input(
+                    "Import these credentials? [Y/n]: ").strip().lower()
             except (EOFError, KeyboardInterrupt):
                 do_import = "y"
             if do_import in {"", "y", "yes"}:
@@ -278,16 +294,25 @@ def auth_add_command(args) -> None:
                     timeout_seconds=getattr(args, "timeout", None) or 15.0,
                 )
                 if rehydrated is not None:
-                    custom_label = (getattr(args, "label", None) or "").strip() or None
-                    entry = auth_mod.persist_nastech_credentials(rehydrated, label=custom_label)
+                    custom_label = (
+                        getattr(
+                            args,
+                            "label",
+                            None) or "").strip() or None
+                    entry = auth_mod.persist_nastech_credentials(
+                        rehydrated, label=custom_label)
                     shown_label = entry.label if entry is not None else label_from_token(
-                        rehydrated.get("access_token", ""), _oauth_default_label(provider, 1),
+                        rehydrated.get(
+                            "access_token", ""), _oauth_default_label(
+                            provider, 1),
                     )
-                    print(f'Imported {provider} OAuth credentials: "{shown_label}"')
+                    print(
+                        f'Imported {provider} OAuth credentials: "{shown_label}"')
                     return
                 # Rehydrate failed (expired refresh_token, portal down, etc.)
                 # — fall through to device-code flow.
-                print("Could not refresh shared credentials — falling back to device-code login.")
+                print(
+                    "Could not refresh shared credentials — falling back to device-code login.")
 
         creds = auth_mod._nastech_device_code_login(
             portal_base_url=getattr(args, "portal_url", None),
@@ -307,7 +332,8 @@ def auth_add_command(args) -> None:
         shown_label = entry.label if entry is not None else label_from_token(
             creds.get("access_token", ""), _oauth_default_label(provider, 1),
         )
-        print(f'Saved {provider} OAuth device-code credentials: "{shown_label}"')
+        print(
+            f'Saved {provider} OAuth device-code credentials: "{shown_label}"')
         return
 
     if provider == "openai-codex":
@@ -341,10 +367,12 @@ def auth_add_command(args) -> None:
         pool.add_entry(entry)
         # Adding the first Codex credential should make it the active provider
         # (the old singleton save path did this implicitly via
-        # _save_provider_state). Subsequent adds leave the active provider as-is.
+        # _save_provider_state). Subsequent adds leave the active provider
+        # as-is.
         if first_credential:
             auth_mod.mark_provider_active_if_unset(provider)
-        print(f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
+        print(
+            f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
         return
 
     if provider == "xai-oauth":
@@ -360,7 +388,8 @@ def auth_add_command(args) -> None:
             last_refresh=creds.get("last_refresh"),
         )
         pool = load_pool(provider)
-        entry = next((e for e in pool.entries() if getattr(e, "source", "") == "loopback_pkce"), None)
+        entry = next((e for e in pool.entries() if getattr(
+            e, "source", "") == "loopback_pkce"), None)
         shown_label = entry.label if entry is not None else label_from_token(
             creds["tokens"]["access_token"], _oauth_default_label(provider, 1)
         )
@@ -373,7 +402,8 @@ def auth_add_command(args) -> None:
         creds = run_gemini_oauth_login_pure()
         auth_mod._mark_google_gemini_cli_active(creds)
         label = (getattr(args, "label", None) or "").strip() or (
-            creds.get("email") or _oauth_default_label(provider, len(pool.entries()) + 1)
+            creds.get("email") or _oauth_default_label(
+                provider, len(pool.entries()) + 1)
         )
         entry = PooledCredential(
             provider=provider,
@@ -386,11 +416,13 @@ def auth_add_command(args) -> None:
             refresh_token=creds.get("refresh_token"),
         )
         pool.add_entry(entry)
-        print(f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
+        print(
+            f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
         return
 
     if provider == "qwen-oauth":
-        creds = auth_mod.resolve_qwen_runtime_credentials(refresh_if_expiring=False)
+        creds = auth_mod.resolve_qwen_runtime_credentials(
+            refresh_if_expiring=False)
         auth_mod._mark_qwen_oauth_active(creds)
         label = (getattr(args, "label", None) or "").strip() or label_from_token(
             creds["api_key"],
@@ -407,7 +439,8 @@ def auth_add_command(args) -> None:
             base_url=creds.get("base_url"),
         )
         pool.add_entry(entry)
-        print(f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
+        print(
+            f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
         return
 
     if provider == "minimax-oauth":
@@ -431,10 +464,12 @@ def auth_add_command(args) -> None:
             base_url=creds.get("inference_base_url"),
         )
         pool.add_entry(entry)
-        print(f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
+        print(
+            f'Added {provider} OAuth credential #{len(pool.entries())}: "{entry.label}"')
         return
 
-    raise SystemExit(f"`nastech auth add {provider}` is not implemented for auth type {requested_type} yet.")
+    raise SystemExit(
+        f"`nastech auth add {provider}` is not implemented for auth type {requested_type} yet.")
 
 
 def auth_list_command(args) -> None:
@@ -460,7 +495,10 @@ def auth_list_command(args) -> None:
                 marker = "← "
             status = _format_exhausted_status(entry)
             source = _display_source(entry.source)
-            print(f"  #{idx}  {entry.label:<20} {entry.auth_type:<7} {source}{status} {marker}".rstrip())
+            print(
+                f"  #{idx}  {
+                    entry.label:<20} {
+                    entry.auth_type:<7} {source}{status} {marker}".rstrip())
         print()
 
 
@@ -475,7 +513,8 @@ def auth_remove_command(args) -> None:
         raise SystemExit(f"{error} Provider: {provider}.")
     removed = pool.remove_index(index)
     if removed is None:
-        raise SystemExit(f'No credential matching "{target}" for provider {provider}.')
+        raise SystemExit(
+            f'No credential matching "{target}" for provider {provider}.')
     print(f"Removed {provider} credential #{index} ({removed.label})")
 
     # Unified removal dispatch.  Every credential source NasTech reads from
@@ -512,7 +551,8 @@ def auth_reset_command(args) -> None:
 def auth_status_command(args) -> None:
     provider = _normalize_provider(getattr(args, "provider", "") or "")
     if not provider:
-        raise SystemExit("Provider is required. Example: `nastech auth status spotify`.")
+        raise SystemExit(
+            "Provider is required. Example: `nastech auth status spotify`.")
     status = auth_mod.get_auth_status(provider)
     if not status.get("logged_in"):
         reason = status.get("error")
@@ -523,18 +563,28 @@ def auth_status_command(args) -> None:
         return
 
     print(f"{provider}: logged in")
-    for key in ("auth_type", "client_id", "redirect_uri", "scope", "expires_at", "api_base_url"):
+    for key in ("auth_type", "client_id", "redirect_uri",
+                "scope", "expires_at", "api_base_url"):
         value = status.get(key)
         if value:
             print(f"  {key}: {value}")
 
 
 def auth_logout_command(args) -> None:
-    auth_mod.logout_command(SimpleNamespace(provider=getattr(args, "provider", None)))
+    auth_mod.logout_command(
+        SimpleNamespace(
+            provider=getattr(
+                args,
+                "provider",
+                None)))
 
 
 def auth_spotify_command(args) -> None:
-    action = str(getattr(args, "spotify_action", "") or "login").strip().lower()
+    action = str(
+        getattr(
+            args,
+            "spotify_action",
+            "") or "login").strip().lower()
     if action in {"", "login"}:
         auth_mod.login_spotify_command(args)
         return
@@ -557,7 +607,11 @@ def _interactive_auth() -> None:
 
     # Show AWS Bedrock credential status (not in the pool — uses boto3 chain)
     try:
-        from agent.bedrock_adapter import has_aws_credentials, resolve_aws_auth_env_var, resolve_bedrock_region
+        from agent.bedrock_adapter import (
+            has_aws_credentials,
+            resolve_aws_auth_env_var,
+            resolve_bedrock_region,
+        )
         if has_aws_credentials():
             auth_source = resolve_aws_auth_env_var() or "unknown"
             region = resolve_bedrock_region()
@@ -582,12 +636,14 @@ def _interactive_auth() -> None:
         _cfg = load_config()
         _model_cfg = _cfg.get("model") if isinstance(_cfg, dict) else None
         if isinstance(_model_cfg, dict):
-            _cfg_provider = str(_model_cfg.get("provider") or "").strip().lower()
-            _cfg_auth_mode = str(_model_cfg.get("auth_mode") or "").strip().lower()
+            _cfg_provider = str(
+                _model_cfg.get("provider") or "").strip().lower()
+            _cfg_auth_mode = str(
+                _model_cfg.get("auth_mode") or "").strip().lower()
             if _cfg_provider == "azure-foundry" and _cfg_auth_mode == "entra_id":
                 from agent.azure_identity_adapter import (
-                    EntraIdentityConfig,
                     SCOPE_AI_AZURE_DEFAULT,
+                    EntraIdentityConfig,
                     describe_active_credential,
                     has_azure_identity_installed,
                 )
@@ -609,13 +665,16 @@ def _interactive_auth() -> None:
                     _entra_cfg = EntraIdentityConfig(
                         scope=_scope,
                     )
-                    _info = describe_active_credential(config=_entra_cfg, timeout_seconds=10.0)
+                    _info = describe_active_credential(
+                        config=_entra_cfg, timeout_seconds=10.0)
                     _env_sources = _info.get("env_sources") or []
                     if _info.get("ok"):
-                        _tag = ", ".join(_env_sources) if _env_sources else "default chain"
+                        _tag = ", ".join(
+                            _env_sources) if _env_sources else "default chain"
                         print(f"  Status: ✓ token acquired ({_tag})")
                     else:
-                        _err = _info.get("error") or "credential chain exhausted"
+                        _err = _info.get(
+                            "error") or "credential chain exhausted"
                         print(f"  Status: ⚠ {_err}")
                         _hint = _info.get("hint")
                         if _hint:
@@ -674,7 +733,8 @@ def _pick_provider(prompt: str = "Provider") -> str:
 
 def _interactive_add() -> None:
     provider = _pick_provider("Provider to add credential for")
-    if provider not in PROVIDER_REGISTRY and provider != "openrouter" and not provider.startswith(CUSTOM_POOL_PREFIX):
+    if provider not in PROVIDER_REGISTRY and provider != "openrouter" and not provider.startswith(
+            CUSTOM_POOL_PREFIX):
         raise SystemExit(f"Unknown provider: {provider}")
 
     # For OAuth-capable providers, ask which type
@@ -718,7 +778,12 @@ def _interactive_remove() -> None:
     # Show entries with indices
     for i, e in enumerate(pool.entries(), 1):
         exhausted = _format_exhausted_status(e)
-        print(f"  #{i}  {e.label:25s} {e.auth_type:10s} {e.source}{exhausted} [id:{e.id}]")
+        print(
+            f"  #{i}  {
+                e.label:25s} {
+                e.auth_type:10s} {
+                e.source}{exhausted} [id:{
+                    e.id}]")
 
     try:
         raw = input("Remove #, id, or label (blank to cancel): ").strip()
@@ -739,7 +804,11 @@ def _interactive_reset() -> None:
 def _interactive_strategy() -> None:
     provider = _pick_provider("Provider to set strategy for")
     current = get_pool_strategy(provider)
-    strategies = [STRATEGY_FILL_FIRST, STRATEGY_ROUND_ROBIN, STRATEGY_LEAST_USED, STRATEGY_RANDOM]
+    strategies = [
+        STRATEGY_FILL_FIRST,
+        STRATEGY_ROUND_ROBIN,
+        STRATEGY_LEAST_USED,
+        STRATEGY_RANDOM]
 
     print(f"\nCurrent strategy for {provider}: {current}")
     print()

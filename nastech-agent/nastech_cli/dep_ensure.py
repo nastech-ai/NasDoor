@@ -26,10 +26,10 @@ import sys
 from pathlib import Path
 
 from nastech_cli.platform_detect import (
+    bootstrap_all_deps,
     ensure_node,
     get_platform,
     install_system_dep,
-    bootstrap_all_deps,
 )
 
 _IS_WINDOWS = platform.system() == "Windows"
@@ -57,7 +57,12 @@ def _has_system_browser() -> bool:
     if _IS_WINDOWS:
         names = ("chrome", "msedge", "chromium")
     else:
-        names = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome")
+        names = (
+            "google-chrome",
+            "google-chrome-stable",
+            "chromium",
+            "chromium-browser",
+            "chrome")
     for name in names:
         if shutil.which(name):
             return True
@@ -143,7 +148,8 @@ def ensure_dependency(
     if interactive and sys.stdin.isatty() and not _auto_install_allowed():
         desc = _DEP_DESCRIPTIONS.get(dep, dep)
         try:
-            reply = input(f"{desc} is not installed. Install now? [Y/n] ").strip().lower()
+            reply = input(
+                f"{desc} is not installed. Install now? [Y/n] ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             return False
         if reply not in ("", "y", "yes"):
@@ -154,7 +160,8 @@ def ensure_dependency(
         ps_bin = shutil.which("powershell") or shutil.which("pwsh")
         if not ps_bin:
             if interactive:
-                print("  PowerShell not found. Install PowerShell or run install.ps1 manually.")
+                print(
+                    "  PowerShell not found. Install PowerShell or run install.ps1 manually.")
             return check()
         cmd = [
             ps_bin,

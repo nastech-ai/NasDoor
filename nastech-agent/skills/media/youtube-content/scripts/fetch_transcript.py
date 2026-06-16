@@ -74,7 +74,8 @@ def fetch_transcript(video_id: str, languages: list = None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Fetch YouTube transcript as JSON")
+    parser = argparse.ArgumentParser(
+        description="Fetch YouTube transcript as JSON")
     parser.add_argument("url", help="YouTube URL or video ID")
     parser.add_argument("--language", "-l", default=None,
                         help="Comma-separated language codes (e.g. en,tr). Default: auto")
@@ -85,16 +86,19 @@ def main():
     args = parser.parse_args()
 
     video_id = extract_video_id(args.url)
-    languages = [l.strip() for l in args.language.split(",")] if args.language else None
+    languages = [l.strip() for l in args.language.split(",")
+                 ] if args.language else None
 
     try:
         segments = fetch_transcript(video_id, languages)
     except Exception as e:
         error_msg = str(e)
         if "disabled" in error_msg.lower():
-            print(json.dumps({"error": "Transcripts are disabled for this video."}))
+            print(json.dumps(
+                {"error": "Transcripts are disabled for this video."}))
         elif "no transcript" in error_msg.lower():
-            print(json.dumps({"error": f"No transcript found. Try specifying a language with --language."}))
+            print(json.dumps(
+                {"error": f"No transcript found. Try specifying a language with --language."}))
         else:
             print(json.dumps({"error": error_msg}))
         sys.exit(1)

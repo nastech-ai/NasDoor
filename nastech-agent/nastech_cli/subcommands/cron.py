@@ -21,7 +21,10 @@ def build_cron_parser(subparsers, *, cmd_cron: Callable) -> None:
 
     # cron list
     cron_list = cron_subparsers.add_parser("list", help="List scheduled jobs")
-    cron_list.add_argument("--all", action="store_true", help="Include disabled jobs")
+    cron_list.add_argument(
+        "--all",
+        action="store_true",
+        help="Include disabled jobs")
 
     # cron create/add
     cron_create = cron_subparsers.add_parser(
@@ -38,7 +41,10 @@ def build_cron_parser(subparsers, *, cmd_cron: Callable) -> None:
         "--deliver",
         help="Delivery target: origin, local, telegram, discord, signal, or platform:chat_id",
     )
-    cron_create.add_argument("--repeat", type=int, help="Optional repeat count")
+    cron_create.add_argument(
+        "--repeat",
+        type=int,
+        help="Optional repeat count")
     cron_create.add_argument(
         "--skill",
         dest="skills",
@@ -144,10 +150,12 @@ def build_cron_parser(subparsers, *, cmd_cron: Callable) -> None:
     )
 
     # lifecycle actions
-    cron_pause = cron_subparsers.add_parser("pause", help="Pause a scheduled job")
+    cron_pause = cron_subparsers.add_parser(
+        "pause", help="Pause a scheduled job")
     cron_pause.add_argument("job_id", help="Job ID to pause")
 
-    cron_resume = cron_subparsers.add_parser("resume", help="Resume a paused job")
+    cron_resume = cron_subparsers.add_parser(
+        "resume", help="Resume a paused job")
     cron_resume.add_argument("job_id", help="Job ID to resume")
 
     cron_run = cron_subparsers.add_parser(
@@ -162,10 +170,12 @@ def build_cron_parser(subparsers, *, cmd_cron: Callable) -> None:
     cron_remove.add_argument("job_id", help="Job ID to remove")
 
     # cron status
-    cron_subparsers.add_parser("status", help="Check if cron scheduler is running")
+    cron_subparsers.add_parser(
+        "status", help="Check if cron scheduler is running")
 
     # cron tick (mostly for debugging)
-    cron_tick = cron_subparsers.add_parser("tick", help="Run due jobs once and exit")
+    cron_tick = cron_subparsers.add_parser(
+        "tick", help="Run due jobs once and exit")
     add_accept_hooks_flag(cron_tick)
     add_accept_hooks_flag(cron_parser)
     cron_parser.set_defaults(func=cmd_cron)

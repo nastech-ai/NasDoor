@@ -18,21 +18,10 @@ New modules:
 from .adapter import (  # noqa: F401
     QQAdapter,
     QQCloseError,
-    check_qq_requirements,
     _coerce_list,
     _ssrf_redirect_guard,
+    check_qq_requirements,
 )
-
-# -- Onboard (QR-code scan-to-configure) -----------------------------------
-from .onboard import (  # noqa: F401
-    BindStatus,
-    build_connect_url,
-    qr_register,
-)
-from .crypto import decrypt_secret, generate_bind_key  # noqa: F401
-
-# -- Utils -----------------------------------------------------------------
-from .utils import build_user_agent, get_api_headers, coerce_list  # noqa: F401
 
 # -- Chunked upload --------------------------------------------------------
 from .chunked_upload import (  # noqa: F401
@@ -40,6 +29,7 @@ from .chunked_upload import (  # noqa: F401
     UploadDailyLimitExceededError,
     UploadFileTooLargeError,
 )
+from .crypto import decrypt_secret, generate_bind_key  # noqa: F401
 
 # -- Inline keyboards ------------------------------------------------------
 from .keyboards import (  # noqa: F401
@@ -54,6 +44,16 @@ from .keyboards import (  # noqa: F401
     parse_interaction_event,
     parse_update_prompt_button_data,
 )
+
+# -- Onboard (QR-code scan-to-configure) -----------------------------------
+from .onboard import (  # noqa: F401
+    BindStatus,
+    build_connect_url,
+    qr_register,
+)
+
+# -- Utils -----------------------------------------------------------------
+from .utils import build_user_agent, coerce_list, get_api_headers  # noqa: F401
 
 __all__ = [
     # adapter

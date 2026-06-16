@@ -27,6 +27,7 @@ Usage::
         print(result["transcript"])
 """
 
+import importlib.util as _ilu
 import logging
 import os
 import shlex
@@ -34,18 +35,19 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 from urllib.parse import urljoin
 
-from utils import is_truthy_value
 from tools.managed_tool_gateway import resolve_managed_tool_gateway
 from tools.tool_backend_helpers import (
     managed_nastech_tools_enabled,
     nastech_tool_gateway_unavailable_message,
     resolve_openai_audio_api_key,
 )
+from utils import is_truthy_value
 
 logger = logging.getLogger(__name__)
+
 
 def get_env_value(name, default=None):
     """Read env values through the live config module.
@@ -64,8 +66,6 @@ def get_env_value(name, default=None):
 # ---------------------------------------------------------------------------
 # Optional imports — graceful degradation
 # ---------------------------------------------------------------------------
-
-import importlib.util as _ilu
 
 
 def _safe_find_spec(module_name: str) -> bool:
@@ -88,7 +88,8 @@ DEFAULT_LOCAL_MODEL = "base"
 DEFAULT_LOCAL_STT_LANGUAGE = "en"
 DEFAULT_STT_MODEL = os.getenv("STT_OPENAI_MODEL", "whisper-1")
 DEFAULT_GROQ_STT_MODEL = os.getenv("STT_GROQ_MODEL", "whisper-large-v3-turbo")
-DEFAULT_MISTRAL_STT_MODEL = os.getenv("STT_MISTRAL_MODEL", "voxtral-mini-latest")
+DEFAULT_MISTRAL_STT_MODEL = os.getenv(
+    "STT_MISTRAL_MODEL", "voxtral-mini-latest")
 DEFAULT_ELEVENLABS_STT_MODEL = os.getenv("STT_ELEVENLABS_MODEL", "scribe_v2")
 LOCAL_STT_COMMAND_ENV = "NASTECH_LOCAL_STT_COMMAND"
 LOCAL_STT_LANGUAGE_ENV = "NASTECH_LOCAL_STT_LANGUAGE"
@@ -97,15 +98,30 @@ COMMON_LOCAL_BIN_DIRS = ("/opt/homebrew/bin", "/usr/local/bin")
 GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 OPENAI_BASE_URL = os.getenv("STT_OPENAI_BASE_URL", "https://api.openai.com/v1")
 XAI_STT_BASE_URL = os.getenv("XAI_STT_BASE_URL", "https://api.x.ai/v1")
-ELEVENLABS_STT_BASE_URL = os.getenv("ELEVENLABS_STT_BASE_URL", "https://api.elevenlabs.io/v1")
+ELEVENLABS_STT_BASE_URL = os.getenv(
+    "ELEVENLABS_STT_BASE_URL",
+    "https://api.elevenlabs.io/v1")
 
-SUPPORTED_FORMATS = {".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".wav", ".webm", ".ogg", ".aac", ".flac"}
+SUPPORTED_FORMATS = {
+    ".mp3",
+    ".mp4",
+    ".mpeg",
+    ".mpga",
+    ".m4a",
+    ".wav",
+    ".webm",
+    ".ogg",
+    ".aac",
+    ".flac"}
 LOCAL_NATIVE_AUDIO_FORMATS = {".wav", ".aiff", ".aif"}
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
 
 # Known model sets for auto-correction
 OPENAI_MODELS = {"whisper-1", "gpt-4o-mini-transcribe", "gpt-4o-transcribe"}
-GROQ_MODELS = {"whisper-large-v3", "whisper-large-v3-turbo", "distil-whisper-large-v3-en"}
+GROQ_MODELS = {
+    "whisper-large-v3",
+    "whisper-large-v3-turbo",
+    "distil-whisper-large-v3-en"}
 
 # Singleton for the local model — loaded once, reused across calls
 _local_model: Optional[object] = None
@@ -114,7 +130,6 @@ _local_model_name: Optional[str] = None
 # ---------------------------------------------------------------------------
 # Config helpers
 # ---------------------------------------------------------------------------
-
 
 
 def _load_stt_config() -> dict:
@@ -188,7 +203,8 @@ def _normalize_local_model(model_name: Optional[str]) -> str:
     the default local model and emit a warning so the user knows what happened.
     """
     if not model_name or model_name in OPENAI_MODELS or model_name in GROQ_MODELS:
-        if model_name and (model_name in OPENAI_MODELS or model_name in GROQ_MODELS):
+        if model_name and (
+                model_name in OPENAI_MODELS or model_name in GROQ_MODELS):
             logger.warning(
                 "STT model '%s' is a cloud-only name and cannot be used with the local "
                 "provider. Falling back to '%s'. Set stt.local.model to a valid "
@@ -214,6 +230,7 @@ def _try_lazy_install_stt() -> bool:
     """
     try:
         from tools.lazy_deps import ensure
+
         # prompt=False: never raise a blocking input() prompt mid-session.
         # Under the interactive CLI prompt_toolkit owns stdin, so a bare
         # input() deadlocks the terminal (#40490). The install is already
@@ -351,7 +368,8 @@ def _iter_command_stt_providers(stt_config: Dict[str, Any]):
                 yield name, cfg
 
 
-def _has_any_command_stt_provider(stt_config: Optional[Dict[str, Any]] = None) -> bool:
+def _has_any_command_stt_provider(
+        stt_config: Optional[Dict[str, Any]] = None) -> bool:
     """Return True when any command-type STT provider is configured."""
     if stt_config is None:
         stt_config = _load_stt_config()
@@ -362,7 +380,11 @@ def _has_any_command_stt_provider(stt_config: Optional[Dict[str, Any]] = None) -
 
 def _get_command_stt_timeout(config: Dict[str, Any]) -> float:
     """Return timeout in seconds, falling back when invalid."""
-    raw = config.get("timeout", config.get("timeout_seconds", DEFAULT_COMMAND_STT_TIMEOUT_SECONDS))
+    raw = config.get(
+        "timeout",
+        config.get(
+            "timeout_seconds",
+            DEFAULT_COMMAND_STT_TIMEOUT_SECONDS))
     try:
         value = float(raw)
     except (TypeError, ValueError):
@@ -383,7 +405,8 @@ def _get_command_stt_output_format(config: Dict[str, Any]) -> str:
     return fmt if fmt in COMMAND_STT_OUTPUT_FORMATS else DEFAULT_COMMAND_STT_OUTPUT_FORMAT
 
 
-def _shell_quote_context_stt(command_template: str, position: int) -> Optional[str]:
+def _shell_quote_context_stt(command_template: str,
+                             position: int) -> Optional[str]:
     """Return the shell quote character active right before *position*.
 
     Mirrors ``tools.tts_tool._shell_quote_context`` — kept local to avoid
@@ -415,7 +438,8 @@ def _shell_quote_context_stt(command_template: str, position: int) -> Optional[s
     return quote
 
 
-def _quote_command_stt_placeholder(value: str, quote_context: Optional[str]) -> str:
+def _quote_command_stt_placeholder(
+        value: str, quote_context: Optional[str]) -> str:
     """Quote a placeholder value for its position in a shell command template.
 
     Mirrors ``tools.tts_tool._quote_command_tts_placeholder``.
@@ -540,7 +564,8 @@ def _terminate_command_stt_process_tree(proc: subprocess.Popen) -> None:
         proc.kill()
 
 
-def _run_command_stt(command: str, timeout: float) -> subprocess.CompletedProcess:
+def _run_command_stt(
+        command: str, timeout: float) -> subprocess.CompletedProcess:
     """Run a command-provider shell command with process-tree timeout cleanup.
 
     Mirrors ``tools.tts_tool._run_command_tts``.
@@ -552,7 +577,8 @@ def _run_command_stt(command: str, timeout: float) -> subprocess.CompletedProces
         "text": True,
     }
     if os.name == "nt":
-        popen_kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        popen_kwargs["creationflags"] = getattr(
+            subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     else:
         popen_kwargs["start_new_session"] = True
 
@@ -580,7 +606,8 @@ def _run_command_stt(command: str, timeout: float) -> subprocess.CompletedProces
             output=stdout,
             stderr=stderr,
         )
-    return subprocess.CompletedProcess(command, proc.returncode, stdout, stderr)
+    return subprocess.CompletedProcess(
+        command, proc.returncode, stdout, stderr)
 
 
 def _read_command_stt_output(output_path: Path, stdout: str, fmt: str) -> str:
@@ -677,7 +704,8 @@ def _transcribe_command_stt(
                 "language": str(language),
                 "model": str(model),
             }
-            command = _render_command_stt_template(command_template, placeholders)
+            command = _render_command_stt_template(
+                command_template, placeholders)
             logger.info(
                 "Transcribing %s via command STT provider '%s'...",
                 audio.name, provider_name,
@@ -776,7 +804,8 @@ def _get_provider(stt_config: dict) -> str:
             if _has_local_command():
                 return "local_command"
             if _HAS_FASTER_WHISPER:
-                logger.info("Local STT command unavailable, using local faster-whisper")
+                logger.info(
+                    "Local STT command unavailable, using local faster-whisper")
                 return "local"
             logger.warning(
                 "STT provider 'local_command' configured but unavailable"
@@ -849,7 +878,8 @@ def _get_provider(stt_config: dict) -> str:
     # lazy-install during passive auto-detection. Explicit `provider: mistral`
     # (above) does lazy-install on first transcription call.
     if _HAS_MISTRAL and get_env_value("MISTRAL_API_KEY"):
-        logger.info("No local STT available, using Mistral Voxtral Transcribe API")
+        logger.info(
+            "No local STT available, using Mistral Voxtral Transcribe API")
         return "mistral"
     try:
         from tools.xai_http import resolve_xai_http_credentials
@@ -1023,11 +1053,14 @@ def _validate_audio_file(file_path: str) -> Optional[Dict[str, Any]]:
     audio_path = Path(file_path)
 
     if os.path.islink(audio_path):
-        return {"success": False, "transcript": "", "error": f"Path is a symbolic link: {file_path}"}
+        return {"success": False, "transcript": "",
+                "error": f"Path is a symbolic link: {file_path}"}
     if not audio_path.exists():
-        return {"success": False, "transcript": "", "error": f"Audio file not found: {file_path}"}
+        return {"success": False, "transcript": "",
+                "error": f"Audio file not found: {file_path}"}
     if not audio_path.is_file():
-        return {"success": False, "transcript": "", "error": f"Path is not a file: {file_path}"}
+        return {"success": False, "transcript": "",
+                "error": f"Path is not a file: {file_path}"}
     if audio_path.suffix.lower() not in SUPPORTED_FORMATS:
         return {
             "success": False,
@@ -1040,10 +1073,11 @@ def _validate_audio_file(file_path: str) -> Optional[Dict[str, Any]]:
             return {
                 "success": False,
                 "transcript": "",
-                "error": f"File too large: {file_size / (1024*1024):.1f}MB (max {MAX_FILE_SIZE / (1024*1024):.0f}MB)",
+                "error": f"File too large: {file_size / (1024 * 1024):.1f}MB (max {MAX_FILE_SIZE / (1024 * 1024):.0f}MB)",
             }
     except OSError as e:
-        return {"success": False, "transcript": "", "error": f"Failed to access file: {e}"}
+        return {"success": False, "transcript": "",
+                "error": f"Failed to access file: {e}"}
 
     return None
 
@@ -1118,12 +1152,15 @@ def _transcribe_local(file_path: str, model_name: str) -> Dict[str, Any]:
 
     if not _HAS_FASTER_WHISPER:
         if not _try_lazy_install_stt():
-            return {"success": False, "transcript": "", "error": "faster-whisper not installed"}
+            return {"success": False, "transcript": "",
+                    "error": "faster-whisper not installed"}
 
     try:
         # Lazy-load the model (downloads on first use, ~150 MB for 'base')
         if _local_model is None or _local_model_name != model_name:
-            logger.info("Loading faster-whisper model '%s' (first load downloads the model)...", model_name)
+            logger.info(
+                "Loading faster-whisper model '%s' (first load downloads the model)...",
+                model_name)
             _local_model = _load_local_whisper_model(model_name)
             _local_model_name = model_name
 
@@ -1138,7 +1175,8 @@ def _transcribe_local(file_path: str, model_name: str) -> Dict[str, Any]:
             transcribe_kwargs["language"] = _forced_lang
 
         try:
-            segments, info = _local_model.transcribe(file_path, **transcribe_kwargs)
+            segments, info = _local_model.transcribe(
+                file_path, **transcribe_kwargs)
             transcript = " ".join(segment.text.strip() for segment in segments)
         except Exception as exc:
             # CUDA runtime libs sometimes only fail at dlopen-on-first-use,
@@ -1156,9 +1194,11 @@ def _transcribe_local(file_path: str, model_name: str) -> Dict[str, Any]:
             _local_model = None
             _local_model_name = None
             from faster_whisper import WhisperModel
-            _local_model = WhisperModel(model_name, device="cpu", compute_type="int8")
+            _local_model = WhisperModel(
+                model_name, device="cpu", compute_type="int8")
             _local_model_name = model_name
-            segments, info = _local_model.transcribe(file_path, **transcribe_kwargs)
+            segments, info = _local_model.transcribe(
+                file_path, **transcribe_kwargs)
             transcript = " ".join(segment.text.strip() for segment in segments)
 
         logger.info(
@@ -1170,10 +1210,12 @@ def _transcribe_local(file_path: str, model_name: str) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error("Local transcription failed: %s", e, exc_info=True)
-        return {"success": False, "transcript": "", "error": f"Local transcription failed: {e}"}
+        return {"success": False, "transcript": "",
+                "error": f"Local transcription failed: {e}"}
 
 
-def _prepare_local_audio(file_path: str, work_dir: str) -> tuple[Optional[str], Optional[str]]:
+def _prepare_local_audio(
+        file_path: str, work_dir: str) -> tuple[Optional[str], Optional[str]]:
     """Normalize audio for local CLI STT when needed."""
     audio_path = Path(file_path)
     if audio_path.suffix.lower() in LOCAL_NATIVE_AUDIO_FORMATS:
@@ -1187,7 +1229,13 @@ def _prepare_local_audio(file_path: str, work_dir: str) -> tuple[Optional[str], 
     command = [ffmpeg, "-y", "-i", file_path, converted_path]
 
     try:
-        subprocess.run(command, check=True, capture_output=True, text=True, timeout=300, stdin=subprocess.DEVNULL)
+        subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            stdin=subprocess.DEVNULL)
         return converted_path, None
     except subprocess.TimeoutExpired:
         logger.error("ffmpeg conversion timed out for %s", file_path)
@@ -1198,7 +1246,8 @@ def _prepare_local_audio(file_path: str, work_dir: str) -> tuple[Optional[str], 
         return None, f"Failed to convert audio for local STT: {details}"
 
 
-def _transcribe_local_command(file_path: str, model_name: str) -> Dict[str, Any]:
+def _transcribe_local_command(
+        file_path: str, model_name: str) -> Dict[str, Any]:
     """Run the configured local STT command template and read back a .txt transcript."""
     command_template = _get_local_command_template()
     if not command_template:
@@ -1220,7 +1269,8 @@ def _transcribe_local_command(file_path: str, model_name: str) -> Dict[str, Any]
 
     try:
         with tempfile.TemporaryDirectory(prefix="nastech-local-stt-") as output_dir:
-            prepared_input, prep_error = _prepare_local_audio(file_path, output_dir)
+            prepared_input, prep_error = _prepare_local_audio(
+                file_path, output_dir)
             if prep_error:
                 return {"success": False, "transcript": "", "error": prep_error}
 
@@ -1230,13 +1280,26 @@ def _transcribe_local_command(file_path: str, model_name: str) -> Dict[str, Any]
                 language=shlex.quote(language),
                 model=shlex.quote(normalized_model),
             )
-            # User-provided templates (env var) may contain shell syntax; auto-detected commands are safe for list mode.
+            # User-provided templates (env var) may contain shell syntax;
+            # auto-detected commands are safe for list mode.
             use_shell = bool(os.getenv(LOCAL_STT_COMMAND_ENV, "").strip())
             if use_shell:
-                subprocess.run(command, shell=True, check=True, capture_output=True, text=True, timeout=300, stdin=subprocess.DEVNULL)
+                subprocess.run(
+                    command,
+                    shell=True,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                    stdin=subprocess.DEVNULL)
             else:
-                subprocess.run(shlex.split(command), check=True, capture_output=True, text=True, timeout=300, stdin=subprocess.DEVNULL)
-            
+                subprocess.run(
+                    shlex.split(command),
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                    stdin=subprocess.DEVNULL)
 
             txt_files = sorted(Path(output_dir).glob("*.txt"))
             if not txt_files:
@@ -1253,7 +1316,8 @@ def _transcribe_local_command(file_path: str, model_name: str) -> Dict[str, Any]
                 normalized_model,
                 len(transcript_text),
             )
-            return {"success": True, "transcript": transcript_text, "provider": "local_command"}
+            return {"success": True, "transcript": transcript_text,
+                    "provider": "local_command"}
 
     except KeyError as e:
         return {
@@ -1264,10 +1328,15 @@ def _transcribe_local_command(file_path: str, model_name: str) -> Dict[str, Any]
     except subprocess.CalledProcessError as e:
         details = e.stderr.strip() or e.stdout.strip() or str(e)
         logger.error("Local STT command failed for %s: %s", file_path, details)
-        return {"success": False, "transcript": "", "error": f"Local STT failed: {details}"}
+        return {"success": False, "transcript": "",
+                "error": f"Local STT failed: {details}"}
     except Exception as e:
-        logger.error("Unexpected error during local command transcription: %s", e, exc_info=True)
-        return {"success": False, "transcript": "", "error": f"Local transcription failed: {e}"}
+        logger.error(
+            "Unexpected error during local command transcription: %s",
+            e,
+            exc_info=True)
+        return {"success": False, "transcript": "",
+                "error": f"Local transcription failed: {e}"}
 
 # ---------------------------------------------------------------------------
 # Provider: groq (Whisper API — free tier)
@@ -1278,19 +1347,28 @@ def _transcribe_groq(file_path: str, model_name: str) -> Dict[str, Any]:
     """Transcribe using Groq Whisper API (free tier available)."""
     api_key = get_env_value("GROQ_API_KEY")
     if not api_key:
-        return {"success": False, "transcript": "", "error": "GROQ_API_KEY not set"}
+        return {"success": False, "transcript": "",
+                "error": "GROQ_API_KEY not set"}
 
     if not _HAS_OPENAI:
-        return {"success": False, "transcript": "", "error": "openai package not installed"}
+        return {"success": False, "transcript": "",
+                "error": "openai package not installed"}
 
     # Auto-correct model if caller passed an OpenAI-only model
     if model_name in OPENAI_MODELS:
-        logger.info("Model %s not available on Groq, using %s", model_name, DEFAULT_GROQ_STT_MODEL)
+        logger.info(
+            "Model %s not available on Groq, using %s",
+            model_name,
+            DEFAULT_GROQ_STT_MODEL)
         model_name = DEFAULT_GROQ_STT_MODEL
 
     try:
-        from openai import OpenAI, APIError, APIConnectionError, APITimeoutError
-        client = OpenAI(api_key=api_key, base_url=GROQ_BASE_URL, timeout=30, max_retries=0)
+        from openai import APIConnectionError, APIError, APITimeoutError, OpenAI
+        client = OpenAI(
+            api_key=api_key,
+            base_url=GROQ_BASE_URL,
+            timeout=30,
+            max_retries=0)
         try:
             with open(file_path, "rb") as audio_file:
                 transcription = client.audio.transcriptions.create(
@@ -1301,25 +1379,30 @@ def _transcribe_groq(file_path: str, model_name: str) -> Dict[str, Any]:
 
             transcript_text = str(transcription).strip()
             logger.info("Transcribed %s via Groq API (%s, %d chars)",
-                         Path(file_path).name, model_name, len(transcript_text))
+                        Path(file_path).name, model_name, len(transcript_text))
 
-            return {"success": True, "transcript": transcript_text, "provider": "groq"}
+            return {"success": True,
+                    "transcript": transcript_text, "provider": "groq"}
         finally:
             close = getattr(client, "close", None)
             if callable(close):
                 close()
 
     except PermissionError:
-        return {"success": False, "transcript": "", "error": f"Permission denied: {file_path}"}
+        return {"success": False, "transcript": "",
+                "error": f"Permission denied: {file_path}"}
     except APIConnectionError as e:
-        return {"success": False, "transcript": "", "error": f"Connection error: {e}"}
+        return {"success": False, "transcript": "",
+                "error": f"Connection error: {e}"}
     except APITimeoutError as e:
-        return {"success": False, "transcript": "", "error": f"Request timeout: {e}"}
+        return {"success": False, "transcript": "",
+                "error": f"Request timeout: {e}"}
     except APIError as e:
         return {"success": False, "transcript": "", "error": f"API error: {e}"}
     except Exception as e:
         logger.error("Groq transcription failed: %s", e, exc_info=True)
-        return {"success": False, "transcript": "", "error": f"Transcription failed: {e}"}
+        return {"success": False, "transcript": "",
+                "error": f"Transcription failed: {e}"}
 
 # ---------------------------------------------------------------------------
 # Provider: openai (Whisper API)
@@ -1338,16 +1421,24 @@ def _transcribe_openai(file_path: str, model_name: str) -> Dict[str, Any]:
         }
 
     if not _HAS_OPENAI:
-        return {"success": False, "transcript": "", "error": "openai package not installed"}
+        return {"success": False, "transcript": "",
+                "error": "openai package not installed"}
 
     # Auto-correct model if caller passed a Groq-only model
     if model_name in GROQ_MODELS:
-        logger.info("Model %s not available on OpenAI, using %s", model_name, DEFAULT_STT_MODEL)
+        logger.info(
+            "Model %s not available on OpenAI, using %s",
+            model_name,
+            DEFAULT_STT_MODEL)
         model_name = DEFAULT_STT_MODEL
 
     try:
-        from openai import OpenAI, APIError, APIConnectionError, APITimeoutError
-        client = OpenAI(api_key=api_key, base_url=base_url, timeout=30, max_retries=0)
+        from openai import APIConnectionError, APIError, APITimeoutError, OpenAI
+        client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=30,
+            max_retries=0)
         try:
             with open(file_path, "rb") as audio_file:
                 transcription = client.audio.transcriptions.create(
@@ -1358,25 +1449,30 @@ def _transcribe_openai(file_path: str, model_name: str) -> Dict[str, Any]:
 
             transcript_text = _extract_transcript_text(transcription)
             logger.info("Transcribed %s via OpenAI API (%s, %d chars)",
-                         Path(file_path).name, model_name, len(transcript_text))
+                        Path(file_path).name, model_name, len(transcript_text))
 
-            return {"success": True, "transcript": transcript_text, "provider": "openai"}
+            return {"success": True, "transcript": transcript_text,
+                    "provider": "openai"}
         finally:
             close = getattr(client, "close", None)
             if callable(close):
                 close()
 
     except PermissionError:
-        return {"success": False, "transcript": "", "error": f"Permission denied: {file_path}"}
+        return {"success": False, "transcript": "",
+                "error": f"Permission denied: {file_path}"}
     except APIConnectionError as e:
-        return {"success": False, "transcript": "", "error": f"Connection error: {e}"}
+        return {"success": False, "transcript": "",
+                "error": f"Connection error: {e}"}
     except APITimeoutError as e:
-        return {"success": False, "transcript": "", "error": f"Request timeout: {e}"}
+        return {"success": False, "transcript": "",
+                "error": f"Request timeout: {e}"}
     except APIError as e:
         return {"success": False, "transcript": "", "error": f"API error: {e}"}
     except Exception as e:
         logger.error("OpenAI transcription failed: %s", e, exc_info=True)
-        return {"success": False, "transcript": "", "error": f"Transcription failed: {e}"}
+        return {"success": False, "transcript": "",
+                "error": f"Transcription failed: {e}"}
 
 # ---------------------------------------------------------------------------
 # Provider: mistral (Voxtral Transcribe API)
@@ -1391,7 +1487,8 @@ def _transcribe_mistral(file_path: str, model_name: str) -> Dict[str, Any]:
     """
     api_key = get_env_value("MISTRAL_API_KEY")
     if not api_key:
-        return {"success": False, "transcript": "", "error": "MISTRAL_API_KEY not set"}
+        return {"success": False, "transcript": "",
+                "error": "MISTRAL_API_KEY not set"}
 
     try:
         try:
@@ -1405,7 +1502,9 @@ def _transcribe_mistral(file_path: str, model_name: str) -> Dict[str, Any]:
             with open(file_path, "rb") as audio_file:
                 result = client.audio.transcriptions.complete(
                     model=model_name,
-                    file={"content": audio_file, "file_name": Path(file_path).name},
+                    file={
+                        "content": audio_file,
+                        "file_name": Path(file_path).name},
                 )
 
             transcript_text = _extract_transcript_text(result)
@@ -1413,13 +1512,16 @@ def _transcribe_mistral(file_path: str, model_name: str) -> Dict[str, Any]:
                 "Transcribed %s via Mistral API (%s, %d chars)",
                 Path(file_path).name, model_name, len(transcript_text),
             )
-            return {"success": True, "transcript": transcript_text, "provider": "mistral"}
+            return {"success": True, "transcript": transcript_text,
+                    "provider": "mistral"}
 
     except PermissionError:
-        return {"success": False, "transcript": "", "error": f"Permission denied: {file_path}"}
+        return {"success": False, "transcript": "",
+                "error": f"Permission denied: {file_path}"}
     except Exception as e:
         logger.error("Mistral transcription failed: %s", e, exc_info=True)
-        return {"success": False, "transcript": "", "error": f"Mistral transcription failed: {type(e).__name__}"}
+        return {"success": False, "transcript": "",
+                "error": f"Mistral transcription failed: {type(e).__name__}"}
 
 
 # ---------------------------------------------------------------------------
@@ -1493,7 +1595,8 @@ def _transcribe_xai(file_path: str, model_name: str) -> Dict[str, Any]:
             detail = ""
             try:
                 err_body = response.json()
-                detail = err_body.get("error", {}).get("message", "") or response.text[:300]
+                detail = err_body.get("error", {}).get(
+                    "message", "") or response.text[:300]
             except Exception:
                 detail = response.text[:300]
             return {
@@ -1523,10 +1626,12 @@ def _transcribe_xai(file_path: str, model_name: str) -> Dict[str, Any]:
         return {"success": True, "transcript": transcript_text, "provider": "xai"}
 
     except PermissionError:
-        return {"success": False, "transcript": "", "error": f"Permission denied: {file_path}"}
+        return {"success": False, "transcript": "",
+                "error": f"Permission denied: {file_path}"}
     except Exception as e:
         logger.error("xAI STT transcription failed: %s", e, exc_info=True)
-        return {"success": False, "transcript": "", "error": f"xAI STT transcription failed: {e}"}
+        return {"success": False, "transcript": "",
+                "error": f"xAI STT transcription failed: {e}"}
 
 
 # ---------------------------------------------------------------------------
@@ -1538,7 +1643,8 @@ def _transcribe_elevenlabs(file_path: str, model_name: str) -> Dict[str, Any]:
     """Transcribe using ElevenLabs Scribe STT API."""
     api_key = get_env_value("ELEVENLABS_API_KEY")
     if not api_key:
-        return {"success": False, "transcript": "", "error": "ELEVENLABS_API_KEY not set"}
+        return {"success": False, "transcript": "",
+                "error": "ELEVENLABS_API_KEY not set"}
 
     stt_config = _load_stt_config()
     elevenlabs_config = stt_config.get("elevenlabs", {})
@@ -1548,7 +1654,9 @@ def _transcribe_elevenlabs(file_path: str, model_name: str) -> Dict[str, Any]:
         or ELEVENLABS_STT_BASE_URL
     ).strip().rstrip("/")
     language_code = str(elevenlabs_config.get("language_code") or "").strip()
-    tag_audio_events = is_truthy_value(elevenlabs_config.get("tag_audio_events", False))
+    tag_audio_events = is_truthy_value(
+        elevenlabs_config.get(
+            "tag_audio_events", False))
     diarize = is_truthy_value(elevenlabs_config.get("diarize", False))
 
     try:
@@ -1606,13 +1714,19 @@ def _transcribe_elevenlabs(file_path: str, model_name: str) -> Dict[str, Any]:
             len(transcript_text),
         )
 
-        return {"success": True, "transcript": transcript_text, "provider": "elevenlabs"}
+        return {"success": True, "transcript": transcript_text,
+                "provider": "elevenlabs"}
 
     except PermissionError:
-        return {"success": False, "transcript": "", "error": f"Permission denied: {file_path}"}
+        return {"success": False, "transcript": "",
+                "error": f"Permission denied: {file_path}"}
     except Exception as e:
-        logger.error("ElevenLabs STT transcription failed: %s", e, exc_info=True)
-        return {"success": False, "transcript": "", "error": f"ElevenLabs STT transcription failed: {e}"}
+        logger.error(
+            "ElevenLabs STT transcription failed: %s",
+            e,
+            exc_info=True)
+        return {"success": False, "transcript": "",
+                "error": f"ElevenLabs STT transcription failed: {e}"}
 
 
 # ---------------------------------------------------------------------------
@@ -1620,7 +1734,8 @@ def _transcribe_elevenlabs(file_path: str, model_name: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def transcribe_audio(file_path: str, model: Optional[str] = None) -> Dict[str, Any]:
+def transcribe_audio(
+        file_path: str, model: Optional[str] = None) -> Dict[str, Any]:
     """
     Transcribe an audio file using the configured STT provider.
 
@@ -1680,7 +1795,8 @@ def transcribe_audio(file_path: str, model: Optional[str] = None) -> Dict[str, A
 
     if provider == "mistral":
         mistral_cfg = stt_config.get("mistral", {})
-        model_name = model or mistral_cfg.get("model", DEFAULT_MISTRAL_STT_MODEL)
+        model_name = model or mistral_cfg.get(
+            "model", DEFAULT_MISTRAL_STT_MODEL)
         return _transcribe_mistral(file_path, model_name)
 
     if provider == "xai":
@@ -1690,7 +1806,8 @@ def transcribe_audio(file_path: str, model: Optional[str] = None) -> Dict[str, A
 
     if provider == "elevenlabs":
         elevenlabs_cfg = stt_config.get("elevenlabs", {})
-        model_name = model or elevenlabs_cfg.get("model_id", DEFAULT_ELEVENLABS_STT_MODEL)
+        model_name = model or elevenlabs_cfg.get(
+            "model_id", DEFAULT_ELEVENLABS_STT_MODEL)
         return _transcribe_elevenlabs(file_path, model_name)
 
     # User-declared command-type provider
@@ -1699,7 +1816,8 @@ def transcribe_audio(file_path: str, model: Optional[str] = None) -> Dict[str, A
     # ``stt.providers.openai.command`` can't override the real OpenAI
     # handler — and BEFORE the plugin dispatcher, because config is more
     # local than a plugin install (same precedence rule as TTS PR #17843).
-    command_provider_config = _resolve_command_stt_provider_config(provider, stt_config)
+    command_provider_config = _resolve_command_stt_provider_config(
+        provider, stt_config)
     if command_provider_config is not None:
         return _transcribe_command_stt(
             file_path,
@@ -1722,7 +1840,11 @@ def transcribe_audio(file_path: str, model: Optional[str] = None) -> Dict[str, A
     # per-provider config under ``stt.<provider>`` and the dispatcher
     # forwards ``language`` from there. Top-level ``model`` argument
     # overrides any config-set model.
-    plugin_cfg = stt_config.get(provider, {}) if isinstance(stt_config.get(provider), dict) else {}
+    plugin_cfg = stt_config.get(
+        provider,
+        {}) if isinstance(
+        stt_config.get(provider),
+        dict) else {}
     plugin_language = plugin_cfg.get("language")
     plugin_model = model or plugin_cfg.get("model")
     plugin_result = _dispatch_to_plugin_provider(
