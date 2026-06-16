@@ -34,7 +34,26 @@ jobs:
         with:
           node-version: lts/*
 
-      - run: npm clean-install
+      - name: Setup pnpm
+        run: npm install -g pnpm@10.11.0 --registry https://registry.npmjs.org/
+
+      - name: Install dependencies
+        run: |
+          export PATH="$HOME/.npm-global/bin:$PATH"
+          pnpm install --no-frozen-lockfile --registry https://registry.npmjs.org/
+        working-directory: .
+
+      - name: Install semantic-release plugins
+        run: |
+          npm install --no-save \
+            semantic-release \
+            @semantic-release/changelog \
+            @semantic-release/git \
+            @semantic-release/github \
+            @semantic-release/exec \
+            @semantic-release/commit-analyzer \
+            @semantic-release/release-notes-generator \
+            conventional-changelog-conventionalcommits
         working-directory: packages/nastech-app
 
       - run: npx semantic-release
