@@ -128,46 +128,46 @@ jobs:
 
             # Commit the fixed app.config.js back to the repo
             if [ -n "$GH_PAT" ]; then
-              python3 - <<'PYEOF'
-import os, json, base64, urllib.request, urllib.error
-
-PAT  = os.environ.get("GH_PAT", "")
-REPO = "nastech-ai/NasDoor"
-FPATH = "packages/nastech-app/app.config.js"
-
-with open("app.config.js", "rb") as f:
-    content = base64.b64encode(f.read()).decode()
-
-def gh(method, path, data=None):
-    url = f"https://api.github.com{path}"
-    req = urllib.request.Request(url, method=method)
-    req.add_header("Authorization", f"Bearer {PAT}")
-    req.add_header("Accept", "application/vnd.github+json")
-    req.add_header("X-GitHub-Api-Version", "2022-11-28")
-    if data:
-        req.add_header("Content-Type", "application/json")
-        req.data = json.dumps(data).encode()
-    try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        print(f"  GitHub API error {e.code}: {e.read()[:200]}")
-        return {}
-
-existing = gh("GET", f"/repos/{REPO}/contents/{FPATH}?ref=main")
-sha = existing.get("sha", "")
-
-result = gh("PUT", f"/repos/{REPO}/contents/{FPATH}", {
-    "message": "fix(eas): update owner=nasdoor + new project ID [skip ci]",
-    "content": content,
-    "branch": "main",
-    "sha": sha
-})
-if result.get("content"):
-    print("✓ app.config.js committed to repo with new project ID")
-else:
-    print("  Could not commit app.config.js (non-fatal)")
-PYEOF
+              # Commit updated app.config.js back using node (avoids bash heredoc YAML issue)
+              node -e "
+                const https = require('https');
+                const fs = require('fs');
+                const pat = process.env.GH_PAT || '';
+                const repo = 'nastech-ai/NasDoor';
+                const fpath = 'packages/nastech-app/app.config.js';
+                const body = fs.readFileSync('app.config.js');
+                const content = body.toString('base64');
+                function gh(method, path, payload, cb) {
+                  const opts = {
+                    hostname: 'api.github.com', path,
+                    method, headers: {
+                      'Authorization': 'Bearer ' + pat,
+                      'Accept': 'application/vnd.github+json',
+                      'User-Agent': 'eas-build-ci',
+                      'X-GitHub-Api-Version': '2022-11-28',
+                      'Content-Type': 'application/json'
+                    }
+                  };
+                  const req = https.request(opts, res => {
+                    let d = '';
+                    res.on('data', c => d += c);
+                    res.on('end', () => cb(null, JSON.parse(d)));
+                  });
+                  req.on('error', cb);
+                  if (payload) req.write(JSON.stringify(payload));
+                  req.end();
+                }
+                gh('GET', '/repos/' + repo + '/contents/' + fpath + '?ref=main', null, (e, existing) => {
+                  const sha = existing && existing.sha ? existing.sha : '';
+                  gh('PUT', '/repos/' + repo + '/contents/' + fpath, {
+                    message: 'fix(eas): update owner=nasdoor + new project ID [skip ci]',
+                    content, branch: 'main', sha
+                  }, (e2, res) => {
+                    if (res && res.content) console.log('app.config.js committed');
+                    else console.log('commit skipped (non-fatal)');
+                  });
+                });
+              " || true
             fi
           fi
         working-directory: packages/nastech-app
