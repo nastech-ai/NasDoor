@@ -1,3 +1,4 @@
 {
-  "packages/nastech-app": "1.0.0"
+  "packages/nastech-app": "1.0.0",
+  ".": "1.0.0"
 }
