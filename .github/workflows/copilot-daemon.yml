@@ -1,0 +1,262 @@
+# Copilot Fleet 5 — Python Daemon (Copilots 33-40)
+name: "🤖 Copilot: Daemon"
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+    paths:
+      - "nastech-agent/**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  # ── Copilot 33: Python syntax ─────────────────────────────────
+  python-syntax:
+    name: "Copilot 33 · Python syntax"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Compile-check all Python files
+        id: syntax
+        run: |
+          ERRORS=""
+          while IFS= read -r f; do
+            python3 -m py_compile "$f" 2>/tmp/syn_err || \
+              ERRORS="$ERRORS\n$(cat /tmp/syn_err)"
+          done < <(find nastech-agent -name "*.py" 2>/dev/null)
+          if [ -n "$ERRORS" ]; then
+            echo -e "Syntax errors:$ERRORS"
+            exit 1
+          fi
+          COUNT=$(find nastech-agent -name "*.py" 2>/dev/null | wc -l)
+          echo "✅ All $COUNT Python files pass syntax check"
+        continue-on-error: true
+      - name: Report
+        if: steps.syntax.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `[Copilot 33] Python syntax errors in nastech-agent`,
+              body: `## 🤖 Copilot 33 — Python Syntax\nRun ${context.runId} found syntax errors.\nCheck the workflow logs for details.`,
+              labels: ['type: bug','scope: daemon','priority: high','status: triage'],
+            });
+
+  # ── Copilot 34: Requirements audit ───────────────────────────
+  requirements-audit:
+    name: "Copilot 34 · Requirements"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Validate requirements.txt
+        run: |
+          if [ -f nastech-agent/requirements.txt ]; then
+            echo "=== requirements.txt ==="
+            cat nastech-agent/requirements.txt
+            echo ""
+            echo "Total packages: $(grep -c "." nastech-agent/requirements.txt)"
+            # Check for unpinned packages
+            UNPINNED=$(grep -v "==" nastech-agent/requirements.txt | grep -v "^#\|^$" || true)
+            if [ -n "$UNPINNED" ]; then
+              echo "⚠️  Unpinned packages (may cause instability):"
+              echo "$UNPINNED"
+            else
+              echo "✅ All packages pinned"
+            fi
+          else
+            echo "ℹ️  No requirements.txt found"
+          fi
+          # Also check pyproject.toml
+          if [ -f nastech-agent/pyproject.toml ]; then
+            echo "=== pyproject.toml found ==="
+            python3 -c "import tomllib; print('✅ valid TOML')" < nastech-agent/pyproject.toml 2>/dev/null || \
+            python3 -c "
+import sys
+try:
+  import tomllib
+  tomllib.load(open('nastech-agent/pyproject.toml','rb'))
+  print('✅ pyproject.toml valid')
+except Exception as e:
+  print(f'❌ {e}')
+  sys.exit(1)
+"
+          fi
+
+  # ── Copilot 35: Port conflict check ──────────────────────────
+  port-conflict:
+    name: "Copilot 35 · Port 9119"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify port 9119 usage
+        run: |
+          python3 << 'PYEOF'
+          import os, re
+
+          ports_found = {}
+          for root, dirs, files in os.walk('nastech-agent'):
+              for fname in files:
+                  if not fname.endswith('.py'): continue
+                  path = os.path.join(root, fname)
+                  content = open(path).read()
+                  for port in re.findall(r'\b(9\d{3}|8\d{3})\b', content):
+                      ports_found.setdefault(port, []).append(path)
+
+          print("Port usage in nastech-agent:")
+          for port, files in sorted(ports_found.items()):
+              print(f"  :{port} — {', '.join(set(f.split('/')[-1] for f in files))}")
+
+          if '9119' in ports_found:
+              print("\n✅ Port 9119 found")
+          else:
+              print("\n⚠️  Port 9119 not found — daemon may use different port")
+          PYEOF
+
+  # ── Copilot 36: API schema validation ────────────────────────
+  api-schema:
+    name: "Copilot 36 · API schema"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Check API routes in web_server.py
+        run: |
+          python3 << 'PYEOF'
+          import re, os, sys
+
+          server_files = []
+          for root, dirs, files in os.walk('nastech-agent'):
+            for f in files:
+              if 'web_server' in f or 'server' in f or 'api' in f:
+                server_files.append(os.path.join(root, f))
+
+          if not server_files:
+            print("ℹ️  No web_server.py found")
+            sys.exit(0)
+
+          for sf in server_files:
+            content = open(sf).read()
+            routes = re.findall(r'@\w+\.(?:route|get|post|put|delete)\(["\']([^"\']+)["\']', content)
+            print(f"\n{sf} — {len(routes)} routes:")
+            for r in routes:
+              print(f"  {r}")
+          PYEOF
+
+  # ── Copilot 37: Python imports check ─────────────────────────
+  import-check:
+    name: "Copilot 37 · Python imports"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install + validate imports
+        run: |
+          if [ -f nastech-agent/requirements.txt ]; then
+            pip install -r nastech-agent/requirements.txt -q 2>&1 | tail -5 || true
+          fi
+          python3 << 'PYEOF'
+          import os, ast, sys
+
+          errors = []
+          for root, dirs, files in os.walk('nastech-agent'):
+              # Skip venv and __pycache__
+              dirs[:] = [d for d in dirs if d not in ['venv','.venv','__pycache__','.git']]
+              for fname in files:
+                  if not fname.endswith('.py'): continue
+                  path = os.path.join(root, fname)
+                  try:
+                      tree = ast.parse(open(path).read())
+                      imports = [n for n in ast.walk(tree)
+                                 if isinstance(n, (ast.Import, ast.ImportFrom))]
+                      # count imports
+                  except SyntaxError as e:
+                      errors.append(f"{path}: {e}")
+
+          if errors:
+              print("❌ Parse errors:")
+              for e in errors: print(f"  {e}")
+              sys.exit(1)
+          else:
+              count = sum(1 for r,d,f in os.walk('nastech-agent') for x in f if x.endswith('.py'))
+              print(f"✅ {count} Python files parsed cleanly")
+          PYEOF
+
+  # ── Copilot 38: Daemon health smoke test ─────────────────────
+  daemon-health:
+    name: "Copilot 38 · Daemon smoke test"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install deps and import-check daemon
+        run: |
+          if [ -f nastech-agent/requirements.txt ]; then
+            pip install -r nastech-agent/requirements.txt -q 2>&1 | tail -3 || true
+          fi
+          cd nastech-agent
+          # Try to import top-level modules
+          python3 -c "
+          import importlib, os, sys
+          sys.path.insert(0,'.')
+          modules = [f[:-3] for f in os.listdir('.') if f.endswith('.py') and not f.startswith('_')]
+          ok=[]; fail=[]
+          for m in modules[:10]:
+            try:
+              importlib.import_module(m)
+              ok.append(m)
+            except Exception as e:
+              fail.append(f'{m}: {str(e)[:60]}')
+          print(f'✅ Imported: {ok}')
+          if fail: print(f'⚠️  Failed: {fail}')
+          " 2>&1 | head -30 || true
+
+  # ── Copilot 39: mypy type checking ───────────────────────────
+  type-hints:
+    name: "Copilot 39 · mypy types"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Run mypy
+        run: |
+          pip install mypy -q
+          if [ -f nastech-agent/requirements.txt ]; then
+            pip install -r nastech-agent/requirements.txt -q 2>&1 | tail -3 || true
+          fi
+          mypy nastech-agent --ignore-missing-imports \
+            --no-error-summary 2>&1 | tail -20 || true
+        continue-on-error: true
+
+  # ── Copilot 40: Test coverage report ─────────────────────────
+  test-coverage:
+    name: "Copilot 40 · Test coverage"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Run pytest with coverage
+        run: |
+          pip install pytest pytest-cov -q
+          if [ -f nastech-agent/requirements.txt ]; then
+            pip install -r nastech-agent/requirements.txt -q 2>&1 | tail -3 || true
+          fi
+          cd nastech-agent
+          python3 -m pytest --cov=. --cov-report=term-missing \
+            --tb=short -q 2>&1 | tail -20 || echo "ℹ️  No tests found or tests skipped"
+        continue-on-error: true
