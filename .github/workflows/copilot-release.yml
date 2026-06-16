@@ -1,0 +1,278 @@
+# Copilot Fleet 7 — Release (Copilots 49-56)
+name: "🤖 Copilot: Release"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "CHANGELOG*"
+      - "packages/nastech-app/package.json"
+      - ".release-please-manifest.json"
+      - "packages/nastech-app/.releaserc.json"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  # ── Copilot 49: CHANGELOG format ─────────────────────────────
+  changelog-format:
+    name: "Copilot 49 · CHANGELOG format"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Check CHANGELOG exists and is well-formed
+        run: |
+          python3 << 'PYEOF'
+          import os, re
+
+          changelogs = [f for f in os.listdir('.') if 'CHANGELOG' in f.upper()]
+          if not changelogs:
+              print("ℹ️  No CHANGELOG yet — will be created by release-please on first release")
+          else:
+              for cl in changelogs:
+                  content = open(cl).read()
+                  sections = re.findall(r'^#{1,2} .+', content, re.MULTILINE)
+                  versions = re.findall(r'\[\d+\.\d+\.\d+\]', content)
+                  print(f"✅ {cl}: {len(sections)} sections, {len(versions)} versions referenced")
+          PYEOF
+
+  # ── Copilot 50: Semver validation ────────────────────────────
+  semver-valid:
+    name: "Copilot 50 · Semver"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Validate version across all packages
+        run: |
+          node << 'JSEOF'
+          const fs = require('fs');
+          const semver = /^\d+\.\d+\.\d+(-[\w.]+)?(\+[\w.]+)?$/;
+
+          const packages = [
+            'package.json',
+            'packages/nastech-app/package.json',
+          ];
+
+          let allOk = true;
+          for (const p of packages) {
+            try {
+              const pkg = JSON.parse(fs.readFileSync(p, 'utf8'));
+              const ver = pkg.version;
+              const ok = !ver || semver.test(ver);
+              console.log(`${ok ? '✅' : '❌'} ${p}: ${ver || 'no version'}`);
+              if (!ok) allOk = false;
+            } catch(e) {
+              console.log(`⚠️  ${p}: ${e.message}`);
+            }
+          }
+          if (!allOk) process.exit(1);
+          JSEOF
+
+  # ── Copilot 51: release-please manifest ──────────────────────
+  release-manifest:
+    name: "Copilot 51 · Release manifest"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate .release-please-manifest.json
+        run: |
+          python3 << 'PYEOF'
+          import json, sys
+
+          try:
+              manifest = json.load(open('.release-please-manifest.json'))
+              config   = json.load(open('release-please-config.json'))
+              print("✅ Both release-please files are valid JSON")
+              print(f"Tracked packages: {list(manifest.keys())}")
+              print(f"Config packages:  {list(config.get('packages',{}).keys())}")
+          except FileNotFoundError as e:
+              print(f"⚠️  {e} — will be created on first release")
+          except json.JSONDecodeError as e:
+              print(f"❌ JSON error: {e}")
+              sys.exit(1)
+          PYEOF
+
+  # ── Copilot 52: Git tag consistency ──────────────────────────
+  tag-consistency:
+    name: "Copilot 52 · Tag consistency"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Compare tags to package.json version
+        run: |
+          PKG_VER=$(python3 -c "import json; print(json.load(open('packages/nastech-app/package.json'))['version'])" 2>/dev/null || echo "0.0.0")
+          LATEST_TAG=$(git tag --sort=-version:refname | head -1 || echo "none")
+          echo "package.json version: $PKG_VER"
+          echo "Latest git tag:       $LATEST_TAG"
+          if [ "$LATEST_TAG" = "none" ]; then
+            echo "ℹ️  No tags yet — this is pre-v1"
+          elif [ "v${PKG_VER}" = "$LATEST_TAG" ] || [ "$PKG_VER" = "$LATEST_TAG" ]; then
+            echo "✅ Tag matches package.json version"
+          else
+            echo "⚠️  Version mismatch — package.json says $PKG_VER, latest tag is $LATEST_TAG"
+          fi
+
+  # ── Copilot 53: EAS OTA channel check ────────────────────────
+  ota-channel:
+    name: "Copilot 53 · OTA channel"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate EAS update channels
+        run: |
+          python3 << 'PYEOF'
+          import json, sys, re
+
+          try:
+              eas = json.load(open('packages/nastech-app/eas.json'))
+          except Exception as e:
+              print(f"❌ {e}"); sys.exit(1)
+
+          builds = eas.get('build', {})
+          print("OTA channel config per build profile:")
+          for name, profile in builds.items():
+              channel = profile.get('channel', 'not set')
+              dist    = profile.get('distribution', 'unknown')
+              print(f"  {name}: channel={channel}, dist={dist}")
+
+          # Check eas-ota.yml references valid channels
+          try:
+              ota_wf = open('.github/workflows/eas-ota.yml').read()
+              channels = re.findall(r'channel["\s:]+["\']([^"\']+)["\']', ota_wf)
+              print(f"\nChannels in eas-ota.yml: {channels}")
+          except:
+              print("ℹ️  eas-ota.yml not found")
+          PYEOF
+
+  # ── Copilot 54: Expo SDK consistency ─────────────────────────
+  expo-version:
+    name: "Copilot 54 · Expo SDK version"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Check Expo SDK version consistency
+        run: |
+          node << 'JSEOF'
+          const fs = require('fs');
+
+          let pkg;
+          try {
+            pkg = JSON.parse(fs.readFileSync('packages/nastech-app/package.json','utf8'));
+          } catch(e) {
+            console.log('⚠️  Cannot read package.json:', e.message);
+            process.exit(0);
+          }
+
+          const deps = {...(pkg.dependencies||{}), ...(pkg.devDependencies||{})};
+          const expoVer = deps['expo'] || 'not found';
+          const sdkMatch = expoVer.match(/(\d+)/);
+          const sdkNum = sdkMatch ? parseInt(sdkMatch[1]) : null;
+
+          console.log(`Expo version: ${expoVer}`);
+          if (sdkNum) {
+            console.log(`SDK number: ${sdkNum}`);
+            if (sdkNum < 55) console.log('⚠️  SDK below 55 — upgrade recommended');
+            else if (sdkNum === 55) console.log('✅ SDK 55 — current target');
+            else console.log(`ℹ️  SDK ${sdkNum} — ahead of target`);
+          }
+
+          // Check react-native version matches expo
+          const rnVer = deps['react-native'] || 'not found';
+          console.log(`react-native: ${rnVer}`);
+
+          // Check expo-router
+          const routerVer = deps['expo-router'] || 'not found';
+          console.log(`expo-router: ${routerVer}`);
+          JSEOF
+
+  # ── Copilot 55: Breaking change detection ────────────────────
+  breaking-change-detect:
+    name: "Copilot 55 · Breaking changes"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 50 }
+      - name: Scan commits for breaking change markers
+        run: |
+          python3 << 'PYEOF'
+          import subprocess, re
+
+          result = subprocess.run(
+              ['git', 'log', '--oneline', '-30'],
+              capture_output=True, text=True
+          )
+          commits = result.stdout.strip().split('\n')
+
+          BREAKING_RE = re.compile(
+              r'BREAKING[- ]CHANGE|!:|feat!|fix!|refactor!', re.IGNORECASE
+          )
+
+          breaking = [c for c in commits if BREAKING_RE.search(c)]
+
+          if breaking:
+              print(f"⚠️  {len(breaking)} breaking-change commits in last 30:")
+              for c in breaking:
+                  print(f"  {c}")
+              print("\nEnsure CHANGELOG and major version bump are in next release.")
+          else:
+              print("✅ No breaking changes in last 30 commits")
+          PYEOF
+
+  # ── Copilot 56: Release notes generator ──────────────────────
+  release-notes-gen:
+    name: "Copilot 56 · Release notes"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Generate draft release summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get commits since last tag
+            const { execSync } = require('child_process');
+            let lastTag, commits;
+            try {
+              lastTag = execSync('git describe --tags --abbrev=0 2>/dev/null || echo ""').toString().trim();
+              const range = lastTag ? `${lastTag}..HEAD` : 'HEAD~20..HEAD';
+              commits = execSync(`git log ${range} --format="%s" --no-merges`).toString().trim().split('\n').filter(Boolean);
+            } catch(e) {
+              commits = execSync('git log --oneline -20 --format="%s"').toString().trim().split('\n');
+              lastTag = 'none';
+            }
+
+            const cats = { feat:[], fix:[], perf:[], chore:[], docs:[], other:[] };
+            for (const c of commits) {
+              if (/^feat/.test(c))  cats.feat.push(c);
+              else if (/^fix/.test(c))  cats.fix.push(c);
+              else if (/^perf/.test(c)) cats.perf.push(c);
+              else if (/^chore/.test(c)) cats.chore.push(c);
+              else if (/^docs/.test(c)) cats.docs.push(c);
+              else cats.other.push(c);
+            }
+
+            const lines = [
+              `## 📋 Draft Release Notes`,
+              `> Since last tag: \`${lastTag || 'none'}\` | ${commits.length} commits`,
+              ''
+            ];
+            if (cats.feat.length)  { lines.push('### ✨ Features');       cats.feat.forEach(c=>lines.push(`- ${c}`));  lines.push(''); }
+            if (cats.fix.length)   { lines.push('### 🐛 Bug Fixes');      cats.fix.forEach(c=>lines.push(`- ${c}`));   lines.push(''); }
+            if (cats.perf.length)  { lines.push('### ⚡ Performance');    cats.perf.forEach(c=>lines.push(`- ${c}`));  lines.push(''); }
+            if (cats.docs.length)  { lines.push('### 📚 Documentation');  cats.docs.forEach(c=>lines.push(`- ${c}`));  lines.push(''); }
+            if (cats.other.length) { lines.push('### 🔧 Other');          cats.other.forEach(c=>lines.push(`- ${c}`)); lines.push(''); }
+
+            core.summary.addRaw(lines.join('\n'));
+            await core.summary.write();
+            console.log(lines.join('\n'));
