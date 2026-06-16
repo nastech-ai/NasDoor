@@ -2,9 +2,13 @@
 # NasDoor — GitHub Actions self-hosted runner
 # Self-installing inside persistent workspace. Loops forever.
 
-# Dotnet runtime libs — include Ubuntu system libs that nix path misses
-export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/usr/lib:/lib/x86_64-linux-gnu:/lib:$HOME/.nix-profile/lib:$LD_LIBRARY_PATH"
-export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=0
+# Dotnet runtime libs — clean symlink dir avoids glibc conflicts with nix
+RUNNER_LIBS="/home/runner/workspace/runner-libs"
+mkdir -p "$RUNNER_LIBS"
+ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 "$RUNNER_LIBS/libstdc++.so.6" 2>/dev/null || true
+ln -sf /usr/lib/x86_64-linux-gnu/libz.so.1      "$RUNNER_LIBS/libz.so.1"      2>/dev/null || true
+export LD_LIBRARY_PATH="$RUNNER_LIBS:${LD_LIBRARY_PATH:-}"
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 export DOTNET_RUNNING_IN_CONTAINER=1
 
 RUNNER_DIR="/home/runner/workspace/actions-runner"
