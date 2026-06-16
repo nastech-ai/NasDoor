@@ -10,6 +10,7 @@ ln -sf /usr/lib/x86_64-linux-gnu/libz.so.1      "$RUNNER_LIBS/libz.so.1"      2>
 export LD_LIBRARY_PATH="$RUNNER_LIBS:${LD_LIBRARY_PATH:-}"
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 export DOTNET_RUNNING_IN_CONTAINER=1
+export RUNNER_DISABLE_UPDATES=1
 
 RUNNER_DIR="/home/runner/workspace/actions-runner"
 LOG_FILE="/home/runner/workspace/runner-main.log"
