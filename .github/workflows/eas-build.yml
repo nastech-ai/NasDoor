@@ -33,9 +33,6 @@ jobs:
     timeout-minutes: 60
     env:
       npm_config_registry: https://registry.npmjs.org/
-    defaults:
-      run:
-        working-directory: packages/nastech-app
 
     steps:
       - name: Checkout
@@ -43,14 +40,26 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Disk cleanup
+        run: |
+          echo "=== Disk before cleanup ==="
+          df -h / 2>/dev/null || df -h .
+          # Remove leftover metro/haste caches
+          rm -rf /tmp/metro-* /tmp/haste-* /tmp/react-* /tmp/jest-* 2>/dev/null || true
+          # Prune pnpm store of unreferenced packages
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+          pnpm store prune --force 2>/dev/null || true
+          echo "=== Disk after cleanup ==="
+          df -h / 2>/dev/null || df -h .
+        working-directory: .
+
       - name: Setup tools
         run: |
           export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
           node --version
           pnpm --version || npm install -g pnpm@10.11.0 --registry https://registry.npmjs.org/
-          eas --version || npm install -g eas-cli --registry https://registry.npmjs.org/
+          eas --version  || npm install -g eas-cli@latest --registry https://registry.npmjs.org/
           echo "registry=https://registry.npmjs.org/" > "$HOME/.npmrc"
-          echo "Effective registry: $(pnpm config get registry 2>/dev/null || echo 'pnpm unavailable')"
         working-directory: .
 
       - name: Install dependencies
@@ -59,12 +68,117 @@ jobs:
           pnpm install --no-frozen-lockfile --registry https://registry.npmjs.org/
         working-directory: .
 
+      - name: Fix EAS project ownership
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
+
+          echo "=== Current EAS project ==="
+          eas whoami
+
+          # Test if we can access the current project
+          if eas project:info --non-interactive 2>/dev/null; then
+            echo "✓ EAS project accessible, skipping ownership fix"
+            exit 0
+          fi
+
+          echo "Project not accessible under current token. Fixing ownership → nasdoor..."
+
+          # Patch app.config.js: owner=nasdoor, clear old project ID
+          node -e "
+            const fs = require('fs');
+            let c = fs.readFileSync('app.config.js', 'utf8');
+            c = c.replace(/owner:\s*[\"']nastechai[\"']/, 'owner: \"nasdoor\"');
+            c = c.replace(/\"925ecdd8-07ba-4775-956b-2b334fab8357\"/g, '\"\"');
+            c = c.replace(/925ecdd8-07ba-4775-956b-2b334fab8357/g, '');
+            fs.writeFileSync('app.config.js', c);
+            console.log('✓ Patched app.config.js: owner=nasdoor, projectId cleared');
+          "
+
+          # Create / link EAS project under nasdoor
+          echo "Running eas init..."
+          eas init --non-interactive 2>&1 | tee /tmp/eas-init.log || true
+
+          # Extract the new project ID eas wrote into app.config.js
+          NEW_ID=$(node -e "
+            try {
+              const c = require('./app.config.js');
+              const id = c.expo?.extra?.eas?.projectId || '';
+              console.log(id);
+            } catch(e) { console.log(''); }
+          " 2>/dev/null || echo "")
+
+          if [ -z "$NEW_ID" ]; then
+            echo "::warning::eas init did not write a project ID — build may fail"
+          else
+            echo "✓ New EAS project ID: $NEW_ID"
+            echo "EAS_PROJECT_ID=$NEW_ID" >> "$GITHUB_ENV"
+
+            # Also fix the updates.url to use the new project ID
+            node -e "
+              const fs = require('fs');
+              let c = fs.readFileSync('app.config.js', 'utf8');
+              const id = '$NEW_ID';
+              c = c.replace(/u\.expo\.dev\/[0-9a-f-]{36}/g, 'u.expo.dev/' + id);
+              fs.writeFileSync('app.config.js', c);
+              console.log('✓ Updated updates.url with new project ID');
+            "
+
+            # Commit the fixed app.config.js back to the repo
+            if [ -n "$GH_PAT" ]; then
+              python3 - <<'PYEOF'
+import os, json, base64, urllib.request, urllib.error
+
+PAT  = os.environ.get("GH_PAT", "")
+REPO = "nastech-ai/NasDoor"
+FPATH = "packages/nastech-app/app.config.js"
+
+with open("app.config.js", "rb") as f:
+    content = base64.b64encode(f.read()).decode()
+
+def gh(method, path, data=None):
+    url = f"https://api.github.com{path}"
+    req = urllib.request.Request(url, method=method)
+    req.add_header("Authorization", f"Bearer {PAT}")
+    req.add_header("Accept", "application/vnd.github+json")
+    req.add_header("X-GitHub-Api-Version", "2022-11-28")
+    if data:
+        req.add_header("Content-Type", "application/json")
+        req.data = json.dumps(data).encode()
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        print(f"  GitHub API error {e.code}: {e.read()[:200]}")
+        return {}
+
+existing = gh("GET", f"/repos/{REPO}/contents/{FPATH}?ref=main")
+sha = existing.get("sha", "")
+
+result = gh("PUT", f"/repos/{REPO}/contents/{FPATH}", {
+    "message": "fix(eas): update owner=nasdoor + new project ID [skip ci]",
+    "content": content,
+    "branch": "main",
+    "sha": sha
+})
+if result.get("content"):
+    print("✓ app.config.js committed to repo with new project ID")
+else:
+    print("  Could not commit app.config.js (non-fatal)")
+PYEOF
+            fi
+          fi
+        working-directory: packages/nastech-app
+
       - name: Pre-install Android assets
         if: ${{ github.event.inputs.platform != 'ios' }}
         env:
           EAS_BUILD_PLATFORM: android
           BUNDLE_TERMUX_BOOTSTRAP: '1'
         run: bash eas-build-pre-install.sh
+        working-directory: packages/nastech-app
 
       - name: Pre-install iOS assets
         if: ${{ github.event.inputs.platform == 'ios' }}
@@ -72,16 +186,7 @@ jobs:
           EAS_BUILD_PLATFORM: ios
           BUNDLE_TERMUX_BOOTSTRAP: '0'
         run: bash eas-build-pre-install.sh
-
-      - name: EAS Auth check
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
-          echo "=== eas whoami ==="
-          eas whoami || true
-          echo "=== eas project:info ==="
-          eas project:info --non-interactive 2>&1 || true
+        working-directory: packages/nastech-app
 
       - name: EAS Build
         env:
@@ -93,8 +198,10 @@ jobs:
           export PATH="$HOME/.npm-global/bin:/home/runner/.npm-global/bin:$PATH"
           PROFILE="${{ github.event.inputs.profile || 'preview' }}"
           PLATFORM="${{ github.event.inputs.platform || 'android' }}"
+          echo "Building: profile=$PROFILE platform=$PLATFORM"
           eas build \
             --profile "$PROFILE" \
             --platform "$PLATFORM" \
             --non-interactive \
             --no-wait
+        working-directory: packages/nastech-app
