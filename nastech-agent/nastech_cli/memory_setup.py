@@ -19,6 +19,7 @@ from nastech_constants import get_nastech_home
 # Curses-based interactive picker (same pattern as nastech tools)
 # ---------------------------------------------------------------------------
 
+
 def _curses_select(
         title: str, items: list[tuple[str, str]], default: int = 0) -> int:
     """Interactive single-select with arrow keys.

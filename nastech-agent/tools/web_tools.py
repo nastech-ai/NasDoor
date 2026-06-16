@@ -51,6 +51,9 @@ from agent.auxiliary_client import (
     get_async_text_auxiliary_client,
 )
 from tools.debug_helpers import DebugSession
+from tools.managed_tool_gateway import (
+    build_vendor_gateway_url,
+)
 from tools.registry import registry, tool_error
 from tools.url_safety import async_is_safe_url, is_safe_url, normalize_url_for_request
 
@@ -63,14 +66,10 @@ if TYPE_CHECKING:
     from firecrawl import Firecrawl  # noqa: F401 — type hints only
 
 from plugins.web.exa.provider import _get_exa_client  # noqa: F401
-from plugins.web.firecrawl.provider import (  # noqa: F401  # re-exported for tests that mock.patch("tools.web_tools.Firecrawl")
+from plugins.web.firecrawl.provider import (  # noqa: F401  # re-exported for tests that mock.patch("tools.web_tools.Firecrawl"); noqa: F401  # re-exported for tests that `from tools.web_tools import _get_firecrawl_client`
     Firecrawl,
-)
-from plugins.web.firecrawl.provider import (  # noqa: F401  # re-exported for tests that `from tools.web_tools import _get_firecrawl_client`
-    _get_firecrawl_client,
-)
-from plugins.web.firecrawl.provider import (
     _firecrawl_backend_help_suffix,
+    _get_firecrawl_client,
     _get_firecrawl_gateway_url,
     _is_tool_gateway_ready,
     check_firecrawl_api_key,
@@ -103,17 +102,8 @@ _exa_client: Optional[Any] = None
 
 # Imported solely so unit tests can monkeypatch these names on
 # tools.web_tools (the firecrawl plugin reads them via its own import chain).
-from tools.managed_tool_gateway import (
-    build_vendor_gateway_url,
-)
 from tools.managed_tool_gateway import (  # noqa: F401 — backward-compat names for tests
     peek_nastech_access_token as _peek_nastech_access_token,
-)
-from tools.managed_tool_gateway import (
-    read_nastech_access_token as _read_nastech_access_token,
-)
-from tools.managed_tool_gateway import (
-    resolve_managed_tool_gateway,
 )
 from tools.tool_backend_helpers import (  # noqa: F401
     managed_nastech_tools_enabled,

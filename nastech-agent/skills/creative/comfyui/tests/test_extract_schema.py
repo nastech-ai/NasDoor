@@ -13,6 +13,7 @@ from extract_schema import (
 # Connection tracing
 # =============================================================================
 
+
 class TestConnectionTracing:
     def test_direct_link(self):
         wf = {

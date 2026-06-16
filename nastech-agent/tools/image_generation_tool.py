@@ -29,6 +29,10 @@ import uuid
 from typing import Any, Dict, Optional
 
 from tools.debug_helpers import DebugSession
+from tools.fal_common import (
+    _extract_http_status,
+    _ManagedFalSyncClient,
+)
 from tools.managed_tool_gateway import resolve_managed_tool_gateway
 from tools.registry import registry, tool_error
 from tools.tool_backend_helpers import (
@@ -68,10 +72,6 @@ def _load_fal_client() -> Any:
 
 from tools.fal_common import (  # noqa: F401 — re-exported for tests
     _normalize_fal_queue_url_format,
-)
-from tools.fal_common import (
-    _extract_http_status,
-    _ManagedFalSyncClient,
 )
 
 logger = logging.getLogger(__name__)

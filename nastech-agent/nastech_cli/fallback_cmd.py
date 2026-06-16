@@ -27,6 +27,7 @@ from nastech_cli.fallback_config import get_fallback_chain
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _read_chain(config: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Return the normalized fallback chain as a list of dicts.
 

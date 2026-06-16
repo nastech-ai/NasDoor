@@ -12,6 +12,7 @@ from .constants import QQBOT_VERSION
 # User-Agent
 # ---------------------------------------------------------------------------
 
+
 def _get_nastech_version() -> str:
     """Return the nastech-agent package version, or 'dev' if unavailable."""
     try:

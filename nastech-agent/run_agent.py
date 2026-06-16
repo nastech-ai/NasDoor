@@ -36,10 +36,26 @@ from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
 import nastech_bootstrap  # noqa: F401
+from agent.codex_responses_adapter import (
+    _derive_responses_function_call_id as _codex_derive_responses_function_call_id,
+)
 from agent.error_classifier import FailoverReason
 from agent.iteration_budget import IterationBudget
 from agent.memory_manager import sanitize_context
+from agent.model_metadata import (
+    is_local_endpoint,
+)
+from agent.process_bootstrap import (
+    _get_proxy_for_base_url,
+)
 from agent.redact import redact_sensitive_text
+from agent.tool_dispatch_helpers import (
+    _extract_error_preview,
+    _extract_file_mutation_targets,
+    _is_multimodal_tool_result,
+    _multimodal_text_summary,
+    _should_parallelize_tool_batch,
+)
 from agent.tool_guardrails import (
     ToolGuardrailDecision,
     append_toolguard_guidance,
@@ -56,6 +72,9 @@ from agent.trajectory import (
 )
 from agent.trajectory import save_trajectory as _save_trajectory_to_file
 from agent.usage_pricing import normalize_usage
+from model_tools import (
+    get_toolset_for_tool,
+)
 from nastech_cli.env_loader import load_nastech_dotenv
 from nastech_cli.timeouts import (
     get_provider_request_timeout,
@@ -131,14 +150,9 @@ def _launch_cwd_for_session(source: str) -> Optional[str]:
 # `mock.patch("run_agent.<X>")`, `from run_agent import <X>` in production
 # siblings, or the `_ra().<X>` indirection in agent/system_prompt.py — none
 # of which ruff's in-module usage scan can see.
-from agent.process_bootstrap import (  # noqa: F401  # re-exported for tests that mock.patch("run_agent.OpenAI")
+from agent.process_bootstrap import (  # noqa: F401  # re-exported for tests that mock.patch("run_agent.OpenAI"); noqa: F401  # re-exported for tests that `from run_agent import _SafeWriter`
     OpenAI,
-)
-from agent.process_bootstrap import (  # noqa: F401  # re-exported for tests that `from run_agent import _SafeWriter`
     _SafeWriter,
-)
-from agent.process_bootstrap import (
-    _get_proxy_for_base_url,
 )
 
 _nastech_home = get_nastech_home()
@@ -153,15 +167,6 @@ else:
     logger.info("No .env file found. Using system environment variables.")
 
 
-from agent.codex_responses_adapter import (
-    _derive_responses_function_call_id as _codex_derive_responses_function_call_id,
-)
-from agent.codex_responses_adapter import (
-    _deterministic_call_id as _codex_deterministic_call_id,
-)
-from agent.codex_responses_adapter import (
-    _split_responses_tool_id as _codex_split_responses_tool_id,
-)
 from agent.codex_responses_adapter import (  # noqa: F401  # re-exported for tests
     _summarize_user_message_for_log,
 )
@@ -186,9 +191,6 @@ from agent.message_sanitization import (  # noqa: F401
 from agent.model_metadata import (  # noqa: F401  # re-exported for tests that mock.patch("run_agent.estimate_request_tokens_rough")
     estimate_request_tokens_rough,
 )
-from agent.model_metadata import (
-    is_local_endpoint,
-)
 from agent.process_bootstrap import _get_proxy_from_env  # noqa: F401
 from agent.prompt_builder import (  # noqa: F401  # re-exported via _ra() / mock.patch("run_agent.<name>") / from run_agent import <name>
     DEFAULT_AGENT_IDENTITY,
@@ -199,41 +201,19 @@ from agent.prompt_builder import (  # noqa: F401  # re-exported via _ra() / mock
     load_soul_md,
 )
 from agent.retry_utils import jittered_backoff  # noqa: F401
-from agent.tool_dispatch_helpers import (  # noqa: F401  # re-exported for tests that `from run_agent import _append_subdir_hint_to_multimodal`
+from agent.tool_dispatch_helpers import (  # noqa: F401  # re-exported for tests that `from run_agent import _append_subdir_hint_to_multimodal`; noqa: F401  # re-exported for tests that `from run_agent import _extract_parallel_scope_path`; noqa: F401  # re-exported for tests that access `run_agent._is_destructive_command`; noqa: F401  # re-exported for tests that `from run_agent import _paths_overlap`; noqa: F401  # re-exported for tests that `from run_agent import _trajectory_normalize_msg`
     _append_subdir_hint_to_multimodal,
-)
-from agent.tool_dispatch_helpers import (  # noqa: F401  # re-exported for tests that `from run_agent import _extract_parallel_scope_path`
     _extract_parallel_scope_path,
-)
-from agent.tool_dispatch_helpers import (  # noqa: F401  # re-exported for tests that access `run_agent._is_destructive_command`
     _is_destructive_command,
-)
-from agent.tool_dispatch_helpers import (  # noqa: F401  # re-exported for tests that `from run_agent import _paths_overlap`
     _paths_overlap,
-)
-from agent.tool_dispatch_helpers import (  # noqa: F401  # re-exported for tests that `from run_agent import _trajectory_normalize_msg`
     _trajectory_normalize_msg,
-)
-from agent.tool_dispatch_helpers import (
-    _extract_error_preview,
-    _extract_file_mutation_targets,
-    _is_multimodal_tool_result,
-    _multimodal_text_summary,
-    _should_parallelize_tool_batch,
 )
 
 # Import our tool system
-from model_tools import (  # noqa: F401  # re-exported for tests that mock.patch("run_agent.check_toolset_requirements")
+from model_tools import (  # noqa: F401  # re-exported for tests that mock.patch("run_agent.check_toolset_requirements"); noqa: F401  # re-exported for tests that mock.patch("run_agent.get_tool_definitions"); noqa: F401  # re-exported for tests that mock.patch("run_agent.handle_function_call")
     check_toolset_requirements,
-)
-from model_tools import (  # noqa: F401  # re-exported for tests that mock.patch("run_agent.get_tool_definitions")
     get_tool_definitions,
-)
-from model_tools import (  # noqa: F401  # re-exported for tests that mock.patch("run_agent.handle_function_call")
     handle_function_call,
-)
-from model_tools import (
-    get_toolset_for_tool,
 )
 
 _MAX_TOOL_WORKERS = 8

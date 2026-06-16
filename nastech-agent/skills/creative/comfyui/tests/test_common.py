@@ -26,6 +26,7 @@ from _common import (
 # Cloud detection / URL routing
 # =============================================================================
 
+
 class TestCloudDetection:
     def test_cloud_host_exact(self):
         assert is_cloud_host("https://cloud.comfy.org") is True

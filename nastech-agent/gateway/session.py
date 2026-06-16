@@ -21,6 +21,15 @@ from typing import Any, Dict, List, Optional
 
 from utils import atomic_replace
 
+from .config import (
+    GatewayConfig,
+    HomeChannel,
+    Platform,
+)
+from .whatsapp_identity import (
+    canonical_whatsapp_identifier,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,16 +68,8 @@ def _hash_chat_id(value: str) -> str:
 from .config import (  # noqa: F401 — re-exported via gateway/__init__.py
     SessionResetPolicy,
 )
-from .config import (
-    GatewayConfig,
-    HomeChannel,
-    Platform,
-)
 from .whatsapp_identity import (  # noqa: F401 - re-exported for gateway.session callers
     normalize_whatsapp_identifier,
-)
-from .whatsapp_identity import (
-    canonical_whatsapp_identifier,
 )
 
 

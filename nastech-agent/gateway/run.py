@@ -53,6 +53,9 @@ from gateway.session import (
     is_shared_multi_user_session,
 )
 from gateway.slash_commands import GatewaySlashCommandsMixin
+from gateway.whatsapp_identity import (
+    expand_whatsapp_aliases as _expand_whatsapp_auth_aliases,
+)
 from nastech_cli.env_loader import load_nastech_dotenv
 from nastech_constants import get_nastech_home
 from utils import (
@@ -1272,12 +1275,6 @@ if not _configured_cwd or _configured_cwd in {".", "auto", "cwd"}:
 
 from gateway.whatsapp_identity import (  # noqa: F401
     canonical_whatsapp_identifier as _canonical_whatsapp_identifier,
-)
-from gateway.whatsapp_identity import (
-    expand_whatsapp_aliases as _expand_whatsapp_auth_aliases,
-)
-from gateway.whatsapp_identity import (
-    normalize_whatsapp_identifier as _normalize_whatsapp_identifier,
 )
 
 logger = logging.getLogger(__name__)
@@ -11505,7 +11502,7 @@ class GatewayRunner(GatewayAuthorizationMixin,
                     return
                 await asyncio.sleep(poll_interval)
             if (pending_path.exists() or claimed_path.exists()
-                ) and not exit_code_path.exists():
+                    ) and not exit_code_path.exists():
                 exit_code_path.write_text("124")
                 await self._send_update_notification()
             return

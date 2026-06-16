@@ -27,6 +27,7 @@ from PIL import Image, ImageDraw
 
 # ── Pixel drawing helpers ──────────────────────────────────────────────
 
+
 def _px(draw, x, y, color, size=2):
     x, y = int(x), int(y)
     W, H = draw.im.size

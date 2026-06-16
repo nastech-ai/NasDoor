@@ -39,6 +39,7 @@ from typing import Any, Dict, Optional, Union
 
 # ── Message (assistant text) events ──────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class MessageChunk:
     """A delta of streamed assistant text.

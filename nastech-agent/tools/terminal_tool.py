@@ -56,7 +56,9 @@ from tools.environments.modal import ModalEnvironment as _ModalEnvironment
 from tools.environments.singularity import (
     SingularityEnvironment as _SingularityEnvironment,
 )
-from tools.environments.singularity import _get_scratch_dir
+from tools.environments.singularity import (
+    _get_scratch_dir,
+)
 from tools.environments.ssh import SSHEnvironment as _SSHEnvironment
 from tools.managed_tool_gateway import is_managed_tool_gateway_ready
 from tools.registry import registry

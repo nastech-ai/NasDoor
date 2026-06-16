@@ -28,6 +28,7 @@ from typing import List, Optional, Sequence, Tuple
 # Environment fingerprint
 # ---------------------------------------------------------------------------
 
+
 class PlatformInfo:
     """Snapshot of the current execution environment."""
 

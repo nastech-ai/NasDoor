@@ -18,6 +18,10 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
+from nastech_cli.cli_output import print_info as _print_info
+from nastech_cli.cli_output import print_success as _print_success
+from nastech_cli.cli_output import print_warning as _print_warning
+from nastech_cli.cli_output import prompt as _prompt
 from nastech_cli.colors import Colors, color
 from nastech_cli.config import (
     cfg_get,
@@ -45,10 +49,6 @@ PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 from nastech_cli.cli_output import (  # noqa: E402 — late import block
     print_error as _print_error,
 )
-from nastech_cli.cli_output import print_info as _print_info
-from nastech_cli.cli_output import print_success as _print_success
-from nastech_cli.cli_output import print_warning as _print_warning
-from nastech_cli.cli_output import prompt as _prompt
 
 # ─── Toolset Registry ───────────────────────────────────────────────────
 
