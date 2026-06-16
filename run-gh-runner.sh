@@ -2,10 +2,10 @@
 # NasDoor — GitHub Actions self-hosted runner
 # Self-installing inside persistent workspace. Loops forever.
 
-# Dotnet: skip ICU (runs in invariant globalization mode — fine for CI)
-export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+# Dotnet runtime libs — include Ubuntu system libs that nix path misses
+export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/usr/lib:/lib/x86_64-linux-gnu:/lib:$HOME/.nix-profile/lib:$LD_LIBRARY_PATH"
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=0
 export DOTNET_RUNNING_IN_CONTAINER=1
-export LD_LIBRARY_PATH="$HOME/.nix-profile/lib:$LD_LIBRARY_PATH"
 
 RUNNER_DIR="/home/runner/workspace/actions-runner"
 LOG_FILE="/home/runner/workspace/runner-main.log"
