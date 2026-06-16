@@ -1,47 +1,91 @@
-"scope: app":
-  - changed-files:
-      - any-glob-to-any-file: "packages/nastech-app/sources/**"
+# PR auto-labeler — all 20 categories
+# Used by: actions/labeler@v5
 
-"scope: agent":
+# ── TYPE ──────────────────────────────────────────────────────
+"type: docs":
   - changed-files:
-      - any-glob-to-any-file: "nastech-agent/**"
+      - any-glob-to-any-file: ["**/*.md", "CHANGELOG*", "docs/**"]
 
-"scope: ci":
+"type: chore":
   - changed-files:
-      - any-glob-to-any-file: ".github/workflows/**"
-      - any-glob-to-any-file: ".github/dependabot.yml"
+      - any-glob-to-any-file:
+          - ".eslintrc*"
+          - ".prettierrc*"
+          - "commitlint.config.js"
+          - "tsconfig*.json"
+          - ".editorconfig"
+          - "*.config.js"
+          - "*.config.ts"
 
-"scope: termux":
+"type: security":
   - changed-files:
-      - any-glob-to-any-file: "packages/nastech-app/plugins/**"
-      - any-glob-to-any-file: "packages/nastech-app/eas-build-pre-install.sh"
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - "**/permissions/**"
+          - "nastech-agent/**/*.py"
 
-"scope: desktop":
+"type: performance":
   - changed-files:
-      - any-glob-to-any-file: "packages/nastech-app/src-tauri/**"
+      - any-glob-to-any-file:
+          - "packages/nastech-app/sources/**"
+          - "nastech-agent/**"
 
-"scope: config":
+# ── SCOPE ─────────────────────────────────────────────────────
+"scope: android":
   - changed-files:
-      - any-glob-to-any-file: "packages/nastech-app/app.config.js"
-      - any-glob-to-any-file: "packages/nastech-app/eas.json"
+      - any-glob-to-any-file:
+          - "packages/nastech-app/plugins/**"
+          - "packages/nastech-app/eas-build-pre-install.sh"
+          - "packages/nastech-app/android/**"
 
 "scope: ios":
   - changed-files:
-      - any-glob-to-any-file: "packages/nastech-app/sources/(app)/server.tsx"
+      - any-glob-to-any-file:
+          - "packages/nastech-app/sources/(app)/server.tsx"
+          - "packages/nastech-app/ios/**"
 
+"scope: daemon":
+  - changed-files:
+      - any-glob-to-any-file: ["nastech-agent/**"]
+
+"scope: app":
+  - changed-files:
+      - any-glob-to-any-file: ["packages/nastech-app/sources/**"]
+
+"scope: ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/dependabot.yml"
+          - "renovate.json"
+          - "eas.json"
+          - "packages/nastech-app/eas.json"
+
+"scope: deps":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "pnpm-lock.yaml"
+          - "packages/nastech-app/package.json"
+          - "renovate.json"
+          - "nastech-agent/requirements*.txt"
+          - "nastech-agent/pyproject.toml"
+
+# ── PRIORITY (title keywords — handled via issue-triage bot) ──
+# PR priority labels are set manually via slash commands
+
+# ── STATUS ────────────────────────────────────────────────────
+"status: review":
+  - head-branch: ["^(feat|fix|perf|docs|chore|refactor)/.*"]
+
+"status: triage":
+  - head-branch: ["^(wip|draft|exp)/.*"]
+
+# ── LEGACY COMPAT (kept for backward compat) ──────────────────
 "type: deps":
   - changed-files:
-      - any-glob-to-any-file: "package.json"
-      - any-glob-to-any-file: "packages/nastech-app/package.json"
-      - any-glob-to-any-file: "renovate.json"
-      - any-glob-to-any-file: "nastech-agent/requirements*.txt"
-
-"type: docs":
-  - changed-files:
-      - any-glob-to-any-file: "**/*.md"
-      - any-glob-to-any-file: "CHANGELOG*"
-
-"type: release":
-  - changed-files:
-      - any-glob-to-any-file: "CHANGELOG*"
-      - any-glob-to-any-file: ".release-please-manifest.json"
+      - any-glob-to-any-file:
+          - "package.json"
+          - "packages/nastech-app/package.json"
+          - "renovate.json"
+          - "nastech-agent/requirements*.txt"
