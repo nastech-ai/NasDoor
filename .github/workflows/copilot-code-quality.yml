@@ -1,0 +1,240 @@
+# Copilot Fleet 1 — Code Quality (Copilots 1-8)
+name: "🤖 Copilot: Code Quality"
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  # ── Copilot 1: TypeScript strict ──────────────────────────────
+  typescript-strict:
+    name: "Copilot 1 · TypeScript strict"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: pnpm }
+      - run: npm i -g pnpm@10 && pnpm install --no-frozen-lockfile
+      - name: Typecheck
+        id: tc
+        run: pnpm --filter nastech-app exec tsc --noEmit 2>&1 | tee /tmp/ts.log
+        continue-on-error: true
+      - name: Report errors
+        if: steps.tc.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/ts.log','utf8').slice(0,3000);
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `[Copilot 1] TypeScript errors on ${context.sha.slice(0,7)}`,
+              body: `## 🤖 Copilot 1 — TypeScript strict errors\n\`\`\`\n${log}\n\`\`\`\nRun: ${context.runId}`,
+              labels: ['type: bug','scope: app','priority: high','status: triage'],
+            });
+            core.setFailed('TypeScript errors found — issue created');
+
+  # ── Copilot 2: ESLint audit + auto-fix PR ─────────────────────
+  eslint-audit:
+    name: "Copilot 2 · ESLint + auto-fix"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { token: "${{ secrets.GH_PAT }}", fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm i -g pnpm@10 && pnpm install --no-frozen-lockfile
+      - name: Run ESLint (fix mode)
+        id: lint
+        run: |
+          pnpm --filter nastech-app exec eslint . --fix --format json \
+            --output-file /tmp/eslint.json 2>/dev/null || true
+          pnpm --filter nastech-app exec eslint . --format compact 2>&1 | tee /tmp/eslint.txt
+        continue-on-error: true
+      - name: Commit auto-fixes if any
+        id: commit
+        run: |
+          git config user.name  "NasDoor Copilot[bot]"
+          git config user.email "copilot@nasdoor.bot"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "fixed=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "fix(copilot): ESLint auto-fix [skip ci]"
+            git push origin HEAD
+            echo "fixed=true" >> $GITHUB_OUTPUT
+          fi
+      - name: Report unfixed errors
+        if: steps.lint.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/eslint.txt','utf8').slice(0,3000);
+            const fixed = '${{ steps.commit.outputs.fixed }}' === 'true';
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `[Copilot 2] ESLint errors on ${context.sha.slice(0,7)}`,
+              body: `## 🤖 Copilot 2 — ESLint\n**Auto-fixed:** ${fixed ? '✅ yes, committed' : '❌ manual fix needed'}\n\`\`\`\n${log}\n\`\`\``,
+              labels: ['type: chore','scope: app','priority: medium','status: triage'],
+            });
+
+  # ── Copilot 3: Prettier formatting ───────────────────────────
+  prettier-check:
+    name: "Copilot 3 · Prettier + auto-fix"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { token: "${{ secrets.GH_PAT }}", fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm i -g prettier
+      - name: Format + commit
+        run: |
+          prettier --write "packages/nastech-app/sources/**/*.{ts,tsx}" 2>/dev/null || true
+          git config user.name "NasDoor Copilot[bot]"
+          git config user.email "copilot@nasdoor.bot"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "style(copilot): Prettier auto-format [skip ci]"
+            git push origin HEAD
+          fi
+
+  # ── Copilot 4: Bundle size budget ────────────────────────────
+  bundle-size:
+    name: "Copilot 4 · Bundle size"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Check source file sizes
+        run: |
+          echo "=== Largest source files ==="
+          find packages/nastech-app/sources -name "*.ts" -o -name "*.tsx" | \
+            xargs wc -c 2>/dev/null | sort -rn | head -20
+          TOTAL=$(find packages/nastech-app/sources -name "*.ts" -o -name "*.tsx" \
+            -exec wc -c {} + 2>/dev/null | tail -1 | awk '{print $1}')
+          echo "Total source: ${TOTAL} bytes"
+          echo "bundle_bytes=${TOTAL}" >> $GITHUB_ENV
+      - name: Add PR comment with size
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const bytes = parseInt(process.env.bundle_bytes || '0');
+            const kb = (bytes/1024).toFixed(1);
+            const status = bytes > 2000000 ? '🔴 OVER BUDGET' : bytes > 1500000 ? '🟡 WARNING' : '🟢 OK';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## 🤖 Copilot 4 — Bundle Size\n${status}\n**Source size:** ${kb} KB\nBudget: 1.5 MB warn / 2 MB block`,
+            });
+
+  # ── Copilot 5: Dead code detection ───────────────────────────
+  dead-code:
+    name: "Copilot 5 · Dead code"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm install -g knip
+      - name: Run Knip
+        id: knip
+        run: |
+          cd packages/nastech-app
+          npx knip --reporter compact 2>&1 | tee /tmp/knip.txt || true
+          COUNT=$(grep -c "^" /tmp/knip.txt 2>/dev/null || echo 0)
+          echo "count=${COUNT}" >> $GITHUB_OUTPUT
+      - name: Annotate PR
+        if: github.event_name == 'pull_request' && steps.knip.outputs.count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/knip.txt','utf8').slice(0,2000);
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## 🤖 Copilot 5 — Dead Code\n\`\`\`\n${log}\n\`\`\``,
+            });
+
+  # ── Copilot 6: Circular dependencies ─────────────────────────
+  circular-deps:
+    name: "Copilot 6 · Circular deps"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm install -g madge
+      - name: Detect circular deps
+        id: circ
+        run: |
+          madge --circular packages/nastech-app/sources 2>&1 | tee /tmp/circ.txt || true
+          COUNT=$(grep -c "Found" /tmp/circ.txt || echo 0)
+          echo "found=${COUNT}" >> $GITHUB_OUTPUT
+        continue-on-error: true
+      - name: Report
+        if: steps.circ.outputs.found > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('/tmp/circ.txt','utf8').slice(0,2000);
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: `[Copilot 6] Circular dependencies detected`,
+              body: `## 🤖 Copilot 6 — Circular Dependencies\n\`\`\`\n${log}\n\`\`\``,
+              labels: ['type: chore','scope: app','priority: medium'],
+            });
+
+  # ── Copilot 7: React hooks rules ─────────────────────────────
+  react-hooks:
+    name: "Copilot 7 · React hooks rules"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: Check hooks patterns
+        run: |
+          echo "=== Conditional hooks check ==="
+          grep -rn "if.*use[A-Z]\|use[A-Z].*if" \
+            packages/nastech-app/sources --include="*.tsx" --include="*.ts" | \
+            grep -v "//.*use" | head -20 || echo "No obvious violations"
+          echo "=== Hook usage summary ==="
+          grep -roh "use[A-Z][a-zA-Z]*" packages/nastech-app/sources \
+            --include="*.tsx" | sort | uniq -c | sort -rn | head -20
+
+  # ── Copilot 8: Import organization ───────────────────────────
+  import-order:
+    name: "Copilot 8 · Import order"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { token: "${{ secrets.GH_PAT }}", fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: npm install -g @trivago/prettier-plugin-sort-imports prettier
+      - name: Check + sort imports
+        run: |
+          find packages/nastech-app/sources -name "*.ts" -o -name "*.tsx" | \
+            xargs prettier --write --plugin=@trivago/prettier-plugin-sort-imports \
+            2>/dev/null || true
+          git config user.name "NasDoor Copilot[bot]"
+          git config user.email "copilot@nasdoor.bot"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "style(copilot): sort imports [skip ci]"
+            git push origin HEAD
+          fi
