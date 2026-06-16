@@ -1,0 +1,64 @@
+name: "🐛 Bug Report"
+description: Something is broken
+labels: ["type: bug", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug Report
+        Fill in as much as possible. Issues without reproduction steps may be closed.
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Affected area
+      options:
+        - scope: android
+        - scope: ios
+        - scope: daemon
+        - scope: app
+        - scope: ci
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Severity
+      options:
+        - priority: critical
+        - priority: high
+        - priority: medium
+        - priority: low
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      placeholder: Describe the bug clearly
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Tap on ...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / stack trace
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: App version / commit SHA
