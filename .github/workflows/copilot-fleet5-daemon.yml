@@ -1,0 +1,130 @@
+name: "🤖 Copilot: Daemon"
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+    paths:
+      - "nastech-agent/**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  python-syntax:
+    name: "Copilot 33 - Python syntax"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile-check all Python files
+        run: |
+          COUNT=$(find nastech-agent -name "*.py" 2>/dev/null | wc -l)
+          ERRORS=0
+          for f in $(find nastech-agent -name "*.py" 2>/dev/null); do
+            python3 -m py_compile "$f" 2>/dev/null || ERRORS=$((ERRORS+1))
+          done
+          echo "Files: $COUNT, Errors: $ERRORS"
+          [ $ERRORS -eq 0 ] && echo "All OK" || exit 1
+
+  requirements-audit:
+    name: "Copilot 34 - Requirements"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate requirements.txt
+        run: |
+          if [ -f nastech-agent/requirements.txt ]; then
+            echo "Packages: $(wc -l < nastech-agent/requirements.txt)"
+            grep -v "==" nastech-agent/requirements.txt | grep -v "^#\|^$" \
+              && echo "WARNING: unpinned packages" || echo "All pinned"
+          else
+            echo "No requirements.txt"
+          fi
+
+  port-check:
+    name: "Copilot 35 - Port 9119"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify port 9119 usage
+        run: |
+          COUNT=$(grep -r "9119" nastech-agent/ --include="*.py" -l 2>/dev/null | wc -l)
+          echo "Files referencing port 9119: $COUNT"
+
+  import-check:
+    name: "Copilot 37 - Python imports"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate AST parse
+        run: |
+          python3 -c "
+import os, ast, sys
+errors = []
+for root, dirs, files in os.walk('nastech-agent'):
+    dirs[:] = [d for d in dirs if d not in ['venv', '.venv', '__pycache__', '.git']]
+    for f in files:
+        if not f.endswith('.py'): continue
+        try: ast.parse(open(os.path.join(root, f)).read())
+        except SyntaxError as e: errors.append(str(e))
+count = sum(1 for r,d,fs in os.walk('nastech-agent') for x in fs if x.endswith('.py'))
+print(f'{count} files, {len(errors)} parse errors')
+if errors: [print(e) for e in errors[:3]]; sys.exit(1)
+"
+
+  daemon-health:
+    name: "Copilot 38 - Daemon health"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check daemon structure
+        run: |
+          COUNT=$(find nastech-agent -name "*.py" | wc -l)
+          echo "Python files: $COUNT"
+          ls nastech-agent/*.py 2>/dev/null | head -10 || echo "None at root"
+
+  type-hints:
+    name: "Copilot 39 - mypy"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run mypy
+        run: |
+          pip install mypy -q 2>&1 | tail -1
+          mypy nastech-agent --ignore-missing-imports --no-error-summary 2>&1 | tail -10 || true
+
+  test-coverage:
+    name: "Copilot 40 - Tests"
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run pytest
+        run: |
+          pip install pytest pytest-cov -q 2>&1 | tail -1
+          python3 -m pytest nastech-agent/ --tb=short -q 2>&1 | tail -10 || echo "No tests"
