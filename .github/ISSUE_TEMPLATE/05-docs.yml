@@ -1,0 +1,21 @@
+name: "📚 Documentation"
+description: Improve or fix documentation
+labels: ["type: docs", "status: triage"]
+body:
+  - type: textarea
+    id: location
+    attributes:
+      label: Where is the documentation issue?
+      placeholder: File path, URL, or section
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong or missing?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
