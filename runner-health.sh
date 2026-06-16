@@ -1,7 +1,14 @@
 #!/bin/bash
-# Runner Health Monitor — checks every 60 s, re-registers if offline
+# Runner Health Monitor — checks every 60 s, re-registers only when truly dead
+
+# Dotnet runtime libs — clean symlink dir (mirrors run-gh-runner.sh)
+RUNNER_LIBS="/home/runner/workspace/runner-libs"
+mkdir -p "$RUNNER_LIBS"
+ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 "$RUNNER_LIBS/libstdc++.so.6" 2>/dev/null || true
+ln -sf /usr/lib/x86_64-linux-gnu/libz.so.1      "$RUNNER_LIBS/libz.so.1"      2>/dev/null || true
+export LD_LIBRARY_PATH="$RUNNER_LIBS:${LD_LIBRARY_PATH:-}"
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
-export LD_LIBRARY_PATH="$HOME/.nix-profile/lib:$LD_LIBRARY_PATH"
+export DOTNET_RUNNING_IN_CONTAINER=1
 
 OWNER="nastech-ai"
 REPO="NasDoor"
@@ -31,6 +38,11 @@ print('missing')
 " 2>/dev/null || echo "error"
 }
 
+is_runner_process_alive() {
+  # Returns 0 (true) if Runner.Listener is actually running locally
+  pgrep -f "Runner.Listener" > /dev/null 2>&1
+}
+
 get_remove_token() {
   curl -sf -X POST \
     -H "Authorization: Bearer $GITHUB_PERSONAL_ACCESS_TOKEN" \
@@ -57,6 +69,7 @@ reregister_runner() {
     local RMTOKEN
     RMTOKEN=$(get_remove_token)
     if [ -n "$RMTOKEN" ]; then
+      LD_LIBRARY_PATH="$RUNNER_LIBS:${LD_LIBRARY_PATH:-}" \
       DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 \
       ./config.sh remove --token "$RMTOKEN" 2>&1 | tee -a "$LOG_FILE" || true
     else
@@ -73,6 +86,7 @@ reregister_runner() {
     return 1
   fi
 
+  LD_LIBRARY_PATH="$RUNNER_LIBS:${LD_LIBRARY_PATH:-}" \
   DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 \
   ./config.sh \
     --url "https://github.com/$OWNER/$REPO" \
@@ -98,20 +112,31 @@ while true; do
       CONSECUTIVE_OFFLINE=0
       ;;
     offline)
-      CONSECUTIVE_OFFLINE=$((CONSECUTIVE_OFFLINE + 1))
-      log "Runner offline (count: $CONSECUTIVE_OFFLINE / 3)"
-      if [ "$CONSECUTIVE_OFFLINE" -ge 3 ]; then
-        log "Runner offline 3x — triggering re-registration..."
+      # If Runner.Listener is alive locally, the API just hasn't caught up yet — don't count it
+      if is_runner_process_alive; then
+        log "Runner process is alive locally — API lag, skipping offline count"
+        CONSECUTIVE_OFFLINE=0
+      else
+        CONSECUTIVE_OFFLINE=$((CONSECUTIVE_OFFLINE + 1))
+        log "Runner offline (count: $CONSECUTIVE_OFFLINE / 5)"
+        if [ "$CONSECUTIVE_OFFLINE" -ge 5 ]; then
+          log "Runner offline 5x AND process dead — triggering re-registration..."
+          reregister_runner
+          CONSECUTIVE_OFFLINE=0
+          sleep 15
+        fi
+      fi
+      ;;
+    missing)
+      # Only re-register if local process is also dead
+      if is_runner_process_alive; then
+        log "Runner missing from API but process is alive — skipping re-registration"
+      else
+        log "Runner not found on GitHub and process is dead — re-registering..."
         reregister_runner
         CONSECUTIVE_OFFLINE=0
         sleep 15
       fi
-      ;;
-    missing)
-      log "Runner not found on GitHub — re-registering immediately..."
-      reregister_runner
-      CONSECUTIVE_OFFLINE=0
-      sleep 15
       ;;
     error)
       log "API check failed (network/token issue)"
