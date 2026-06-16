@@ -125,7 +125,7 @@
     "expo-file-system": "~55.0.22",
     "expo-font": "~55.0.8",
     "expo-gl": "~55.0.14",
-    "expo-glass-effect": "~55.0.11",
+    "expo-glass-effect": "~56.0.4",
     "expo-haptics": "~55.0.14",
     "expo-http-server": "^0.1.13",
     "expo-image": "~55.0.11",
