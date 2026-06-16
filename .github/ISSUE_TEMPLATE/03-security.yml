@@ -1,0 +1,24 @@
+name: "🔒 Security Issue"
+description: Report a security vulnerability (non-critical only — for critical use private disclosure)
+labels: ["type: security", "priority: high", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **Critical vulnerabilities:** use GitHub's private vulnerability reporting instead.
+  - type: textarea
+    id: description
+    attributes:
+      label: Vulnerability description
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
