@@ -1,0 +1,142 @@
+name: "NasTech Guardian — AI Monitor"
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  ai-guardian:
+    name: "AI Health Check"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install AI dependencies
+        run: pip install requests
+
+      - name: Run AI Coordinator (Groq → Gemini → OpenRouter)
+        env:
+          GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY:     ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_TOKEN:       ${{ secrets.NASTECH_AI_TOKEN || github.token }}
+          REPO:               ${{ github.repository }}
+          EVENT:              ${{ github.event_name }}
+          REF:                ${{ github.ref }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, urllib.request, urllib.error
+
+          repo  = os.environ.get("REPO","")
+          event = os.environ.get("EVENT","push")
+          ref   = os.environ.get("REF","")
+
+          prompt = (
+            f"You are the NasTech AI Guardian. Analyse this CI event and give a short health verdict.\n"
+            f"Repo: {repo}\nEvent: {event}\nRef: {ref}\n"
+            f"Reply in 2-3 sentences: status, any risk, recommended action."
+          )
+
+          def try_groq(prompt):
+              key = os.environ.get("GROQ_API_KEY","")
+              if not key: raise RuntimeError("no key")
+              body = json.dumps({"model":"llama-3.3-70b-versatile",
+                "messages":[{"role":"user","content":prompt}],"max_tokens":120}).encode()
+              req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions",
+                data=body, headers={"Authorization":f"Bearer {key}","Content-Type":"application/json"})
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  return json.loads(r.read())["choices"][0]["message"]["content"]
+
+          def try_gemini(prompt):
+              key = os.environ.get("GEMINI_API_KEY","")
+              if not key: raise RuntimeError("no key")
+              url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}"
+              body = json.dumps({"contents":[{"parts":[{"text":prompt}]}]}).encode()
+              req = urllib.request.Request(url, data=body, headers={"Content-Type":"application/json"})
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  return json.loads(r.read())["candidates"][0]["content"]["parts"][0]["text"]
+
+          def try_openrouter(prompt):
+              key = os.environ.get("OPENROUTER_API_KEY","")
+              if not key: raise RuntimeError("no key")
+              body = json.dumps({"model":"meta-llama/llama-3.3-70b-instruct:free",
+                "messages":[{"role":"user","content":prompt}],"max_tokens":120}).encode()
+              req = urllib.request.Request("https://openrouter.ai/api/v1/chat/completions",
+                data=body, headers={"Authorization":f"Bearer {key}","Content-Type":"application/json",
+                  "HTTP-Referer":"https://github.com/nastech-ai","X-Title":"NasTech Guardian"})
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  return json.loads(r.read())["choices"][0]["message"]["content"]
+
+          verdict = None
+          for fn in [try_groq, try_gemini, try_openrouter]:
+              try:
+                  verdict = fn(prompt)
+                  break
+              except Exception as e:
+                  print(f"Provider failed: {e}")
+
+          if verdict:
+              print(f"\n🤖 AI Guardian verdict:\n{verdict}\n")
+          else:
+              print("⚠️  All AI providers failed — skipping verdict")
+          PYEOF
+
+      - name: Notify Telegram on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          REPO:               ${{ github.repository }}
+          RUN_URL:            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, urllib.request
+          tok = os.environ.get("TELEGRAM_BOT_TOKEN","")
+          cid = os.environ.get("TELEGRAM_CHAT_ID","")
+          if not tok or not cid: exit(0)
+          msg = (f"❌ <b>NasTech Guardian — Build Failed</b>\n"
+                 f"📦 Repo: <code>{os.environ.get('REPO','')}</code>\n"
+                 f"🔗 <a href=\"{os.environ.get('RUN_URL','')}\">View Run</a>")
+          body = json.dumps({"chat_id":cid,"text":msg,"parse_mode":"HTML","disable_web_page_preview":True}).encode()
+          req = urllib.request.Request(f"https://api.telegram.org/bot{tok}/sendMessage",
+            data=body, headers={"Content-Type":"application/json"})
+          try: urllib.request.urlopen(req, timeout=10)
+          except: pass
+          PYEOF
+
+      - name: Notify Telegram on success
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          REPO:               ${{ github.repository }}
+          RUN_URL:            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENT:              ${{ github.event_name }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, urllib.request
+          tok = os.environ.get("TELEGRAM_BOT_TOKEN","")
+          cid = os.environ.get("TELEGRAM_CHAT_ID","")
+          if not tok or not cid: exit(0)
+          msg = (f"✅ <b>NasTech Guardian — Build OK</b>\n"
+                 f"📦 Repo: <code>{os.environ.get('REPO','')}</code>\n"
+                 f"⚡ Event: {os.environ.get('EVENT','push')}\n"
+                 f"🔗 <a href=\"{os.environ.get('RUN_URL','')}\">View Run</a>")
+          body = json.dumps({"chat_id":cid,"text":msg,"parse_mode":"HTML","disable_web_page_preview":True}).encode()
+          req = urllib.request.Request(f"https://api.telegram.org/bot{tok}/sendMessage",
+            data=body, headers={"Content-Type":"application/json"})
+          try: urllib.request.urlopen(req, timeout=10)
+          except: pass
+          PYEOF
