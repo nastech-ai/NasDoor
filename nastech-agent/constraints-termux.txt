@@ -7,7 +7,7 @@
 # move faster than Termux-compatible wheels / sdists.
 
 ipython<10
-jedi>=0.18.1,<0.20
+jedi>=0.20.0,<0.21
 parso>=0.8.4,<0.9
 stack-data>=0.6,<0.7
 pexpect>4.3,<5
