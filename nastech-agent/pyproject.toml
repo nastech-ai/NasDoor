@@ -107,7 +107,7 @@ dependencies = [
   # update_mode='append', tools/lazy_deps.py treats every version constraint
   # as satisfied, and nastech_cli/main.py drops to naive requirement parsing.
   # Pure-Python py3-none-any wheel, no compiled extensions — safe everywhere.
-  "packaging==26.0",
+  "packaging==26.2",
   # urllib3 2.7.0 fixes GHSA-mf9v-mfxr-j63j (decompression-bomb bypass)
   # and GHSA-qccp-gfcp-xxvc (header leak across origins). Pinned as a direct
   # dep so the floor is enforced even when transitives would allow older.
