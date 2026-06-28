@@ -67,7 +67,4 @@ export type ToolCallMessage = {
 };
 
 export type Message =
-  | UserTextMessage
-  | AgentTextMessage
-  | ToolCallMessage
-  | ModeSwitchMessage;
+  UserTextMessage | AgentTextMessage | ToolCallMessage | ModeSwitchMessage;

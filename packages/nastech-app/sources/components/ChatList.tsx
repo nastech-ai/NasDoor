@@ -242,8 +242,7 @@ const ChatListInternal = React.memo(
     React.useEffect(() => {
       if (Platform.OS !== "web") return;
       const node = (flatListRef.current as any)?.getScrollableNode?.() as
-        | HTMLElement
-        | undefined;
+        HTMLElement | undefined;
       if (!node) return;
       const handler = (e: WheelEvent) => {
         if (e.shiftKey && Math.abs(e.deltaX) > 0 && Math.abs(e.deltaY) < 1) {

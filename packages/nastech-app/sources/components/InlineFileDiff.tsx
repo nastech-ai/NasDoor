@@ -29,8 +29,7 @@ interface InlineFileDiffProps {
 }
 
 type DiffContent =
-  | { kind: "patch"; patch: string }
-  | { kind: "newFile"; contents: string };
+  { kind: "patch"; patch: string } | { kind: "newFile"; contents: string };
 
 export const InlineFileDiff = React.memo(function InlineFileDiff({
   sessionId,

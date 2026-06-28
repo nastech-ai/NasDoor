@@ -33,8 +33,7 @@ interface AllFilesDiffViewProps {
 }
 
 type DiffContent =
-  | { kind: "patch"; patch: string }
-  | { kind: "newFile"; contents: string };
+  { kind: "patch"; patch: string } | { kind: "newFile"; contents: string };
 
 type FileDiffResult = {
   file: GitFileStatus;

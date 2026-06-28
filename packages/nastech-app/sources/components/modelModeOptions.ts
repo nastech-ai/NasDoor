@@ -16,12 +16,7 @@ export type PermissionModeKey = string;
 export type ModelModeKey = string;
 
 export type AgentFlavor =
-  | "claude"
-  | "codex"
-  | "gemini"
-  | string
-  | null
-  | undefined;
+  "claude" | "codex" | "gemini" | string | null | undefined;
 
 type Translate = (key: any) => string;
 

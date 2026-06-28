@@ -1144,7 +1144,9 @@ export type TranslationStructure = {
         ? Translations[K][P]
         : Translations[K][P] extends object
           ? {
-              readonly [Q in keyof Translations[K][P]]: Translations[K][P][Q] extends string
+              readonly [
+                Q in keyof Translations[K][P]
+              ]: Translations[K][P][Q] extends string
                 ? string
                 : Translations[K][P][Q];
             }

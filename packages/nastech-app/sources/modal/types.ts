@@ -47,10 +47,7 @@ export interface CustomModalConfig extends BaseModalConfig {
 }
 
 export type ModalConfig =
-  | AlertModalConfig
-  | ConfirmModalConfig
-  | PromptModalConfig
-  | CustomModalConfig;
+  AlertModalConfig | ConfirmModalConfig | PromptModalConfig | CustomModalConfig;
 
 export interface ModalState {
   modals: ModalConfig[];

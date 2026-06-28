@@ -13,16 +13,7 @@
  * Supported language codes
  */
 export type SupportedLanguage =
-  | "en"
-  | "ru"
-  | "pl"
-  | "es"
-  | "it"
-  | "pt"
-  | "ca"
-  | "zh-Hans"
-  | "zh-Hant"
-  | "ja";
+  "en" | "ru" | "pl" | "es" | "it" | "pt" | "ca" | "zh-Hans" | "zh-Hant" | "ja";
 
 /**
  * Language metadata interface

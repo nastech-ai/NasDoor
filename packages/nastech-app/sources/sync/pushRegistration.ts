@@ -12,10 +12,7 @@ import {
 import { registerPushToken, unregisterPushToken } from "./apiPush";
 
 export type PushPermissionStatus =
-  | "unsupported"
-  | "granted"
-  | "denied"
-  | "undetermined";
+  "unsupported" | "granted" | "denied" | "undetermined";
 
 export interface PushPermissionInfo {
   status: PushPermissionStatus;

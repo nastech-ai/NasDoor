@@ -48,11 +48,7 @@ export function trackSessionSwitched(
 }
 
 export type MessageSentSource =
-  | "chat"
-  | "new_session"
-  | "option"
-  | "question"
-  | "voice";
+  "chat" | "new_session" | "option" | "question" | "voice";
 
 export function trackMessageSent(
   source: MessageSentSource,

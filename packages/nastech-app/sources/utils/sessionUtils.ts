@@ -8,10 +8,7 @@ import {
 } from "./resumeCommand";
 
 export type SessionState =
-  | "disconnected"
-  | "thinking"
-  | "waiting"
-  | "permission_required";
+  "disconnected" | "thinking" | "waiting" | "permission_required";
 
 export interface SessionStatus {
   state: SessionState;

@@ -1845,10 +1845,7 @@ export function useEntitlement(id: KnownEntitlements): boolean {
 }
 
 export function useRealtimeStatus():
-  | "disconnected"
-  | "connecting"
-  | "connected"
-  | "error" {
+  "disconnected" | "connecting" | "connected" | "error" {
   return storage(useShallow((state) => state.realtimeStatus));
 }
 
