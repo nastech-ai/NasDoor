@@ -162,7 +162,7 @@
     "libsodium-wrappers": "0.8.2",
     "livekit-client": "^2.19.2",
     "lottie-react-native": "~7.3.8",
-    "mermaid": "^11.15.0",
+    "mermaid": "^11.16.0",
     "posthog-react-native": "~4.37.6",
     "preact": "^10.29.2",
     "prismjs": "^1.30.0",
