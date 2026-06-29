@@ -338,8 +338,8 @@ importers:
         specifier: ^7.4.2
         version: 7.4.2
       libsodium-wrappers:
-        specifier: 0.8.2
-        version: 0.8.2
+        specifier: 0.8.4
+        version: 0.8.4
       livekit-client:
         specifier: ^2.19.2
         version: 2.20.0(@types/dom-mediacapture-record@1.0.22)
@@ -5107,8 +5107,8 @@ packages:
   libsodium-wrappers@0.7.16:
     resolution: {integrity: sha512-Gtr/WBx4dKjvRL1pvfwZqu7gO6AfrQ0u9vFL+kXihtHf6NfkROR8pjYWn98MFDI3jN19Ii1ZUfPR9afGiPyfHg==}
 
-  libsodium-wrappers@0.8.2:
-    resolution: {integrity: sha512-VFLmfxkxo+U9q60tjcnSomQBRx2UzlRjKWJqvB4K1pUqsMQg4cu3QXA2nrcsj9A1qRsnJBbi2Ozx1hsiDoCkhw==}
+  libsodium-wrappers@0.8.4:
+    resolution: {integrity: sha512-mu8aAWucZjTB5O/BtGXtW4e1agy7uHxNYG7zPthmmD1jU43LCDmSWZLN4JhflbdPXj3yDO4lxM1O9hLDgIOXDw==}
 
   libsodium@0.7.16:
     resolution: {integrity: sha512-3HrzSPuzm6Yt9aTYCDxYEG8x8/6C0+ag655Y7rhhWZM9PT4NpdnbqlzXhGZlDnkgR6MeSTnOt/VIyHLs9aSf+Q==}
@@ -12479,7 +12479,7 @@ snapshots:
     dependencies:
       libsodium: 0.7.16
 
-  libsodium-wrappers@0.8.2:
+  libsodium-wrappers@0.8.4:
     dependencies:
       libsodium: 0.8.4
 
