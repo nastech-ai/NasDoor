@@ -498,8 +498,8 @@ importers:
         specifier: ^8.0.1
         version: 8.0.1
       react-test-renderer:
-        specifier: 19.0.0
-        version: 19.0.0(react@19.2.0)
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.0)
       tsx:
         specifier: ^4.22.4
         version: 4.22.4
@@ -6164,8 +6164,8 @@ packages:
     peerDependencies:
       react: 19.2.0
 
-  react-test-renderer@19.0.0:
-    resolution: {integrity: sha512-oX5u9rOQlHzqrE/64CNr0HB0uWxkCQmZNSfozlYvwE71TLVgeZxVf0IjouGEr1v7r1kcDifdAJBeOhdhxsG/DA==}
+  react-test-renderer@19.2.7:
+    resolution: {integrity: sha512-U4TyPDJ9MsC8rFimXuJum8w40aPc9kbOZYO8Pc2/4A884i8hwJsMNA/JNyuOc/f2/37wHvk7HjpVl1V4re7Dig==}
     peerDependencies:
       react: 19.2.0
 
@@ -13615,11 +13615,11 @@ snapshots:
       react: 19.2.0
       refractor: 3.6.0
 
-  react-test-renderer@19.0.0(react@19.2.0):
+  react-test-renderer@19.2.7(react@19.2.0):
     dependencies:
       react: 19.2.0
       react-is: 19.2.7
-      scheduler: 0.25.0
+      scheduler: 0.27.0
 
   react-textarea-autosize@8.5.9(@types/react@19.2.17)(react@19.2.0):
     dependencies:

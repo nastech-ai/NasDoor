@@ -214,7 +214,7 @@
     "babel-plugin-transform-remove-console": "^6.9.4",
     "cross-env": "^10.1.0",
     "patch-package": "^8.0.1",
-    "react-test-renderer": "19.0.0",
+    "react-test-renderer": "19.2.7",
     "tsx": "^4.22.4",
     "typescript": "5.9.3"
   },
