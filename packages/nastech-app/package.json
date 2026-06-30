@@ -95,7 +95,7 @@
     "@tauri-apps/cli": "^2.11.2",
     "@tauri-apps/plugin-http": "^2.5.9",
     "@tauri-apps/plugin-opener": "^2.5.4",
-    "@types/libsodium-wrappers": "^0.7.14",
+    "@types/libsodium-wrappers": "^0.8.2",
     "@types/prismjs": "^1.26.6",
     "@types/qrcode": "^1.5.6",
     "@types/react-syntax-highlighter": "^15.5.13",
