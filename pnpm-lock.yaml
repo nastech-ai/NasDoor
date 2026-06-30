@@ -102,7 +102,7 @@ importers:
         version: 1.11.3
       '@pierre/diffs':
         specifier: ^1.2.10
-        version: 1.2.11(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.0))(react@19.2.0)
+        version: 1.2.12(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.0))(react@19.2.0)
       '@react-native-async-storage/async-storage':
         specifier: 2.2.0
         version: 2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))
@@ -351,7 +351,7 @@ importers:
         version: 11.16.0
       posthog-react-native:
         specifier: ~4.53.0
-        version: 4.53.0(@react-native-async-storage/async-storage@2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(@react-navigation/native@7.3.4(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(expo-application@55.0.16(expo@55.0.27))(expo-device@55.0.18(expo@55.0.27))(expo-file-system@55.0.23(expo@55.0.27)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(expo-localization@55.0.16(expo@55.0.27)(react@19.2.0))(react-native-device-info@14.1.1(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(react-native-localize@3.7.0(@expo/config-plugins@55.0.10)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-svg@15.15.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))
+        version: 4.53.2(@react-native-async-storage/async-storage@2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(@react-navigation/native@7.3.4(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(expo-application@55.0.16(expo@55.0.27))(expo-device@55.0.18(expo@55.0.27))(expo-file-system@55.0.23(expo@55.0.27)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(expo-localization@55.0.16(expo@55.0.27)(react@19.2.0))(react-native-device-info@14.1.1(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(react-native-localize@3.7.0(@expo/config-plugins@55.0.10)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-svg@15.15.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))
       preact:
         specifier: ^10.29.2
         version: 10.29.3
@@ -498,8 +498,8 @@ importers:
         specifier: ^8.0.1
         version: 8.0.1
       react-test-renderer:
-        specifier: 19.0.0
-        version: 19.0.0(react@19.2.0)
+        specifier: 19.2.7
+        version: 19.2.7(react@19.2.0)
       tsx:
         specifier: ^4.22.4
         version: 4.22.4
@@ -1967,20 +1967,20 @@ packages:
   '@peoplesgrocers/seti-ui-file-icons@1.11.3':
     resolution: {integrity: sha512-+WZ8Ne9Pf7XbugC2v01PP9ZSpEbjbkFELyqIG3EbTZLL5xKXT/jzqvKWsEpO/fHXjBRieURgcAbxk7twhj5Nyw==}
 
-  '@pierre/diffs@1.2.11':
-    resolution: {integrity: sha512-lSkl5C7eb8Zq7Ote0+J5ZdVOlI72r2EU3vW4+06wULSQqkIMP8mkxG70lVj593b1XYlsM2hCvuyt0cKTA96plQ==}
+  '@pierre/diffs@1.2.12':
+    resolution: {integrity: sha512-pY/gmgWL03WnagqCyCnBi3QtRXUv4hCIY6FYqd5b1ZGaoI6a4Bsji8j+yRl2RfzPh/8Hf19rCl1GE80G6a1cLQ==}
     peerDependencies:
       react: 19.2.0
       react-dom: ^18.3.1 || ^19.0.0
 
-  '@pierre/theme@1.0.3':
-    resolution: {integrity: sha512-sWHv11TMoqKxKDgTIk5VbhQjdPhs8DCcBxbjh3mRlS3YOM/OcrWoGX6MM8eBGn9cUu3M46Py0JnxsG2nJaFTuA==}
+  '@pierre/theme@1.1.0':
+    resolution: {integrity: sha512-GC2OWTAfTIIWWYhPCygwG8t2EtePQkRfON4MI2rwIkJylmiyqIttJID2dCL8sUD8cNdEvYkEyfEHHKMeCiDLoQ==}
     engines: {vscode: ^1.0.0}
 
-  '@pierre/theming@0.0.1':
-    resolution: {integrity: sha512-1thlEtJbqdyLzc1ZS2KQa1q7FzDGHT4dTEdKHoyQjOMeWWOmbVG5/ndEfOKfAb5Fzkz8cNJrOjFLiZoDH/A03A==}
+  '@pierre/theming@0.0.2':
+    resolution: {integrity: sha512-QM1M4stXfnzfaE8I8YbjXSApV8c+2dBsXJj8eYg9WTpBR/cTmCZIcfGnN4p13iRrYu2Br/R/OJfEL7uR8Qjctw==}
     peerDependencies:
-      '@pierre/theme': ^1.0.0
+      '@pierre/theme': ^1.1.0
       '@shikijs/themes': ^3.0.0 || ^4.0.0
       react: 19.2.0
       react-dom: ^18.3.1 || ^19.0.0
@@ -1997,11 +1997,11 @@ packages:
       shiki:
         optional: true
 
-  '@posthog/core@1.38.0':
-    resolution: {integrity: sha512-QLrJh0hMVpEJXHNyiJR9YhvIO5tzLDedw4UHdvB+ub4fXHMtHCA8H44qgl11HWR3ajpjxtJ8hs3HyOGVF3Zc1w==}
+  '@posthog/core@1.38.1':
+    resolution: {integrity: sha512-tsJTugsKzx47eRMjNfG272/GFf0FF0LeI+gyJ/anibpbYAzdNuX5kr6enpmJrhdgLESqzJGH8QF0+I9075Xr1Q==}
 
-  '@posthog/types@1.391.1':
-    resolution: {integrity: sha512-ASwd7Nf4pViqdYRYaNRyPYRVKWa1CcHUAUWR0XeQJLGdNnsWACBwe0sSieb/cHnKsRXjRwO/23KIY83lm/Ccpw==}
+  '@posthog/types@1.392.0':
+    resolution: {integrity: sha512-nctNujXL3FC1v99FktaTMSugSD9ZOZekEpahUSafkU2TSvW+XGKNkQZbokuJtiWvPBK208dwMJva8UfBkChqpw==}
 
   '@radix-ui/primitive@1.1.4':
     resolution: {integrity: sha512-7AdCK9PQyiljKoBDbN8OuctCbd/esdwZPQ8RtOE3SsyQtUpiPb+ND75q0jEhC1m1ecBI0MFNeLJvwIh9iKHRcQ==}
@@ -3837,12 +3837,12 @@ packages:
   diff-match-patch@1.0.5:
     resolution: {integrity: sha512-IayShXAgj/QMXgB0IWmKx+rOPuGMhqm5w6jvFxmVenXKIzRqTAAsbBPT3kWQeGANj3jGgvcvv4yK6SxqYmikgw==}
 
-  diff@8.0.3:
-    resolution: {integrity: sha512-qejHi7bcSD4hQAZE0tNAawRK1ZtafHDmMTMkrrIGgSLl7hTnQHmKCeB45xAcbfTqK2zowkM3j3bHt/4b/ARbYQ==}
-    engines: {node: '>=0.3.1'}
-
   diff@8.0.4:
     resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
+    engines: {node: '>=0.3.1'}
+
+  diff@9.0.0:
+    resolution: {integrity: sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw==}
     engines: {node: '>=0.3.1'}
 
   dijkstrajs@1.0.3:
@@ -5751,8 +5751,8 @@ packages:
     resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-react-native@4.53.0:
-    resolution: {integrity: sha512-N7hfRpT1gWW7aT5XivD/+Xxf3X43HvHEEzK1mow0QSshki2elpi7nzcBzGOLRKFqIBlFEmvOh25X0vQeKbUXYQ==}
+  posthog-react-native@4.53.2:
+    resolution: {integrity: sha512-kpn4DQgIqG97h1J137+KMAjJ8Ly9KlWup6hARJRN39FKOpsa6XX9+8UqSLrr0T5QjuJujjE8K0hENh9No1Ynjw==}
     peerDependencies:
       '@posthog/react-native-plugin': '>= 2.1.1'
       '@react-native-async-storage/async-storage': '>=1.0.0'
@@ -6160,8 +6160,8 @@ packages:
     peerDependencies:
       react: 19.2.0
 
-  react-test-renderer@19.0.0:
-    resolution: {integrity: sha512-oX5u9rOQlHzqrE/64CNr0HB0uWxkCQmZNSfozlYvwE71TLVgeZxVf0IjouGEr1v7r1kcDifdAJBeOhdhxsG/DA==}
+  react-test-renderer@19.2.7:
+    resolution: {integrity: sha512-U4TyPDJ9MsC8rFimXuJum8w40aPc9kbOZYO8Pc2/4A884i8hwJsMNA/JNyuOc/f2/37wHvk7HjpVl1V4re7Dig==}
     peerDependencies:
       react: 19.2.0
 
@@ -9012,12 +9012,12 @@ snapshots:
 
   '@peoplesgrocers/seti-ui-file-icons@1.11.3': {}
 
-  '@pierre/diffs@1.2.11(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.0))(react@19.2.0)':
+  '@pierre/diffs@1.2.12(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.0))(react@19.2.0)':
     dependencies:
-      '@pierre/theme': 1.0.3
-      '@pierre/theming': 0.0.1(@pierre/theme@1.0.3)(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.0))(react@19.2.0)(shiki@4.2.0)
+      '@pierre/theme': 1.1.0
+      '@pierre/theming': 0.0.2(@pierre/theme@1.1.0)(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.0))(react@19.2.0)(shiki@4.2.0)
       '@shikijs/transformers': 4.2.0
-      diff: 8.0.3
+      diff: 9.0.0
       hast-util-to-html: 9.0.5
       lru_map: 0.4.1
       react: 19.2.0
@@ -9026,21 +9026,21 @@ snapshots:
     transitivePeerDependencies:
       - '@shikijs/themes'
 
-  '@pierre/theme@1.0.3': {}
+  '@pierre/theme@1.1.0': {}
 
-  '@pierre/theming@0.0.1(@pierre/theme@1.0.3)(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.0))(react@19.2.0)(shiki@4.2.0)':
+  '@pierre/theming@0.0.2(@pierre/theme@1.1.0)(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.0))(react@19.2.0)(shiki@4.2.0)':
     optionalDependencies:
-      '@pierre/theme': 1.0.3
+      '@pierre/theme': 1.1.0
       '@shikijs/themes': 4.2.0
       react: 19.2.0
       react-dom: 19.2.7(react@19.2.0)
       shiki: 4.2.0
 
-  '@posthog/core@1.38.0':
+  '@posthog/core@1.38.1':
     dependencies:
-      '@posthog/types': 1.391.1
+      '@posthog/types': 1.392.0
 
-  '@posthog/types@1.391.1': {}
+  '@posthog/types@1.392.0': {}
 
   '@radix-ui/primitive@1.1.4': {}
 
@@ -11008,9 +11008,9 @@ snapshots:
 
   diff-match-patch@1.0.5: {}
 
-  diff@8.0.3: {}
-
   diff@8.0.4: {}
+
+  diff@9.0.0: {}
 
   dijkstrajs@1.0.3: {}
 
@@ -13194,10 +13194,10 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  ? posthog-react-native@4.53.0(@react-native-async-storage/async-storage@2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(@react-navigation/native@7.3.4(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(expo-application@55.0.16(expo@55.0.27))(expo-device@55.0.18(expo@55.0.27))(expo-file-system@55.0.23(expo@55.0.27)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(expo-localization@55.0.16(expo@55.0.27)(react@19.2.0))(react-native-device-info@14.1.1(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(react-native-localize@3.7.0(@expo/config-plugins@55.0.10)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-svg@15.15.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))
+  ? posthog-react-native@4.53.2(@react-native-async-storage/async-storage@2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(@react-navigation/native@7.3.4(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(expo-application@55.0.16(expo@55.0.27))(expo-device@55.0.18(expo@55.0.27))(expo-file-system@55.0.23(expo@55.0.27)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(expo-localization@55.0.16(expo@55.0.27)(react@19.2.0))(react-native-device-info@14.1.1(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(react-native-localize@3.7.0(@expo/config-plugins@55.0.10)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-svg@15.15.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))
   : dependencies:
-      '@posthog/core': 1.38.0
-      '@posthog/types': 1.391.1
+      '@posthog/core': 1.38.1
+      '@posthog/types': 1.392.0
     optionalDependencies:
       '@react-native-async-storage/async-storage': 2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))
       '@react-navigation/native': 7.3.4(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
@@ -13607,11 +13607,11 @@ snapshots:
       react: 19.2.0
       refractor: 3.6.0
 
-  react-test-renderer@19.0.0(react@19.2.0):
+  react-test-renderer@19.2.7(react@19.2.0):
     dependencies:
       react: 19.2.0
       react-is: 19.2.7
-      scheduler: 0.25.0
+      scheduler: 0.27.0
 
   react-textarea-autosize@8.5.9(@types/react@19.2.17)(react@19.2.0):
     dependencies:
