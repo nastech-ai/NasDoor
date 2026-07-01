@@ -32,7 +32,7 @@ jobs:
     steps:
       - name: Collect failure details
         id: details
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             let wfName, wfUrl, conclusion, jobs_summary;
@@ -82,7 +82,7 @@ jobs:
             echo "ntfy.sh skipped (set NTFY_TOPIC secret to enable)"
 
       - name: Create GitHub issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const wfName = '${{ steps.details.outputs.wf_name }}';

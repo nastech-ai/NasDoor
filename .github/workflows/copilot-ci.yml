@@ -24,7 +24,7 @@ jobs:
     name: "Copilot 41 · YAML validate"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install yamllint
         run: pip install yamllint -q
       - name: Lint all workflow YAML
@@ -37,7 +37,7 @@ jobs:
         continue-on-error: true
       - name: Auto-report YAML errors
         if: steps.yaml.outputs.errors > 0
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -54,7 +54,7 @@ jobs:
     name: "Copilot 42 · Action versions"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check for unpinned actions
         run: |
           python3 << 'PYEOF'
@@ -83,7 +83,7 @@ jobs:
     name: "Copilot 43 · Secrets audit"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: List all secrets referenced
         run: |
           python3 << 'PYEOF'
@@ -108,7 +108,7 @@ jobs:
     name: "Copilot 44 · Runner labels"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check runner labels in workflows
         run: |
           python3 << 'PYEOF'
@@ -135,8 +135,8 @@ jobs:
     name: "Copilot 45 · Concurrency guards"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Validate workflows with @actions/toolkit schema
         run: |
@@ -165,8 +165,8 @@ jobs:
     name: "Copilot 46 · EAS config schema"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Validate eas.json against schema
         run: |
@@ -202,7 +202,7 @@ jobs:
     name: "Copilot 47 · pnpm lockfile"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check pnpm lockfile exists and is valid
         run: |
           if [ -f pnpm-lock.yaml ]; then
@@ -237,8 +237,8 @@ jobs:
     name: "Copilot 48 · Renovate config"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Validate renovate.json
         run: |

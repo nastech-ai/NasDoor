@@ -24,7 +24,7 @@ jobs:
     name: "Copilot 49 · CHANGELOG format"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: Check CHANGELOG exists and is well-formed
         run: |
@@ -47,8 +47,8 @@ jobs:
     name: "Copilot 50 · Semver"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Validate version across all packages
         run: |
@@ -81,7 +81,7 @@ jobs:
     name: "Copilot 51 · Release manifest"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate .release-please-manifest.json
         run: |
           python3 << 'PYEOF'
@@ -105,7 +105,7 @@ jobs:
     name: "Copilot 52 · Tag consistency"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: Compare tags to package.json version
         run: |
@@ -126,7 +126,7 @@ jobs:
     name: "Copilot 53 · OTA channel"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate EAS update channels
         run: |
           python3 << 'PYEOF'
@@ -158,8 +158,8 @@ jobs:
     name: "Copilot 54 · Expo SDK version"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Check Expo SDK version consistency
         run: |
@@ -201,7 +201,7 @@ jobs:
     name: "Copilot 55 · Breaking changes"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 50 }
       - name: Scan commits for breaking change markers
         run: |
@@ -234,10 +234,10 @@ jobs:
     name: "Copilot 56 · Release notes"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: Generate draft release summary
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             // Get commits since last tag

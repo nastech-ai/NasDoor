@@ -19,8 +19,8 @@ jobs:
     name: "Copilot 1 · TypeScript strict"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20", cache: pnpm }
       - run: npm i -g pnpm@10 && pnpm install --no-frozen-lockfile
       - name: Typecheck
@@ -29,7 +29,7 @@ jobs:
         continue-on-error: true
       - name: Report errors
         if: steps.tc.outcome == 'failure'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -47,9 +47,9 @@ jobs:
     name: "Copilot 2 · ESLint + auto-fix"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { token: "${{ secrets.GH_PAT }}", fetch-depth: 0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - run: npm i -g pnpm@10 && pnpm install --no-frozen-lockfile
       - name: Run ESLint (fix mode)
@@ -74,7 +74,7 @@ jobs:
           fi
       - name: Report unfixed errors
         if: steps.lint.outcome == 'failure'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -92,9 +92,9 @@ jobs:
     name: "Copilot 3 · Prettier + auto-fix"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { token: "${{ secrets.GH_PAT }}", fetch-depth: 0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - run: npm i -g prettier
       - name: Format + commit
@@ -113,8 +113,8 @@ jobs:
     name: "Copilot 4 · Bundle size"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Check source file sizes
         run: |
@@ -127,7 +127,7 @@ jobs:
           echo "bundle_bytes=${TOTAL}" >> $GITHUB_ENV
       - name: Add PR comment with size
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const bytes = parseInt(process.env.bundle_bytes || '0');
@@ -144,8 +144,8 @@ jobs:
     name: "Copilot 5 · Dead code"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - run: npm install -g knip
       - name: Run Knip
@@ -157,7 +157,7 @@ jobs:
           echo "count=${COUNT}" >> $GITHUB_OUTPUT
       - name: Annotate PR
         if: github.event_name == 'pull_request' && steps.knip.outputs.count > 0
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -173,8 +173,8 @@ jobs:
     name: "Copilot 6 · Circular deps"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - run: npm install -g madge
       - name: Detect circular deps
@@ -186,7 +186,7 @@ jobs:
         continue-on-error: true
       - name: Report
         if: steps.circ.outputs.found > 0
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -203,8 +203,8 @@ jobs:
     name: "Copilot 7 · React hooks rules"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Check hooks patterns
         run: |
@@ -221,9 +221,9 @@ jobs:
     name: "Copilot 8 · Import order"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { token: "${{ secrets.GH_PAT }}", fetch-depth: 0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - run: npm install -g @trivago/prettier-plugin-sort-imports prettier
       - name: Check + sort imports

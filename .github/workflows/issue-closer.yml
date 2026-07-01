@@ -1,5 +1,5 @@
 # Issue Closer Bot — auto-close stale issues across all 20 categories
-# Based on: actions/stale@v9
+# Based on: actions/stale@v10
 name: Issue Closer
 
 on:
@@ -16,7 +16,7 @@ jobs:
     name: Mark and close stale issues
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v9
+      - uses: actions/stale@v10
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -72,7 +72,7 @@ jobs:
     name: Close issues needing info for 14 days
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

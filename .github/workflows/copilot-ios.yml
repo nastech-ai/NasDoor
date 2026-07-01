@@ -23,7 +23,7 @@ jobs:
     name: "Copilot 25 · iOS bundle ID"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate iOS bundle ID
         run: |
           python3 << 'PYEOF'
@@ -57,8 +57,8 @@ jobs:
     name: "Copilot 26 · Server screen TS"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Check server.tsx exists and has no obvious errors
         run: |
@@ -79,7 +79,7 @@ jobs:
     name: "Copilot 27 · EAS iOS config"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate EAS iOS profiles
         run: |
           python3 << 'PYEOF'
@@ -107,7 +107,7 @@ jobs:
     name: "Copilot 28 · Expo config iOS"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Audit iOS config in app.config.js
         run: |
           python3 << 'PYEOF'
@@ -140,7 +140,7 @@ jobs:
     name: "Copilot 29 · iOS platform guards"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Verify daemon code never runs on iOS
         run: |
           python3 << 'PYEOF'
@@ -174,8 +174,8 @@ jobs:
     name: "Copilot 30 · Connect screen test"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Smoke-test server connect screen imports
         run: |
@@ -203,7 +203,7 @@ jobs:
     name: "Copilot 31 · iOS permissions"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check iOS permission strings in config
         run: |
           python3 << 'PYEOF'
@@ -226,7 +226,7 @@ jobs:
     name: "Copilot 32 · EAS project ID"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Verify EAS owner and project ID
         run: |
           python3 << 'PYEOF'
