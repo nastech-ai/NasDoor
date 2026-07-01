@@ -24,7 +24,7 @@ jobs:
     name: "Copilot 17 · APK size budget"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check asset sizes that go into APK
         run: |
           echo "=== Assets included in APK ==="
@@ -43,7 +43,7 @@ jobs:
     name: "Copilot 18 · Manifest validation"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate manifest in plugin
         run: |
           python3 << 'PYEOF'
@@ -80,7 +80,7 @@ jobs:
     name: "Copilot 19 · Minimal permissions"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: List and categorize permissions
         run: |
           python3 << 'PYEOF'
@@ -107,7 +107,7 @@ jobs:
     name: "Copilot 20 · Target SDK level"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check SDK targets in config
         run: |
           python3 << 'PYEOF'
@@ -139,7 +139,7 @@ jobs:
     name: "Copilot 21 · Termux bootstrap"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Verify bootstrap assets referenced in plugin
         run: |
           python3 << 'PYEOF'
@@ -166,7 +166,7 @@ jobs:
     name: "Copilot 22 · Native module check"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Verify DaemonPackage is registered
         run: |
           python3 << 'PYEOF'
@@ -192,7 +192,7 @@ jobs:
     name: "Copilot 23 · EAS Android config"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate eas.json Android profiles
         run: |
           python3 << 'PYEOF'
@@ -225,7 +225,7 @@ jobs:
     name: "Copilot 24 · Java syntax"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Extract and check Java sources in plugin
         run: |
           python3 << 'PYEOF'

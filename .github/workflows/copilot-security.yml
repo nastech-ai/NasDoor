@@ -22,7 +22,7 @@ jobs:
     name: "Copilot 9 · Secret scan"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: Scan for hardcoded secrets
         id: scan
@@ -35,7 +35,7 @@ jobs:
         continue-on-error: true
       - name: Alert on secrets found
         if: steps.scan.outputs.count > 0
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -53,8 +53,8 @@ jobs:
     name: "Copilot 10 · npm audit"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Audit root + app packages
         id: audit
@@ -72,7 +72,7 @@ jobs:
           " | tee /tmp/audit.txt
         continue-on-error: true
       - name: Create issue if critical/high
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -94,8 +94,8 @@ jobs:
     name: "Copilot 11 · pip audit"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - name: Run pip-audit
         id: pipit
@@ -107,7 +107,7 @@ jobs:
         continue-on-error: true
       - name: Report
         if: steps.pipit.outcome == 'failure'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -125,8 +125,8 @@ jobs:
     name: "Copilot 12 · SAST Semgrep"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
       - name: Run Semgrep
         id: semgrep
@@ -147,7 +147,7 @@ jobs:
           " | tee /tmp/semgrep.txt
         continue-on-error: true
       - name: Report findings
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -169,8 +169,8 @@ jobs:
     name: "Copilot 13 · License check"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
       - name: Check licenses
         run: |
@@ -183,7 +183,7 @@ jobs:
     name: "Copilot 14 · Permission audit"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Audit permissions in plugin
         run: |
           echo "=== Permissions declared in withTermuxDaemon.js ==="
@@ -201,7 +201,7 @@ jobs:
     name: "Copilot 15 · Workflow permissions"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Audit workflow permissions
         run: |
           python3 << 'PYEOF'
@@ -230,7 +230,7 @@ jobs:
     name: "Copilot 16 · Env var audit"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check for hardcoded env values
         run: |
           echo "=== Scanning for hardcoded tokens/keys ==="

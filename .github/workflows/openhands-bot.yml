@@ -25,7 +25,7 @@ jobs:
     if: github.event_name == 'issues' && github.event.action == 'opened'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v9
         with:
           script: |
             const issue = context.payload.issue;
@@ -61,7 +61,7 @@ jobs:
     steps:
       - name: Check permissions
         id: perm
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const assoc   = context.payload.comment.author_association;
@@ -75,7 +75,7 @@ jobs:
               });
             }
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.perm.outputs.allowed == 'true'
         with:
           token: ${{ secrets.GH_PAT || github.token }}
@@ -83,7 +83,7 @@ jobs:
 
       - name: Acknowledge command
         if: steps.perm.outputs.allowed == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const cmd = context.payload.comment.body.replace('/fix', '').trim();
@@ -131,7 +131,7 @@ jobs:
 
       - name: Create or update PR
         if: steps.perm.outputs.allowed == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const branch = process.env.BRANCH;
@@ -166,7 +166,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -181,7 +181,7 @@ jobs:
           yamllint .github/workflows/ -d relaxed 2>&1 | tail -10 || true
 
       - name: Post QA report
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             await github.rest.issues.createComment({
@@ -202,17 +202,17 @@ jobs:
       github.event.label.name == 'lint-fix'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           token: ${{ secrets.GH_PAT || github.token }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with: { node-version: "20" }
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with: { python-version: "3.12" }
 
       - name: Fix frontend + Python lint
