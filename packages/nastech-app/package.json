@@ -82,7 +82,7 @@
     "@peoplesgrocers/seti-ui-file-icons": "1.11.3",
     "@pierre/diffs": "^1.2.10",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "@react-native-community/datetimepicker": "8.6.0",
+    "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-community/slider": "5.2.0",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@react-native-picker/picker": "2.11.4",
