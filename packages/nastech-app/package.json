@@ -137,7 +137,7 @@
     "expo-linking": "~55.0.15",
     "expo-live-photo": "~55.0.15",
     "expo-local-authentication": "~55.0.14",
-    "expo-localization": "~55.0.15",
+    "expo-localization": "~56.0.6",
     "expo-location": "~55.1.10",
     "expo-mail-composer": "~55.0.14",
     "expo-manifests": "~55.0.17",
