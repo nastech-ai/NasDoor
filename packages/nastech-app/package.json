@@ -141,7 +141,7 @@
     "expo-location": "~55.1.10",
     "expo-mail-composer": "~55.0.14",
     "expo-manifests": "~55.0.17",
-    "expo-mesh-gradient": "~55.0.14",
+    "expo-mesh-gradient": "~56.0.3",
     "expo-navigation-bar": "~55.0.13",
     "expo-notifications": "~55.0.23",
     "expo-print": "~55.0.15",
