@@ -449,8 +449,8 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
       rn-encryption:
-        specifier: ^2.5.0
-        version: 2.5.0(@babel/core@7.29.7)(@types/babel__core@7.20.5)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)(rollup@4.62.0)(tslib@2.8.1)(typescript@5.9.3)
+        specifier: ^4.0.1
+        version: 4.0.1(@babel/core@7.29.7)(@types/babel__core@7.20.5)(expo@55.0.27)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)(rollup@4.62.0)(tslib@2.8.1)(typescript@5.9.3)
       socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
@@ -6295,9 +6295,10 @@ packages:
     deprecated: Rimraf versions prior to v4 are no longer supported
     hasBin: true
 
-  rn-encryption@2.5.0:
-    resolution: {integrity: sha512-tGfc3xk2WK3x54syzTM/C/EHXeNxLkgMob7hW2SUbaUMRCR/5Ve/TNRO8S53vhqX7gPIqx1uABmahatgE5HrjA==}
+  rn-encryption@4.0.1:
+    resolution: {integrity: sha512-PuQhPLW7dmS+gdFM69iNgOodPk+o2ZgKjTQnEExOWYnuEXqGjmy3uKv6uEBlPwkEJ6eLQONkM1i4t9ykYWFmuA==}
     peerDependencies:
+      expo: '>=49'
       react: 19.2.0
       react-native: '*'
 
@@ -13774,8 +13775,9 @@ snapshots:
     dependencies:
       glob: 7.2.3
 
-  rn-encryption@2.5.0(@babel/core@7.29.7)(@types/babel__core@7.20.5)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)(rollup@4.62.0)(tslib@2.8.1)(typescript@5.9.3):
+  rn-encryption@4.0.1(@babel/core@7.29.7)(@types/babel__core@7.20.5)(expo@55.0.27)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)(rollup@4.62.0)(tslib@2.8.1)(typescript@5.9.3):
     dependencies:
+      expo: 55.0.27(@babel/core@7.29.7)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(expo-router@55.0.16)(react-dom@19.2.7(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
       react: 19.2.0
       react-native: 0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)
       web-secure-encryption: 1.0.3(@babel/core@7.29.7)(@types/babel__core@7.20.5)(rollup@4.62.0)(tslib@2.8.1)(typescript@5.9.3)
