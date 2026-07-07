@@ -9,7 +9,7 @@
 ipython<10
 jedi>=0.18.1,<0.20
 parso>=0.8.4,<0.9
-stack-data>=0.6,<0.7
+stack-data>=0.6.3,<0.7
 pexpect>4.3,<5
 matplotlib-inline>=0.1.7,<0.2
 asttokens>=2.1,<3
