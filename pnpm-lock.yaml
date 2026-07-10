@@ -90,7 +90,7 @@ importers:
         version: 137.0.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))
       '@lottiefiles/dotlottie-react':
         specifier: ^0.19.6
-        version: 0.19.7(react@19.2.0)
+        version: 0.19.8(react@19.2.0)
       '@more-tech/react-native-libsodium':
         specifier: ^1.5.6
         version: 1.5.6(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
@@ -345,13 +345,13 @@ importers:
         version: 2.20.1(@types/dom-mediacapture-record@1.0.22)
       lottie-react-native:
         specifier: ~7.3.8
-        version: 7.3.8(@lottiefiles/dotlottie-react@0.19.7(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
+        version: 7.3.8(@lottiefiles/dotlottie-react@0.19.8(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
       mermaid:
         specifier: ^11.15.0
         version: 11.16.0
       posthog-react-native:
-        specifier: ~4.54.3
-        version: 4.54.4(@react-native-async-storage/async-storage@2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(@react-navigation/native@7.3.8(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(expo-application@55.0.16(expo@55.0.27))(expo-device@55.0.18(expo@55.0.27))(expo-file-system@55.0.23(expo@55.0.27)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(expo-localization@55.0.16(expo@55.0.27)(react@19.2.0))(react-native-device-info@14.1.1(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(react-native-localize@3.7.0(@expo/config-plugins@55.0.10)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-svg@15.15.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))
+        specifier: ~4.55.0
+        version: 4.55.0(@react-native-async-storage/async-storage@2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(@react-navigation/native@7.3.8(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(expo-application@55.0.16(expo@55.0.27))(expo-device@55.0.18(expo@55.0.27))(expo-file-system@55.0.23(expo@55.0.27)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(expo-localization@55.0.16(expo@55.0.27)(react@19.2.0))(react-native-device-info@14.1.1(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(react-native-localize@3.7.0(@expo/config-plugins@55.0.10)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-svg@15.15.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))
       preact:
         specifier: ^10.29.2
         version: 10.29.7
@@ -1919,14 +1919,14 @@ packages:
       react: 19.2.0
       react-native: '*'
 
-  '@lottiefiles/dotlottie-react@0.19.7':
-    resolution: {integrity: sha512-uozfELOplVo0PwD2E3yy9IndpjKVa4oWErDWFos3cHaqwsUrRLlJNpRDM8aFsWdw5e3N3/GHbKcsGxSeytsPWg==}
+  '@lottiefiles/dotlottie-react@0.19.8':
+    resolution: {integrity: sha512-It12ar9uJLU3yzf645JW83Y5jnizyQDj/f2nT5w0k5NcsuambANgoWqD8QHgNdV2fgU59mWQXlrbQllHJleryg==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
     peerDependencies:
       react: 19.2.0
 
-  '@lottiefiles/dotlottie-web@0.76.0':
-    resolution: {integrity: sha512-uWJ86UJM6hjN4MY2aGSyyFcRQEAM4B9qDCnb/336dHab1zE6nyOF45b90t8xesZPwNtP/2moNGMrMQ1UJW6+lQ==}
+  '@lottiefiles/dotlottie-web@0.77.0':
+    resolution: {integrity: sha512-gK53ZSOMkulpdXrImxUD/9673KBwHShfC7h30eHC74v33koTmDGgGCqWNtJK3yUxNx07fzp1vnmTBVA2RNQO9w==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
 
   '@marijn/find-cluster-break@1.0.2':
@@ -2000,11 +2000,11 @@ packages:
       shiki:
         optional: true
 
-  '@posthog/core@1.39.6':
-    resolution: {integrity: sha512-o6ajIwN5zXoNP0D4H/QPmOyibNTUkSyOR6ya7AG5U2ywXx4awo72L2KnCoiZPQM5x/bXv6jPBdimH8M18Ax0aw==}
+  '@posthog/core@1.40.1':
+    resolution: {integrity: sha512-jXuMtZCwA7AMpYlo1wjm6GlC58YBlz/ZxpDIsF9hroUfqYoPPDmQbsQb4iiZAS43+o/kwloxdKJIlE0IiwQ5HQ==}
 
-  '@posthog/types@1.392.1':
-    resolution: {integrity: sha512-Qg6Gl7/1vlr8+gPtBi5gwnLgAgiyFoKOVmTvTtDcvya9cpTwZfna7rQmkGQ4B63CunUYNNbOlqcwiUwUDyTK6w==}
+  '@posthog/types@1.393.0':
+    resolution: {integrity: sha512-vzWeEJZ7ERQhFRoQYaP5jzN1JvIu46UJyHXsuv+dTGW2r3sMgREOhNxXLZjmFHwZ8/FOHQoyqqQmXTCXZSfMSg==}
 
   '@radix-ui/primitive@1.1.4':
     resolution: {integrity: sha512-7AdCK9PQyiljKoBDbN8OuctCbd/esdwZPQ8RtOE3SsyQtUpiPb+ND75q0jEhC1m1ecBI0MFNeLJvwIh9iKHRcQ==}
@@ -5758,8 +5758,8 @@ packages:
     resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-react-native@4.54.4:
-    resolution: {integrity: sha512-rgllgjHs8lNLlXLnxiXG9Fyg6WSZopCP0pF8nkpvRIEwd92Ef2kco9YRJCoYbur/BJG/c65+W1jtgktjdoAGIg==}
+  posthog-react-native@4.55.0:
+    resolution: {integrity: sha512-Bg4M6dxu976ibUJeWF0WlKQD/4fK1gYUUvAJXscNOgI+B+znoZIButr/CFsFdQklSrkJqv4pFy42wbAvCp0j3A==}
     peerDependencies:
       '@posthog/react-native-plugin': '>= 2.1.2'
       '@react-native-async-storage/async-storage': '>=1.0.0'
@@ -8998,12 +8998,12 @@ snapshots:
       - react-dom
       - tslib
 
-  '@lottiefiles/dotlottie-react@0.19.7(react@19.2.0)':
+  '@lottiefiles/dotlottie-react@0.19.8(react@19.2.0)':
     dependencies:
-      '@lottiefiles/dotlottie-web': 0.76.0
+      '@lottiefiles/dotlottie-web': 0.77.0
       react: 19.2.0
 
-  '@lottiefiles/dotlottie-web@0.76.0': {}
+  '@lottiefiles/dotlottie-web@0.77.0': {}
 
   '@marijn/find-cluster-break@1.0.2': {}
 
@@ -9069,11 +9069,11 @@ snapshots:
       react-dom: 19.2.7(react@19.2.0)
       shiki: 4.2.0
 
-  '@posthog/core@1.39.6':
+  '@posthog/core@1.40.1':
     dependencies:
-      '@posthog/types': 1.392.1
+      '@posthog/types': 1.393.0
 
-  '@posthog/types@1.392.1': {}
+  '@posthog/types@1.393.0': {}
 
   '@radix-ui/primitive@1.1.4': {}
 
@@ -12634,12 +12634,12 @@ snapshots:
     dependencies:
       js-tokens: 4.0.0
 
-  lottie-react-native@7.3.8(@lottiefiles/dotlottie-react@0.19.7(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0):
+  lottie-react-native@7.3.8(@lottiefiles/dotlottie-react@0.19.8(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0):
     dependencies:
       react: 19.2.0
       react-native: 0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)
     optionalDependencies:
-      '@lottiefiles/dotlottie-react': 0.19.7(react@19.2.0)
+      '@lottiefiles/dotlottie-react': 0.19.8(react@19.2.0)
 
   loupe@3.2.1: {}
 
@@ -13235,10 +13235,10 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  ? posthog-react-native@4.54.4(@react-native-async-storage/async-storage@2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(@react-navigation/native@7.3.8(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(expo-application@55.0.16(expo@55.0.27))(expo-device@55.0.18(expo@55.0.27))(expo-file-system@55.0.23(expo@55.0.27)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(expo-localization@55.0.16(expo@55.0.27)(react@19.2.0))(react-native-device-info@14.1.1(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(react-native-localize@3.7.0(@expo/config-plugins@55.0.10)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-svg@15.15.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))
+  ? posthog-react-native@4.55.0(@react-native-async-storage/async-storage@2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(@react-navigation/native@7.3.8(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(expo-application@55.0.16(expo@55.0.27))(expo-device@55.0.18(expo@55.0.27))(expo-file-system@55.0.23(expo@55.0.27)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(expo-localization@55.0.16(expo@55.0.27)(react@19.2.0))(react-native-device-info@14.1.1(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)))(react-native-localize@3.7.0(@expo/config-plugins@55.0.10)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-svg@15.15.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))
   : dependencies:
-      '@posthog/core': 1.39.6
-      '@posthog/types': 1.392.1
+      '@posthog/core': 1.40.1
+      '@posthog/types': 1.393.0
     optionalDependencies:
       '@react-native-async-storage/async-storage': 2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))
       '@react-navigation/native': 7.3.8(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
