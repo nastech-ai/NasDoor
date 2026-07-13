@@ -90,7 +90,7 @@ importers:
         version: 137.0.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))
       '@lottiefiles/dotlottie-react':
         specifier: ^0.19.6
-        version: 0.19.8(react@19.2.0)
+        version: 0.19.9(react@19.2.0)
       '@more-tech/react-native-libsodium':
         specifier: ^1.5.6
         version: 1.5.6(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
@@ -345,7 +345,7 @@ importers:
         version: 2.20.1(@types/dom-mediacapture-record@1.0.22)
       lottie-react-native:
         specifier: ~7.3.8
-        version: 7.3.8(@lottiefiles/dotlottie-react@0.19.8(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
+        version: 7.3.8(@lottiefiles/dotlottie-react@0.19.9(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
       mermaid:
         specifier: ^11.15.0
         version: 11.16.0
@@ -459,13 +459,13 @@ importers:
         version: 0.1.1
       twrnc:
         specifier: ^4.16.0
-        version: 4.16.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(tsx@4.23.0)(yaml@2.9.0)
+        version: 4.16.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(tsx@4.23.1)(yaml@2.9.0)
       uuid:
         specifier: ^14.0.0
         version: 14.0.1
       vitest:
         specifier: ^3.2.6
-        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0)
+        version: 3.2.7(@types/debug@4.1.13)(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.1)(yaml@2.9.0)
       zod:
         specifier: 3.25.76
         version: 3.25.76
@@ -501,8 +501,8 @@ importers:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.0)
       tsx:
-        specifier: ^4.22.4
-        version: 4.23.0
+        specifier: ^4.23.1
+        version: 4.23.1
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -1919,14 +1919,14 @@ packages:
       react: 19.2.0
       react-native: '*'
 
-  '@lottiefiles/dotlottie-react@0.19.8':
-    resolution: {integrity: sha512-It12ar9uJLU3yzf645JW83Y5jnizyQDj/f2nT5w0k5NcsuambANgoWqD8QHgNdV2fgU59mWQXlrbQllHJleryg==}
+  '@lottiefiles/dotlottie-react@0.19.9':
+    resolution: {integrity: sha512-G07YYM5CLOJrqmNglsMvxlVVV4dsjJvC+S2sdtL101LoWOC9rTPxUb1GCyuTTMF3qhxgIXdylCciVHQnF1nU0A==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
     peerDependencies:
       react: 19.2.0
 
-  '@lottiefiles/dotlottie-web@0.77.0':
-    resolution: {integrity: sha512-gK53ZSOMkulpdXrImxUD/9673KBwHShfC7h30eHC74v33koTmDGgGCqWNtJK3yUxNx07fzp1vnmTBVA2RNQO9w==}
+  '@lottiefiles/dotlottie-web@0.77.1':
+    resolution: {integrity: sha512-WHRQMyACH9VFCk3MI54IuqrTu5pbTnTrvQoJoyH76P6WHhkcNH+lINn3LduhbEciqI+DRKgdM4MwtOPoN2GbDA==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
 
   '@marijn/find-cluster-break@1.0.2':
@@ -6744,8 +6744,8 @@ packages:
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
-  tsx@4.23.0:
-    resolution: {integrity: sha512-eUdUIaCr963q2h5u3+QwvYp0+eqPvn+egeqZUm0hwERCqqx1E3kK5ehbGCvqSE5MQAULr67ww0cA3jKc3YkM1w==}
+  tsx@4.23.1:
+    resolution: {integrity: sha512-GQHnkIfxyx1wYCOS/wonik5MVRZU9hi1TEZmzGZSCJB1y9YgoZ8H6itNE/u4suE+yLmOzuE4E5S4TZ/ZX2wcWQ==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
@@ -8998,12 +8998,12 @@ snapshots:
       - react-dom
       - tslib
 
-  '@lottiefiles/dotlottie-react@0.19.8(react@19.2.0)':
+  '@lottiefiles/dotlottie-react@0.19.9(react@19.2.0)':
     dependencies:
-      '@lottiefiles/dotlottie-web': 0.77.0
+      '@lottiefiles/dotlottie-web': 0.77.1
       react: 19.2.0
 
-  '@lottiefiles/dotlottie-web@0.77.0': {}
+  '@lottiefiles/dotlottie-web@0.77.1': {}
 
   '@marijn/find-cluster-break@1.0.2': {}
 
@@ -10078,13 +10078,13 @@ snapshots:
       chai: 5.3.3
       tinyrainbow: 2.0.0
 
-  '@vitest/mocker@3.2.7(vite@7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0))':
+  '@vitest/mocker@3.2.7(vite@7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.1)(yaml@2.9.0))':
     dependencies:
       '@vitest/spy': 3.2.7
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0)
+      vite: 7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.1)(yaml@2.9.0)
 
   '@vitest/pretty-format@3.2.7':
     dependencies:
@@ -12634,12 +12634,12 @@ snapshots:
     dependencies:
       js-tokens: 4.0.0
 
-  lottie-react-native@7.3.8(@lottiefiles/dotlottie-react@0.19.8(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0):
+  lottie-react-native@7.3.8(@lottiefiles/dotlottie-react@0.19.9(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0):
     dependencies:
       react: 19.2.0
       react-native: 0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)
     optionalDependencies:
-      '@lottiefiles/dotlottie-react': 0.19.8(react@19.2.0)
+      '@lottiefiles/dotlottie-react': 0.19.9(react@19.2.0)
 
   loupe@3.2.1: {}
 
@@ -13202,13 +13202,13 @@ snapshots:
       camelcase-css: 2.0.1
       postcss: 8.5.15
 
-  postcss-load-config@6.0.1(jiti@1.21.7)(postcss@8.5.15)(tsx@4.23.0)(yaml@2.9.0):
+  postcss-load-config@6.0.1(jiti@1.21.7)(postcss@8.5.15)(tsx@4.23.1)(yaml@2.9.0):
     dependencies:
       lilconfig: 3.1.3
     optionalDependencies:
       jiti: 1.21.7
       postcss: 8.5.15
-      tsx: 4.23.0
+      tsx: 4.23.1
       yaml: 2.9.0
 
   postcss-nested@6.2.0(postcss@8.5.15):
@@ -14189,7 +14189,7 @@ snapshots:
 
   tagged-tag@1.0.0: {}
 
-  tailwindcss@3.4.19(tsx@4.23.0)(yaml@2.9.0):
+  tailwindcss@3.4.19(tsx@4.23.1)(yaml@2.9.0):
     dependencies:
       '@alloc/quick-lru': 5.2.0
       arg: 5.0.2
@@ -14208,7 +14208,7 @@ snapshots:
       postcss: 8.5.15
       postcss-import: 15.1.0(postcss@8.5.15)
       postcss-js: 4.1.0(postcss@8.5.15)
-      postcss-load-config: 6.0.1(jiti@1.21.7)(postcss@8.5.15)(tsx@4.23.0)(yaml@2.9.0)
+      postcss-load-config: 6.0.1(jiti@1.21.7)(postcss@8.5.15)(tsx@4.23.1)(yaml@2.9.0)
       postcss-nested: 6.2.0(postcss@8.5.15)
       postcss-selector-parser: 6.1.4
       resolve: 1.22.12
@@ -14295,16 +14295,16 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  tsx@4.23.0:
+  tsx@4.23.1:
     dependencies:
       esbuild: 0.28.1
     optionalDependencies:
       fsevents: 2.3.3
 
-  twrnc@4.16.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(tsx@4.23.0)(yaml@2.9.0):
+  twrnc@4.16.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(tsx@4.23.1)(yaml@2.9.0):
     dependencies:
       react-native: 0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)
-      tailwindcss: 3.4.19(tsx@4.23.0)(yaml@2.9.0)
+      tailwindcss: 3.4.19(tsx@4.23.1)(yaml@2.9.0)
     transitivePeerDependencies:
       - tsx
       - yaml
@@ -14507,13 +14507,13 @@ snapshots:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
 
-  vite-node@3.2.4(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0):
+  vite-node@3.2.4(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.1)(yaml@2.9.0):
     dependencies:
       cac: 6.7.14
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 2.0.3
-      vite: 7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0)
+      vite: 7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.1)(yaml@2.9.0)
     transitivePeerDependencies:
       - '@types/node'
       - jiti
@@ -14528,7 +14528,7 @@ snapshots:
       - tsx
       - yaml
 
-  vite@7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0):
+  vite@7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.1)(yaml@2.9.0):
     dependencies:
       esbuild: 0.27.7
       fdir: 6.5.0(picomatch@4.0.4)
@@ -14542,14 +14542,14 @@ snapshots:
       jiti: 1.21.7
       lightningcss: 1.32.0
       terser: 5.48.0
-      tsx: 4.23.0
+      tsx: 4.23.1
       yaml: 2.9.0
 
-  vitest@3.2.7(@types/debug@4.1.13)(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0):
+  vitest@3.2.7(@types/debug@4.1.13)(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.1)(yaml@2.9.0):
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.7
-      '@vitest/mocker': 3.2.7(vite@7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0))
+      '@vitest/mocker': 3.2.7(vite@7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.1)(yaml@2.9.0))
       '@vitest/pretty-format': 3.2.7
       '@vitest/runner': 3.2.7
       '@vitest/snapshot': 3.2.7
@@ -14567,8 +14567,8 @@ snapshots:
       tinyglobby: 0.2.17
       tinypool: 1.1.1
       tinyrainbow: 2.0.0
-      vite: 7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0)
-      vite-node: 3.2.4(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.0)(yaml@2.9.0)
+      vite: 7.3.5(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.1)(yaml@2.9.0)
+      vite-node: 3.2.4(@types/node@26.0.1)(jiti@1.21.7)(lightningcss@1.32.0)(terser@5.48.0)(tsx@4.23.1)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/debug': 4.1.13
