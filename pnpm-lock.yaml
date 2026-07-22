@@ -350,8 +350,8 @@ importers:
         specifier: ^11.15.0
         version: 11.16.0
       posthog-react-native:
-        specifier: ~4.57.0
-        version: 4.57.0(1fb12839382f30eb3296aa480c9aaeca)
+        specifier: ~4.58.0
+        version: 4.58.0(1fb12839382f30eb3296aa480c9aaeca)
       preact:
         specifier: ^10.29.2
         version: 10.29.7
@@ -2003,11 +2003,11 @@ packages:
       shiki:
         optional: true
 
-  '@posthog/core@1.43.1':
-    resolution: {integrity: sha512-hGM8f5sp3we6Em/RQHXbmyYm554hUx9+9jhf92ZQgDS4/xW72KHyZiO9wcFye+qAx2cJAOhOCDIznmO1FV8IbA==}
+  '@posthog/core@1.44.0':
+    resolution: {integrity: sha512-uE+mdKvetxNQC6gWQf4MHIH8bGt+JN6z7ho0A4G3t9G1VGQTx9wHYHNwkKf3gzi+1oAXS9ej2VVY4pjWUU2PWg==}
 
-  '@posthog/types@1.397.0':
-    resolution: {integrity: sha512-Pa7FtsBo3V0XrhY4y8Xquwp8U07syuZ2IGQdlsRyxhz0yejQLceFjI58UssCXE5zDCDj3km5l7H3ufD6rHChCg==}
+  '@posthog/types@1.397.1':
+    resolution: {integrity: sha512-W/LpWbKVaaUnfZKuFuHa+Dg03D+fC87cM+PQbG+59JcSPW8F0JcBtSoXmpfrqbpuxUToMo+gktutrUkAb/KQBw==}
 
   '@radix-ui/primitive@1.1.4':
     resolution: {integrity: sha512-7AdCK9PQyiljKoBDbN8OuctCbd/esdwZPQ8RtOE3SsyQtUpiPb+ND75q0jEhC1m1ecBI0MFNeLJvwIh9iKHRcQ==}
@@ -5789,8 +5789,8 @@ packages:
     resolution: {integrity: sha512-Mz8SaolMd8nB+G13WkORcxQKHZ/NE4xXevtkJHVuG+guo9/wYKlIMTKAqGdEmYOXR2ijPjTYNHssizdaVSUNdQ==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-react-native@4.57.0:
-    resolution: {integrity: sha512-HcTk59aanBZmtC1gE3ermZL8nxA+5ID2SnvPD8jU0LyXM110faxCcm7VIMjvpSdd2hqxCzz5/kUm4b/brmFI7Q==}
+  posthog-react-native@4.58.0:
+    resolution: {integrity: sha512-vylqCWHaLekCPBx++gGwGJjijrk2k7trH6r9kL7h0EQEJIMZG1VBgWl9bNoBu6Y7e4zDyiACcV5oPYBDBxOveA==}
     peerDependencies:
       '@posthog/react-native-plugin': '>= 2.2.0'
       '@react-native-async-storage/async-storage': '>=1.0.0'
@@ -9135,11 +9135,11 @@ snapshots:
       react-dom: 19.2.8(react@19.2.0)
       shiki: 4.2.0
 
-  '@posthog/core@1.43.1':
+  '@posthog/core@1.44.0':
     dependencies:
-      '@posthog/types': 1.397.0
+      '@posthog/types': 1.397.1
 
-  '@posthog/types@1.397.0': {}
+  '@posthog/types@1.397.1': {}
 
   '@radix-ui/primitive@1.1.4': {}
 
@@ -13343,10 +13343,10 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  posthog-react-native@4.57.0(1fb12839382f30eb3296aa480c9aaeca):
+  posthog-react-native@4.58.0(1fb12839382f30eb3296aa480c9aaeca):
     dependencies:
-      '@posthog/core': 1.43.1
-      '@posthog/types': 1.397.0
+      '@posthog/core': 1.44.0
+      '@posthog/types': 1.397.1
     optionalDependencies:
       '@react-native-async-storage/async-storage': 2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))
       '@react-navigation/native': 7.3.13(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
