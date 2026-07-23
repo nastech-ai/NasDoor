@@ -90,7 +90,7 @@ importers:
         version: 137.0.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))
       '@lottiefiles/dotlottie-react':
         specifier: ^0.19.6
-        version: 0.19.11(react@19.2.0)
+        version: 0.19.12(react@19.2.0)
       '@more-tech/react-native-libsodium':
         specifier: ^1.5.6
         version: 1.5.6(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
@@ -131,8 +131,8 @@ importers:
         specifier: 2.3.2
         version: 2.3.2(@babel/runtime@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
       '@shopify/react-native-skia':
-        specifier: 2.9.0
-        version: 2.9.0(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
+        specifier: 2.9.1
+        version: 2.9.1(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
       '@tauri-apps/api':
         specifier: 2.11.1
         version: 2.11.1
@@ -345,7 +345,7 @@ importers:
         version: 2.20.2(@types/dom-mediacapture-record@1.0.22)
       lottie-react-native:
         specifier: ~7.3.8
-        version: 7.3.8(@lottiefiles/dotlottie-react@0.19.11(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
+        version: 7.3.8(@lottiefiles/dotlottie-react@0.19.12(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
       mermaid:
         specifier: ^11.15.0
         version: 11.16.0
@@ -426,7 +426,7 @@ importers:
         version: 4.0.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
       react-native-vision-camera:
         specifier: ^4.7.3
-        version: 4.7.3(@shopify/react-native-skia@2.9.0(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
+        version: 4.7.3(@shopify/react-native-skia@2.9.1(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
       react-native-web:
         specifier: ^0.21.2
         version: 0.21.2(encoding@0.1.13)(react-dom@19.2.8(react@19.2.0))(react@19.2.0)
@@ -1922,14 +1922,14 @@ packages:
       react: 19.2.0
       react-native: '*'
 
-  '@lottiefiles/dotlottie-react@0.19.11':
-    resolution: {integrity: sha512-12lNzcIA3Z3l68/7GvaIVY10hBjhuU87yaVWXBC1CNW5BCcp2SKw3Wrt16a8S60IbHYlFBBKoeYFsX9oViqt9w==}
+  '@lottiefiles/dotlottie-react@0.19.12':
+    resolution: {integrity: sha512-Onm0XUcfU8Io4E6zbNF23hW0AwHpwAWUhazII6z/mGAcGh8RFAqqrkFJW1sZ3Z6C9JXOiiud+MmrejNKikBShw==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
     peerDependencies:
       react: 19.2.0
 
-  '@lottiefiles/dotlottie-web@0.78.1':
-    resolution: {integrity: sha512-7A3nU2kETKn/qgY35+dPL3Gwzt2UnAo1RpRougAECWB8Kp8/fiybwLCpdMHJr0bZe5xcF2PDpg1/NJjXaVJwyg==}
+  '@lottiefiles/dotlottie-web@0.78.2':
+    resolution: {integrity: sha512-ERBw7qATlekpFnR1xwNoTeXsXqw0FzCiEgei0IwPiquT277m36/o0aSWZDK7CgkhVd1NYre3M9fH+6n4waUfHA==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
 
   '@marijn/find-cluster-break@1.0.2':
@@ -2619,8 +2619,8 @@ packages:
       react: 19.2.0
       react-native: '*'
 
-  '@shopify/react-native-skia@2.9.0':
-    resolution: {integrity: sha512-ecgcHmOj5pXtyn9nsO4pZSdWPMgFbTFVXdAeuoPeYe/vmCxyYiY9wtwkNjAlJxLq6r7Hwo9i4lRITXUvTlvYxQ==}
+  '@shopify/react-native-skia@2.9.1':
+    resolution: {integrity: sha512-+yMRFX6+e6BDLBOu/MsuIKGqpR3+h3G9z4MaLdZ7d/pf7ZWTC3fkXDGkKvWHKQplkYJK6s/VlICCaP5rYB4JTA==}
     hasBin: true
     peerDependencies:
       react: 19.2.0
@@ -9064,12 +9064,12 @@ snapshots:
       - react-dom
       - tslib
 
-  '@lottiefiles/dotlottie-react@0.19.11(react@19.2.0)':
+  '@lottiefiles/dotlottie-react@0.19.12(react@19.2.0)':
     dependencies:
-      '@lottiefiles/dotlottie-web': 0.78.1
+      '@lottiefiles/dotlottie-web': 0.78.2
       react: 19.2.0
 
-  '@lottiefiles/dotlottie-web@0.78.1': {}
+  '@lottiefiles/dotlottie-web@0.78.2': {}
 
   '@marijn/find-cluster-break@1.0.2': {}
 
@@ -9771,7 +9771,7 @@ snapshots:
       react: 19.2.0
       react-native: 0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)
 
-  '@shopify/react-native-skia@2.9.0(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)':
+  '@shopify/react-native-skia@2.9.1(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)':
     dependencies:
       canvaskit-wasm: 0.41.0
       react: 19.2.0
@@ -12740,12 +12740,12 @@ snapshots:
     dependencies:
       js-tokens: 4.0.0
 
-  lottie-react-native@7.3.8(@lottiefiles/dotlottie-react@0.19.11(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0):
+  lottie-react-native@7.3.8(@lottiefiles/dotlottie-react@0.19.12(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0):
     dependencies:
       react: 19.2.0
       react-native: 0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)
     optionalDependencies:
-      '@lottiefiles/dotlottie-react': 0.19.11(react@19.2.0)
+      '@lottiefiles/dotlottie-react': 0.19.12(react@19.2.0)
 
   loupe@3.2.1: {}
 
@@ -13618,12 +13618,12 @@ snapshots:
       react: 19.2.0
       react-native: 0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)
 
-  react-native-vision-camera@4.7.3(@shopify/react-native-skia@2.9.0(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0):
+  react-native-vision-camera@4.7.3(@shopify/react-native-skia@2.9.1(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0):
     dependencies:
       react: 19.2.0
       react-native: 0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0)
     optionalDependencies:
-      '@shopify/react-native-skia': 2.9.0(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
+      '@shopify/react-native-skia': 2.9.1(react-native-reanimated@4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
       react-native-reanimated: 4.2.1(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.17)(react@19.2.0))(react@19.2.0)
 
   react-native-web@0.21.2(encoding@0.1.13)(react-dom@19.2.8(react@19.2.0))(react@19.2.0):
