@@ -128,7 +128,7 @@ fal = ["fal-client==0.13.1"]
 # Edge TTS — default TTS provider but still optional (users can pick
 # ElevenLabs / OpenAI / MiniMax instead).
 edge-tts = ["edge-tts==7.2.7"]
-modal = ["modal==1.5.1"]
+modal = ["modal==1.5.3"]
 daytona = ["daytona==0.203.0"]
 hindsight = ["hindsight-client==0.6.1"]
 dev = ["debugpy==1.8.21", "pytest==9.1.1", "pytest-asyncio==1.4.0", "pytest-timeout==2.4.0", "mcp==1.28.0", "starlette==1.0.1", "ty==0.0.21", "ruff==0.15.17", "setuptools==82.0.1"]  # starlette: CVE-2026-48710; pytest: CVE bump 9.0.2→9.0.3
