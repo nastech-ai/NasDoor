@@ -216,7 +216,7 @@
     "patch-package": "^8.0.1",
     "react-test-renderer": "19.2.8",
     "tsx": "^4.23.1",
-    "typescript": "5.9.3"
+    "typescript": "7.0.2"
   },
   "private": true,
   "packageManager": "pnpm@10.11.0",
