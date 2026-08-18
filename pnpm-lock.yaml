@@ -344,8 +344,8 @@ importers:
         specifier: ^2.19.2
         version: 2.22.0(@types/dom-mediacapture-record@1.0.22)
       lottie-react-native:
-        specifier: ~7.3.8
-        version: 7.3.8(@lottiefiles/dotlottie-react@0.19.14(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
+        specifier: ~7.4.0
+        version: 7.4.0(@lottiefiles/dotlottie-react@0.19.14(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
       mermaid:
         specifier: ^11.15.0
         version: 11.16.1
@@ -5298,12 +5298,12 @@ packages:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
 
-  lottie-react-native@7.3.8:
-    resolution: {integrity: sha512-GAOl99TKi0c6xCcB1AJ+o70mgOPIAI/7K2G+Gs+o4po/qBhgvWijPNCKH8h6yNmlwFTg+RN3DmzRvHNFGxZMKQ==}
+  lottie-react-native@7.4.0:
+    resolution: {integrity: sha512-t1hV96KiR+PgvuXAXAWVW4f0mTEmRBfllk58HP5gA5JQ56mUC+AFhYi15OigzqlskciATKT+DvIOP7dWS5vCRA==}
     peerDependencies:
       '@lottiefiles/dotlottie-react': ^0.13.5
       react: 19.2.0
-      react-native: '>=0.46'
+      react-native: '>=0.84'
       react-native-windows: '>=0.63.x'
     peerDependenciesMeta:
       '@lottiefiles/dotlottie-react':
@@ -12806,7 +12806,7 @@ snapshots:
     dependencies:
       js-tokens: 4.0.0
 
-  lottie-react-native@7.3.8(@lottiefiles/dotlottie-react@0.19.14(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0):
+  lottie-react-native@7.4.0(@lottiefiles/dotlottie-react@0.19.14(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0):
     dependencies:
       react: 19.2.0
       react-native: 0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0)
