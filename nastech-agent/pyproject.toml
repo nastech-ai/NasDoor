@@ -92,7 +92,7 @@ dependencies = [
   "fastapi>=0.104.0,<1",
   "uvicorn[standard]>=0.24.0,<1",
   "ptyprocess>=0.7.0,<1; sys_platform != 'win32'",
-  "pywinpty>=2.0.0,<3; sys_platform == 'win32'",
+  "pywinpty>=2.0.0,<4; sys_platform == 'win32'",
   # Image resize recovery for the vision tools. Pillow shrinks oversized images
   # (>5 MB or >8000px) at embed time; without it the byte AND pixel-dimension
   # shrink paths no-op, so an oversized image bakes into immutable history and
