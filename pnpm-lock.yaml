@@ -90,7 +90,7 @@ importers:
         version: 137.0.3(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))
       '@lottiefiles/dotlottie-react':
         specifier: ^0.19.6
-        version: 0.19.14(react@19.2.0)
+        version: 0.19.15(react@19.2.0)
       '@more-tech/react-native-libsodium':
         specifier: ^1.5.6
         version: 1.5.6(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
@@ -345,13 +345,13 @@ importers:
         version: 2.22.0(@types/dom-mediacapture-record@1.0.22)
       lottie-react-native:
         specifier: ~7.4.0
-        version: 7.4.0(@lottiefiles/dotlottie-react@0.19.14(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
+        version: 7.4.0(@lottiefiles/dotlottie-react@0.19.15(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
       mermaid:
         specifier: ^11.15.0
         version: 11.16.1
       posthog-react-native:
-        specifier: ~4.61.1
-        version: 4.61.5(3ad832af594d339e6cf41b3e257e51d4)
+        specifier: ~4.63.2
+        version: 4.63.2(3ad832af594d339e6cf41b3e257e51d4)
       preact:
         specifier: ^10.29.2
         version: 10.29.8
@@ -462,7 +462,7 @@ importers:
         version: 4.16.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(tsx@4.23.12)(yaml@2.9.0)
       uuid:
         specifier: ^14.0.0
-        version: 14.0.1
+        version: 14.0.2
       vitest:
         specifier: ^3.2.6
         version: 3.2.7(@types/debug@4.1.13)(@types/node@26.2.0)(jiti@1.21.7)(lightningcss@1.33.0)(terser@5.48.0)(tsx@4.23.12)(yaml@2.9.0)
@@ -1938,14 +1938,14 @@ packages:
       react: 19.2.0
       react-native: '*'
 
-  '@lottiefiles/dotlottie-react@0.19.14':
-    resolution: {integrity: sha512-rnBQOXhJp5kO1fBN5lMwRcavxJxQ37TvK0RVoohokaZA4yrt9Yk1hy5RnicSTn5/UvBLtK2wEDuu3UBylCgkHw==}
+  '@lottiefiles/dotlottie-react@0.19.15':
+    resolution: {integrity: sha512-KODY2xE+94Se9Co8Jwf7Q36DWp7uWvC84ORPx/cgyRieNwB5/QDFJItfpnuPquQQb2ddwnUskOEJLbzx39yKOQ==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
     peerDependencies:
       react: 19.2.0
 
-  '@lottiefiles/dotlottie-web@0.79.1':
-    resolution: {integrity: sha512-UKk+DmY2yurQs2T02AekNGVLD+fSGlygHKnf9485LCWF+CUvMSUXizAgR2qDGFUH2APj2i58nk21QhfVi9EG6g==}
+  '@lottiefiles/dotlottie-web@0.79.2':
+    resolution: {integrity: sha512-9/LBOmTqhrFOB6298tD9BEfCmTESHKL51u8meNQF7lgsSsdFMC2Xx7jd/jZTC5svWXzcE2qZ0XvaoGbopIUElw==}
     engines: {node: '>=18.17.0', npm: '>=9.5.0'}
 
   '@marijn/find-cluster-break@1.0.2':
@@ -2019,11 +2019,11 @@ packages:
       shiki:
         optional: true
 
-  '@posthog/core@1.46.9':
-    resolution: {integrity: sha512-EXO6y5ih+jBkTCpUCuYgQmajuDZuvy6vMvflkub6pLQyi0GPlCPWVSvZZkOeQw9e2MxoD5GteeGCt9R8+UJ/yQ==}
+  '@posthog/core@1.48.3':
+    resolution: {integrity: sha512-kwVDVvwtCTXctApA2tpnwDjDDan8LrkwCW1Wv6PABaVs/s5ahbQ9W3pvdXcqr71HCuqukSA1jp7MySczebubGg==}
 
-  '@posthog/types@1.402.2':
-    resolution: {integrity: sha512-ZZTiS4dLwF4/D0YTzS3gGSLFnhuNOY5yu4d9VGS9trGe5GW6FjIXo20p18K5BPW2RZSYSld8sdnSAY3AUXleUQ==}
+  '@posthog/types@1.405.0':
+    resolution: {integrity: sha512-4rZ/taVXKQxs9Jrf7ZjlCRgrOSL69oKAgIWJQa5kRNJ6wll1UANbrJTSY+Su1e88LIG4zZVjKKKjyQHCkHdHcw==}
 
   '@radix-ui/primitive@1.1.4':
     resolution: {integrity: sha512-7AdCK9PQyiljKoBDbN8OuctCbd/esdwZPQ8RtOE3SsyQtUpiPb+ND75q0jEhC1m1ecBI0MFNeLJvwIh9iKHRcQ==}
@@ -5818,11 +5818,11 @@ packages:
     resolution: {integrity: sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-react-native@4.61.5:
-    resolution: {integrity: sha512-pP/tBu91NNleO6EfZCTf+g1+mm1thQSuJIWMaKva+nby2BjqJmaohMRGyAwJ9LwIuaO/6k26q1jNKHK+DV2SOg==}
+  posthog-react-native@4.63.2:
+    resolution: {integrity: sha512-zNJ+zDNigVY6VTxMI42U15XKzfDME6zg+QNKoPktMO9Zzt8oe3eIjBQ2nxN1hQsww2btTQF0WEkPLEmoOCOV4Q==}
     hasBin: true
     peerDependencies:
-      '@posthog/react-native-plugin': '>= 2.2.0'
+      '@posthog/react-native-plugin': '>= 2.3.0'
       '@react-native-async-storage/async-storage': '>=1.0.0'
       '@react-navigation/native': '>= 5.0.0'
       expo-application: '>= 4.0.0'
@@ -6999,8 +6999,8 @@ packages:
   utrie@1.0.2:
     resolution: {integrity: sha512-1MLa5ouZiOmQzUbjbu9VmjLzn1QLXBhwpUa7kdLUQK+KQ5KA9I1vk5U4YHe/X2Ch7PYnJfWuWT+VbuxbGwljhw==}
 
-  uuid@14.0.1:
-    resolution: {integrity: sha512-6ZxzVpzDXDa3bJWaHilVayA+BH/1zmxCJoVgvmqJnid/gPoKHxUrS/aC/T6LGQtNHT+XHG9fXPJB4d+IrU30Ew==}
+  uuid@14.0.2:
+    resolution: {integrity: sha512-xZe/16rV4aa+HGSOCiY2YeLT1OybRLrrkL/Rqaq7p7GMVXjFh+6wN4oMYgjFmnSnhY8t6Xpdl2l9qmnHYuMHwQ==}
     hasBin: true
 
   uuid@3.4.0:
@@ -9125,12 +9125,12 @@ snapshots:
       - react-dom
       - tslib
 
-  '@lottiefiles/dotlottie-react@0.19.14(react@19.2.0)':
+  '@lottiefiles/dotlottie-react@0.19.15(react@19.2.0)':
     dependencies:
-      '@lottiefiles/dotlottie-web': 0.79.1
+      '@lottiefiles/dotlottie-web': 0.79.2
       react: 19.2.0
 
-  '@lottiefiles/dotlottie-web@0.79.1': {}
+  '@lottiefiles/dotlottie-web@0.79.2': {}
 
   '@marijn/find-cluster-break@1.0.2': {}
 
@@ -9196,11 +9196,11 @@ snapshots:
       react-dom: 19.2.8(react@19.2.0)
       shiki: 4.4.1
 
-  '@posthog/core@1.46.9':
+  '@posthog/core@1.48.3':
     dependencies:
-      '@posthog/types': 1.402.2
+      '@posthog/types': 1.405.0
 
-  '@posthog/types@1.402.2': {}
+  '@posthog/types@1.405.0': {}
 
   '@radix-ui/primitive@1.1.4': {}
 
@@ -12806,12 +12806,12 @@ snapshots:
     dependencies:
       js-tokens: 4.0.0
 
-  lottie-react-native@7.4.0(@lottiefiles/dotlottie-react@0.19.14(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0):
+  lottie-react-native@7.4.0(@lottiefiles/dotlottie-react@0.19.15(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0):
     dependencies:
       react: 19.2.0
       react-native: 0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0)
     optionalDependencies:
-      '@lottiefiles/dotlottie-react': 0.19.14(react@19.2.0)
+      '@lottiefiles/dotlottie-react': 0.19.15(react@19.2.0)
 
   loupe@3.2.1: {}
 
@@ -12894,7 +12894,7 @@ snapshots:
       roughjs: 4.6.6
       stylis: 4.4.0
       ts-dedent: 2.3.0
-      uuid: 14.0.1
+      uuid: 14.0.2
 
   metro-babel-transformer@0.83.7:
     dependencies:
@@ -13409,10 +13409,10 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  posthog-react-native@4.61.5(3ad832af594d339e6cf41b3e257e51d4):
+  posthog-react-native@4.63.2(3ad832af594d339e6cf41b3e257e51d4):
     dependencies:
-      '@posthog/core': 1.46.9
-      '@posthog/types': 1.402.2
+      '@posthog/core': 1.48.3
+      '@posthog/types': 1.405.0
     optionalDependencies:
       '@react-native-async-storage/async-storage': 2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))
       '@react-navigation/native': 7.3.16(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
@@ -14654,7 +14654,7 @@ snapshots:
     dependencies:
       base64-arraybuffer: 1.0.2
 
-  uuid@14.0.1: {}
+  uuid@14.0.2: {}
 
   uuid@3.4.0: {}
 
