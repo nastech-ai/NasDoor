@@ -327,7 +327,7 @@ importers:
         version: 55.0.22(expo@55.0.30)(react-native-web@0.21.2(encoding@0.1.13)(react-dom@19.2.8(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))
       expo-updates:
         specifier: ~55.0.24
-        version: 55.0.28(expo@55.0.30)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
+        version: 55.0.29(expo@55.0.30)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
       expo-web-browser:
         specifier: ~55.0.16
         version: 55.0.20(expo@55.0.30)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))
@@ -350,8 +350,8 @@ importers:
         specifier: ^11.15.0
         version: 11.17.2
       posthog-react-native:
-        specifier: ~4.63.5
-        version: 4.63.9(7e70ba3eed3cb9ac767fd48a7fa8b604)
+        specifier: ~4.64.1
+        version: 4.64.1(7e70ba3eed3cb9ac767fd48a7fa8b604)
       preact:
         specifier: ^10.29.2
         version: 10.29.8
@@ -2023,11 +2023,11 @@ packages:
       shiki:
         optional: true
 
-  '@posthog/core@1.48.10':
-    resolution: {integrity: sha512-Y70zhdQFNMwHHZk9MW44MJUR1DyFm0Cn3DOtd+wQYnGv+kX+qc6CA+pBtEmZe2XD0K9uuOKiz2LJwzaq/wz0FA==}
+  '@posthog/core@1.49.1':
+    resolution: {integrity: sha512-jdZh85tG56OXLH881CVwBZyiXCPPaZasfYeWwm9kVUvxC/Rb+lz7wYN9GuqSEmNPJgVnK4v8wS0bCaFc3OmVEA==}
 
-  '@posthog/types@1.405.3':
-    resolution: {integrity: sha512-HApKJSYfwo/z2KIVB98E/8XwEL3pTXawBp0AB7FKRVtStz9hizRlaO6n9RR7sjgXLnOLvqj++CGsZb8rQbOS2g==}
+  '@posthog/types@1.407.0':
+    resolution: {integrity: sha512-7J/aFVi7JWFt/ekGVsMFvkTcADoE9MTNf1N9cpBSMUQ/SPLiBjbg386Fzk5OlgWG/u5OemBy4wlgD7YebqeppQ==}
 
   '@radix-ui/primitive@1.1.4':
     resolution: {integrity: sha512-7AdCK9PQyiljKoBDbN8OuctCbd/esdwZPQ8RtOE3SsyQtUpiPb+ND75q0jEhC1m1ecBI0MFNeLJvwIh9iKHRcQ==}
@@ -4496,8 +4496,8 @@ packages:
     peerDependencies:
       expo: '*'
 
-  expo-updates@55.0.28:
-    resolution: {integrity: sha512-XYYyKWkCWVkV+TxcIuCi1YkdD7jTuJOFIop3swis6hmBdQBDSXYMy4N8QMdQJ4C4nvhuy+vB/H8h3sRAPaDqlQ==}
+  expo-updates@55.0.29:
+    resolution: {integrity: sha512-KJLDYGzMobUrFq2EeTekvFczAKJ40KtlWFhDCPlH5dJB6JKgKnUT3saZq0dykSadLpBjq5LZWVdDT/tRoJaBXQ==}
     hasBin: true
     peerDependencies:
       expo: '*'
@@ -5896,8 +5896,8 @@ packages:
     resolution: {integrity: sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-react-native@4.63.9:
-    resolution: {integrity: sha512-K7A+mcaSNPHmzU9zX74357bgfjViK2/9ufCZV5urp2L3aiBmt6llah09T7At2rDFG/QzIPBQB6Pahoauxs1DjQ==}
+  posthog-react-native@4.64.1:
+    resolution: {integrity: sha512-cuVos3AJiCPat40F8hLgyXVDkSWdAYtaTiuGAfcy89r1LE2UakMX7eYDttxx8SZNBasBRnRw1asMCUdsnlYfPg==}
     hasBin: true
     peerDependencies:
       '@posthog/react-native-plugin': '>= 2.4.3'
@@ -9289,11 +9289,11 @@ snapshots:
       react-dom: 19.2.8(react@19.2.0)
       shiki: 4.4.1
 
-  '@posthog/core@1.48.10':
+  '@posthog/core@1.49.1':
     dependencies:
-      '@posthog/types': 1.405.3
+      '@posthog/types': 1.407.0
 
-  '@posthog/types@1.405.3': {}
+  '@posthog/types@1.407.0': {}
 
   '@radix-ui/primitive@1.1.4': {}
 
@@ -12010,7 +12010,7 @@ snapshots:
     dependencies:
       expo: 55.0.30(@babel/core@7.29.7)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@55.0.6)(expo-router@55.0.18)(react-dom@19.2.8(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0))(react-native-worklets@0.7.4(@babel/core@7.29.7)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0))(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
 
-  expo-updates@55.0.28(expo@55.0.30)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0):
+  expo-updates@55.0.29(expo@55.0.30)(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0):
     dependencies:
       '@expo/code-signing-certificates': 0.0.6
       '@expo/plist': 0.5.4
@@ -13691,10 +13691,10 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  posthog-react-native@4.63.9(7e70ba3eed3cb9ac767fd48a7fa8b604):
+  posthog-react-native@4.64.1(7e70ba3eed3cb9ac767fd48a7fa8b604):
     dependencies:
-      '@posthog/core': 1.48.10
-      '@posthog/types': 1.405.3
+      '@posthog/core': 1.49.1
+      '@posthog/types': 1.407.0
     optionalDependencies:
       '@react-native-async-storage/async-storage': 2.2.0(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))
       '@react-navigation/native': 7.3.18(react-native@0.83.6(@babel/core@7.29.7)(@types/react@19.2.18)(react@19.2.0))(react@19.2.0)
