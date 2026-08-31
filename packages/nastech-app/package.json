@@ -150,7 +150,7 @@
     "expo-screen-orientation": "~55.0.16",
     "expo-secure-store": "~55.0.14",
     "expo-sensors": "~55.0.15",
-    "expo-sharing": "~55.0.20",
+    "expo-sharing": "~57.0.16",
     "expo-splash-screen": "~55.0.21",
     "expo-status-bar": "~55.0.6",
     "expo-store-review": "~55.0.14",
