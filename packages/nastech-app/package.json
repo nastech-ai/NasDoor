@@ -202,7 +202,7 @@
     "twrnc": "^4.16.0",
     "uuid": "^14.0.0",
     "vitest": "^3.2.6",
-    "zod": "3.25.76",
+    "zod": "4.4.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
